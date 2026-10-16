@@ -79,6 +79,7 @@ interface State {
   jobLog: string[];
   sliceDirty: boolean;
   binaryGcode: boolean;
+  gcodeLoading: boolean;
   gcode?: ParsedGcode;
   gcodeJobId?: string;
   previewLayerRange: [number, number];
@@ -99,6 +100,7 @@ interface State {
   closeDialog: () => void;
 
   refreshPresetLists: () => Promise<void>;
+  ensureCompatiblePresets: () => Promise<void>;
   selectPreset: (type: PresetType, name: string, extruderIdx?: number) => Promise<void>;
   setOption: (type: PresetType, key: string, value: string, extruderIdx?: number) => void;
   resetOption: (type: PresetType, key: string, extruderIdx?: number) => void;
@@ -110,7 +112,7 @@ interface State {
   installPrinters: (list: InstalledPrinter[]) => Promise<void>;
   refreshPhysicalPrinters: () => Promise<void>;
 
-  addObjects: (items: Array<{ name: string; geometry: THREE.BufferGeometry }>) => Promise<void>;
+  addObjects: (items: Array<{ name: string; geometry: THREE.BufferGeometry }>, opts?: { keepPositions?: boolean }) => Promise<void>;
   updateObject: (id: string, patch: Partial<PlaterObject>) => void;
   removeObjects: (ids: string[]) => void;
   clearObjects: () => void;
@@ -132,6 +134,7 @@ interface State {
 
 let toastId = 0;
 let objectId = 0;
+let refreshTimer: ReturnType<typeof setTimeout> | undefined;
 
 function emptySlot(name = ''): PresetSlot {
   return { name, saved: {}, current: {}, system: true };
@@ -255,6 +258,7 @@ export const useStore = create<State>((set, get) => ({
   jobLog: [],
   sliceDirty: true,
   binaryGcode: false,
+  gcodeLoading: false,
   previewLayerRange: [0, 0],
   previewShowTravel: false,
   previewFeatureVisibility: {},
@@ -295,7 +299,7 @@ export const useStore = create<State>((set, get) => ({
           if (!sel.filament[i].startsWith('- default')) await get().selectPreset('filament', sel.filament[i], i).catch(() => undefined);
         }
       }
-      await get().refreshPresetLists();
+      await get().ensureCompatiblePresets();
       set({ ready: true });
       if (!installed.length) get().openDialog('addPrinter');
     } catch (e) {
@@ -329,31 +333,7 @@ export const useStore = create<State>((set, get) => ({
       while (fil.length < n) fil.push({ ...fil[fil.length - 1] });
       fil.length = n;
       set((s) => ({ presets: { ...s.presets, filament: fil } }));
-      // after printer change: validate print / filament compatibility
-      await get().refreshPresetLists();
-      const lists = get().presetLists;
-      const curPrint = get().presets.print.name;
-      const isDefault = (name: string) => name.startsWith('- default');
-      const printOk = curPrint && !isDefault(curPrint) && lists.print.find((x) => x.name === curPrint)?.compatible !== false;
-      if (!printOk) {
-        const wanted = slot.current.default_print_profile;
-        const preferred = wanted ? lists.print.find((x) => x.name === wanted && x.compatible !== false) : undefined;
-        const first = preferred || lists.print.find((x) => x.compatible !== false && !isDefault(x.name));
-        await get().selectPreset('print', first?.name || (curPrint || '- default FFF -'));
-      }
-      const model = get().vendors.flatMap((v) => v.models).find((m) => m.vendorId === slot.vendorId && m.id === slot.printerModel);
-      const defaultFilaments = slot.current.default_filament_profile ? unescapeStringsCstyle(slot.current.default_filament_profile) : [];
-      for (let i = 0; i < n; i++) {
-        const cur = get().presets.filament[i]?.name;
-        const ok = cur && !isDefault(cur) && get().presetLists.filament.find((x) => x.name === cur)?.compatible !== false;
-        if (!ok) {
-          const fl = get().presetLists.filament;
-          const candidates = [...defaultFilaments, ...(model?.defaultMaterials || [])];
-          const preferred = candidates.map((d) => fl.find((x) => x.name === d && x.compatible !== false)).find(Boolean);
-          const first = preferred || fl.find((x) => x.compatible !== false && !isDefault(x.name));
-          await get().selectPreset('filament', first?.name || (cur || '- default FFF -'), i);
-        }
-      }
+      await get().ensureCompatiblePresets();
     } else if (type === 'filament') {
       const fil = [...st.presets.filament];
       fil[extruderIdx] = slot;
@@ -365,7 +345,46 @@ export const useStore = create<State>((set, get) => ({
     saveSelection(get());
   },
 
+  /**
+   * After a printer change (or on startup): make sure print and filament presets are compatible
+   * with the printer; otherwise pick the printer's default profiles like PrusaSlicer does.
+   */
+  ensureCompatiblePresets: async () => {
+    await get().refreshPresetLists();
+    const printer = get().presets.printer;
+    const n = get().extruderCount();
+    const lists = get().presetLists;
+    const curPrint = get().presets.print.name;
+    const isDefault = (name: string) => name.startsWith('- default');
+    const printOk = curPrint && !isDefault(curPrint) && lists.print.find((x) => x.name === curPrint)?.compatible !== false;
+    if (!printOk) {
+      const wanted = printer.current.default_print_profile;
+      const preferred = wanted ? lists.print.find((x) => x.name === wanted && x.compatible !== false) : undefined;
+      const first = preferred || lists.print.find((x) => x.compatible !== false && !isDefault(x.name));
+      if (first && first.name !== curPrint) await get().selectPreset('print', first.name);
+      else if (!curPrint) await get().selectPreset('print', '- default FFF -');
+    }
+    const model = get().vendors.flatMap((v) => v.models).find((m) => m.vendorId === printer.vendorId && m.id === printer.printerModel);
+    const defaultFilaments = printer.current.default_filament_profile ? unescapeStringsCstyle(printer.current.default_filament_profile) : [];
+    for (let i = 0; i < n; i++) {
+      const cur = get().presets.filament[i]?.name;
+      const fl = get().presetLists.filament;
+      const ok = cur && !isDefault(cur) && fl.find((x) => x.name === cur)?.compatible !== false;
+      if (ok) continue;
+      const candidates = [...defaultFilaments, ...(model?.defaultMaterials || [])];
+      const preferred = candidates.map((d) => fl.find((x) => x.name === d && x.compatible !== false)).find(Boolean);
+      const first = preferred || fl.find((x) => x.compatible !== false && !isDefault(x.name));
+      if (first && first.name !== cur) await get().selectPreset('filament', first.name, i);
+      else if (!cur) await get().selectPreset('filament', '- default FFF -', i);
+    }
+  },
+
   setOption: (type, key, value, extruderIdx = 0) => {
+    // Printer changes (nozzle, notes, bed…) influence which print/filament presets are compatible.
+    if (type === 'printer' || type === 'print') {
+      clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(() => get().refreshPresetLists().catch(() => undefined), 600);
+    }
     set((s) => {
       const presets = { ...s.presets };
       if (type === 'filament') {
@@ -415,11 +434,25 @@ export const useStore = create<State>((set, get) => ({
     await api.deletePreset(type, name);
     await get().refreshPresetLists();
     const s = get();
-    if (type === 'print' && s.presets.print.name === name) await get().selectPreset('print', '- default FFF -');
-    if (type === 'printer' && s.presets.printer.name === name) await get().selectPreset('printer', '- default FFF -');
-    if (type === 'filament') {
-      for (let i = 0; i < s.presets.filament.length; i++) if (s.presets.filament[i].name === name) await get().selectPreset('filament', '- default FFF -', i);
+    let changed = false;
+    if (type === 'print' && s.presets.print.name === name) {
+      await get().selectPreset('print', '- default FFF -');
+      changed = true;
     }
+    if (type === 'printer' && s.presets.printer.name === name) {
+      await get().selectPreset('printer', '- default FFF -');
+      changed = true;
+    }
+    if (type === 'filament') {
+      for (let i = 0; i < s.presets.filament.length; i++) {
+        if (s.presets.filament[i].name === name) {
+          await get().selectPreset('filament', '- default FFF -', i);
+          changed = true;
+        }
+      }
+    }
+    // fall back to the printer's compatible vendor presets instead of the bare defaults
+    if (changed) await get().ensureCompatiblePresets();
     get().toast('info', `Deleted ${type} preset "${name}"`);
   },
 
@@ -454,7 +487,7 @@ export const useStore = create<State>((set, get) => ({
     set({ physicalPrinters: await api.printers() });
   },
 
-  addObjects: async (items) => {
+  addObjects: async (items, opts = {}) => {
     const s = get();
     const bed = bedShapeOf(s.presets.printer.current);
     const created: PlaterObject[] = [];
@@ -476,7 +509,7 @@ export const useStore = create<State>((set, get) => ({
         id,
         name: it.name,
         geometry: g,
-        position: [(bed.min[0] + bed.max[0]) / 2, (bed.min[1] + bed.max[1]) / 2, 0],
+        position: opts.keepPositions ? [cx, cy, 0] : [(bed.min[0] + bed.max[0]) / 2, (bed.min[1] + bed.max[1]) / 2, 0],
         rotation: [0, 0, 0],
         scale: [1, 1, 1],
         size,
@@ -487,7 +520,7 @@ export const useStore = create<State>((set, get) => ({
       });
     }
     set((st) => ({ objects: [...st.objects, ...created], selectedIds: created.map((c) => c.id), sliceDirty: true }));
-    get().arrange();
+    if (!opts.keepPositions) get().arrange();
     // upload meshes
     for (const o of created) {
       try {
@@ -649,12 +682,17 @@ export const useStore = create<State>((set, get) => ({
   },
 
   loadGcodePreview: async (jobId) => {
-    const text = await api.gcodeText(jobId);
-    const { parseGcodeInWorker } = await import('../gcode/parserClient');
-    const parsed = await parseGcodeInWorker(text);
-    const vis: Record<string, boolean> = {};
-    for (const f of parsed.featureTypes) vis[f] = true;
-    set({ gcode: parsed, gcodeJobId: jobId, previewLayerRange: [0, Math.max(0, parsed.layerCount - 1)], previewFeatureVisibility: vis, view: 'preview' });
+    set({ gcodeLoading: true });
+    try {
+      const text = await api.gcodeText(jobId);
+      const { parseGcodeInWorker } = await import('../gcode/parserClient');
+      const parsed = await parseGcodeInWorker(text);
+      const vis: Record<string, boolean> = {};
+      for (const f of parsed.featureTypes) vis[f] = true;
+      set({ gcode: parsed, gcodeJobId: jobId, previewLayerRange: [0, Math.max(0, parsed.layerCount - 1)], previewFeatureVisibility: vis, view: 'preview' });
+    } finally {
+      set({ gcodeLoading: false });
+    }
   },
 
   setPreviewLayerRange: (previewLayerRange) => set({ previewLayerRange }),

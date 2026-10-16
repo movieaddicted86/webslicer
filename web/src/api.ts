@@ -36,6 +36,7 @@ export interface OptionDef {
   nullable?: boolean;
   multiline?: boolean;
   gcode?: boolean;
+  technology?: 'FFF' | 'SLA' | 'any';
 }
 
 export interface LayoutGroup {

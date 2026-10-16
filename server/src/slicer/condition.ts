@@ -20,6 +20,18 @@ type Token =
 
 export type ConfigLookup = (key: string) => string | undefined;
 
+/**
+ * PrusaSlicer evaluates "=~" with boost::regex_match, i.e. the whole string has to match.
+ * JavaScript's test() searches for a substring, so the pattern is anchored here.
+ */
+function fullMatchRegex(pattern: string, ignoreCase: boolean): RegExp {
+  try {
+    return new RegExp(`^(?:${pattern})$`, ignoreCase ? 'is' : 's');
+  } catch {
+    return /(?!)/;
+  }
+}
+
 function tokenize(src: string): Token[] {
   const tokens: Token[] = [];
   let i = 0;
@@ -65,11 +77,7 @@ function tokenize(src: string): Token[] {
         let flags = '';
         // only the case-insensitive flag is meaningful; anything else belongs to the next token (e.g. "/re/and ...")
         while (i < src.length && src[i] === 'i' && !/[A-Za-z0-9_]/.test(src[i + 1] || '')) flags += src[i++];
-        try {
-          tokens.push({ t: 'regex', v: new RegExp(s, flags.includes('i') ? 'is' : 's') });
-        } catch {
-          tokens.push({ t: 'regex', v: /(?!)/ });
-        }
+        tokens.push({ t: 'regex', v: fullMatchRegex(s, flags.includes('i')) });
         continue;
       }
     }
@@ -184,7 +192,7 @@ class Parser {
           const r = this.next();
           let re: RegExp;
           if (r.t === 'regex') re = r.v;
-          else if (r.t === 'str') re = new RegExp(r.v, 's');
+          else if (r.t === 'str') re = fullMatchRegex(r.v, false);
           else throw new Error('Expected regex');
           const m = re.test(String(left));
           left = t.v === '=~' ? m : !m;

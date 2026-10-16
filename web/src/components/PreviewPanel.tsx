@@ -26,6 +26,9 @@ export function PreviewPanel() {
   const sliceDirty = useStore((s) => s.sliceDirty);
   const slice = useStore((s) => s.slice);
   const cancelSlice = useStore((s) => s.cancelSlice);
+  const gcodeLoading = useStore((s) => s.gcodeLoading);
+  const loadGcodePreview = useStore((s) => s.loadGcodePreview);
+  const toast = useStore((s) => s.toast);
 
   const running = job && (job.status === 'running' || job.status === 'queued');
   const info = job?.info;
@@ -142,7 +145,12 @@ export function PreviewPanel() {
               </ul>
             </section>
           )}
-          {!gcode && job.outputName.endsWith('.gcode') && <div className="muted small">Loading preview…</div>}
+          {!gcode && gcodeLoading && <div className="muted small">Loading preview…</div>}
+          {!gcode && !gcodeLoading && job.outputName.endsWith('.gcode') && (
+            <button className="secondary" onClick={() => loadGcodePreview(job.id).catch((e) => toast('error', e.message))}>
+              Load toolpath preview
+            </button>
+          )}
           {!job.outputName.endsWith('.gcode') && <div className="muted small">No toolpath preview for {job.outputName.split('.').pop()} output.</div>}
           <details>
             <summary className="small">Slicer log</summary>

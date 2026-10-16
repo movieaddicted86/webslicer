@@ -777,8 +777,9 @@ pre.log {
   width: 64px;
   height: 64px;
   object-fit: contain;
-  background: #fff1;
+  background: #e9ecf1;
   border-radius: 4px;
+  padding: 2px;
 }
 .model-name {
   font-weight: 600;

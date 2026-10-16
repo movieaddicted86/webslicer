@@ -140,13 +140,19 @@ export function parseBundle(file: string, text: string): { vendor: Vendor; prese
       const resolved = resolveSection(name, raw, cache, new Set());
       const cfg: IniSection = {};
       for (const [k, v] of Object.entries(resolved)) if (!META_KEYS.has(k)) cfg[k] = v;
+      // Like PrusaSlicer: an explicit alias, otherwise the name without its " @variant" suffix.
+      let alias = sec.alias;
+      if (!alias) {
+        const at = name.indexOf('@');
+        if (at > 0) alias = name.slice(0, at).trim();
+      }
       presets.push({
         type,
         name,
         vendorId,
         vendorName,
         config: cfg,
-        alias: sec.alias || resolved.alias,
+        alias,
         renamedFrom: (resolved.renamed_from || '')
           .split(';')
           .map((s) => s.trim())

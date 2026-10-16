@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { useStore, isModified, type View } from '../state/store';
 import { loadModelFile, SUPPORTED_EXTENSIONS } from '../three/loaders';
 import { api, downloadBlob } from '../api';
@@ -40,7 +40,8 @@ export async function importFiles(files: FileList | File[]) {
     }
   }
   if (items.length) {
-    await st.addObjects(items);
+    const fromProject = Array.from(files).some((f) => f.name.toLowerCase().endsWith('.3mf'));
+    await st.addObjects(items, { keepPositions: fromProject });
     // apply per-object configs from 3MF
     const objs = useStore.getState().objects.slice(-items.length);
     items.forEach((it, i) => {
@@ -64,6 +65,17 @@ export function TopBar() {
   const job = useStore((s) => s.job);
   const openDialog = useStore((s) => s.openDialog);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'i' || e.key === 'I' || e.key === 'o' || e.key === 'O')) {
+        e.preventDefault();
+        fileRef.current?.click();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   const tabs: Array<{ id: View; label: string; dot?: boolean }> = [
     { id: 'plater', label: 'Plater' },

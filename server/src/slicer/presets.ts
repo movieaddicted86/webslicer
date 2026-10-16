@@ -119,6 +119,9 @@ export function resolvePreset(schema: Schema, type: PresetType, name: string): R
   }
   const user = listUserPresets(type).find((p) => p.name === name);
   if (user) {
+    // Only keep options the installed slicer knows for this preset type (drops stale/alias keys).
+    const allowed = new Set(schema.presetKeys[type]);
+    for (const k of Object.keys(user.config)) if (k !== 'inherits' && !allowed.has(k)) delete user.config[k];
     const inherits = user.config.inherits || '';
     const parent = inherits ? resolvePreset(schema, type, inherits) : undefined;
     const parentCfg = parent?.config || base;

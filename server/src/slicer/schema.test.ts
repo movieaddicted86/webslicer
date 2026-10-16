@@ -33,6 +33,10 @@ test('condition evaluator', () => {
   assert.equal(evaluateCondition('printer_model=="MK4IS" and num_extruders>1', l), true);
   assert.equal(evaluateCondition('! (printer_notes=~/.*PG.*/)', l), false);
   assert.equal(evaluateCondition('printer_model=~/^(MK4IS|MK4S)$/ or single_extruder_multi_material==1', l), true);
+  // "=~" is a full match in PrusaSlicer (boost::regex_match): MK4 must not match MK4S
+  assert.equal(evaluateCondition('printer_model=~/(MK4|MK3.9)/', l), false);
+  assert.equal(evaluateCondition('printer_model=~/(MK4S|MK4IS)/', l), true);
+  assert.equal(evaluateCondition('printer_notes=~/.*PRINTER_MODEL_MK4IS.*/', l), true);
   assert.equal(evaluateCondition('', l), true);
   assert.equal(evaluateCondition('this is not valid (', l), true);
 });
@@ -76,6 +80,12 @@ test('help parser and schema (fixtures)', { skip: !fixtures }, () => {
   assert.equal(o.start_filament_gcode.type, 'strings');
   assert.equal(o.start_gcode.type, 'string');
   assert.equal(o.bed_shape.type, 'points');
+  // "--after-layer-gcode, --layer-gcode" is one option; the bundle key decides the canonical name
+  assert.ok(o.layer_gcode, 'layer_gcode present');
+  assert.ok(!o.after_layer_gcode, 'legacy alias dropped');
+  assert.ok(!o.solid_layers && !o.extruder, 'shortcut keys dropped');
+  assert.ok(schema.presetKeys.printer.includes('layer_gcode'));
+  assert.ok(!schema.presetKeys.print.includes('solid_layers'));
   assert.ok(schema.presetKeys.print.includes('layer_height'));
   assert.ok(schema.presetKeys.filament.includes('temperature'));
   assert.ok(schema.presetKeys.printer.includes('nozzle_diameter'));

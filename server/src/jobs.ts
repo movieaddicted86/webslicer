@@ -125,6 +125,26 @@ export function loadJobsFromDisk() {
     /* ignore */
   }
   pruneJobs();
+  pruneModels();
+  setInterval(pruneModels, 6 * 3600_000).unref();
+}
+
+/** Remove uploaded model files that are older than MODEL_RETENTION_DAYS (default 7). */
+export function pruneModels() {
+  const days = Number(process.env.MODEL_RETENTION_DAYS || 7);
+  const cutoff = Date.now() - days * 86400_000;
+  try {
+    for (const f of fs.readdirSync(config.modelsDir)) {
+      const p = path.join(config.modelsDir, f);
+      try {
+        if (fs.statSync(p).mtimeMs < cutoff) fs.unlinkSync(p);
+      } catch {
+        /* ignore */
+      }
+    }
+  } catch {
+    /* ignore */
+  }
 }
 
 function pruneJobs() {

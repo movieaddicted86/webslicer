@@ -227,6 +227,29 @@ export function Viewer() {
     };
     refsRef.current = refs;
 
+    // Live-update the store while dragging so the manipulation panel follows the gizmo.
+    let liveRaf = 0;
+    transform.addEventListener('objectChange', () => {
+      if (liveRaf) return;
+      liveRaf = requestAnimationFrame(() => {
+        liveRaf = 0;
+        const mesh = transform.object as THREE.Mesh | undefined;
+        if (!mesh || !refs.dragging) return;
+        const id = mesh.userData.id as string;
+        useStore.setState((st) => ({
+          objects: st.objects.map((o) =>
+            o.id === id
+              ? {
+                  ...o,
+                  position: [mesh.position.x, mesh.position.y, mesh.position.z],
+                  rotation: [mesh.rotation.x, mesh.rotation.y, mesh.rotation.z],
+                  scale: [mesh.scale.x, mesh.scale.y, mesh.scale.z],
+                }
+              : o,
+          ),
+        }));
+      });
+    });
     transform.addEventListener('dragging-changed', (e) => {
       controls.enabled = !(e as unknown as { value: boolean }).value;
       refs.dragging = (e as unknown as { value: boolean }).value;
@@ -270,6 +293,8 @@ export function Viewer() {
       const moved = Math.hypot(e.clientX - downPos[0], e.clientY - downPos[1]);
       downPos = null;
       if (moved > 4 || refs.dragging) return;
+      // A click on a gizmo handle must not change the selection.
+      if (refs.transform.axis) return;
       if (useStore.getState().view !== 'plater') return;
       const rect = renderer.domElement.getBoundingClientRect();
       const ndc = new THREE.Vector2(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
@@ -340,7 +365,8 @@ export function Viewer() {
         mesh.rotation.set(...o.rotation);
         mesh.scale.set(...o.scale);
       }
-      mesh.visible = o.visible && view === 'plater';
+      // Keep the models visible in the preview until a toolpath is available (e.g. while slicing).
+      mesh.visible = o.visible && (view === 'plater' || !gcode);
       const selected = selectedIds.includes(o.id);
       const box = objectBounds(o);
       const outside =
@@ -374,7 +400,7 @@ export function Viewer() {
       refs.transform.getHelper().visible = false;
       refs.transform.enabled = false;
     }
-  }, [objects, selectedIds, transformMode, view, bedShape, maxHeight]);
+  }, [objects, selectedIds, transformMode, view, bedShape, maxHeight, gcode]);
 
   // --- gcode
   useEffect(() => {

@@ -28,6 +28,8 @@ export function SettingsView() {
   const visibleKey = (k: string) => {
     const d = schema.options[k];
     if (!d) return false;
+    // hide options of the other printer technology (e.g. SLA display settings on an FFF printer)
+    if (d.technology && d.technology !== 'any' && d.technology !== tech) return false;
     const r = MODE_RANK[d.mode || 'expert'];
     return r <= rank;
   };

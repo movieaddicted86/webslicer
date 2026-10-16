@@ -42,7 +42,8 @@ export interface OptionDef {
   nullable?: boolean;
   multiline?: boolean;
   gcode?: boolean;
-  /** True when the slicer may accept "nil" entries */
+  /** Printer technology the option applies to */
+  technology: 'FFF' | 'SLA' | 'any';
 }
 
 export interface LayoutGroup {
@@ -75,7 +76,28 @@ interface RawHelpOption {
 }
 
 /** Parse the output of `prusa-slicer --help-fff` / `--help-sla` */
-export function parseHelp(text: string): RawHelpOption[] {
+/**
+ * Options that are only command-line shortcuts or legacy aliases. They must never end up in a
+ * config file: PrusaSlicer expands them into other options on load (e.g. "solid_layers" sets
+ * top and bottom solid layers, "extruder" overrides all extruder assignments).
+ */
+export const SHORTCUT_KEYS = new Set([
+  'extruder',
+  'solid_layers',
+  'solid_min_thickness',
+  'duplicate_distance',
+  'preset_name',
+  'preset_names',
+  'colorprint_heights',
+  'after_layer_gcode',
+]);
+
+/**
+ * Parse the output of `prusa-slicer --help-fff` / `--help-sla`.
+ * `knownKeys` (keys seen in vendor bundles) decides which of several aliases on one help line
+ * ("--after-layer-gcode, --layer-gcode") is the canonical option key.
+ */
+export function parseHelp(text: string, knownKeys?: Set<string>): RawHelpOption[] {
   const lines = text.split(/\r?\n/);
   // Print options start after the "Print options are processed..." paragraph.
   let start = lines.findIndex((l) => l.startsWith('Print options are processed'));
@@ -87,12 +109,19 @@ export function parseHelp(text: string): RawHelpOption[] {
     const line = lines[i];
     if (!line.trim()) continue;
     if (line.startsWith('\t')) continue; // ordering paragraph
-    const optMatch = /^ (--[A-Za-z0-9_-]+(?:, --?[A-Za-z0-9_-]+)*)( (N|ABCD|X,Y|X,Y,Z))?(?:\s+(.*))?$/.exec(line);
+    // " --name HINT, --alias HINT, -x   description" – every alias may carry its own type hint.
+    const optMatch = /^ ((?:--?[A-Za-z0-9_-]+(?: (?:N|ABCD|X,Y,Z|X,Y))?)(?:, --?[A-Za-z0-9_-]+(?: (?:N|ABCD|X,Y,Z|X,Y))?)*)(?:\s+(.*))?$/.exec(line);
     if (optMatch && !line.startsWith('  ')) {
-      const cliNames = optMatch[1].split(',').map((s) => s.trim());
-      const longName = cliNames.find((n) => n.startsWith('--')) || cliNames[0];
-      const key = longName.replace(/^--?/, '').replace(/-/g, '_');
-      cur = { key, category, hint: optMatch[3] || '', descr: (optMatch[4] || '').trim() };
+      const specs = optMatch[1].split(/,\s+(?=-)/).map((s) => s.trim());
+      let hint = '';
+      const longKeys: string[] = [];
+      for (const spec of specs) {
+        const [name, h] = spec.split(' ');
+        if (h && !hint) hint = h;
+        if (name.startsWith('--')) longKeys.push(name.replace(/^--/, '').replace(/-/g, '_'));
+      }
+      const key = (knownKeys && longKeys.find((k) => knownKeys.has(k))) || longKeys[0] || specs[0].replace(/^-/, '');
+      cur = { key, category, hint, descr: (optMatch[2] || '').trim() };
       out.push(cur);
       continue;
     }
@@ -240,6 +269,7 @@ function deriveOption(raw: RawHelpOption, presetTypes: PresetType[]): OptionDef 
       (raw.key.startsWith('filament_retract') || raw.key.startsWith('filament_travel') || raw.key === 'filament_wipe' || raw.key === 'filament_deretract_speed'),
     multiline: known.multiline ?? (gcode || /notes$/.test(raw.key) || raw.key === 'filament_ramming_parameters'),
     gcode,
+    technology: 'any',
   };
 }
 
@@ -250,10 +280,12 @@ export function buildSchema(
   version: string,
   bundleKeys: Record<PresetType, Set<string>>,
 ): Schema {
-  const rawFff = parseHelp(helpFff);
-  const rawSla = parseHelp(helpSla);
+  const known = new Set<string>();
+  for (const t of Object.keys(bundleKeys) as PresetType[]) for (const k of bundleKeys[t]) known.add(k);
+  const rawFff = parseHelp(helpFff, known);
+  const rawSla = parseHelp(helpSla, known);
   const rawByKey = new Map<string, RawHelpOption>();
-  for (const r of [...rawFff, ...rawSla]) if (!rawByKey.has(r.key)) rawByKey.set(r.key, r);
+  for (const r of [...rawFff, ...rawSla]) if (!rawByKey.has(r.key) && !SHORTCUT_KEYS.has(r.key)) rawByKey.set(r.key, r);
 
   const fffKeys = new Set(rawFff.map((r) => r.key));
   const slaKeys = new Set(rawSla.map((r) => r.key));
@@ -302,12 +334,19 @@ export function buildSchema(
   }
   for (const r of rawByKey.values()) {
     options[r.key] = deriveOption(r, typesByKey.get(r.key) || ['print']);
+    const inFff = fffKeys.has(r.key);
+    const inSla = slaKeys.has(r.key);
+    options[r.key].technology = inFff && inSla ? 'any' : inSla ? 'SLA' : 'FFF';
   }
 
   // Layout: curated FFF layout filtered to existing keys + "Other" pages for leftovers.
   const layout: TabLayout[] = [];
+  // Keys placed in any curated tab are never repeated as "Other options" of another tab
+  // (vendor bundles sometimes carry print options in printer sections).
+  const placedAnywhere = new Set<string>();
+  for (const tab of LAYOUT_FFF) for (const page of tab.pages) for (const g of page.groups) for (const k of g.keys) if (options[k]) placedAnywhere.add(k);
   for (const tab of LAYOUT_FFF) {
-    const used = new Set<string>();
+    const used = new Set<string>(placedAnywhere);
     const pages: LayoutPage[] = [];
     for (const page of tab.pages) {
       const groups: LayoutGroup[] = [];
