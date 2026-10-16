@@ -1,0 +1,24 @@
+{
+  "name": "webslicer",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Web-based 3D printing slicer built on the PrusaSlicer engine",
+  "license": "AGPL-3.0-or-later",
+  "type": "module",
+  "workspaces": [
+    "server",
+    "web"
+  ],
+  "scripts": {
+    "build": "npm run build -w web && npm run build -w server",
+    "dev": "concurrently -n web,server -c cyan,green \"npm run dev -w web\" \"npm run dev -w server\"",
+    "start": "node server/dist/index.js",
+    "test": "npm run test -w server"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
