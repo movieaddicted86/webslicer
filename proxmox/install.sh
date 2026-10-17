@@ -16,7 +16,7 @@
 # ---------------------------------------------------------------------------
 set -euo pipefail
 
-WEBSLICER_REPO="${WEBSLICER_REPO:-https://github.com/robert-nwaoko/webslicer.git}"
+WEBSLICER_REPO="${WEBSLICER_REPO:-https://github.com/movieaddicted86/webslicer.git}"
 WEBSLICER_BRANCH="${WEBSLICER_BRANCH:-main}"
 WEBSLICER_SRC="${WEBSLICER_SRC:-}"
 WEBSLICER_PORT="${WEBSLICER_PORT:-8080}"

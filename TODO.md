@@ -49,5 +49,5 @@ Priorität nach Nutzungshäufigkeit im Druckalltag und PrusaSlicer-Parität.
 
 ## Braucht dich (Robert)
 - [ ] Upload an einen echten Drucker testen (PrusaLink / Klipper / OctoPrint) – Typ und Adresse nennen
-- [ ] Proxmox-Helper auf einem echten PVE-Host testen; Repo-URL-Platzhalter in Skripten/README ersetzen
+- [ ] Proxmox-Helper auf einem echten PVE-Host testen
 - [ ] MCP-Integration gemäß docs/MCP-Konzept.md freigeben

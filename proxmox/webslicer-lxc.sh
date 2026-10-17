@@ -6,7 +6,7 @@
 # (PrusaSlicer engine + web UI) as a systemd service inside it.
 #
 # Run on the Proxmox host as root:
-#   bash -c "$(curl -fsSL https://raw.githubusercontent.com/robert-nwaoko/webslicer/main/proxmox/webslicer-lxc.sh)"
+#   bash -c "$(curl -fsSL https://raw.githubusercontent.com/movieaddicted86/webslicer/main/proxmox/webslicer-lxc.sh)"
 # or from a local checkout:
 #   bash proxmox/webslicer-lxc.sh
 #
@@ -34,7 +34,7 @@ if [ -n "$SCRIPT_DIR" ] && [ -f "${SCRIPT_DIR}/../package.json" ] && [ -f "${SCR
   REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 fi
 
-WEBSLICER_REPO="${WEBSLICER_REPO:-https://github.com/robert-nwaoko/webslicer.git}"
+WEBSLICER_REPO="${WEBSLICER_REPO:-https://github.com/movieaddicted86/webslicer.git}"
 WEBSLICER_BRANCH="${WEBSLICER_BRANCH:-main}"
 WEBSLICER_PORT="${WEBSLICER_PORT:-8080}"
 PRUSASLICER_VERSION="${PRUSASLICER_VERSION:-2.9.6}"

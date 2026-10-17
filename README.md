@@ -109,7 +109,7 @@ Mit `PRUSASLICER_URL` kann jedes andere AppImage (z. B. ein eigener Build) verwe
 Auf dem Proxmox-Host als root ausführen:
 
 ```bash
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/robert-nwaoko/webslicer/main/proxmox/webslicer-lxc.sh)"
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/movieaddicted86/webslicer/main/proxmox/webslicer-lxc.sh)"
 ```
 
 Das Skript fragt Container-ID, Hostname, Disk, CPU, RAM, Bridge, IP und Storage ab (whiptail),
