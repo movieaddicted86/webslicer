@@ -1128,3 +1128,30 @@ button.link:hover {
   text-decoration: underline;
   background: transparent;
 }
+
+/* ---- sidebar overflow fixes */
+.sidebar {
+  overflow-x: hidden;
+}
+.section-head {
+  flex-wrap: wrap;
+  row-gap: 4px;
+}
+.section-head .tools {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.section-head .tools button {
+  padding: 2px 6px;
+}
+.quick-settings label {
+  grid-template-columns: 64px minmax(0, 1fr) minmax(0, 1fr);
+}
+.quick-settings select {
+  width: 100%;
+  min-width: 0;
+}
+.preset-select select,
+.sidebar select {
+  max-width: 100%;
+}

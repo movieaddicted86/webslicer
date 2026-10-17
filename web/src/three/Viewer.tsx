@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
+import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
 import { useStore, bedShapeOf, objectBounds, type PlaterObject, type PlaterVolume } from '../state/store';
 import { FEATURE_COLORS, type ParsedGcode } from '../gcode/types';
 import type { VolumeType } from '../api';
@@ -45,8 +46,63 @@ interface SceneRefs {
   bedKey?: string;
 }
 
-function buildBed(group: THREE.Group, bedShape: string) {
+interface BedAsset {
+  vendor: string;
+  model?: string;
+  texture?: string;
+}
+
+let bedLoadGeneration = 0;
+
+/** Load the vendor's bed model (STL) and texture (SVG/PNG) like PrusaSlicer does. */
+function loadBedAssets(group: THREE.Group, bedShape: string, asset: BedAsset, hideGrid: () => void) {
+  const gen = ++bedLoadGeneration;
+  const bed = bedShapeOf({ bed_shape: bedShape });
+  const cx = (bed.min[0] + bed.max[0]) / 2;
+  const cy = (bed.min[1] + bed.max[1]) / 2;
+  if (asset.model) {
+    new STLLoader().load(
+      `/api/vendors/${encodeURIComponent(asset.vendor)}/asset/${encodeURIComponent(asset.model)}`,
+      (geo) => {
+        if (gen !== bedLoadGeneration) return;
+        geo.computeVertexNormals();
+        const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: 0x3a3f49, roughness: 0.8, metalness: 0.1 }));
+        // PrusaSlicer moves the model origin to the bed centre, slightly below z=0
+        mesh.position.set(cx, cy, -0.03);
+        mesh.name = 'bed-model';
+        group.add(mesh);
+      },
+      undefined,
+      () => undefined,
+    );
+  }
+  if (asset.texture) {
+    new THREE.TextureLoader().load(
+      `/api/vendors/${encodeURIComponent(asset.vendor)}/asset/${encodeURIComponent(asset.texture)}`,
+      (tex) => {
+        if (gen !== bedLoadGeneration) return;
+        tex.colorSpace = THREE.SRGBColorSpace;
+        tex.anisotropy = 4;
+        const w = bed.max[0] - bed.min[0];
+        const h = bed.max[1] - bed.min[1];
+        const plane = new THREE.Mesh(
+          new THREE.PlaneGeometry(w, h),
+          new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0.9, depthWrite: false, side: THREE.DoubleSide }),
+        );
+        plane.position.set(cx, cy, 0.02);
+        plane.name = 'bed-texture';
+        group.add(plane);
+        hideGrid();
+      },
+      undefined,
+      () => undefined,
+    );
+  }
+}
+
+function buildBed(group: THREE.Group, bedShape: string, asset?: BedAsset) {
   group.clear();
+  bedLoadGeneration++;
   const bed = bedShapeOf({ bed_shape: bedShape });
   const shape = new THREE.Shape(bed.points.map((p) => new THREE.Vector2(p[0], p[1])));
   const geo = new THREE.ShapeGeometry(shape);
@@ -72,8 +128,16 @@ function buildBed(group: THREE.Group, bedShape: string) {
     const m = new THREE.LineBasicMaterial({ color, transparent: true, opacity });
     return new THREE.LineSegments(g, m);
   };
-  group.add(mk(minor, 0x4a5160, 0.5));
-  group.add(mk(major, 0x6a7384, 0.8));
+  const minorLines = mk(minor, 0x4a5160, 0.5);
+  const majorLines = mk(major, 0x6a7384, 0.8);
+  group.add(minorLines, majorLines);
+  if (asset && (asset.model || asset.texture)) {
+    loadBedAssets(group, bedShape, asset, () => {
+      // the vendor texture carries its own grid
+      minorLines.visible = false;
+      majorLines.visible = false;
+    });
+  }
   const outline = new THREE.LineLoop(
     new THREE.BufferGeometry().setFromPoints(bed.points.map((p) => new THREE.Vector3(p[0], p[1], 0.01))),
     new THREE.LineBasicMaterial({ color: 0x8f9bb3 }),
@@ -216,6 +280,13 @@ export function Viewer() {
   const showTravel = useStore((s) => s.previewShowTravel);
   const featureVis = useStore((s) => s.previewFeatureVisibility);
   const placeOnFace = useStore((s) => s.placeOnFace);
+  // vendor bed model/texture of the selected printer ("vendor|model.stl|texture.svg", empty when none)
+  const bedAssetKey = useStore((s) => {
+    const p = s.presets.printer;
+    if (!p.vendorId || !p.printerModel) return '';
+    const m = s.vendors.flatMap((v) => v.models).find((x) => x.vendorId === p.vendorId && x.id === p.printerModel);
+    return m && (m.bedModel || m.bedTexture) ? `${m.vendorId}|${m.bedModel || ''}|${m.bedTexture || ''}` : '';
+  });
 
   // --- init scene
   useEffect(() => {
@@ -396,12 +467,14 @@ export function Viewer() {
   useEffect(() => {
     const refs = refsRef.current;
     if (!refs) return;
-    if (refs.bedKey !== bedShape) {
-      buildBed(refs.bedGroup, bedShape);
+    const key = `${bedShape}|${bedAssetKey}`;
+    if (refs.bedKey !== key) {
+      const [vendor, model, texture] = bedAssetKey.split('|');
+      buildBed(refs.bedGroup, bedShape, vendor ? { vendor, model: model || undefined, texture: texture || undefined } : undefined);
       if (!refs.bedKey) fitCamera(refs, bedShape);
-      refs.bedKey = bedShape;
+      refs.bedKey = key;
     }
-  }, [bedShape]);
+  }, [bedShape, bedAssetKey]);
 
   // --- objects sync
   useEffect(() => {
