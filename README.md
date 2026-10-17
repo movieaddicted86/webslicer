@@ -198,7 +198,8 @@ zusammengeführte Konfiguration (Print + Filament(e) + Printer) als `config.ini`
 ## Weitere Dokumente
 
 - [CHANGELOG.md](CHANGELOG.md) – Versionen
-- [docs/UAT.md](docs/UAT.md) – Abnahmetestplan (User Acceptance Test)
+- [docs/UAT.md](docs/UAT.md) – Abnahmetestplan, [docs/UAT-Protokoll.md](docs/UAT-Protokoll.md) – Ergebnis
+- [docs/Funktionsabgleich.md](docs/Funktionsabgleich.md) – Funktionsumfang PrusaSlicer ↔ WebSlicer mit Prioritäten
 - [docs/MCP-Konzept.md](docs/MCP-Konzept.md) – Konzept für die Steuerung durch LLM-Agenten (MCP)
 - [TODO.md](TODO.md) – Roadmap
 
