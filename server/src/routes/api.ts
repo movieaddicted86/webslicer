@@ -418,6 +418,7 @@ export function apiRouter(): express.Router {
           type: body.type || 'octoprint',
           host: /^https?:\/\//i.test(host) ? host : `http://${host}`,
           apiKey: body.apiKey || undefined,
+          ignoreTls: !!body.ignoreTls,
         }),
       );
     }),
@@ -445,4 +446,12 @@ function validateSliceRequest(body: SliceRequest) {
   }
   if (!body.print?.config || !body.printer?.config) throw new Error('print and printer config required');
   if (!Array.isArray(body.filaments)) body.filaments = [];
+  if (body.thumbnails !== undefined) {
+    if (!Array.isArray(body.thumbnails) || body.thumbnails.length > 8) throw new Error('at most 8 thumbnails');
+    for (const t of body.thumbnails) {
+      if (!['PNG', 'JPG', 'QOI'].includes(t.format)) throw new Error('invalid thumbnail format');
+      if (!Number.isInteger(t.width) || !Number.isInteger(t.height) || t.width <= 0 || t.height <= 0 || t.width > 2000 || t.height > 2000) throw new Error('invalid thumbnail size');
+      if (typeof t.data !== 'string' || t.data.length > 4_000_000 || !/^[A-Za-z0-9+/=\s]*$/.test(t.data)) throw new Error('invalid thumbnail data');
+    }
+  }
 }

@@ -31,7 +31,10 @@ nativ in einem Proxmox-LXC.
 - **Export**: G-Code (auch binärer `.bgcode`), Projekt als 3MF (mit allen Einstellungen, öffnet
   direkt im Desktop-PrusaSlicer), Config-Bundle `.ini`.
 - **Physische Drucker**: Upload (optional mit Druckstart) an **PrusaLink**, **OctoPrint** und
-  **Klipper/Moonraker** (Mainsail/Fluidd).
+  **Klipper/Moonraker** (Mainsail/Fluidd), auch über HTTPS mit selbstsigniertem Zertifikat.
+- **Vorschaubilder im G-Code**: Der Browser rendert die Thumbnails in den Größen und Formaten des
+  Druckerprofils (PNG, JPG, QOI für Prusa-Displays), der Server bettet sie in den G-Code ein. Die
+  Drucker-Displays und Mainsail/Fluidd/OctoPrint zeigen den Druck damit mit Bild.
 - **Multi-Extruder / MMU**: Filament-Preset je Extruder, Wipe-Tower-Einstellungen, Extruder-Anzahl
   im Drucker-Preset.
 - Mehrbenutzerfähig im LAN, keine Installation am Client, läuft auch auf Tablets.

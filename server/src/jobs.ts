@@ -11,6 +11,7 @@ import { runSlicer } from './slicer/cli.js';
 import { serializeIni, type IniSection } from './slicer/ini.js';
 import { build3mf, parseStl, transformMesh, type ThreeMfObject, type ThreeMfVolume, type VolumeType } from './slicer/threemf.js';
 import { readGcodeInfo, type GcodeInfo } from './slicer/gcodeInfo.js';
+import { injectThumbnails, type ThumbnailInput } from './slicer/thumbnails.js';
 import { escapeStringsCstyle, unescapeStringsCstyle, splitVector } from './slicer/values.js';
 import type { Schema } from './slicer/schema.js';
 
@@ -43,6 +44,8 @@ export interface SliceRequest {
   outputName?: string;
   /** Emit binary G-code (.bgcode) when the printer supports it. Default: ASCII (previewable). */
   binaryGcode?: boolean;
+  /** previews rendered by the browser; embedded into ASCII G-code after slicing */
+  thumbnails?: ThumbnailInput[];
 }
 
 export interface JobRecord {
@@ -395,6 +398,15 @@ async function runJob(job: JobRecord) {
     persist(job);
     emit(job.id, { type: 'error', message: job.error, job });
     return;
+  }
+  if (outFile.endsWith('.gcode') && req.thumbnails?.length) {
+    try {
+      await injectThumbnails(outFile, req.thumbnails);
+      logLines.push(`WebSlicer: embedded ${req.thumbnails.length} thumbnail(s): ${req.thumbnails.map((t) => `${t.width}x${t.height}/${t.format}`).join(', ')}`);
+    } catch (e) {
+      logLines.push(`WebSlicer: thumbnail embedding failed: ${(e as Error).message}`);
+    }
+    fs.writeFileSync(logFile, logLines.join('\n') + '\n');
   }
   job.status = 'done';
   job.percent = 100;

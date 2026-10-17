@@ -42,3 +42,22 @@ Es fehlen jeweils der Editor im Browser und die Erweiterung des 3MF-Writers im S
 - [ ] Mehrsprachige Oberfläche (Deutsch)
 - [ ] Proxmox-Helper auf einem echten PVE-Host testen; Repo-URL-Platzhalter ersetzen
 - [ ] Upload an PrusaLink/OctoPrint/Moonraker mit echten Geräten testen
+
+## Druckhosts (Senden an Drucker im Netzwerk)
+Vorhanden: PrusaLink (API-Key, v1-API + Legacy-Fallback), OctoPrint, Klipper/Moonraker, Upload mit Druckstart.
+- [x] Vorschaubilder (Thumbnails) im G-Code: Browser rendert PNG/JPG/QOI in den Größen aus dem
+      Druckerprofil (`thumbnails`), Server fügt sie nach der Kopfzeile ein (nicht für .bgcode)
+- [x] TLS-Schalter „Zertifikat nicht prüfen“ für Hosts mit selbstsigniertem HTTPS
+- [ ] Thumbnails auch in binärem G-Code (.bgcode) und als `Metadata/thumbnail.png` im 3MF
+- [ ] PrusaLink Digest-Auth (Benutzer/Passwort) zusätzlich zum API-Key
+- [ ] Weitere Hosts: Prusa Connect, Duet/RepRapFirmware, Repetier-Server, Obico
+- [ ] Druckerstatus nach dem Upload (Fortschritt, Temperaturen, Dateiliste)
+- [ ] mDNS-Hinweis / Auflösung von `.local`-Namen im Container
+- [ ] Test mit echter Hardware (MK4/PrusaLink, Klipper)
+
+## Docker-Image verkleinern (aktuell ≈ 1,36 GB)
+1,05 GB davon ist das entpackte PrusaSlicer-AppImage: ≈ 800 MB gebündelte GUI-Bibliotheken (GTK, WebKit,
+GStreamer), die die CLI nicht braucht, und ≈ 220 MB Ressourcen.
+- [ ] Nicht benötigte Ressourcen im Image löschen (localization, fonts, shapes, icons ≈ 90 MB)
+- [ ] Eigener PrusaSlicer-Build ohne GUI (`-DSLIC3R_GUI=OFF`) als Multi-Stage-Build → geschätzt 300–400 MB
+      Gesamtgröße; Build dauert allerdings ≈ 30–60 min und muss pro Version gepflegt werden

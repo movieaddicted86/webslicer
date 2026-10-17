@@ -182,8 +182,18 @@ export interface ProjectObject {
   volumes: ProjectVolume[];
 }
 
+export interface ThumbnailInput {
+  width: number;
+  height: number;
+  format: 'PNG' | 'JPG' | 'QOI';
+  /** base64 image data */
+  data: string;
+}
+
 export interface SliceRequest {
   objects: SliceObjectInput[];
+  /** previews rendered by the browser, embedded into the G-code by the server */
+  thumbnails?: ThumbnailInput[];
   print: { name: string; config: Config };
   filaments: Array<{ name: string; config: Config }>;
   printer: { name: string; config: Config };
@@ -199,6 +209,8 @@ export interface PhysicalPrinter {
   apiKey?: string;
   hasApiKey?: boolean;
   presetName?: string;
+  /** accept self-signed HTTPS certificates */
+  ignoreTls?: boolean;
 }
 
 export interface ServerInfo {

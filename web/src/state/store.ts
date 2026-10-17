@@ -15,7 +15,9 @@ import {
   type SliceRequest,
   type Vendor,
   type VolumeType,
+  type ThumbnailInput,
 } from '../api';
+import { parseThumbnailSpec, type ThumbnailSpec } from '../three/thumbnail';
 import { decodeVector, resizeVector, toBool, unescapeStringsCstyle } from '../values';
 import type { ParsedGcode } from '../gcode/types';
 
@@ -128,6 +130,8 @@ interface State {
   previewFeatureVisibility: Record<string, boolean>;
 
   toasts: Toast[];
+  /** registered by the Viewer: renders G-code preview thumbnails of the plater */
+  renderThumbnails?: (specs: ThumbnailSpec[], colors: string[]) => ThumbnailInput[];
   dialog?: 'addPrinter' | 'physicalPrinters' | 'objectSettings' | 'sendToPrinter' | 'savePreset' | 'about';
   dialogPayload?: unknown;
 
@@ -821,6 +825,20 @@ export const useStore = create<State>((set, get) => ({
     if (!req.objects.length) {
       get().toast('error', 'No sliceable objects (upload failed?)');
       return;
+    }
+    // Previews for the printer display / print host (the slicer CLI cannot render them).
+    if (!s.binaryGcode && s.renderThumbnails) {
+      const pc = s.presets.printer.current;
+      const specs = parseThumbnailSpec(pc.thumbnails, pc.thumbnails_format);
+      if (specs.length) {
+        try {
+          const colDef = s.schema?.options.filament_colour;
+          const colors = s.presets.filament.map((f) => (colDef ? decodeVector(colDef, f.current.filament_colour)[0] : f.current.filament_colour) || '');
+          req.thumbnails = s.renderThumbnails(specs, colors);
+        } catch (e) {
+          console.warn('thumbnail rendering failed', e);
+        }
+      }
     }
     try {
       const job = await api.slice(req);

@@ -5,6 +5,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { Agent, fetch as undiciFetch, FormData as UndiciFormData } from 'undici';
 import { config } from './config.js';
 
 export type HostType = 'octoprint' | 'moonraker' | 'prusalink';
@@ -16,8 +17,8 @@ export interface PhysicalPrinter {
   /** base URL, e.g. http://192.168.1.50 */
   host: string;
   apiKey?: string;
-  /** PrusaLink: username (default maker) for digest auth is not supported; API key only */
   presetName?: string;
+  /** accept self-signed / invalid HTTPS certificates */
   ignoreTls?: boolean;
 }
 
@@ -75,6 +76,13 @@ function headers(p: PhysicalPrinter, extra: Record<string, string> = {}): Record
   return h;
 }
 
+const insecureAgent = new Agent({ connect: { rejectUnauthorized: false } });
+
+/** fetch that optionally accepts self-signed certificates */
+function hostFetch(p: PhysicalPrinter, url: string, init: Parameters<typeof undiciFetch>[1] = {}) {
+  return undiciFetch(url, p.ignoreTls ? { ...init, dispatcher: insecureAgent } : init);
+}
+
 export async function testPrinter(p: PhysicalPrinter): Promise<{ ok: boolean; message: string }> {
   try {
     const ctrl = new AbortController();
@@ -91,7 +99,7 @@ export async function testPrinter(p: PhysicalPrinter): Promise<{ ok: boolean; me
         url = `${p.host}/api/version`;
         break;
     }
-    const res = await fetch(url, { headers: headers(p), signal: ctrl.signal });
+    const res = await hostFetch(p, url, { headers: headers(p), signal: ctrl.signal });
     clearTimeout(t);
     if (!res.ok) return { ok: false, message: `HTTP ${res.status} ${res.statusText}` };
     const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
@@ -117,26 +125,26 @@ export async function uploadToPrinter(
   try {
     switch (p.type) {
       case 'octoprint': {
-        const fd = new FormData();
+        const fd = new UndiciFormData();
         fd.append('file', blob, filename);
         fd.append('select', startPrint ? 'true' : 'false');
         fd.append('print', startPrint ? 'true' : 'false');
-        const res = await fetch(`${p.host}/api/files/local`, { method: 'POST', headers: headers(p), body: fd });
+        const res = await hostFetch(p, `${p.host}/api/files/local`, { method: 'POST', headers: headers(p), body: fd });
         if (!res.ok) return { ok: false, message: `OctoPrint upload failed: HTTP ${res.status} ${await res.text().catch(() => '')}` };
         return { ok: true, message: `Uploaded ${filename} to OctoPrint${startPrint ? ' and started print' : ''}` };
       }
       case 'moonraker': {
-        const fd = new FormData();
+        const fd = new UndiciFormData();
         fd.append('file', blob, filename);
         fd.append('root', 'gcodes');
         fd.append('print', startPrint ? 'true' : 'false');
-        const res = await fetch(`${p.host}/server/files/upload`, { method: 'POST', headers: headers(p), body: fd });
+        const res = await hostFetch(p, `${p.host}/server/files/upload`, { method: 'POST', headers: headers(p), body: fd });
         if (!res.ok) return { ok: false, message: `Moonraker upload failed: HTTP ${res.status} ${await res.text().catch(() => '')}` };
         return { ok: true, message: `Uploaded ${filename} to Moonraker${startPrint ? ' and started print' : ''}` };
       }
       case 'prusalink': {
         // PrusaLink API v1 (Prusa firmware 4.7+/5.x): PUT /api/v1/files/{storage}/{path}
-        const res = await fetch(`${p.host}/api/v1/files/usb/${encodeURIComponent(filename)}`, {
+        const res = await hostFetch(p, `${p.host}/api/v1/files/usb/${encodeURIComponent(filename)}`, {
           method: 'PUT',
           headers: headers(p, {
             'Content-Type': 'application/octet-stream',
@@ -149,10 +157,10 @@ export async function uploadToPrinter(
         if (res.ok) return { ok: true, message: `Uploaded ${filename} to PrusaLink${startPrint ? ' and started print' : ''}` };
         if (res.status !== 404) return { ok: false, message: `PrusaLink upload failed: HTTP ${res.status} ${await res.text().catch(() => '')}` };
         // Fallback: legacy OctoPrint-compatible API
-        const fd = new FormData();
+        const fd = new UndiciFormData();
         fd.append('file', blob, filename);
         fd.append('print', startPrint ? 'true' : 'false');
-        const res2 = await fetch(`${p.host}/api/files/local`, { method: 'POST', headers: headers(p), body: fd });
+        const res2 = await hostFetch(p, `${p.host}/api/files/local`, { method: 'POST', headers: headers(p), body: fd });
         if (!res2.ok) return { ok: false, message: `PrusaLink upload failed: HTTP ${res2.status} ${await res2.text().catch(() => '')}` };
         return { ok: true, message: `Uploaded ${filename} to PrusaLink (legacy API)` };
       }

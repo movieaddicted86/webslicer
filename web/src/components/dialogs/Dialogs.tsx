@@ -252,6 +252,12 @@ function PhysicalPrintersDialog({ onClose }: { onClose: () => void }) {
           <label>
             API key <input value={edit.apiKey || ''} onChange={(e) => setEdit({ ...edit, apiKey: e.target.value })} placeholder={edit.type === 'moonraker' ? 'optional' : 'required'} />
           </label>
+          {/^https:/i.test(edit.host || '') && (
+            <label className="checkbox">
+              <input type="checkbox" checked={!!edit.ignoreTls} onChange={(e) => setEdit({ ...edit, ignoreTls: e.target.checked })} /> Accept self-signed
+              certificate (skip TLS verification)
+            </label>
+          )}
           {testing && <div className={`small ${testing.startsWith('✓') ? 'success' : 'error'}`}>{testing}</div>}
           <div className="modal-actions">
             <button onClick={() => setEdit(null)}>Cancel</button>

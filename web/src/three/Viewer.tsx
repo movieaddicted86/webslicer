@@ -5,6 +5,7 @@ import { TransformControls } from 'three/examples/jsm/controls/TransformControls
 import { useStore, bedShapeOf, objectBounds, type PlaterObject, type PlaterVolume } from '../state/store';
 import { FEATURE_COLORS, type ParsedGcode } from '../gcode/types';
 import type { VolumeType } from '../api';
+import { renderThumbnails } from './thumbnail';
 
 const OBJECT_COLOR = 0xe6b84a;
 const SELECTED_COLOR = 0x6fb1ff;
@@ -265,6 +266,7 @@ export function Viewer() {
       dragging: false,
     };
     refsRef.current = refs;
+    useStore.setState({ renderThumbnails: (specs, colors) => renderThumbnails(scene, objectsGroup, specs, colors) });
 
     const applyToStore = (target: THREE.Object3D, commit: boolean) => {
       const st = useStore.getState();
@@ -368,6 +370,7 @@ export function Viewer() {
       renderer.dispose();
       container.removeChild(renderer.domElement);
       refsRef.current = null;
+      useStore.setState({ renderThumbnails: undefined });
     };
   }, []);
 
@@ -419,6 +422,7 @@ export function Viewer() {
         box.max.y > bed.max[1] + 0.01 ||
         box.max.z > maxHeight + 0.01;
       const mat = node.mesh.material as THREE.MeshStandardMaterial;
+      node.mesh.userData.extruder = o.extruder;
       const base = o.extruder > 0 ? EXTRUDER_COLORS[(o.extruder - 1) % EXTRUDER_COLORS.length] : OBJECT_COLOR;
       const bodySelected = selected && !selectedVolumeId;
       mat.color.set(outside ? OUTSIDE_COLOR : bodySelected ? SELECTED_COLOR : base);
@@ -441,6 +445,7 @@ export function Viewer() {
           vm.scale.set(...v.scale);
         }
         const vmat = vm.material as THREE.MeshStandardMaterial;
+        vm.userData.extruder = v.extruder || o.extruder;
         const spec = VOLUME_COLORS[v.type];
         const volSelected = selected && selectedVolumeId === v.id;
         const partBase = v.type === 'ModelPart' && v.extruder > 0 ? EXTRUDER_COLORS[(v.extruder - 1) % EXTRUDER_COLORS.length] : spec.color;
