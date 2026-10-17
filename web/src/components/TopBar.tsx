@@ -180,7 +180,12 @@ export function TopBar() {
         <button onClick={() => openDialog('physicalPrinters')} title="Physical printers (print hosts)">
           🖶 Printers
         </button>
-        <select className="mode" value={mode} onChange={(e) => setMode(e.target.value as Mode)} title="Settings visibility">
+        <select
+          className="mode"
+          value={mode}
+          onChange={(e) => setMode(e.target.value as Mode)}
+          title="Settings visibility in the Print / Filament / Printer tabs: Simple shows the basics, Expert everything"
+        >
           <option value="simple">Simple</option>
           <option value="advanced">Advanced</option>
           <option value="expert">Expert</option>

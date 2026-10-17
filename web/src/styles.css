@@ -1097,3 +1097,34 @@ table.kv td:first-child {
   pointer-events: none;
   z-index: 2;
 }
+
+/* ---- quick settings (plater) */
+.quick-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.quick-settings label {
+  display: grid;
+  grid-template-columns: 70px 1fr auto;
+  align-items: center;
+  gap: 6px;
+}
+.quick-settings label.checkbox {
+  display: flex;
+}
+.quick-settings select {
+  min-width: 0;
+}
+button.link {
+  background: transparent;
+  border: none;
+  color: var(--accent2);
+  padding: 0;
+  text-align: left;
+  font-size: 12px;
+}
+button.link:hover {
+  text-decoration: underline;
+  background: transparent;
+}
