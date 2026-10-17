@@ -1,44 +1,53 @@
 # WebSlicer – ToDo / Roadmap
 
-Priorität nach Nutzen im Druckalltag und PrusaSlicer-Parität. Die Engine (PrusaSlicer-CLI) verarbeitet
-alle Daten, sobald sie im 3MF stehen; es fehlen jeweils Editor im Browser und 3MF-Writer-Erweiterung.
+Grundlage: [docs/Funktionsabgleich.md](docs/Funktionsabgleich.md) (PrusaSlicer 2.9 ↔ WebSlicer).
+Priorität nach Nutzungshäufigkeit im Druckalltag und PrusaSlicer-Parität.
+
+## P1 – für Version 1.0 (in dieser Reihenfolge)
+1. [ ] **Farbwechsel / Pause / Custom G-Code am Layer** über den Vorschau-Slider (M600, Farbdruck-Vorschau)
+2. [ ] **Vorschau-Farbschemata**: Höhe, Breite, Geschwindigkeit, Lüfter, Temperatur, Volumenstrom, Layerzeit,
+       Extruder; Legende mit Wertebereich (Parser um `;WIDTH`, `;HEIGHT`, F, Fan, Temp erweitern)
+3. [ ] **Instanzen**: Anzahl setzen, Bett füllen, Instanzen in der Objektliste (gleiche Geometrie, eigene Transform)
+4. [ ] **Spiegeln** X/Y/Z im Manipulationspanel
+5. [ ] **Split to objects / parts** (zusammenhängende Shells trennen)
+6. [ ] **Unsaved-Changes-Dialog** beim Presetwechsel: Transfer / Save / Discard
+
+## P2 – wichtig danach
+- [ ] Vorschau: horizontaler Slider, Anzeigeoptionen (Retractions, Seams, Wipe, Tool-/Farbwechsel, Shells), Zeit je Feature, Slicer-Warnungen
+- [ ] STEP-Import über die CLI (`--export-stl`)
+- [ ] Merge von Objekten; Objekt-Info (Volumen, Manifold-Prüfung), Umbenennen
+- [ ] Arrange mit Einstellungen (Abstand, Rotation) und „Arrange selection“
+- [ ] Cut-Tool (Schnittebene; Verbinder später)
+- [ ] Stufenloses Layerhöhen-Profil (Glättung, adaptiv)
+- [ ] Preset umbenennen; Config-Bundle Import/Export; Config aus G-Code importieren
+- [ ] Vendor-Profile online aktualisieren (PrusaSlicer-settings)
+- [ ] Konfigurationsassistent erweitern (Filamente je Hersteller, Temperaturen)
+- [ ] Kamera: Ansichten (Iso/Oben/Vorn/…), Ortho, Zoom auf Auswahl
+- [ ] Druckerstatus / Upload-Warteschlange (braucht Hardware-Test)
+- [ ] Deutsche Oberfläche (i18n)
+- [ ] G-Code-Viewer für Dateien aus der Bibliothek; bgcode-Konvertierung und Thumbnails in bgcode
+
+## P3 – Komfort
+- [ ] Measure-Tool, Text-/SVG-Embossing, Shape Gallery (resources/shapes zurück ins Image)
+- [ ] Pinsel-Optionen (Smart Fill, Bucket Fill, Höhenbereich), Welt-/Lokal-Gizmo, Rechteckauswahl, Kopieren/Einfügen
+- [ ] Compare Presets, Detach from system, globale Suche, Undo-Verlauf, Preferences
+- [ ] Simplify model, Einheiten umrechnen, Reload from disk, Recent projects
+- [ ] Mehrere Betten, Purging-Volumes-Dialog, Stealth-Zeit, G-Code-Textfenster, Sidebar einklappen
+- [ ] Weitere Druckhosts (Prusa Connect, Duet, Repetier, Obico), physische Drucker mit Preset-Verknüpfung
+- [ ] SLA: Support-Point-Editor, Hollowing-Editor, SLA-Vorschau
+- [ ] Docker-Image Stufe 2: eigener PrusaSlicer-Build ohne GUI (≈ 300–400 MB)
+- [ ] Bibliothek: Vorschaubilder, Suche, Sortierung
+
+## P4 – später oder nicht geplant
+- Netfabb/Microsoft-Repair, Firmware-Flasher, Printables-Integration, Toolpaths als OBJ, Gantry-Darstellung, Configuration Snapshots
 
 ## Erledigt
-- [x] Modifier-Volumen, Support-Verstärker/-Blocker, Negativ-Volumen, Zusatzteile (Box/Zylinder/Kugel/Slab/Mesh), 3MF-Roundtrip
-- [x] Vorschaubilder (PNG/JPG/QOI) im G-Code in Filamentfarbe; TLS-Schalter für Druckhosts
-- [x] Dateibibliothek `/library` (Browsen, Öffnen, Upload, Projekt-3MF und G-Code ablegen), Autosave mit Wiederherstellung
-- [x] Auf Fläche legen (Taste F); Schnelleinstellungen Supports/Infill/Brim im Plater
-
-## Jetzt (in dieser Reihenfolge)
-1. [x] **Docker-Image verkleinern, Stufe 1**: GUI-Ressourcen entfernt (1,36 GB → 1,2 GB)
-2. [x] **Undo/Redo** im Plater (Strg+Z / Strg+Y, Toolbar)
-3. [x] **Herstellerbett**: `bed_model` (STL) und `bed_texture` (SVG/PNG) des Druckerprofils im Viewer
-4. [x] **Support- und Seam-Painting**: Pinsel (Kugel, Radius), Enforcer/Blocker/Radierer, Speicherung als
-       `slic3rpe:custom_supports` / `slic3rpe:custom_seam` je Dreieck, Mesh-Unterteilung für feine Pinsel,
-       Import aus PrusaSlicer-3MF (unterteilte Dreiecke werden auf den Mehrheitszustand reduziert)
-   - [ ] Pinsel-Varianten: Smart Fill / Bucket Fill, Höhenbereich, nur Flächen zur Kamera
-5. [x] **Höhenbereiche** (variable Layerhöhe und beliebige Einstellungen je Z-Bereich) als
-       `Prusa_Slicer_layer_config_ranges.xml` im 3MF; Slabs im Viewer
-   - [ ] Stufenloses Layerhöhen-Profil (`layer_height_profile`) mit Glättung/adaptiv
-6. [ ] **Druckerstatus** nach dem Upload (Fortschritt, Temperaturen, Dateiliste) – braucht Hardware-Test
-7. [x] **MMU-Painting** (`slic3rpe:mmu_segmentation`), Extruder je Dreieck
-
-## Release
-- [x] 1.0.0-rc.1: UAT-Testplan (docs/UAT.md), Changelog, Beispielmodelle, Versionsanzeige
-- [ ] UAT durchführen, Befunde beheben → 1.0.0
-- [ ] MCP-Integration gemäß docs/MCP-Konzept.md (nach Freigabe)
-
-## Später
-- [ ] Cut-Tool (Schnittebene, Mesh-Boolean, optional Verbinder)
-- [ ] Text-/SVG-Embossing
-- [ ] Hollowing-Editor für SLA (Ablauflöcher); Hollowing-Parameter sind bereits Einstellungen
-- [ ] Docker-Image Stufe 2: eigener PrusaSlicer-Build ohne GUI (`-DSLIC3R_GUI=OFF`) → ≈ 300–400 MB
-- [ ] Thumbnails auch in `.bgcode` und als `Metadata/thumbnail.png` im 3MF
-- [ ] Druckhosts: PrusaLink Digest-Login, Prusa Connect, Duet/RepRapFirmware, Repetier, Obico; mDNS-Hinweis
-- [ ] Bibliothek: Vorschaubilder für STL/3MF, Suche, Sortierung, Mehrfachauswahl
-- [ ] Objekt-Instanzen statt Duplikate; Volumen per Drag & Drop zwischen Objekten; Volumen-Sichtbarkeit
-- [ ] Mehrsprachige Oberfläche (Deutsch)
+- [x] Slicing-Kern, Profile, Settings-Tabs (Modi), Schnelleinstellungen, Vorschau nach Feature-Typ, Thumbnails
+- [x] Volumen (Modifier, Support-Verstärker/Blocker, Negativ, Teile), Höhenbereiche, Support-/Seam-/MMU-Painting
+- [x] Auf Fläche legen, Undo/Redo, Herstellerbett, Bibliothek, Autosave, Projekt speichern/laden
+- [x] Druckhosts PrusaLink/OctoPrint/Moonraker mit TLS-Option, Docker, Proxmox, UAT 1.0.0-rc.2
 
 ## Braucht dich (Robert)
 - [ ] Upload an einen echten Drucker testen (PrusaLink / Klipper / OctoPrint) – Typ und Adresse nennen
 - [ ] Proxmox-Helper auf einem echten PVE-Host testen; Repo-URL-Platzhalter in Skripten/README ersetzen
+- [ ] MCP-Integration gemäß docs/MCP-Konzept.md freigeben
