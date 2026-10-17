@@ -341,6 +341,8 @@ export function Sidebar() {
   const update = useStore((s) => s.updateObject);
   const transformMode = useStore((s) => s.transformMode);
   const setTransformMode = useStore((s) => s.setTransformMode);
+  const placeOnFace = useStore((s) => s.placeOnFace);
+  const setPlaceOnFace = useStore((s) => s.setPlaceOnFace);
   const slice = useStore((s) => s.slice);
   const cancelSlice = useStore((s) => s.cancelSlice);
   const job = useStore((s) => s.job);
@@ -400,6 +402,14 @@ export function Sidebar() {
                 </button>
                 <button className={transformMode === 'scale' ? 'active' : ''} title="Scale (S)" onClick={() => setTransformMode('scale')}>
                   ⤢
+                </button>
+                <button
+                  className={placeOnFace ? 'active' : ''}
+                  title="Place on face (F): click a face in the 3D view to lay it flat on the bed"
+                  onClick={() => setPlaceOnFace(!placeOnFace)}
+                  disabled={!objects.length}
+                >
+                  ▱
                 </button>
                 <button title="Arrange (A)" onClick={arrange} disabled={!objects.length}>
                   ▦

@@ -215,6 +215,7 @@ export function Viewer() {
   const range = useStore((s) => s.previewLayerRange);
   const showTravel = useStore((s) => s.previewShowTravel);
   const featureVis = useStore((s) => s.previewFeatureVisibility);
+  const placeOnFace = useStore((s) => s.placeOnFace);
 
   // --- init scene
   useEffect(() => {
@@ -334,6 +335,17 @@ export function Viewer() {
       }
       const hits = refs.raycaster.intersectObjects(pickables, false);
       const st = useStore.getState();
+      if (st.placeOnFace) {
+        // lay the clicked face flat on the bed
+        const hit = hits.find((h) => h.face && (h.object.userData.kind === 'object' || !(h.object as THREE.Mesh).material || !((h.object as THREE.Mesh).material as THREE.MeshStandardMaterial).transparent));
+        if (hit && hit.face) {
+          const normal = hit.face.normal.clone().transformDirection(hit.object.matrixWorld);
+          const objectId = hit.object.userData.kind === 'volume' ? (hit.object.parent!.userData.id as string) : (hit.object.userData.id as string);
+          st.select([objectId]);
+          st.placeObjectOnFace(objectId, [normal.x, normal.y, normal.z]);
+        } else st.setPlaceOnFace(false);
+        return;
+      }
       if (hits.length) {
         // prefer a volume hit over the object body when both are under the cursor at similar depth
         const hit = hits.find((h) => h.object.userData.kind === 'volume' && h.distance <= hits[0].distance + 0.5) || hits[0];
@@ -517,23 +529,28 @@ export function Viewer() {
       if (e.key === 'Delete' || e.key === 'Backspace') {
         if (st.selectedVolumeId && st.selectedIds.length === 1) st.removeVolume(st.selectedIds[0], st.selectedVolumeId);
         else if (st.selectedIds.length) st.removeObjects(st.selectedIds);
-      } else if (e.key === 'm' || e.key === 'M') st.setTransformMode('translate');
+      } else if (e.key === 'f' || e.key === 'F') st.setPlaceOnFace(!st.placeOnFace);
+      else if (e.key === 'm' || e.key === 'M') st.setTransformMode('translate');
       else if (e.key === 'r' || e.key === 'R') st.setTransformMode('rotate');
       else if (e.key === 's' || e.key === 'S') st.setTransformMode('scale');
       else if (e.key === 'a' && e.ctrlKey) {
         e.preventDefault();
         st.select(st.objects.map((o) => o.id));
       } else if (e.key === 'a' || e.key === 'A') st.arrange();
-      else if (e.key === 'Escape') st.select([]);
+      else if (e.key === 'Escape') {
+        if (st.placeOnFace) st.setPlaceOnFace(false);
+        else st.select([]);
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
   return (
-    <div className="viewer" ref={containerRef}>
+    <div className={`viewer ${placeOnFace ? 'place-on-face' : ''}`} ref={containerRef}>
+      {placeOnFace && <div className="viewer-banner">Place on face: click the face that should lie flat on the bed (Esc to cancel)</div>}
       <div className="viewer-hint">
-        {view === 'plater' ? 'Left: rotate · Right/Middle: pan · Wheel: zoom · M/R/S: move/rotate/scale · A: arrange · Del: delete' : ''}
+        {view === 'plater' ? 'Left: rotate · Right/Middle: pan · Wheel: zoom · M/R/S: move/rotate/scale · F: place on face · A: arrange · Del: delete' : ''}
       </div>
       <button
         className="viewer-fit"

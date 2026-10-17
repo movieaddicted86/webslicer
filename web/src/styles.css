@@ -1079,3 +1079,21 @@ table.kv td:first-child {
 .object-list li.empty a {
   color: var(--accent2);
 }
+
+/* ---- place on face */
+.viewer.place-on-face canvas {
+  cursor: crosshair;
+}
+.viewer-banner {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--accent);
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-weight: 600;
+  pointer-events: none;
+  z-index: 2;
+}

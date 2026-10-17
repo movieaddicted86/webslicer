@@ -118,6 +118,11 @@ interface State {
   /** selected sub-volume (belongs to the single selected object) */
   selectedVolumeId?: string;
   transformMode: 'translate' | 'rotate' | 'scale';
+  /** "Place on face" tool: the next click on an object face lays that face flat on the bed */
+  placeOnFace: boolean;
+  setPlaceOnFace: (on: boolean) => void;
+  /** rotate an object so that the given world-space face normal points down (-Z) */
+  placeObjectOnFace: (id: string, worldNormal: [number, number, number]) => void;
 
   job?: JobRecord;
   jobLog: string[];
@@ -734,7 +739,25 @@ export const useStore = create<State>((set, get) => ({
   select: (ids, additive = false) =>
     set((s) => ({ selectedIds: additive ? Array.from(new Set([...s.selectedIds, ...ids])) : ids, selectedVolumeId: undefined })),
 
-  setTransformMode: (transformMode) => set({ transformMode }),
+  setTransformMode: (transformMode) => set({ transformMode, placeOnFace: false }),
+
+  placeOnFace: false,
+  setPlaceOnFace: (placeOnFace) => set({ placeOnFace }),
+
+  placeObjectOnFace: (id, worldNormal) => {
+    const o = get().objects.find((x) => x.id === id);
+    if (!o) return;
+    const n = new THREE.Vector3(...worldNormal).normalize();
+    if (n.lengthSq() < 0.5) return;
+    const down = new THREE.Vector3(0, 0, -1);
+    const q = new THREE.Quaternion().setFromUnitVectors(n, down);
+    const cur = new THREE.Quaternion().setFromEuler(new THREE.Euler(o.rotation[0], o.rotation[1], o.rotation[2], 'XYZ'));
+    const next = q.multiply(cur);
+    const e = new THREE.Euler().setFromQuaternion(next, 'XYZ');
+    get().updateObject(id, { rotation: [e.x, e.y, e.z] });
+    get().dropToBed(id);
+    set({ placeOnFace: false });
+  },
 
   dropToBed: (id) => {
     const o = get().objects.find((x) => x.id === id);

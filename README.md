@@ -10,7 +10,7 @@ nativ in einem Proxmox-LXC.
 ## Funktionen
 
 - **3D-Plater** (Three.js): STL / OBJ / 3MF / AMF importieren (Drag & Drop), mehrere Objekte,
-  verschieben / drehen / skalieren (Gizmo + Zahleneingabe), Arrange, Duplizieren, Druckraum-Check,
+  verschieben / drehen / skalieren (Gizmo + Zahleneingabe), **Auf Fläche legen** (Taste F), Arrange, Duplizieren, Druckraum-Check,
   Extruder-Zuweisung, **Pro-Objekt-Einstellungen** (Overrides wie in PrusaSlicer).
 - **Volumen** wie in PrusaSlicer: **Modifier** (Bereich mit eigenen Einstellungen, z. B. 100 % Infill),
   **Support-Verstärker / -Blocker**, **Negativ-Volumen** (Aussparungen) und zusätzliche **Teile** als
