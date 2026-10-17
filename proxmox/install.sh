@@ -69,6 +69,9 @@ if [ ! -f "${PRUSASLICER_DIR}/VERSION" ] || [ "$(cat "${PRUSASLICER_DIR}/VERSION
   rm -rf "${PRUSASLICER_DIR}"
   mv "${TMP}/squashfs-root" "${PRUSASLICER_DIR}"
   echo "${PRUSASLICER_VERSION}" > "${PRUSASLICER_DIR}/VERSION"
+  # GUI-only resources are not needed for CLI slicing
+  R="${PRUSASLICER_DIR}/usr/resources"
+  rm -rf "$R/localization" "$R/fonts" "$R/shapes" "$R/icons" "$R/workflows" "$R/web" "$R/applications" "$R/udev"          "$R/data/printer_gantries" "${PRUSASLICER_DIR}/usr/share/locale"
   rm -rf "$TMP"
 fi
 HOME=/tmp "${PRUSASLICER_DIR}/AppRun" --help | head -n1 || die "PrusaSlicer does not start"

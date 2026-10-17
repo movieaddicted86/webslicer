@@ -48,7 +48,12 @@ RUN set -eux; \
     ./PrusaSlicer.AppImage --appimage-extract >/dev/null; \
     mv squashfs-root prusaslicer; \
     rm PrusaSlicer.AppImage; \
-    echo "${PRUSASLICER_VERSION}" > prusaslicer/VERSION
+    echo "${PRUSASLICER_VERSION}" > prusaslicer/VERSION; \
+    # GUI-only resources are not needed for CLI slicing (≈ 100 MB)
+    R=prusaslicer/usr/resources; \
+    rm -rf "$R/localization" "$R/fonts" "$R/shapes" "$R/icons" "$R/workflows" "$R/web" "$R/applications" "$R/udev" \
+           "$R/data/printer_gantries" prusaslicer/usr/share/locale; \
+    du -sh prusaslicer
 
 # ---------- 3. Runtime ------------------------------------------------------
 FROM ${NODE_IMAGE}
