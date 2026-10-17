@@ -67,3 +67,30 @@ test('3MF writer and reader roundtrip volumes', async () => {
   assert.ok(model.includes('<triangle v1="8" v2="10" v3="9"/>'));
   assert.equal((model.match(/<vertex /g) || []).length, 24);
 });
+
+test('3MF roundtrip of height ranges and MMU paint', async () => {
+  const buf = await build3mf([
+    {
+      name: 'c',
+      mesh: cube(10),
+      transform: I,
+      ranges: [{ minZ: 0, maxZ: 4, config: { layer_height: '0.1' } }, { minZ: 4, maxZ: 10, config: { layer_height: '0.3', perimeters: '3' } }],
+      supportPaint: '400000000000',
+      mmuPaint: '000000000023',
+    },
+  ]);
+  const proj = await read3mfProject(buf);
+  const o = proj.objects[0];
+  assert.deepEqual(o.ranges, [
+    { minZ: 0, maxZ: 4, config: { layer_height: '0.1' } },
+    { minZ: 4, maxZ: 10, config: { layer_height: '0.3', perimeters: '3' } },
+  ]);
+  assert.equal(o.supportPaint, '400000000000');
+  assert.equal(o.mmuPaint, '000000000023');
+  const JSZip = (await import('jszip')).default;
+  const model = await (await JSZip.loadAsync(buf)).file('3D/3dmodel.model')!.async('string');
+  assert.ok(model.includes('slic3rpe:custom_supports="4"'));
+  // extruder 3 → extended state: bits 0,0,1,1 then 1,1,0,0 → "c3"
+  assert.ok(model.includes('slic3rpe:mmu_segmentation="c3"'), model.match(/mmu_segmentation="[^"]*"/g)?.join(','));
+  assert.ok(model.includes('slic3rpe:mmu_segmentation="8"'));
+});

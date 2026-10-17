@@ -124,6 +124,66 @@ function TransformInputs({
   );
 }
 
+const EXTRUDER_CSS = ['#e6b84a', '#73c2fb', '#d96fd9', '#84d08a', '#f09b59', '#a9a9f5'];
+
+/** Height range modifiers of the selected object (variable layer height and per-range settings) */
+function RangePanel({ o }: { o: PlaterObject }) {
+  const addRange = useStore((s) => s.addRange);
+  const updateRange = useStore((s) => s.updateRange);
+  const removeRange = useStore((s) => s.removeRange);
+  const openDialog = useStore((s) => s.openDialog);
+  const num = (v: string, fallback: number) => {
+    const n = parseFloat(v);
+    return Number.isFinite(n) ? n : fallback;
+  };
+  return (
+    <div className="range-panel">
+      <div className="section-head">
+        <span>Height ranges</span>
+        <button onClick={() => addRange(o.id)} title="Add a height range with its own layer height / settings">
+          ＋ Range
+        </button>
+      </div>
+      {o.ranges.length > 0 && (
+        <div className="range-rows">
+          <div className="range-row head">
+            <span>From</span>
+            <span>To</span>
+            <span>Layer h.</span>
+            <span />
+            <span />
+          </div>
+          {o.ranges.map((r) => (
+            <div key={r.id} className={`range-row ${r.maxZ > r.minZ ? '' : 'invalid'}`}>
+              <input type="number" step="0.5" value={r.minZ} onChange={(e) => updateRange(o.id, r.id, { minZ: num(e.target.value, r.minZ) })} />
+              <input type="number" step="0.5" value={r.maxZ} onChange={(e) => updateRange(o.id, r.id, { maxZ: num(e.target.value, r.maxZ) })} />
+              <input
+                type="number"
+                step="0.05"
+                value={r.config.layer_height ?? ''}
+                placeholder="–"
+                onChange={(e) => {
+                  const c = { ...r.config };
+                  if (e.target.value === '') delete c.layer_height;
+                  else c.layer_height = e.target.value;
+                  updateRange(o.id, r.id, { config: c });
+                }}
+              />
+              <button className="icon" title="Settings for this range" onClick={() => openDialog('objectSettings', { objectId: o.id, rangeId: r.id })}>
+                ⚙{Object.keys(r.config).filter((k) => k !== 'layer_height').length ? '•' : ''}
+              </button>
+              <button className="icon" title="Remove range" onClick={() => removeRange(o.id, r.id)}>
+                ✕
+              </button>
+            </div>
+          ))}
+          <div className="muted small">Z in mm from the object bottom. Ranges may not overlap.</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** Support / seam painting controls for the selected object */
 function PaintPanel({ o }: { o: PlaterObject }) {
   const paintMode = useStore((s) => s.paintMode);
@@ -134,9 +194,13 @@ function PaintPanel({ o }: { o: PlaterObject }) {
   const setPaintTool = useStore((s) => s.setPaintTool);
   const setBrushRadius = useStore((s) => s.setBrushRadius);
   const clearPaint = useStore((s) => s.clearPaint);
+  const extruders = useStore((s) => s.extruderCount());
+  const paintExtruder = useStore((s) => s.paintExtruder);
+  const setPaintExtruder = useStore((s) => s.setPaintExtruder);
   const count = (arr?: Uint8Array) => (arr ? arr.reduce((a, v) => a + (v ? 1 : 0), 0) : 0);
   const nSup = count(o.paint?.supports);
   const nSeam = count(o.paint?.seam);
+  const nMmu = count(o.paint?.mmu);
   if (!paintMode) {
     return (
       <div className="paint-panel">
@@ -147,18 +211,34 @@ function PaintPanel({ o }: { o: PlaterObject }) {
           <button onClick={() => startPaint(o.id, 'seam')} title="Paint seam enforcers / blockers (P)">
             🖌 Seam{nSeam ? ` (${nSeam})` : ''}
           </button>
+          {extruders > 1 && (
+            <button onClick={() => startPaint(o.id, 'mmu')} title="Paint extruder per triangle (multi-material)">
+              🖌 Extruder{nMmu ? ` (${nMmu})` : ''}
+            </button>
+          )}
         </div>
       </div>
     );
   }
+  const title = paintMode === 'supports' ? 'Paint supports' : paintMode === 'seam' ? 'Paint seam' : 'Paint extruder';
   return (
     <div className="paint-panel active">
       <div className="section-head">
-        <span>{paintMode === 'supports' ? 'Paint supports' : 'Paint seam'}</span>
+        <span>{title}</span>
         <button className="primary" onClick={stopPaint}>
           Done
         </button>
       </div>
+      {paintMode === 'mmu' ? (
+        <div className="paint-tools">
+          {Array.from({ length: extruders }, (_, i) => i + 1).map((n) => (
+            <label key={n} className={`tool extruder ${paintExtruder === n ? 'active' : ''}`} style={{ borderColor: paintExtruder === n ? EXTRUDER_CSS[(n - 1) % EXTRUDER_CSS.length] : undefined }}>
+              <input type="radio" checked={paintExtruder === n} onChange={() => setPaintExtruder(n)} />
+              <span className="swatch" style={{ background: EXTRUDER_CSS[(n - 1) % EXTRUDER_CSS.length] }} /> {n}
+            </label>
+          ))}
+        </div>
+      ) : (
       <div className="paint-tools">
         <label className={`tool enforcer ${paintTool === 'enforcer' ? 'active' : ''}`} title="Left mouse button">
           <input type="radio" checked={paintTool === 'enforcer'} onChange={() => setPaintTool('enforcer')} /> Enforcer
@@ -170,19 +250,22 @@ function PaintPanel({ o }: { o: PlaterObject }) {
           <input type="radio" checked={paintTool === 'erase'} onChange={() => setPaintTool('erase')} /> Erase
         </label>
       </div>
+      )}
       <label className="brush">
         <span>Brush {brushRadius.toFixed(1)} mm</span>
         <input type="range" min={0.5} max={25} step={0.5} value={brushRadius} onChange={(e) => setBrushRadius(Number(e.target.value))} />
       </label>
       <div className="manip-actions">
-        <button onClick={() => clearPaint(o.id, paintMode)} disabled={!(paintMode === 'supports' ? nSup : nSeam)}>
+        <button onClick={() => clearPaint(o.id, paintMode)} disabled={!(paintMode === 'supports' ? nSup : paintMode === 'seam' ? nSeam : nMmu)}>
           Clear all
         </button>
       </div>
       <div className="muted small">
         {paintMode === 'supports'
           ? 'Enforcers force supports, blockers prevent them. Set Supports to "For support enforcers only" or "Everywhere".'
-          : 'Enforcers attract the seam, blockers repel it.'}
+          : paintMode === 'seam'
+            ? 'Enforcers attract the seam, blockers repel it.'
+            : 'Painted triangles are printed with the selected extruder; unpainted ones use the object extruder.'}
       </div>
     </div>
   );
@@ -226,6 +309,7 @@ function ObjectManipulation({ o }: { o: PlaterObject }) {
         <button onClick={() => set({ rotation: [0, 0, 0], scale: [1, 1, 1] })}>Reset all</button>
       </div>
       <PaintPanel o={o} />
+      <RangePanel o={o} />
       <div className="manip-row extruder">
         {extruders > 1 && (
           <>

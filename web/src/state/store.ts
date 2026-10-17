@@ -19,7 +19,7 @@ import {
   type ThumbnailInput,
 } from '../api';
 import { parseThumbnailSpec, type ThumbnailSpec } from '../three/thumbnail';
-import { decodePaint, encodePaint, remapPaint, subdivideForPainting, type PaintKind } from '../three/paint';
+import { decodeMmu, decodePaint, encodeMmu, encodePaint, remapPaint, subdivideForPainting, type PaintKind } from '../three/paint';
 import { decodeVector, resizeVector, toBool, unescapeStringsCstyle } from '../values';
 import type { ParsedGcode } from '../gcode/types';
 
@@ -57,12 +57,21 @@ export interface PlaterObject {
   visible: boolean;
   triangles: number;
   volumes: PlaterVolume[];
-  /** per-triangle paint of the main mesh (support enforcers/blockers, seam) */
-  paint?: { supports?: Uint8Array; seam?: Uint8Array };
+  /** per-triangle paint of the main mesh (support enforcers/blockers, seam, MMU extruder) */
+  paint?: { supports?: Uint8Array; seam?: Uint8Array; mmu?: Uint8Array };
+  /** height range modifiers (object Z in mm, from the object's bottom) */
+  ranges: LayerRange[];
   /** geometry has been subdivided for painting */
   paintReady?: boolean;
   /** bumped on every paint stroke so the viewer refreshes colours */
   paintVersion?: number;
+}
+
+export interface LayerRange {
+  id: string;
+  minZ: number;
+  maxZ: number;
+  config: Config;
 }
 
 export interface NewVolumeInput {
@@ -134,7 +143,14 @@ interface State {
   /** painting (support enforcers/blockers, seam) */
   paintMode?: PaintKind;
   paintTool: 'enforcer' | 'blocker' | 'erase';
+  /** extruder painted in MMU mode (1-based) */
+  paintExtruder: number;
+  setPaintExtruder: (n: number) => void;
   brushRadius: number;
+  /** height range modifiers */
+  addRange: (objectId: string) => void;
+  updateRange: (objectId: string, rangeId: string, patch: Partial<LayerRange>) => void;
+  removeRange: (objectId: string, rangeId: string) => void;
   startPaint: (objectId: string, kind: PaintKind) => Promise<void>;
   stopPaint: () => void;
   setPaintTool: (t: 'enforcer' | 'blocker' | 'erase') => void;
@@ -196,6 +212,8 @@ interface State {
       volumes?: NewVolumeInput[];
       supportPaint?: string;
       seamPaint?: string;
+      mmuPaint?: string;
+      ranges?: Array<{ minZ: number; maxZ: number; config: Config }>;
     }>,
     opts?: { keepPositions?: boolean },
   ) => Promise<void>;
@@ -317,6 +335,7 @@ function triangleCount(g: THREE.BufferGeometry): number {
 }
 
 let volumeId = 0;
+let rangeId = 0;
 
 /**
  * Build a PlaterVolume from an input. `offset` is the translation that was applied to the
@@ -688,9 +707,10 @@ export const useStore = create<State>((set, get) => ({
         triangles: tri,
         volumes: (it.volumes || []).map((v) => makeVolume(v, offset)),
         paint:
-          it.supportPaint || it.seamPaint
-            ? { supports: decodePaint(it.supportPaint, tri), seam: decodePaint(it.seamPaint, tri) }
+          it.supportPaint || it.seamPaint || it.mmuPaint
+            ? { supports: decodePaint(it.supportPaint, tri), seam: decodePaint(it.seamPaint, tri), mmu: decodeMmu(it.mmuPaint, tri) }
             : undefined,
+        ranges: (it.ranges || []).map((r) => ({ id: `rng-${++rangeId}`, minZ: r.minZ, maxZ: r.maxZ, config: { ...r.config } })),
       });
     }
     set((st) => ({ objects: [...st.objects, ...created], selectedIds: created.map((c) => c.id), selectedVolumeId: undefined, sliceDirty: true }));
@@ -777,7 +797,8 @@ export const useStore = create<State>((set, get) => ({
       position: [o.position[0] + 10, o.position[1] + 10, o.position[2]],
       config: { ...o.config },
       volumes: o.volumes.map((v) => ({ ...v, id: `vol-${++volumeId}`, config: { ...v.config } })),
-      paint: o.paint ? { supports: o.paint.supports?.slice(), seam: o.paint.seam?.slice() } : undefined,
+      paint: o.paint ? { supports: o.paint.supports?.slice(), seam: o.paint.seam?.slice(), mmu: o.paint.mmu?.slice() } : undefined,
+      ranges: o.ranges.map((r) => ({ ...r, id: `rng-${++rangeId}`, config: { ...r.config } })),
     }));
     set((st) => ({ objects: [...st.objects, ...created], selectedIds: created.map((c) => c.id), selectedVolumeId: undefined, sliceDirty: true }));
     get().arrange();
@@ -805,7 +826,9 @@ export const useStore = create<State>((set, get) => ({
     const maxEdge = Math.min(5, Math.max(1, maxDim / 30));
     const { geometry, parent } = subdivideForPainting(o.geometry, maxEdge);
     const tri = geometry.getAttribute('position').count / 3;
-    const paint = o.paint ? { supports: remapPaint(o.paint.supports, parent), seam: remapPaint(o.paint.seam, parent) } : undefined;
+    const paint = o.paint
+      ? { supports: remapPaint(o.paint.supports, parent), seam: remapPaint(o.paint.seam, parent), mmu: remapPaint(o.paint.mmu, parent) }
+      : undefined;
     get().updateObject(objectId, { geometry, triangles: tri, paint, paintReady: true, modelId: undefined, uploadError: undefined });
     try {
       const res = await api.uploadModel(geometryToStl(geometry), o.name);
@@ -817,6 +840,39 @@ export const useStore = create<State>((set, get) => ({
   },
   stopPaint: () => set({ paintMode: undefined }),
   setPaintTool: (paintTool) => set({ paintTool }),
+  paintExtruder: 1,
+  setPaintExtruder: (paintExtruder) => set({ paintExtruder }),
+
+  addRange: (objectId) => {
+    const o = get().objects.find((x) => x.id === objectId);
+    if (!o) return;
+    get().recordHistory();
+    const top = o.ranges.reduce((m, r) => Math.max(m, r.maxZ), 0);
+    const h = o.size[2] * o.scale[2];
+    const minZ = Math.min(top, h);
+    const maxZ = Math.min(h, minZ + Math.max(2, h / 4));
+    const r: LayerRange = {
+      id: `rng-${++rangeId}`,
+      minZ: +minZ.toFixed(2),
+      maxZ: +maxZ.toFixed(2),
+      config: { layer_height: get().presets.print.current.layer_height || '0.2' },
+    };
+    set((s) => ({ objects: s.objects.map((x) => (x.id === objectId ? { ...x, ranges: [...x.ranges, r] } : x)), sliceDirty: true }));
+  },
+  updateRange: (objectId, rangeId, patch) => {
+    get().recordHistory();
+    set((s) => ({
+      objects: s.objects.map((x) => (x.id === objectId ? { ...x, ranges: x.ranges.map((r) => (r.id === rangeId ? { ...r, ...patch } : r)) } : x)),
+      sliceDirty: true,
+    }));
+  },
+  removeRange: (objectId, rangeId) => {
+    get().recordHistory();
+    set((s) => ({
+      objects: s.objects.map((x) => (x.id === objectId ? { ...x, ranges: x.ranges.filter((r) => r.id !== rangeId) } : x)),
+      sliceDirty: true,
+    }));
+  },
   setBrushRadius: (brushRadius) => set({ brushRadius: Math.max(0.2, Math.min(50, brushRadius)) }),
 
   beginPaintStroke: (objectId) => {
@@ -974,6 +1030,8 @@ export const useStore = create<State>((set, get) => ({
         extruder: o.extruder || undefined,
         supportPaint: o.paint?.supports && o.paint.supports.some((x) => x) ? encodePaint(o.paint.supports) : undefined,
         seamPaint: o.paint?.seam && o.paint.seam.some((x) => x) ? encodePaint(o.paint.seam) : undefined,
+        mmuPaint: o.paint?.mmu && o.paint.mmu.some((x) => x) ? encodeMmu(o.paint.mmu) : undefined,
+        ranges: o.ranges.filter((r) => r.maxZ > r.minZ).map((r) => ({ minZ: r.minZ, maxZ: r.maxZ, config: r.config })),
         volumes: o.volumes
           .filter((v) => v.modelId)
           .map((v) => ({

@@ -7,7 +7,7 @@ import { useStore, bedShapeOf, objectBounds, type PlaterObject, type PlaterVolum
 import { FEATURE_COLORS, type ParsedGcode } from '../gcode/types';
 import type { VolumeType } from '../api';
 import { renderThumbnails } from './thumbnail';
-import { computeCentroids, paintToColors, trianglesInSphere } from './paint';
+import { computeCentroids, paintToColors, trianglesInSphere, type PaintKind } from './paint';
 
 const OBJECT_COLOR = 0xe6b84a;
 const SELECTED_COLOR = 0x6fb1ff;
@@ -27,6 +27,9 @@ interface ObjectNode {
   group: THREE.Group;
   mesh: THREE.Mesh;
   volumes: Map<string, THREE.Mesh>;
+  /** translucent slabs visualizing height range modifiers */
+  slabs?: THREE.Group;
+  slabKey?: string;
 }
 
 interface SceneRefs {
@@ -401,7 +404,7 @@ export function Viewer() {
     brushCursor.visible = false;
     brushCursor.renderOrder = 20;
     scene.add(brushCursor);
-    let paintStroke: { objectId: string; value: number; kind: 'supports' | 'seam'; button: number } | null = null;
+    let paintStroke: { objectId: string; value: number; kind: PaintKind; button: number } | null = null;
     const centroidCache = new WeakMap<THREE.BufferGeometry, Float32Array>();
     const pickPaintHit = (e: PointerEvent) => {
       const st = useStore.getState();
@@ -437,10 +440,13 @@ export function Viewer() {
       if (st.paintMode && (e.button === 0 || e.button === 2)) {
         const p = pickPaintHit(e);
         if (p) {
-          const value = e.button === 2 ? 2 : e.shiftKey ? 0 : st.paintTool === 'enforcer' ? 1 : st.paintTool === 'blocker' ? 2 : 0;
-          paintStroke = { objectId: p.st.selectedIds[0], value, kind: st.paintMode, button: e.button };
+          let value: number;
+          if (st.paintMode === 'mmu') value = e.shiftKey || e.button === 2 ? 0 : st.paintExtruder;
+          else value = e.button === 2 ? 2 : e.shiftKey ? 0 : st.paintTool === 'enforcer' ? 1 : st.paintTool === 'blocker' ? 2 : 0;
+          const stroke = { objectId: p.st.selectedIds[0], value, kind: st.paintMode, button: e.button };
+          paintStroke = stroke;
           controls.enabled = false;
-          st.beginPaintStroke(paintStroke.objectId);
+          st.beginPaintStroke(stroke.objectId);
           paintAt(e);
           e.preventDefault();
           return;
@@ -463,8 +469,10 @@ export function Viewer() {
         brushCursor.visible = true;
         brushCursor.position.copy(p.hit.point);
         brushCursor.scale.setScalar(st.brushRadius);
-        const c = paintStroke ? paintStroke.value : st.paintTool === 'enforcer' ? 1 : st.paintTool === 'blocker' ? 2 : 0;
-        (brushCursor.material as THREE.MeshBasicMaterial).color.set(c === 1 ? 0x4d6bff : c === 2 ? 0xff4d4d : 0xffffff);
+        const c = paintStroke ? paintStroke.value : st.paintMode === 'mmu' ? st.paintExtruder : st.paintTool === 'enforcer' ? 1 : st.paintTool === 'blocker' ? 2 : 0;
+        const col =
+          st.paintMode === 'mmu' ? (c ? EXTRUDER_COLORS[(c - 1) % EXTRUDER_COLORS.length] : 0xffffff) : c === 1 ? 0x4d6bff : c === 2 ? 0xff4d4d : 0xffffff;
+        (brushCursor.material as THREE.MeshBasicMaterial).color.set(col);
       } else brushCursor.visible = false;
     };
     const endStroke = () => {
@@ -604,15 +612,22 @@ export function Viewer() {
       node.mesh.userData.extruder = o.extruder;
       const base = o.extruder > 0 ? EXTRUDER_COLORS[(o.extruder - 1) % EXTRUDER_COLORS.length] : OBJECT_COLOR;
       const bodySelected = selected && !selectedVolumeId;
-      const painted = !!(o.paint && (o.paint.supports || o.paint.seam));
+      const painted = !!(o.paint && (o.paint.supports || o.paint.seam || o.paint.mmu));
       const paintingThis = paintMode && selected;
       if (painted || paintingThis) {
         // per-triangle colours: paint over the object's base colour
         const baseColor = new THREE.Color(outside ? OUTSIDE_COLOR : base);
-        const kind = paintMode || (o.paint?.supports ? 'supports' : 'seam');
+        const kind: PaintKind = paintMode || (o.paint?.supports ? 'supports' : o.paint?.seam ? 'seam' : 'mmu');
         const arr = o.paint?.[kind];
         const existing = node.mesh.geometry.getAttribute('color') as THREE.BufferAttribute | undefined;
-        const colors = paintToColors(arr, o.triangles, baseColor, existing ? (existing.array as Float32Array) : undefined);
+        const palette =
+          kind === 'mmu'
+            ? (s: number) => {
+                const c = new THREE.Color(EXTRUDER_COLORS[(s - 1) % EXTRUDER_COLORS.length]);
+                return [c.r, c.g, c.b] as [number, number, number];
+              }
+            : undefined;
+        const colors = paintToColors(arr, o.triangles, baseColor, existing ? (existing.array as Float32Array) : undefined, palette);
         if (!existing || existing.array !== colors) node.mesh.geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
         else existing.needsUpdate = true;
         mat.vertexColors = true;
@@ -626,6 +641,49 @@ export function Viewer() {
         mat.color.set(outside ? OUTSIDE_COLOR : bodySelected ? SELECTED_COLOR : base);
       }
       mat.emissive.set(bodySelected && !paintMode ? 0x16304a : 0x000000);
+
+      // height range slabs (only for the selected object)
+      const wantSlabs = selected && o.ranges.length > 0;
+      const slabKey = wantSlabs ? o.ranges.map((r) => `${r.minZ}:${r.maxZ}`).join(',') + `|${o.size.join('x')}` : '';
+      if (node.slabs && (!wantSlabs || node.slabKey !== slabKey)) {
+        node.group.remove(node.slabs);
+        node.slabs.traverse((c) => (c as THREE.Mesh).geometry?.dispose());
+        node.slabs = undefined;
+      }
+      if (wantSlabs && !node.slabs) {
+        const slabs = new THREE.Group();
+        if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
+        const bb = o.geometry.boundingBox!;
+        const w = (bb.max.x - bb.min.x) * 1.1 + 2;
+        const d = (bb.max.y - bb.min.y) * 1.1 + 2;
+        const cx = (bb.min.x + bb.max.x) / 2;
+        const cy = (bb.min.y + bb.max.y) / 2;
+        const sz = o.scale[2] || 1;
+        o.ranges.forEach((r, i) => {
+          if (!(r.maxZ > r.minZ)) return;
+          const h = (r.maxZ - r.minZ) / sz;
+          const m = new THREE.Mesh(
+            new THREE.BoxGeometry(w, d, h),
+            new THREE.MeshBasicMaterial({ color: i % 2 ? 0x6fb1ff : 0xffb86f, transparent: true, opacity: 0.18, depthWrite: false, side: THREE.DoubleSide }),
+          );
+          m.position.set(cx, cy, r.minZ / sz + h / 2);
+          m.renderOrder = 5;
+          slabs.add(m);
+          const edge = new THREE.LineSegments(
+            new THREE.EdgesGeometry(m.geometry),
+            new THREE.LineBasicMaterial({ color: i % 2 ? 0x6fb1ff : 0xffb86f, transparent: true, opacity: 0.8 }),
+          );
+          edge.position.copy(m.position);
+          slabs.add(edge);
+        });
+        // counter the group's scale so slab sizes stay in object units
+        slabs.scale.set(1 / (o.scale[0] || 1), 1 / (o.scale[1] || 1), 1);
+        slabs.scale.x = 1;
+        slabs.scale.y = 1;
+        node.group.add(slabs);
+        node.slabs = slabs;
+        node.slabKey = slabKey;
+      }
 
       // volumes
       const seenVol = new Set<string>();
@@ -752,7 +810,9 @@ export function Viewer() {
       {placeOnFace && <div className="viewer-banner">Place on face: click the face that should lie flat on the bed (Esc to cancel)</div>}
       {paintMode && (
         <div className="viewer-banner">
-          {paintMode === 'supports' ? 'Paint supports' : 'Paint seam'}: left = brush tool · right = blocker · Shift+left = erase · Esc = done
+          {paintMode === 'mmu'
+            ? 'Paint extruder: left = selected extruder · right / Shift+left = reset to object extruder · Esc = done'
+            : `${paintMode === 'supports' ? 'Paint supports' : 'Paint seam'}: left = brush tool · right = blocker · Shift+left = erase · Esc = done`}
         </div>
       )}
       <div className="viewer-hint">

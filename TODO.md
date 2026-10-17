@@ -17,9 +17,11 @@ alle Daten, sobald sie im 3MF stehen; es fehlen jeweils Editor im Browser und 3M
        `slic3rpe:custom_supports` / `slic3rpe:custom_seam` je Dreieck, Mesh-Unterteilung für feine Pinsel,
        Import aus PrusaSlicer-3MF (unterteilte Dreiecke werden auf den Mehrheitszustand reduziert)
    - [ ] Pinsel-Varianten: Smart Fill / Bucket Fill, Höhenbereich, nur Flächen zur Kamera
-5. [ ] **Variable Layerhöhe**: Profil-Editor (Glättung, adaptiv), `layer_height_profile` im 3MF
+5. [x] **Höhenbereiche** (variable Layerhöhe und beliebige Einstellungen je Z-Bereich) als
+       `Prusa_Slicer_layer_config_ranges.xml` im 3MF; Slabs im Viewer
+   - [ ] Stufenloses Layerhöhen-Profil (`layer_height_profile`) mit Glättung/adaptiv
 6. [ ] **Druckerstatus** nach dem Upload (Fortschritt, Temperaturen, Dateiliste) – braucht Hardware-Test
-7. [ ] **MMU-Painting** (`slic3rpe:mmu_segmentation`), Extruder je Dreieck
+7. [x] **MMU-Painting** (`slic3rpe:mmu_segmentation`), Extruder je Dreieck
 
 ## Später
 - [ ] Cut-Tool (Schnittebene, Mesh-Boolean, optional Verbinder)

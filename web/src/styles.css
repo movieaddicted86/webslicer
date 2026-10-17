@@ -1201,3 +1201,40 @@ button.link:hover {
   gap: 2px;
   font-size: 12px;
 }
+
+/* ---- height ranges */
+.range-panel {
+  border-top: 1px dashed var(--border);
+  padding-top: 6px;
+}
+.range-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.range-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr auto auto;
+  gap: 4px;
+  align-items: center;
+}
+.range-row.head {
+  color: var(--muted);
+  font-size: 11px;
+}
+.range-row input {
+  width: 100%;
+  padding: 3px 4px;
+}
+.range-row.invalid input {
+  border-color: var(--red);
+}
+.paint-tools .tool.extruder .swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  display: inline-block;
+}
+.paint-tools .tool.extruder.active {
+  background: #ffffff18;
+}

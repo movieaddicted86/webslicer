@@ -12,6 +12,8 @@ type ImportItem = {
   volumes?: NewVolumeInput[];
   supportPaint?: string;
   seamPaint?: string;
+  mmuPaint?: string;
+  ranges?: Array<{ minZ: number; maxZ: number; config: Record<string, string> }>;
 };
 
 export async function importFiles(files: FileList | File[]) {
@@ -42,6 +44,8 @@ export async function importFiles(files: FileList | File[]) {
               extruder: po?.extruder,
               supportPaint: po?.supportPaint,
               seamPaint: po?.seamPaint,
+              mmuPaint: po?.mmuPaint,
+              ranges: po?.ranges,
             };
             // restore sub-volumes (parts, modifiers, support enforcers/blockers) from the triangle ranges
             if (po && po.volumes.length > 1) {
@@ -56,6 +60,7 @@ export async function importFiles(files: FileList | File[]) {
               if (mv) {
                 item.supportPaint = po.supportPaint?.slice(mv.first, mv.last + 1);
                 item.seamPaint = po.seamPaint?.slice(mv.first, mv.last + 1);
+                item.mmuPaint = po.mmuPaint?.slice(mv.first, mv.last + 1);
               }
               item.volumes = po.volumes
                 .map((v, vi) => ({ name: v.name || VOLUME_LABELS[v.type], type: v.type, geometry: parts[vi], config: v.config, extruder: v.extruder }))

@@ -386,15 +386,17 @@ const OBJECT_SETTING_EXCLUDES = new Set([
 /** Settings that only make sense per object, not per modifier/part volume (PrusaSlicer "object only"). */
 const OBJECT_ONLY_PREFIXES = ['support_material', 'support_tree', 'raft_', 'brim_', 'skirt', 'seam_', 'staggered_inner_seams', 'scarf_seam', 'layer_height', 'first_layer_height', 'slicing_mode', 'xy_size_compensation', 'elefant_foot', 'dont_support_bridges', 'interface_shells', 'mmu_segmented', 'wipe_into', 'infill_only_where_needed', 'only_one_perimeter_first_layer', 'avoid_crossing', 'thick_bridges', 'ooze_prevention', 'standby_temperature'];
 
-function ObjectSettingsDialog({ onClose, objectId, volumeId }: { onClose: () => void; objectId: string; volumeId?: string }) {
+function ObjectSettingsDialog({ onClose, objectId, volumeId, rangeId }: { onClose: () => void; objectId: string; volumeId?: string; rangeId?: string }) {
   const o = useStore((s) => s.objects.find((x) => x.id === objectId));
   const schema = useStore((s) => s.schema)!;
   const updateObject = useStore((s) => s.updateObject);
   const updateVolume = useStore((s) => s.updateVolume);
+  const updateRange = useStore((s) => s.updateRange);
   const printCfg = useStore((s) => s.presets.print.current);
   const mode = useStore((s) => s.mode);
   const [search, setSearch] = useState('');
   const vol = volumeId ? o?.volumes.find((v) => v.id === volumeId) : undefined;
+  const range = rangeId ? o?.ranges.find((r) => r.id === rangeId) : undefined;
   const forVolume = !!vol;
   const candidates = useMemo(
     () =>
@@ -406,14 +408,22 @@ function ObjectSettingsDialog({ onClose, objectId, volumeId }: { onClose: () => 
     [schema, search, mode, forVolume],
   );
   if (!o) return null;
-  const config = vol ? vol.config : o.config;
+  const config = vol ? vol.config : range ? range.config : o.config;
   const setConfig = (c: Record<string, string>) => {
+    if (range) {
+      updateRange(o.id, range.id, { config: c });
+      return;
+    }
     useStore.getState().recordHistory();
     if (vol) updateVolume(o.id, vol.id, { config: c });
     else updateObject(o.id, { config: c });
   };
   const keys = Object.keys(config);
-  const title = vol ? `${vol.type === 'ParameterModifier' ? 'Modifier' : 'Part'} settings – ${vol.name} (${o.name})` : `Per-object settings – ${o.name}`;
+  const title = vol
+    ? `${vol.type === 'ParameterModifier' ? 'Modifier' : 'Part'} settings – ${vol.name} (${o.name})`
+    : range
+      ? `Height range ${range.minZ}–${range.maxZ} mm – ${o.name}`
+      : `Per-object settings – ${o.name}`;
   return (
     <Modal title={title} onClose={onClose} wide>
       <div className="object-settings">
@@ -508,7 +518,7 @@ export function Dialogs() {
     case 'savePreset':
       return <SavePresetDialog onClose={close} payload={payload as { type: PresetType; extruderIdx: number }} />;
     case 'objectSettings':
-      return <ObjectSettingsDialog onClose={close} {...(payload as { objectId: string; volumeId?: string })} />;
+      return <ObjectSettingsDialog onClose={close} {...(payload as { objectId: string; volumeId?: string; rangeId?: string })} />;
     case 'about':
       return <AboutDialog onClose={close} />;
     case 'library':

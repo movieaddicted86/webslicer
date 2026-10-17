@@ -166,6 +166,15 @@ export interface SliceObjectInput {
   volumes?: SliceVolumeInput[];
   supportPaint?: string;
   seamPaint?: string;
+  /** one hex char per triangle = extruder index */
+  mmuPaint?: string;
+  ranges?: LayerRangeInput[];
+}
+
+export interface LayerRangeInput {
+  minZ: number;
+  maxZ: number;
+  config: Config;
 }
 
 export interface ProjectVolume {
@@ -184,6 +193,8 @@ export interface ProjectObject {
   volumes: ProjectVolume[];
   supportPaint?: string;
   seamPaint?: string;
+  mmuPaint?: string;
+  ranges?: LayerRangeInput[];
 }
 
 export interface ThumbnailInput {

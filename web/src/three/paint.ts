@@ -6,7 +6,7 @@
  */
 import * as THREE from 'three';
 
-export type PaintKind = 'supports' | 'seam';
+export type PaintKind = 'supports' | 'seam' | 'mmu';
 export const PAINT_NONE = 0;
 export const PAINT_ENFORCER = 1;
 export const PAINT_BLOCKER = 2;
@@ -110,12 +110,21 @@ export function trianglesInSphere(centroids: Float32Array, center: THREE.Vector3
   return out;
 }
 
-/** Fill a vertex colour attribute from a paint array (base colour for unpainted triangles). */
-export function paintToColors(paint: Uint8Array | undefined, triCount: number, base: THREE.Color, target?: Float32Array): Float32Array {
+/**
+ * Fill a vertex colour attribute from a paint array (base colour for unpainted triangles).
+ * `palette` maps a state to a colour; defaults to enforcer/blocker colours.
+ */
+export function paintToColors(
+  paint: Uint8Array | undefined,
+  triCount: number,
+  base: THREE.Color,
+  target?: Float32Array,
+  palette: (state: number) => [number, number, number] | undefined = (s) => PAINT_COLORS[s],
+): Float32Array {
   const colors = target && target.length === triCount * 9 ? target : new Float32Array(triCount * 9);
   for (let i = 0; i < triCount; i++) {
     const s = paint ? paint[i] : 0;
-    const c = PAINT_COLORS[s];
+    const c = s ? palette(s) : undefined;
     const r = c ? c[0] : base.r;
     const g = c ? c[1] : base.g;
     const b = c ? c[2] : base.b;
@@ -132,6 +141,24 @@ export function encodePaint(paint: Uint8Array): string {
   let s = '';
   for (let i = 0; i < paint.length; i++) s += paint[i] === PAINT_ENFORCER ? '4' : paint[i] === PAINT_BLOCKER ? '8' : '0';
   return s;
+}
+
+/** MMU paint: one hex char per triangle = extruder index */
+export function encodeMmu(paint: Uint8Array): string {
+  let s = '';
+  for (let i = 0; i < paint.length; i++) s += (paint[i] & 15).toString(16);
+  return s;
+}
+
+export function decodeMmu(s: string | undefined, triCount: number): Uint8Array | undefined {
+  if (!s) return undefined;
+  const out = new Uint8Array(triCount);
+  let any = false;
+  for (let i = 0; i < Math.min(s.length, triCount); i++) {
+    out[i] = parseInt(s[i], 16) || 0;
+    if (out[i]) any = true;
+  }
+  return any ? out : undefined;
 }
 
 export function decodePaint(s: string | undefined, triCount: number): Uint8Array | undefined {

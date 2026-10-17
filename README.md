@@ -12,8 +12,11 @@ nativ in einem Proxmox-LXC.
 - **3D-Plater** (Three.js): STL / OBJ / 3MF / AMF importieren (Drag & Drop), mehrere Objekte,
   verschieben / drehen / skalieren (Gizmo + Zahleneingabe), **Auf Fläche legen** (Taste F), Arrange, Duplizieren, Druckraum-Check,
   Extruder-Zuweisung, **Pro-Objekt-Einstellungen** (Overrides wie in PrusaSlicer).
-- **Support- und Seam-Painting**: Verstärker und Blocker per Pinsel direkt auf das Modell malen (Taste L
-  bzw. P, Radius einstellbar, Undo), gespeichert wie in PrusaSlicer als Dreiecksattribute im 3MF.
+- **Support-, Seam- und MMU-Painting**: Verstärker und Blocker bzw. den Extruder per Pinsel direkt auf das
+  Modell malen (Taste L bzw. P, Radius einstellbar, Undo), gespeichert wie in PrusaSlicer als
+  Dreiecksattribute im 3MF.
+- **Höhenbereiche**: Z-Bereiche eines Objekts mit eigener Layerhöhe und beliebigen weiteren Einstellungen
+  (variable Layerhöhe), wie die Höhenbereichs-Modifier in PrusaSlicer.
 - **Undo/Redo** im Plater, **Herstellerbett** mit Modell und Textur des gewählten Druckers.
 - **Volumen** wie in PrusaSlicer: **Modifier** (Bereich mit eigenen Einstellungen, z. B. 100 % Infill),
   **Support-Verstärker / -Blocker**, **Negativ-Volumen** (Aussparungen) und zusätzliche **Teile** als

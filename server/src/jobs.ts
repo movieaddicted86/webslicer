@@ -37,6 +37,10 @@ export interface SliceObjectInput {
   /** per-triangle paint of the main mesh: one char per triangle ('0' none, '4' enforcer, '8' blocker) */
   supportPaint?: string;
   seamPaint?: string;
+  /** MMU paint: one hex char per triangle = extruder index (0 = object default) */
+  mmuPaint?: string;
+  /** height range modifiers (object Z, mm) */
+  ranges?: Array<{ minZ: number; maxZ: number; config: IniSection }>;
 }
 
 export interface SliceRequest {
@@ -274,6 +278,8 @@ export async function build3mfForRequest(req: SliceRequest, projectConfig?: IniS
       volumes,
       supportPaint: o.supportPaint,
       seamPaint: o.seamPaint,
+      mmuPaint: o.mmuPaint,
+      ranges: o.ranges,
     });
   }
   return build3mf(objects, { projectConfig, title: req.outputName });

@@ -492,6 +492,14 @@ function validateSliceRequest(body: SliceRequest) {
       const p = o[key];
       if (p !== undefined && (typeof p !== 'string' || p.length > 2_000_000 || !/^[048]*$/.test(p))) throw new Error(`invalid ${key}`);
     }
+    if (o.mmuPaint !== undefined && (typeof o.mmuPaint !== 'string' || o.mmuPaint.length > 2_000_000 || !/^[0-9a-f]*$/i.test(o.mmuPaint))) throw new Error('invalid mmuPaint');
+    if (o.ranges !== undefined) {
+      if (!Array.isArray(o.ranges) || o.ranges.length > 64) throw new Error('invalid ranges');
+      for (const r of o.ranges) {
+        if (typeof r.minZ !== 'number' || typeof r.maxZ !== 'number' || !(r.maxZ > r.minZ) || r.minZ < 0) throw new Error('invalid range');
+        if (!r.config || typeof r.config !== 'object') throw new Error('range config required');
+      }
+    }
     for (const v of o.volumes || []) {
       if (!isId(v.modelId)) throw new Error('invalid volume modelId');
       if (!Array.isArray(v.transform) || v.transform.length !== 16) throw new Error('volume transform must have 16 entries');

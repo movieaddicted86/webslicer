@@ -7,7 +7,7 @@
 import JSZip from 'jszip';
 import type { IniSection } from './ini.js';
 import { escapeStringCstyle } from './values.js';
-import { attributeToTriangleState, PAINT_BLOCKER, PAINT_ENFORCER } from './paint.js';
+import { attributeToTriangleState, triangleStateToAttribute, PAINT_BLOCKER, PAINT_ENFORCER } from './paint.js';
 
 export interface Mesh {
   /** flat xyz positions */
@@ -164,6 +164,16 @@ export interface ThreeMfObject {
   /** per-triangle paint of the main mesh, one char per triangle ('0' none, '4' enforcer, '8' blocker) */
   supportPaint?: string;
   seamPaint?: string;
+  /** MMU painting: one hex char per triangle = extruder index (0 = default) */
+  mmuPaint?: string;
+  /** height range modifiers (object Z) with per-range settings */
+  ranges?: LayerRange[];
+}
+
+export interface LayerRange {
+  minZ: number;
+  maxZ: number;
+  config: IniSection;
 }
 
 function xmlEscape(s: string): string {
@@ -219,6 +229,7 @@ export async function build3mf(objects: ThreeMfObject[], opts: { projectConfig?:
       const isMain = volIndex++ === 0;
       const sup = isMain ? obj.supportPaint : undefined;
       const seam = isMain ? obj.seamPaint : undefined;
+      const mmu = isMain ? obj.mmuPaint : undefined;
       const v = vol.mesh.vertices;
       const vs: string[] = new Array(v.length / 3);
       for (let j = 0; j < v.length; j += 3) {
@@ -232,6 +243,10 @@ export async function build3mf(objects: ThreeMfObject[], opts: { projectConfig?:
         let attrs = '';
         if (sup && sup[ti] && sup[ti] !== '0') attrs += ` slic3rpe:custom_supports="${sup[ti]}"`;
         if (seam && seam[ti] && seam[ti] !== '0') attrs += ` slic3rpe:custom_seam="${seam[ti]}"`;
+        if (mmu && mmu[ti] && mmu[ti] !== '0') {
+          const a = triangleStateToAttribute(parseInt(mmu[ti], 16) || 0);
+          if (a) attrs += ` slic3rpe:mmu_segmentation="${a}"`;
+        }
         ts[ti] = `     <triangle v1="${t[j] + vertexOffset}" v2="${t[j + 1] + vertexOffset}" v3="${t[j + 2] + vertexOffset}"${attrs}/>`;
       }
       triParts.push(ts.join('\n'));
@@ -294,6 +309,26 @@ export async function build3mf(objects: ThreeMfObject[], opts: { projectConfig?:
   mc.push('</config>');
   zip.file('Metadata/Slic3r_PE_model.config', mc.join('\n'));
 
+  // Height range modifiers live in their own file (PrusaSlicer: Prusa_Slicer_layer_config_ranges.xml)
+  if (objects.some((o) => o.ranges && o.ranges.some((r) => r.maxZ > r.minZ))) {
+    const lr: string[] = ['<?xml version="1.0" encoding="UTF-8"?>', '<objects>'];
+    objects.forEach((obj, i) => {
+      const valid = (obj.ranges || []).filter((r) => r.maxZ > r.minZ);
+      if (!valid.length) return;
+      lr.push(` <object id="${i + 1}">`);
+      for (const r of valid) {
+        lr.push(`  <range min_z="${fmt(r.minZ)}" max_z="${fmt(r.maxZ)}">`);
+        for (const [k, val] of Object.entries(r.config || {})) {
+          lr.push(`   <option opt_key="${xmlEscape(k)}">${xmlEscape(escapeStringCstyle(val))}</option>`);
+        }
+        lr.push('  </range>');
+      }
+      lr.push(' </object>');
+    });
+    lr.push('</objects>');
+    zip.file('Metadata/Prusa_Slicer_layer_config_ranges.xml', lr.join('\n'));
+  }
+
   if (opts.projectConfig) {
     // Values are already in their INI-serialized form (newlines escaped), write them verbatim.
     const lines = Object.keys(opts.projectConfig)
@@ -325,36 +360,45 @@ export interface ProjectObject {
   /** per-triangle paint over the whole object mesh, one char per triangle ('0', '4', '8') */
   supportPaint?: string;
   seamPaint?: string;
+  /** MMU paint: one hex char per triangle = extruder index */
+  mmuPaint?: string;
+  ranges: LayerRange[];
 }
 
 /** Read per-triangle paint attributes of every object in 3D/3dmodel.model (by object id). */
-function readPaintFromModel(model: string): Map<string, { supports?: string; seam?: string }> {
-  const out = new Map<string, { supports?: string; seam?: string }>();
+function readPaintFromModel(model: string): Map<string, { supports?: string; seam?: string; mmu?: string }> {
+  const out = new Map<string, { supports?: string; seam?: string; mmu?: string }>();
   const objRe = /<object\b([^>]*)>([\s\S]*?)<\/object>/g;
   let m: RegExpExecArray | null;
   while ((m = objRe.exec(model))) {
     const idm = /\bid="([^"]+)"/.exec(m[1]);
     if (!idm) continue;
     const body = m[2];
-    if (!/slic3rpe:custom_(supports|seam)=/.test(body)) continue;
+    if (!/slic3rpe:(custom_supports|custom_seam|mmu_segmentation)=/.test(body)) continue;
     let sup = '';
     let seam = '';
+    let mmu = '';
     let anySup = false;
     let anySeam = false;
+    let anyMmu = false;
     const triRe = /<triangle\b([^>]*)\/?>/g;
     let t: RegExpExecArray | null;
     while ((t = triRe.exec(body))) {
       const a = t[1];
       const s = /slic3rpe:custom_supports="([^"]*)"/.exec(a);
       const e = /slic3rpe:custom_seam="([^"]*)"/.exec(a);
+      const x = /slic3rpe:mmu_segmentation="([^"]*)"/.exec(a);
       const ss = attributeToTriangleState(s?.[1]);
       const es = attributeToTriangleState(e?.[1]);
+      const xs = Math.min(15, attributeToTriangleState(x?.[1]));
       sup += ss === PAINT_ENFORCER ? '4' : ss === PAINT_BLOCKER ? '8' : '0';
       seam += es === PAINT_ENFORCER ? '4' : es === PAINT_BLOCKER ? '8' : '0';
+      mmu += xs.toString(16);
       if (ss) anySup = true;
       if (es) anySeam = true;
+      if (xs) anyMmu = true;
     }
-    out.set(idm[1], { supports: anySup ? sup : undefined, seam: anySeam ? seam : undefined });
+    out.set(idm[1], { supports: anySup ? sup : undefined, seam: anySeam ? seam : undefined, mmu: anyMmu ? mmu : undefined });
   }
   return out;
 }
@@ -376,11 +420,32 @@ export async function read3mfProject(buf: Buffer): Promise<{ config: IniSection;
     }
   }
   const objects: ProjectObject[] = [];
-  let paintById = new Map<string, { supports?: string; seam?: string }>();
+  let paintById = new Map<string, { supports?: string; seam?: string; mmu?: string }>();
   const modelFile = zip.file('3D/3dmodel.model');
   if (modelFile) {
     const model = await modelFile.async('string');
     if (model.includes('slic3rpe:custom_')) paintById = readPaintFromModel(model);
+  }
+  // height range modifiers
+  const rangesById = new Map<string, LayerRange[]>();
+  const lrFile = zip.file('Metadata/Prusa_Slicer_layer_config_ranges.xml');
+  if (lrFile) {
+    const text = await lrFile.async('string');
+    const objRe = /<object\s+id="([^"]+)"[^>]*>([\s\S]*?)<\/object>/g;
+    let om: RegExpExecArray | null;
+    while ((om = objRe.exec(text))) {
+      const list: LayerRange[] = [];
+      const rangeRe = /<range\s+min_z="([^"]+)"\s+max_z="([^"]+)"[^>]*>([\s\S]*?)<\/range>/g;
+      let rm: RegExpExecArray | null;
+      while ((rm = rangeRe.exec(om[2]))) {
+        const rc: IniSection = {};
+        const optRe = /<option\s+opt_key="([^"]+)"[^>]*>([^<]*)<\/option>/g;
+        let x: RegExpExecArray | null;
+        while ((x = optRe.exec(rm[3]))) rc[x[1]] = xmlUnescape(x[2]);
+        list.push({ minZ: Number(rm[1]), maxZ: Number(rm[2]), config: rc });
+      }
+      rangesById.set(om[1], list);
+    }
   }
   const mcFile = zip.file('Metadata/Slic3r_PE_model.config');
   if (mcFile) {
@@ -403,6 +468,7 @@ export async function read3mfProject(buf: Buffer): Promise<{ config: IniSection;
         else if (k === 'extruder') extruder = Number(v) || undefined;
         else oc[k] = v;
       }
+      const ranges: LayerRange[] = rangesById.get(objId) || [];
       const volumes: ProjectVolume[] = [];
       const volRe = /<volume\s+firstid="(\d+)"\s+lastid="(\d+)"[^>]*>([\s\S]*?)<\/volume>/g;
       let vm: RegExpExecArray | null;
@@ -425,7 +491,7 @@ export async function read3mfProject(buf: Buffer): Promise<{ config: IniSection;
         }
         volumes.push(vol);
       }
-      objects.push({ name, config: oc, extruder, volumes, supportPaint: paint?.supports, seamPaint: paint?.seam });
+      objects.push({ name, config: oc, extruder, volumes, supportPaint: paint?.supports, seamPaint: paint?.seam, mmuPaint: paint?.mmu, ranges });
     }
   }
   return { config: cfg, objects };
