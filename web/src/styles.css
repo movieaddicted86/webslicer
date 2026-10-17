@@ -203,7 +203,8 @@ kbd {
   border: none;
   border-bottom: 2px solid transparent;
   border-radius: 0;
-  padding: 12px 12px;
+  padding: 12px 9px;
+  white-space: nowrap;
   color: var(--muted);
   position: relative;
 }
@@ -228,6 +229,14 @@ kbd {
   display: flex;
   align-items: center;
   gap: 6px;
+}
+.menu button {
+  white-space: nowrap;
+}
+@media (max-width: 1100px) {
+  .brand span.text {
+    display: none;
+  }
 }
 .menu select.mode {
   padding: 4px;
@@ -995,4 +1004,78 @@ table.kv td:first-child {
 .manip.volume {
   border-top: 1px dashed var(--border);
   padding-top: 6px;
+}
+
+/* ---- library */
+.library {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 60vh;
+}
+.library-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.crumbs button {
+  background: transparent;
+  border: none;
+  padding: 2px 4px;
+}
+.crumbs button.active {
+  color: var(--accent2);
+  font-weight: 600;
+}
+.library-bar .tools {
+  display: flex;
+  gap: 4px;
+}
+.library-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  flex: 1;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.library-list li {
+  display: grid;
+  grid-template-columns: 24px 1fr 80px 130px auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-bottom: 1px solid #ffffff0a;
+}
+.library-list li:hover {
+  background: var(--bg3);
+}
+.library-list li .name {
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.library-list li.dir .name {
+  font-weight: 600;
+}
+.library-list li.empty {
+  display: block;
+  padding: 16px;
+}
+.library-list button.small,
+.library-list a.button.small {
+  padding: 1px 8px;
+  font-size: 12px;
+}
+.object-list li.restore {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--text);
+}
+.object-list li.empty a {
+  color: var(--accent2);
 }

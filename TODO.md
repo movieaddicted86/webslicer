@@ -38,7 +38,8 @@ Es fehlen jeweils der Editor im Browser und die Erweiterung des 3MF-Writers im S
 - [ ] Undo/Redo im Plater
 - [ ] Bed-Modell und -Textur des Druckerherstellers im Viewer anzeigen (API liefert die Assets bereits)
 - [ ] Objekt-Instanzen (statt Duplikate) wie in PrusaSlicer
-- [ ] Projekt im Browser (localStorage) oder serverseitig speichern/laden
+- [x] Projekt serverseitig speichern/laden (Dateibibliothek `/library`, Autosave mit Wiederherstellung)
+- [ ] Bibliothek: Vorschaubilder für STL/3MF, Suche, Sortierung, Mehrfachauswahl
 - [ ] Mehrsprachige Oberfläche (Deutsch)
 - [ ] Proxmox-Helper auf einem echten PVE-Host testen; Repo-URL-Platzhalter ersetzen
 - [ ] Upload an PrusaLink/OctoPrint/Moonraker mit echten Geräten testen

@@ -52,6 +52,9 @@ export const config = {
   presetsDir: path.join(dataDir, 'presets'),
   projectsDir: path.join(dataDir, 'projects'),
   cacheDir: path.join(dataDir, 'cache'),
+  autosaveDir: path.join(dataDir, 'autosave'),
+  /** model / project / G-code library, meant to be mounted (NAS, SMB, …) */
+  libraryDir: path.resolve(process.env.LIBRARY_DIR || path.join(dataDir, 'library')),
   slicerBin,
   slicerResources: resolveResources(slicerBin),
   webDist: process.env.WEB_DIST || path.resolve(process.cwd(), 'web', 'dist'),
@@ -68,6 +71,8 @@ export function ensureDirs() {
     config.presetsDir,
     config.projectsDir,
     config.cacheDir,
+    config.autosaveDir,
+    config.libraryDir,
   ]) {
     fs.mkdirSync(d, { recursive: true });
   }

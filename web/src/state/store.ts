@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import * as THREE from 'three';
 import {
   api,
+  autosaveApi,
   type Config,
   type InstalledPrinter,
   type JobRecord,
@@ -132,7 +133,7 @@ interface State {
   toasts: Toast[];
   /** registered by the Viewer: renders G-code preview thumbnails of the plater */
   renderThumbnails?: (specs: ThumbnailSpec[], colors: string[]) => ThumbnailInput[];
-  dialog?: 'addPrinter' | 'physicalPrinters' | 'objectSettings' | 'sendToPrinter' | 'savePreset' | 'about';
+  dialog?: 'addPrinter' | 'physicalPrinters' | 'objectSettings' | 'sendToPrinter' | 'savePreset' | 'about' | 'library';
   dialogPayload?: unknown;
 
   // actions
@@ -183,6 +184,12 @@ interface State {
   setPreviewShowTravel: (b: boolean) => void;
   togglePreviewFeature: (f: string) => void;
   applyProjectConfig: (cfg: Config) => Promise<void>;
+  /** autosave of the plater on the server (per browser) */
+  autosaveInfo?: { savedAt: string; size: number };
+  autosaveState: 'idle' | 'saving' | 'saved' | 'error';
+  autosaveNow: () => Promise<void>;
+  restoreAutosave: () => Promise<void>;
+  discardAutosave: () => Promise<void>;
 }
 
 let toastId = 0;
@@ -418,6 +425,13 @@ export const useStore = create<State>((set, get) => ({
       await get().ensureCompatiblePresets();
       set({ ready: true });
       if (!installed.length) get().openDialog('addPrinter');
+      // offer to restore the last autosaved plater
+      autosaveApi
+        .info(clientId())
+        .then((info) => {
+          if (info && !get().objects.length) set({ autosaveInfo: info });
+        })
+        .catch(() => undefined);
     } catch (e) {
       set({ fatal: (e as Error).message });
     }
@@ -928,4 +942,79 @@ export const useStore = create<State>((set, get) => ({
     }));
     await get().refreshPresetLists();
   },
+
+  autosaveState: 'idle',
+
+  autosaveNow: async () => {
+    const s = get();
+    if (!s.objects.length) return;
+    const req = s.buildSliceRequest();
+    if (!req.objects.length) return;
+    set({ autosaveState: 'saving' });
+    try {
+      const r = await autosaveApi.save(clientId(), req);
+      set({ autosaveState: 'saved', autosaveInfo: { savedAt: r.savedAt, size: 0 } });
+    } catch {
+      set({ autosaveState: 'error' });
+    }
+  },
+
+  restoreAutosave: async () => {
+    try {
+      const blob = await autosaveApi.fetch(clientId());
+      const { importFiles } = await import('../components/TopBar');
+      await importFiles([new File([blob], 'autosave.3mf')]);
+      set({ autosaveInfo: undefined });
+      get().toast('success', 'Previous session restored');
+    } catch (e) {
+      get().toast('error', `Restore failed: ${(e as Error).message}`);
+    }
+  },
+
+  discardAutosave: async () => {
+    await autosaveApi.remove(clientId()).catch(() => undefined);
+    set({ autosaveInfo: undefined });
+  },
 }));
+
+/** Stable per-browser id for the server-side autosave */
+export function clientId(): string {
+  const key = 'webslicer.clientId';
+  try {
+    let id = localStorage.getItem(key);
+    if (!id || !/^[A-Za-z0-9_-]{8,64}$/.test(id)) {
+      id = Array.from(crypto.getRandomValues(new Uint8Array(12)), (b) => b.toString(16).padStart(2, '0')).join('');
+      localStorage.setItem(key, id);
+    }
+    return id;
+  } catch {
+    return 'anonymous-client';
+  }
+}
+
+// Autosave: debounce after plater or settings changes while objects exist.
+let autosaveTimer: ReturnType<typeof setTimeout> | undefined;
+let lastAutosaveKey = '';
+useStore.subscribe((s, prev) => {
+  if (!s.ready) return;
+  if (s.objects === prev.objects && s.presets === prev.presets) return;
+  if (!s.objects.length) return;
+  clearTimeout(autosaveTimer);
+  autosaveTimer = setTimeout(() => {
+    const st = useStore.getState();
+    if (!st.objects.length || st.objects.some((o) => !o.modelId && !o.uploadError)) return;
+    // cheap change key: object ids/transforms/config + preset names + modified state
+    const key = JSON.stringify([
+      st.objects.map((o) => [o.id, o.position, o.rotation, o.scale, o.config, o.extruder, o.visible, o.volumes.map((v) => [v.id, v.type, v.position, v.rotation, v.scale, v.config])]),
+      st.presets.print.name,
+      st.presets.printer.name,
+      st.presets.filament.map((f) => f.name),
+      isModified(st.presets.print),
+      isModified(st.presets.printer),
+      st.presets.filament.map(isModified),
+    ]);
+    if (key === lastAutosaveKey) return;
+    lastAutosaveKey = key;
+    st.autosaveNow();
+  }, 8000);
+});

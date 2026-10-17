@@ -37,6 +37,11 @@ nativ in einem Proxmox-LXC.
   Drucker-Displays und Mainsail/Fluidd/OctoPrint zeigen den Druck damit mit Bild.
 - **Multi-Extruder / MMU**: Filament-Preset je Extruder, Wipe-Tower-Einstellungen, Extruder-Anzahl
   im Drucker-Preset.
+- **Dateibibliothek**: Ein gemountetes Verzeichnis (`/library`, z. B. NAS-Share) mit STL/OBJ/3MF/AMF,
+  Projekten und G-Code. Dateien lassen sich im Browser durchsuchen und direkt öffnen, Projekte als 3MF
+  und fertiger G-Code dort ablegen – ohne Upload über den Browser.
+- **Autosave**: Der Plater wird automatisch als Projekt gesichert und nach einem Reload oder Absturz
+  des Browsers zur Wiederherstellung angeboten.
 - Mehrbenutzerfähig im LAN, keine Installation am Client, läuft auch auf Tablets.
 
 > Noch nicht enthalten (siehe TODO.md): Support-/Seam-Painting, Variable Layer Height
@@ -54,8 +59,11 @@ Oder ohne Compose:
 
 ```bash
 docker build -t webslicer .
-docker run -d --name webslicer -p 8080:8080 -v webslicer-data:/data webslicer
+docker run -d --name webslicer -p 8080:8080 -v webslicer-data:/data -v /pfad/zu/modellen:/library webslicer
 ```
+
+`/data` hält Einstellungen, Profile, Drucker und Jobs; `/library` ist die Dateibibliothek, die du auf
+einen Ordner oder NAS-Share mounten kannst (Standard in Compose: `./library`).
 
 Beim ersten Start öffnet sich der Dialog *Printers*: Hersteller und Druckermodell/Düse wählen
 (oder einen *Custom printer* anlegen). Danach Modell per Drag & Drop in die 3D-Ansicht ziehen und
@@ -68,7 +76,8 @@ Beim ersten Start öffnet sich der Dialog *Printers*: Hersteller und Druckermode
 | `PRUSASLICER_VERSION` (build arg) | `2.9.6` | PrusaSlicer-Version |
 | `PRUSASLICER_URL` (build arg) | – | Eigene AppImage-URL (überschreibt Version/Arch) |
 | `PORT` | `8080` | HTTP-Port |
-| `DATA_DIR` | `/data` | Presets, Modelle, Jobs, Druckerliste |
+| `DATA_DIR` | `/data` | Presets, Modelle, Jobs, Druckerliste, Autosave |
+| `LIBRARY_DIR` | `/library` (Compose) bzw. `$DATA_DIR/library` | Dateibibliothek für STL/3MF/G-Code, zum Mounten gedacht |
 | `MAX_JOBS` | `2` | Parallele Slicing-Jobs |
 | `MAX_UPLOAD_BYTES` | `524288000` | Max. Upload-Größe pro Modell |
 | `JOB_RETENTION` | `50` | Aufbewahrte Jobs (G-Code) |

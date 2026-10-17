@@ -10,10 +10,14 @@ services:
     ports:
       - "8080:8080"
     volumes:
+      # settings, profiles, printers, jobs, autosave
       - webslicer-data:/data
+      # model / project / G-code library: mount a NAS share or local folder here
+      - ./library:/library
     environment:
       - PORT=8080
       - DATA_DIR=/data
+      - LIBRARY_DIR=/library
       # Max parallel slicing jobs
       - MAX_JOBS=2
       # Optional: restrict upload size (bytes)

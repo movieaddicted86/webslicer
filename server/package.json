@@ -7,7 +7,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "tsx watch src/index.ts",
-    "test": "tsx --test src/slicer/*.test.ts"
+    "test": "tsx --test src/slicer/*.test.ts src/routes/*.test.ts"
   },
   "dependencies": {
     "express": "^4.21.2",

@@ -1,29 +1,10 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useState } from 'react';
+import { Modal } from './Modal';
+import { LibraryDialog, type LibraryMode } from './LibraryDialog';
 import { useStore, isModified } from '../../state/store';
 import { api, type InstalledPrinter, type PhysicalPrinter, type PresetType, type Vendor } from '../../api';
 import { OptionField } from '../OptionField';
 import { MODE_RANK } from '../../values';
-
-function Modal({ title, children, onClose, wide }: { title: string; children: ReactNode; onClose: () => void; wide?: boolean }) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
-  return (
-    <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className={`modal ${wide ? 'wide' : ''}`}>
-        <div className="modal-head">
-          <h2>{title}</h2>
-          <button className="icon" onClick={onClose}>
-            ✕
-          </button>
-        </div>
-        <div className="modal-body">{children}</div>
-      </div>
-    </div>
-  );
-}
 
 // ---------------------------------------------------------------------------
 function AddPrinterDialog({ onClose }: { onClose: () => void }) {
@@ -526,6 +507,8 @@ export function Dialogs() {
       return <ObjectSettingsDialog onClose={close} {...(payload as { objectId: string; volumeId?: string })} />;
     case 'about':
       return <AboutDialog onClose={close} />;
+    case 'library':
+      return <LibraryDialog onClose={close} mode={(payload as LibraryMode) || 'open'} />;
     default:
       return null;
   }

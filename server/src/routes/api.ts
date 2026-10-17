@@ -31,6 +31,7 @@ import {
   type SliceRequest,
 } from '../jobs.js';
 import { listPrinters, upsertPrinter, deletePrinter, getPrinter, testPrinter, uploadToPrinter } from '../printers.js';
+import { libraryRouter } from './library.js';
 import type { IniSection } from '../slicer/ini.js';
 
 const PRESET_TYPES: PresetType[] = ['print', 'filament', 'printer', 'sla_print', 'sla_material'];
@@ -423,6 +424,55 @@ export function apiRouter(): express.Router {
       );
     }),
   );
+
+  // ---- file library (mounted directory) ------------------------------------
+  r.use('/library', libraryRouter());
+
+  // ---- autosave of the plater (per browser client) -------------------------
+  const clientId = (req: Request): string | undefined => {
+    const id = String(req.params.client || '');
+    return /^[A-Za-z0-9_-]{8,64}$/.test(id) ? id : undefined;
+  };
+  r.put(
+    '/autosave/:client',
+    json,
+    asyncHandler(async (req, res) => {
+      const id = clientId(req);
+      if (!id) return badRequest(res, 'invalid client id');
+      const body = req.body as SliceRequest;
+      try {
+        validateSliceRequest(body);
+      } catch (e) {
+        return badRequest(res, (e as Error).message);
+      }
+      const s = await schemaOf();
+      const merged = mergeConfigs(s, body, { forProject: true });
+      const buf = await build3mfForRequest(body, merged);
+      fs.mkdirSync(config.autosaveDir, { recursive: true });
+      fs.writeFileSync(path.join(config.autosaveDir, `${id}.3mf`), buf);
+      res.json({ ok: true, savedAt: new Date().toISOString(), size: buf.length });
+    }),
+  );
+  r.get('/autosave/:client', (req, res) => {
+    const id = clientId(req);
+    if (!id) return badRequest(res, 'invalid client id');
+    const f = path.join(config.autosaveDir, `${id}.3mf`);
+    if (!fs.existsSync(f)) return res.status(404).json({ error: 'no autosave' });
+    const st = fs.statSync(f);
+    if (req.query.info !== undefined) return res.json({ savedAt: st.mtime.toISOString(), size: st.size });
+    res.setHeader('X-Saved-At', st.mtime.toISOString());
+    res.type('model/3mf').sendFile(f);
+  });
+  r.delete('/autosave/:client', (req, res) => {
+    const id = clientId(req);
+    if (!id) return badRequest(res, 'invalid client id');
+    try {
+      fs.unlinkSync(path.join(config.autosaveDir, `${id}.3mf`));
+    } catch {
+      /* ignore */
+    }
+    res.json({ ok: true });
+  });
 
   return r;
 }

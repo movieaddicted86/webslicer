@@ -150,8 +150,11 @@ export function TopBar() {
             e.target.value = '';
           }}
         />
-        <button onClick={() => fileRef.current?.click()} title="Import STL/OBJ/3MF/AMF (Ctrl+I)">
+        <button onClick={() => fileRef.current?.click()} title="Import STL/OBJ/3MF/AMF from this computer (Ctrl+I)">
           ⤓ Import
+        </button>
+        <button onClick={() => openDialog('library', 'open')} title="Open models, projects and G-code from the server library (mounted folder)">
+          🗂 Library
         </button>
         <div className="dropdown">
           <button>Export ▾</button>
@@ -165,6 +168,12 @@ export function TopBar() {
               onClick={() => job && (location.href = api.gcodeUrl(job.id, true))}
             >
               Export G-code
+            </button>
+            <button onClick={() => openDialog('library', 'saveProject')} disabled={!objects.length}>
+              Save project to library…
+            </button>
+            <button disabled={!job || job.status !== 'done'} onClick={() => openDialog('library', 'saveGcode')}>
+              Save G-code to library…
             </button>
           </div>
         </div>

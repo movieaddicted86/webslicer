@@ -114,6 +114,9 @@ export function PreviewPanel() {
               <a className="button primary" href={api.gcodeUrl(job.id, true)} download>
                 ⤓ Export G-code
               </a>
+              <button className="secondary" onClick={() => openDialog('library', 'saveGcode')} title="Copy the G-code into the server library (mounted folder)">
+                🗂 Save to library
+              </button>
               <button className="secondary" onClick={() => openDialog('sendToPrinter')} disabled={!physical.length} title={physical.length ? '' : 'Add a physical printer first'}>
                 ➤ Send to printer
               </button>

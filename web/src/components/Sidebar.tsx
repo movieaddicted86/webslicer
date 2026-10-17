@@ -353,6 +353,11 @@ export function Sidebar() {
   const printerBinary = useStore((s) => s.presets.printer.current.binary_gcode);
   const binaryGcode = useStore((s) => s.binaryGcode);
   const [addMenuFor, setAddMenuFor] = useState<string | null>(null);
+  const autosaveInfo = useStore((s) => s.autosaveInfo);
+  const autosaveState = useStore((s) => s.autosaveState);
+  const restoreAutosave = useStore((s) => s.restoreAutosave);
+  const discardAutosave = useStore((s) => s.discardAutosave);
+  const openDialog = useStore((s) => s.openDialog);
 
   const selected = objects.filter((o) => selectedIds.includes(o.id));
   const selectedVolume = selected.length === 1 ? selected[0].volumes.find((v) => v.id === selectedVolumeId) : undefined;
@@ -466,7 +471,28 @@ export function Sidebar() {
                   </li>
                 );
               })}
-              {!objects.length && <li className="empty">Drop STL / OBJ / 3MF / AMF files onto the 3D view or use Import.</li>}
+              {!objects.length && autosaveInfo && (
+                <li className="empty restore">
+                  <div>
+                    Unsaved session from {new Date(autosaveInfo.savedAt).toLocaleString()} found.
+                  </div>
+                  <div className="manip-actions">
+                    <button className="primary" onClick={restoreAutosave}>
+                      Restore
+                    </button>
+                    <button onClick={discardAutosave}>Discard</button>
+                  </div>
+                </li>
+              )}
+              {!objects.length && !autosaveInfo && (
+                <li className="empty">
+                  Drop STL / OBJ / 3MF / AMF files onto the 3D view, use Import or{' '}
+                  <a href="#" onClick={(e) => { e.preventDefault(); openDialog('library', 'open'); }}>
+                    open the library
+                  </a>
+                  .
+                </li>
+              )}
             </ul>
             {selected.length === 1 && selectedVolume && <VolumeManipulation o={selected[0]} v={selectedVolume} />}
             {selected.length === 1 && !selectedVolume && <ObjectManipulation o={selected[0]} />}
@@ -476,6 +502,11 @@ export function Sidebar() {
           <section className="slice-panel">
             {anyOutside && <div className="warn">An object is outside the print volume.</div>}
             {anyModified && <div className="muted small">Using modified (unsaved) settings.</div>}
+            {objects.length > 0 && autosaveState !== 'idle' && (
+              <div className="muted small" title="The plater is autosaved on the server and offered for restore after a reload.">
+                {autosaveState === 'saving' ? 'Autosaving…' : autosaveState === 'saved' ? 'Autosaved' : 'Autosave failed'}
+              </div>
+            )}
             {toBool(printerBinary) && (
               <label className="checkbox small" title="Binary G-code is smaller and uploads faster, but cannot be previewed in the browser.">
                 <input type="checkbox" checked={binaryGcode} onChange={(e) => useStore.setState({ binaryGcode: e.target.checked, sliceDirty: true })} /> Export binary G-code

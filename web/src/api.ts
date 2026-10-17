@@ -321,6 +321,52 @@ export const api = {
   },
 };
 
+export interface LibraryEntry {
+  name: string;
+  path: string;
+  dir: boolean;
+  size?: number;
+  mtime?: string;
+  kind?: 'model' | 'project' | 'gcode' | 'other';
+}
+
+export const libraryApi = {
+  list: (p: string) => fetch(`/api/library?path=${encodeURIComponent(p)}`).then((r) => handle<{ root: string; path: string; entries: LibraryEntry[] }>(r)),
+  fileUrl: (p: string, download = false) => `/api/library/file?path=${encodeURIComponent(p)}${download ? '&download' : ''}`,
+  fetchFile: async (p: string) => {
+    const r = await fetch(`/api/library/file?path=${encodeURIComponent(p)}`);
+    if (!r.ok) throw new Error(`cannot read ${p} (${r.status})`);
+    return r.blob();
+  },
+  upload: (p: string, data: ArrayBuffer | Blob) =>
+    fetch(`/api/library/file?path=${encodeURIComponent(p)}`, { method: 'PUT', headers: { 'Content-Type': 'application/octet-stream' }, body: data }).then((r) =>
+      handle<{ ok: boolean; path: string }>(r),
+    ),
+  mkdir: (p: string, name: string) => fetch('/api/library/mkdir', jsonInit('POST', { path: p, name })).then((r) => handle<{ ok: boolean; path: string }>(r)),
+  remove: (p: string) => fetch(`/api/library/file?path=${encodeURIComponent(p)}`, { method: 'DELETE' }).then((r) => handle<{ ok: boolean }>(r)),
+  saveProject: (p: string, name: string, req: SliceRequest) =>
+    fetch(`/api/library/project?path=${encodeURIComponent(p)}&name=${encodeURIComponent(name)}`, jsonInit('POST', req)).then((r) =>
+      handle<{ ok: boolean; path: string; size: number }>(r),
+    ),
+  saveGcode: (jobId: string, p: string, name: string) =>
+    fetch('/api/library/gcode', jsonInit('POST', { jobId, path: p, name })).then((r) => handle<{ ok: boolean; path: string; size: number }>(r)),
+};
+
+export const autosaveApi = {
+  save: (client: string, req: SliceRequest) => fetch(`/api/autosave/${client}`, jsonInit('PUT', req)).then((r) => handle<{ ok: boolean; savedAt: string }>(r)),
+  info: async (client: string) => {
+    const r = await fetch(`/api/autosave/${client}?info`);
+    if (r.status === 404) return undefined;
+    return handle<{ savedAt: string; size: number }>(r);
+  },
+  fetch: async (client: string) => {
+    const r = await fetch(`/api/autosave/${client}`);
+    if (!r.ok) throw new Error('no autosave');
+    return r.blob();
+  },
+  remove: (client: string) => fetch(`/api/autosave/${client}`, { method: 'DELETE' }).then((r) => handle<{ ok: boolean }>(r)),
+};
+
 export function downloadBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');

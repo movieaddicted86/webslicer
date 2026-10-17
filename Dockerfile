@@ -74,10 +74,11 @@ ENV NODE_ENV=production \
 
 # Fail the build early if the slicer cannot start in this image.
 RUN /opt/prusaslicer/AppRun --help | head -n 1 \
- && mkdir -p /data && chown -R node:node /data /app
+ && mkdir -p /data /library && chown -R node:node /data /library /app
 
+ENV LIBRARY_DIR=/library
 USER node
-VOLUME ["/data"]
+VOLUME ["/data", "/library"]
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s \
   CMD curl -fsS http://localhost:8080/api/health || exit 1
