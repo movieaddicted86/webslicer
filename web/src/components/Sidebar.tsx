@@ -586,6 +586,9 @@ export function Sidebar() {
   const extruders = useStore((s) => s.extruderCount());
   const setView = useStore((s) => s.setView);
   const printerBinary = useStore((s) => s.presets.printer.current.binary_gcode);
+  // Like PrusaSlicer: the object list (and with it modifiers, painting, height ranges) is an Advanced/Expert feature.
+  const mode = useStore((s) => s.mode);
+  const simple = mode === 'simple';
   const binaryGcode = useStore((s) => s.binaryGcode);
   const [addMenuFor, setAddMenuFor] = useState<string | null>(null);
   const undo = useStore((s) => s.undo);
@@ -633,6 +636,7 @@ export function Sidebar() {
         <PreviewPanel />
       ) : (
         <>
+          {!simple && (
           <section className="objects">
             <div className="section-head">
               <span>Objects ({objects.length})</span>
@@ -760,6 +764,49 @@ export function Sidebar() {
             {selected.length === 1 && !selectedVolume && <ObjectManipulation o={selected[0]} />}
             {selected.length > 1 && <div className="muted small">{selected.length} objects selected</div>}
           </section>
+          )}
+          {simple && (
+            <section className="objects simple">
+              <div className="section-head">
+                <span>Objects ({objects.length})</span>
+                <div className="tools">
+                  <button title="Arrange (A)" onClick={arrange} disabled={!objects.length}>
+                    ▦
+                  </button>
+                  <button title="Delete selected (Del)" onClick={deleteSelection} disabled={!selected.length}>
+                    🗑
+                  </button>
+                  <button title="Delete all" onClick={() => objects.length && confirm('Remove all objects?') && clear()} disabled={!objects.length}>
+                    ✕
+                  </button>
+                </div>
+              </div>
+              {!objects.length && autosaveInfo && (
+                <div className="restore">
+                  <div>Unsaved session from {new Date(autosaveInfo.savedAt).toLocaleString()} found.</div>
+                  <div className="manip-actions">
+                    <button className="primary" onClick={restoreAutosave}>
+                      Restore
+                    </button>
+                    <button onClick={discardAutosave}>Discard</button>
+                  </div>
+                </div>
+              )}
+              {!objects.length && !autosaveInfo && (
+                <div className="muted small">
+                  Drop STL / OBJ / 3MF / AMF files onto the 3D view, use Import or{' '}
+                  <a href="#" onClick={(e) => { e.preventDefault(); openDialog('library', 'open'); }}>
+                    open the library
+                  </a>
+                  .
+                </div>
+              )}
+              <div className="muted small">
+                Simple mode: move objects with the gizmo in the 3D view. Switch to <b>Advanced</b> or <b>Expert</b> (top right) for the object list,
+                per-object settings, modifiers, painting and height ranges.
+              </div>
+            </section>
+          )}
 
           <section className="slice-panel">
             {anyOutside && <div className="warn">An object is outside the print volume.</div>}

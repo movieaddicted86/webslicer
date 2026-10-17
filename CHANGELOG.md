@@ -7,6 +7,7 @@ UAT-Durchlauf (docs/UAT-Protokoll.md): UAT-01 bis 14, 16 und 17 bestanden. Behob
 - Kamera folgt der Bettgröße beim Druckerwechsel
 - Modellnamen mit „&&“ werden als „&“ angezeigt
 - Kopfzeile bricht bei schmalen Fenstern um, kein horizontales Seitenscrollen
+- Modus Simple blendet im Plater die Objektliste mit Modifiern, Painting und Höhenbereichen aus, wie in PrusaSlicer
 
 ## 1.0.0-rc.1 – 2026-10-17
 
