@@ -6,7 +6,7 @@
  */
 import JSZip from 'jszip';
 import type { IniSection } from './ini.js';
-import { escapeStringCstyle } from './values.js';
+import { escapeStringCstyle, unescapeStringCstyle } from './values.js';
 import { attributeToTriangleState, triangleStateToAttribute, PAINT_BLOCKER, PAINT_ENFORCER } from './paint.js';
 
 export interface Mesh {
@@ -194,7 +194,85 @@ export function transformTo3mf(m: number[]): string {
 }
 
 /** Build a 3MF project archive from meshes. */
-export async function build3mf(objects: ThreeMfObject[], opts: { projectConfig?: IniSection; title?: string } = {}): Promise<Buffer> {
+/**
+ * Custom G-code inserted before printing the layer at `printZ` (PrusaSlicer "custom G-code per print Z"):
+ * colour change (M600), pause, custom G-code, template or tool change.
+ */
+export type CustomGcodeType = 'color_change' | 'pause' | 'tool_change' | 'template' | 'custom';
+export const CUSTOM_GCODE_TYPES: CustomGcodeType[] = ['color_change', 'pause', 'tool_change', 'template', 'custom'];
+/** numeric values of PrusaSlicer's CustomGCode::Type */
+const CUSTOM_GCODE_TYPE_ID: Record<CustomGcodeType, number> = { color_change: 0, pause: 1, tool_change: 2, template: 3, custom: 4 };
+
+export interface CustomGcode {
+  printZ: number;
+  type: CustomGcodeType;
+  /** 1-based extruder (colour change / tool change) */
+  extruder?: number;
+  /** colour after a colour change, "#RRGGBB" */
+  color?: string;
+  /** pause message or custom G-code text */
+  extra?: string;
+}
+
+/** Build Metadata/Prusa_Slicer_custom_gcode_per_print_z.xml */
+export function customGcodeXml(codes: CustomGcode[], mode: 'SingleExtruder' | 'MultiAsSingle' | 'MultiExtruder', config?: IniSection): string {
+  const lines = ['<?xml version="1.0" encoding="utf-8"?>', '<custom_gcodes_per_print_z>'];
+  for (const c of [...codes].sort((a, b) => a.printZ - b.printZ)) {
+    // "gcode" is only read by PrusaSlicer < 2.3; newer versions use type + extra
+    const gcode =
+      c.type === 'color_change'
+        ? config?.color_change_gcode ?? 'M600'
+        : c.type === 'pause'
+          ? config?.pause_print_gcode ?? 'M601'
+          : c.type === 'template'
+            ? config?.template_custom_gcode ?? ''
+            : c.type === 'tool_change'
+              ? 'tool_change'
+              : c.extra ?? '';
+    lines.push(
+      `<code print_z="${fmt(c.printZ)}" type="${CUSTOM_GCODE_TYPE_ID[c.type]}" extruder="${c.extruder ?? 1}" color="${xmlEscape(c.color ?? '')}" extra="${xmlEscape(escapeStringCstyle(c.extra ?? ''))}" gcode="${xmlEscape(escapeStringCstyle(gcode))}"/>`,
+    );
+  }
+  lines.push(`<mode value="${mode}"/>`, '</custom_gcodes_per_print_z>');
+  return lines.join('\n');
+}
+
+export function parseCustomGcodeXml(text: string): CustomGcode[] {
+  const out: CustomGcode[] = [];
+  const byId = new Map(Object.entries(CUSTOM_GCODE_TYPE_ID).map(([k, v]) => [v, k as CustomGcodeType]));
+  const re = /<code\b([^>]*)\/?>/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text))) {
+    const attr = (name: string) => {
+      const a = new RegExp(`\\b${name}="([^"]*)"`).exec(m![1]);
+      return a ? xmlUnescape(a[1]) : undefined;
+    };
+    const printZ = Number(attr('print_z'));
+    if (!Number.isFinite(printZ)) continue;
+    let type: CustomGcodeType;
+    const t = attr('type');
+    if (t !== undefined) type = byId.get(Number(t)) ?? 'custom';
+    else {
+      // files written by PrusaSlicer < 2.3: derive the type from the gcode attribute
+      const g = attr('gcode') ?? '';
+      type = g === 'M600' ? 'color_change' : g === 'M601' ? 'pause' : g === 'tool_change' ? 'tool_change' : 'custom';
+    }
+    const extra = attr('extra');
+    out.push({
+      printZ,
+      type,
+      extruder: Number(attr('extruder')) || 1,
+      color: attr('color') || undefined,
+      extra: extra ? unescapeStringCstyle(extra) : type === 'custom' ? attr('gcode') : undefined,
+    });
+  }
+  return out;
+}
+
+export async function build3mf(
+  objects: ThreeMfObject[],
+  opts: { projectConfig?: IniSection; title?: string; customGcodes?: CustomGcode[]; extruders?: number } = {},
+): Promise<Buffer> {
   const zip = new JSZip();
   const parts: string[] = [];
   parts.push('<?xml version="1.0" encoding="UTF-8"?>');
@@ -309,6 +387,11 @@ export async function build3mf(objects: ThreeMfObject[], opts: { projectConfig?:
   mc.push('</config>');
   zip.file('Metadata/Slic3r_PE_model.config', mc.join('\n'));
 
+  if (opts.customGcodes?.length) {
+    const mode = (opts.extruders ?? 1) > 1 ? 'MultiAsSingle' : 'SingleExtruder';
+    zip.file('Metadata/Prusa_Slicer_custom_gcode_per_print_z.xml', customGcodeXml(opts.customGcodes, mode, opts.projectConfig));
+  }
+
   // Height range modifiers live in their own file (PrusaSlicer: Prusa_Slicer_layer_config_ranges.xml)
   if (objects.some((o) => o.ranges && o.ranges.some((r) => r.maxZ > r.minZ))) {
     const lr: string[] = ['<?xml version="1.0" encoding="UTF-8"?>', '<objects>'];
@@ -408,7 +491,7 @@ function xmlUnescape(v: string): string {
 }
 
 /** Read the global config and object/volume list from a PrusaSlicer 3MF project. */
-export async function read3mfProject(buf: Buffer): Promise<{ config: IniSection; objects: ProjectObject[] }> {
+export async function read3mfProject(buf: Buffer): Promise<{ config: IniSection; objects: ProjectObject[]; customGcodes: CustomGcode[] }> {
   const zip = await JSZip.loadAsync(buf);
   const cfg: IniSection = {};
   const cfgFile = zip.file('Metadata/Slic3r_PE.config');
@@ -494,5 +577,8 @@ export async function read3mfProject(buf: Buffer): Promise<{ config: IniSection;
       objects.push({ name, config: oc, extruder, volumes, supportPaint: paint?.supports, seamPaint: paint?.seam, mmuPaint: paint?.mmu, ranges });
     }
   }
-  return { config: cfg, objects };
+  let customGcodes: CustomGcode[] = [];
+  const cgFile = zip.file('Metadata/Prusa_Slicer_custom_gcode_per_print_z.xml');
+  if (cgFile) customGcodes = parseCustomGcodeXml(await cgFile.async('string'));
+  return { config: cfg, objects, customGcodes };
 }

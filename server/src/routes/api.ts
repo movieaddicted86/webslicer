@@ -16,7 +16,7 @@ import {
   defaultPresetName,
   userPresetExists,
 } from '../slicer/presets.js';
-import { parseStl, writeBinaryStl, read3mfProject, VOLUME_TYPES } from '../slicer/threemf.js';
+import { parseStl, writeBinaryStl, read3mfProject, VOLUME_TYPES, CUSTOM_GCODE_TYPES } from '../slicer/threemf.js';
 import {
   createJob,
   getJob,
@@ -508,6 +508,16 @@ function validateSliceRequest(body: SliceRequest) {
   }
   if (!body.print?.config || !body.printer?.config) throw new Error('print and printer config required');
   if (!Array.isArray(body.filaments)) body.filaments = [];
+  if (body.customGcodes !== undefined) {
+    if (!Array.isArray(body.customGcodes) || body.customGcodes.length > 500) throw new Error('at most 500 custom G-codes');
+    for (const c of body.customGcodes) {
+      if (typeof c.printZ !== 'number' || !Number.isFinite(c.printZ) || c.printZ <= 0) throw new Error('invalid custom G-code height');
+      if (!CUSTOM_GCODE_TYPES.includes(c.type)) throw new Error(`invalid custom G-code type ${c.type}`);
+      if (c.color !== undefined && !/^#[0-9a-f]{6}$/i.test(c.color)) throw new Error('invalid custom G-code colour');
+      if (c.extra !== undefined && (typeof c.extra !== 'string' || c.extra.length > 20000)) throw new Error('invalid custom G-code text');
+      if (c.extruder !== undefined && (!Number.isInteger(c.extruder) || c.extruder < 1 || c.extruder > 16)) throw new Error('invalid custom G-code extruder');
+    }
+  }
   if (body.thumbnails !== undefined) {
     if (!Array.isArray(body.thumbnails) || body.thumbnails.length > 8) throw new Error('at most 8 thumbnails');
     for (const t of body.thumbnails) {

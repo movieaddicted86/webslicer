@@ -197,6 +197,17 @@ export interface ProjectObject {
   ranges?: LayerRangeInput[];
 }
 
+export type CustomGcodeType = 'color_change' | 'pause' | 'tool_change' | 'template' | 'custom';
+
+/** Custom G-code inserted before the layer at printZ (like PrusaSlicer's vertical slider "+") */
+export interface CustomGcode {
+  printZ: number;
+  type: CustomGcodeType;
+  extruder?: number;
+  color?: string;
+  extra?: string;
+}
+
 export interface ThumbnailInput {
   width: number;
   height: number;
@@ -209,6 +220,8 @@ export interface SliceRequest {
   objects: SliceObjectInput[];
   /** previews rendered by the browser, embedded into the G-code by the server */
   thumbnails?: ThumbnailInput[];
+  /** colour changes, pauses and custom G-code at layer heights */
+  customGcodes?: CustomGcode[];
   print: { name: string; config: Config };
   filaments: Array<{ name: string; config: Config }>;
   printer: { name: string; config: Config };
@@ -283,7 +296,7 @@ export const api = {
     }).then((r) => handle<{ id: string; name: string; triangles: number }>(r)),
   parseProject: (data: ArrayBuffer) =>
     fetch('/api/projects/parse', { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: data }).then((r) =>
-      handle<{ config: Config; objects: ProjectObject[] }>(r),
+      handle<{ config: Config; objects: ProjectObject[]; customGcodes?: CustomGcode[] }>(r),
     ),
   slice: (req: SliceRequest) => fetch('/api/slice', jsonInit('POST', req)).then((r) => handle<JobRecord>(r)),
   jobs: () => fetch('/api/jobs').then((r) => handle<JobRecord[]>(r)),

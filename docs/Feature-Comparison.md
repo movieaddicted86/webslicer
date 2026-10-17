@@ -96,11 +96,11 @@ Priority: **P1** needed for version 1.0 · **P2** important afterwards · **P3**
 | Slicing (FFF) with the full engine, progress | ✅ | – | |
 | Slicing (SLA) | 🟡 | P3 | `.sl1` export works; no preview, no support point editor |
 | Preview by feature type, legend, layer slider | ✅ | – | |
-| Preview colour schemes: height, width, speed, fan, temperature, volumetric flow, layer time, extruder, colour print | ❌ | **P1** | parser does not deliver the data yet (width/height/speed from `;WIDTH`, `;HEIGHT`, F) |
+| Preview colour schemes: height, width, speed, fan, temperature, volumetric flow, layer time, extruder, colour print | 🟡 | **P1** | feature type and colour print available; height, width, speed etc. need parser data (`;WIDTH`, `;HEIGHT`, F) |
 | Horizontal slider (moves within a layer) | ❌ | P2 | |
 | View options: travel, retractions, seams, wipe, tool changes, colour changes, shells, tool marker | 🟡 | P2 | travel only |
 | Legend with time/length per feature | 🟡 | P2 | length yes; time per feature missing |
-| Colour change / pause / custom G-code at a layer (M600 via slider) | ❌ | **P1** | very commonly used; `colorprint_heights` / custom G-code per layer in the 3MF |
+| Colour change / pause / custom G-code at a layer (M600 via slider) | ✅ | – | buttons at the top slider position, markers on the slider, colour print view; stored as `Prusa_Slicer_custom_gcode_per_print_z.xml` |
 | Sliced info (time, filament, cost, layers) | ✅ | – | stealth time missing (P3) |
 | G-code text window at the current position | ❌ | P3 | |
 | Wipe tower visualization and purging volumes dialog | 🟡 | P3 | wipe tower is sliced; dialog missing |

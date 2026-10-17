@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Colour change (M600), pause (with printer message) and custom G-code at a layer: buttons at the top
+  slider position in the preview, markers on the slider, editable list, automatic re-slice; stored in
+  the 3MF as `Metadata/Prusa_Slicer_custom_gcode_per_print_z.xml` and read from PrusaSlicer projects
+- Preview colour mode "Color print" with a legend of the colour segments
+- The preview keeps the slider position when re-slicing
+
 ## 1.0.0-rc.2 – 2026-10-17
 
 UAT run (docs/UAT-Report.md): UAT-01 to 14, 16 and 17 passed. Fixed findings:

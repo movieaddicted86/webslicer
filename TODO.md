@@ -4,7 +4,7 @@ Based on [docs/Feature-Comparison.md](docs/Feature-Comparison.md) (PrusaSlicer 2
 Priority by frequency of use in everyday printing and PrusaSlicer parity.
 
 ## P1 – required for version 1.0 (in this order)
-1. [ ] **Colour change / pause / custom G-code at a layer** via the preview slider (M600, colour print preview)
+1. [x] **Colour change / pause / custom G-code at a layer** via the preview slider (M600, colour print preview)
 2. [ ] **Preview colour schemes**: height, width, speed, fan speed, temperature, volumetric flow, layer time,
        extruder; legend with value range (extend the parser for `;WIDTH`, `;HEIGHT`, F, fan, temperature)
 3. [ ] **Instances**: set number, fill bed, instances in the object list (shared geometry, own transform)

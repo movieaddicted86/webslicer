@@ -1,6 +1,98 @@
 import { useStore } from '../state/store';
-import { api } from '../api';
+import { api, type CustomGcodeType } from '../api';
 import { FEATURE_COLORS } from '../gcode/types';
+import { colorAtZ, colorPrintSegments, normalizeColor, suggestColor } from '../gcode/colorprint';
+
+const CODE_LABEL: Record<CustomGcodeType, string> = {
+  color_change: 'Color change',
+  pause: 'Pause',
+  custom: 'Custom G-code',
+  template: 'Template',
+  tool_change: 'Tool change',
+};
+
+/** Index of the layer printed at height z (layer heights come from the G-code ;Z: markers). */
+function layerIndexOfZ(layerZ: Float32Array, z: number): number {
+  for (let i = 0; i < layerZ.length; i++) if (Math.abs(layerZ[i] - z) < 1e-3) return i;
+  return -1;
+}
+
+/**
+ * Colour changes, pauses and custom G-code at layers – PrusaSlicer's "+" on the vertical slider.
+ * The code is inserted before the layer at the top slider position is printed.
+ */
+function LayerCodes({ printZ, firstLayer, maxZ }: { printZ: number | undefined; firstLayer: boolean; maxZ: number }) {
+  const codes = useStore((s) => s.customGcodes);
+  const add = useStore((s) => s.addCustomGcode);
+  const update = useStore((s) => s.updateCustomGcode);
+  const remove = useStore((s) => s.removeCustomGcode);
+  const extruders = useStore((s) => s.extruderCount());
+  const tech = useStore((s) => s.presets.printer.current.printer_technology);
+  const baseColor = useStore((s) => normalizeColor(s.presets.filament[0]?.current.filament_colour));
+  const job = useStore((s) => s.job);
+  const running = job && (job.status === 'running' || job.status === 'queued');
+  if (tech === 'SLA' || printZ === undefined) return null;
+  const z = Math.round(printZ * 1000) / 1000;
+  const existing = codes.find((c) => Math.abs(c.printZ - z) < 1e-4);
+  // a change on the first layer has no effect – PrusaSlicer does not allow it either
+  const disabled = firstLayer || z >= maxZ + 1e-6;
+  return (
+    <div className="layer-codes">
+      <div className="layer-codes-add">
+        <span className="small muted">At Z {z.toFixed(2)} mm:</span>
+        <button
+          disabled={disabled}
+          title="Insert a filament change (M600) before this layer"
+          onClick={() => add({ printZ: z, type: 'color_change', extruder: 1, color: suggestColor(colorAtZ(z - 1e-3, baseColor, codes)) })}
+        >
+          ＋ Color
+        </button>
+        <button disabled={disabled} title="Pause the print before this layer (e.g. to insert magnets or nuts)" onClick={() => add({ printZ: z, type: 'pause', extra: 'Insert item' })}>
+          ⏸ Pause
+        </button>
+        <button disabled={disabled} title="Insert custom G-code before this layer" onClick={() => add({ printZ: z, type: 'custom', extra: 'M117 Layer change' })}>
+          ✎ Custom
+        </button>
+      </div>
+      {disabled && <div className="muted small">Move the top slider above the first layer to add a change.</div>}
+      {existing && <div className="muted small">Adding again replaces the {CODE_LABEL[existing.type].toLowerCase()} at this height.</div>}
+      {codes.length > 0 && (
+        <ul className="code-list">
+          {codes.map((c) => (
+            <li key={c.printZ} className={Math.abs(c.printZ - z) < 1e-4 ? 'current' : ''}>
+              <span className="code-z">{c.printZ.toFixed(2)}</span>
+              <span className="code-type">{CODE_LABEL[c.type]}</span>
+              {c.type === 'color_change' && (
+                <>
+                  <input type="color" value={normalizeColor(c.color, '#ffffff')} onChange={(e) => update(c.printZ, { color: e.target.value })} title="Color after the change" />
+                  {extruders > 1 && (
+                    <select value={c.extruder ?? 1} onChange={(e) => update(c.printZ, { extruder: Number(e.target.value) })} title="Extruder">
+                      {Array.from({ length: extruders }, (_, i) => (
+                        <option key={i} value={i + 1}>
+                          E{i + 1}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </>
+              )}
+              {c.type === 'pause' && (
+                <input className="code-text" value={c.extra ?? ''} onChange={(e) => update(c.printZ, { extra: e.target.value })} title="Message shown on the printer (M117)" />
+              )}
+              {c.type === 'custom' && (
+                <textarea className="code-text" rows={2} value={c.extra ?? ''} onChange={(e) => update(c.printZ, { extra: e.target.value })} spellCheck={false} />
+              )}
+              <button className="icon" title="Remove" onClick={() => remove(c.printZ)}>
+                ✕
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {codes.length > 0 && running && <div className="muted small">Updating G-code…</div>}
+    </div>
+  );
+}
 
 function fmtTime(s?: number) {
   if (!s) return '–';
@@ -29,6 +121,10 @@ export function PreviewPanel() {
   const gcodeLoading = useStore((s) => s.gcodeLoading);
   const loadGcodePreview = useStore((s) => s.loadGcodePreview);
   const toast = useStore((s) => s.toast);
+  const customGcodes = useStore((s) => s.customGcodes);
+  const colorMode = useStore((s) => s.previewColorMode);
+  const setColorMode = useStore((s) => s.setPreviewColorMode);
+  const baseColor = useStore((s) => normalizeColor(s.presets.filament[0]?.current.filament_colour));
 
   const running = job && (job.status === 'running' || job.status === 'queued');
   const info = job?.info;
@@ -131,21 +227,65 @@ export function PreviewPanel() {
                 </span>
               </div>
               <label className="small">Top</label>
-              <input type="range" min={0} max={gcode.layerCount - 1} value={range[1]} onChange={(e) => setRange([Math.min(range[0], Number(e.target.value)), Number(e.target.value)])} />
+              <div className="slider-with-markers">
+                <input type="range" min={0} max={gcode.layerCount - 1} value={range[1]} onChange={(e) => setRange([Math.min(range[0], Number(e.target.value)), Number(e.target.value)])} />
+                <div className="slider-markers">
+                  {customGcodes.map((c) => {
+                    const idx = layerIndexOfZ(gcode.layerZ, c.printZ);
+                    if (idx < 0) return null;
+                    const pct = gcode.layerCount > 1 ? (idx / (gcode.layerCount - 1)) * 100 : 0;
+                    return (
+                      <button
+                        key={c.printZ}
+                        className={`marker ${c.type}`}
+                        style={{ left: `${pct}%`, background: c.type === 'color_change' ? c.color : undefined }}
+                        title={`${CODE_LABEL[c.type]} at Z ${c.printZ.toFixed(2)} mm – click to jump`}
+                        onClick={() => setRange([Math.min(range[0], idx), idx])}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
               <label className="small">Bottom</label>
               <input type="range" min={0} max={gcode.layerCount - 1} value={range[0]} onChange={(e) => setRange([Number(e.target.value), Math.max(range[1], Number(e.target.value))])} />
+              <LayerCodes
+                printZ={gcode.layerZ[range[1]]}
+                firstLayer={range[1] === 0}
+                maxZ={gcode.layerZ[gcode.layerCount - 1] ?? 0}
+              />
               <label className="checkbox small">
                 <input type="checkbox" checked={showTravel} onChange={(e) => setShowTravel(e.target.checked)} /> Show travel moves
               </label>
-              <ul className="legend">
-                {gcode.featureTypes.map((f) => (
-                  <li key={f} className={vis[f] === false ? 'off' : ''} onClick={() => toggle(f)}>
-                    <span className="swatch" style={{ background: FEATURE_COLORS[f] || FEATURE_COLORS.Unknown }} />
-                    <span className="name">{f}</span>
-                    <span className="muted">{((gcode.featureLength[f] || 0) / 1000).toFixed(1)} m</span>
-                  </li>
-                ))}
-              </ul>
+              <label className="view-mode small">
+                <span>View</span>
+                <select value={colorMode} onChange={(e) => setColorMode(e.target.value as 'feature' | 'colorprint')}>
+                  <option value="feature">Feature type</option>
+                  <option value="colorprint">Color print</option>
+                </select>
+              </label>
+              {colorMode === 'colorprint' ? (
+                <ul className="legend">
+                  {colorPrintSegments(baseColor, customGcodes, gcode.layerZ[gcode.layerCount - 1] ?? 0).map((s, i) => (
+                    <li key={i}>
+                      <span className="swatch" style={{ background: s.color }} />
+                      <span className="name">{i === 0 ? 'Default color' : `Color ${i}`}</span>
+                      <span className="muted">
+                        {s.fromZ.toFixed(2)} – {s.toZ.toFixed(2)} mm
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <ul className="legend">
+                  {gcode.featureTypes.map((f) => (
+                    <li key={f} className={vis[f] === false ? 'off' : ''} onClick={() => toggle(f)}>
+                      <span className="swatch" style={{ background: FEATURE_COLORS[f] || FEATURE_COLORS.Unknown }} />
+                      <span className="name">{f}</span>
+                      <span className="muted">{((gcode.featureLength[f] || 0) / 1000).toFixed(1)} m</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </section>
           )}
           {!gcode && gcodeLoading && <div className="muted small">Loading preview…</div>}

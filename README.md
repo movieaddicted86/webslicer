@@ -28,8 +28,11 @@ to the browser. Runs as a Docker container or natively in a Proxmox LXC.
   default filaments. User presets are stored as PrusaSlicer-compatible `.ini` files.
 - **Slicing** with the real engine (FFF and SLA), progress via server-sent events, job queue with
   parallel jobs.
-- **G-code preview**: toolpaths coloured by feature type (PrusaSlicer colours), layer slider
-  (top/bottom), travel moves, legend with lengths, print time / filament usage / cost.
+- **G-code preview**: toolpaths coloured by feature type (PrusaSlicer colours) or as colour print, layer
+  slider (top/bottom), travel moves, legend with lengths, print time / filament usage / cost.
+- **Colour change, pause and custom G-code at a layer**: add them at the top slider position like the
+  "+" on PrusaSlicer's vertical slider (M600 / pause with message / any G-code), markers on the slider,
+  automatic re-slice, stored in the 3MF project.
 - **Export**: G-code (also binary `.bgcode`), project as 3MF (with all settings, opens directly in
   desktop PrusaSlicer), config bundle `.ini`.
 - **Physical printers**: upload (optionally starting the print) to **PrusaLink**, **OctoPrint** and

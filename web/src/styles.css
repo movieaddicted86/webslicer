@@ -1259,3 +1259,102 @@ body {
   gap: 6px;
   margin: 6px 0;
 }
+
+/* ---- custom G-code per layer (colour change / pause) */
+.slider-with-markers {
+  position: relative;
+  padding-bottom: 8px;
+}
+.slider-with-markers input[type='range'] {
+  width: 100%;
+}
+.slider-markers {
+  position: absolute;
+  left: 7px;
+  right: 7px;
+  bottom: 0;
+  height: 8px;
+}
+.slider-markers .marker {
+  position: absolute;
+  top: 0;
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  margin-left: -4px;
+  border-radius: 2px;
+  border: 1px solid #000a;
+  background: var(--yellow);
+  cursor: pointer;
+}
+.slider-markers .marker.pause {
+  background: var(--red);
+  border-radius: 50%;
+}
+.slider-markers .marker.custom,
+.slider-markers .marker.template,
+.slider-markers .marker.tool_change {
+  background: #9aa3b2;
+}
+.layer-codes {
+  margin: 6px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.layer-codes-add {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.layer-codes-add button {
+  padding: 2px 7px;
+  font-size: 12px;
+}
+.code-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.code-list li {
+  display: grid;
+  grid-template-columns: 44px auto 1fr auto;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+.code-list li.current {
+  background: #2a3b55;
+}
+.code-list .code-z {
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+.code-list input[type='color'] {
+  width: 32px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid var(--border);
+  background: none;
+}
+.code-list .code-text {
+  width: 100%;
+  min-width: 0;
+  font-size: 12px;
+}
+.code-list textarea.code-text {
+  font-family: ui-monospace, Consolas, monospace;
+}
+.view-mode {
+  display: grid;
+  grid-template-columns: 40px 1fr;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0;
+}

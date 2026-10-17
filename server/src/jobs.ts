@@ -9,7 +9,7 @@ import { randomUUID } from 'node:crypto';
 import { config } from './config.js';
 import { runSlicer } from './slicer/cli.js';
 import { serializeIni, type IniSection } from './slicer/ini.js';
-import { build3mf, parseStl, transformMesh, type ThreeMfObject, type ThreeMfVolume, type VolumeType } from './slicer/threemf.js';
+import { build3mf, parseStl, transformMesh, type CustomGcode, type ThreeMfObject, type ThreeMfVolume, type VolumeType } from './slicer/threemf.js';
 import { readGcodeInfo, type GcodeInfo } from './slicer/gcodeInfo.js';
 import { injectThumbnails, type ThumbnailInput } from './slicer/thumbnails.js';
 import { escapeStringsCstyle, unescapeStringsCstyle, splitVector } from './slicer/values.js';
@@ -53,6 +53,8 @@ export interface SliceRequest {
   binaryGcode?: boolean;
   /** previews rendered by the browser; embedded into ASCII G-code after slicing */
   thumbnails?: ThumbnailInput[];
+  /** colour changes, pauses and custom G-code at given layer heights */
+  customGcodes?: CustomGcode[];
 }
 
 export interface JobRecord {
@@ -282,7 +284,13 @@ export async function build3mfForRequest(req: SliceRequest, projectConfig?: IniS
       ranges: o.ranges,
     });
   }
-  return build3mf(objects, { projectConfig, title: req.outputName });
+  const extruders = Math.max(1, splitVector(req.printer.config.nozzle_diameter || '0.4').length);
+  return build3mf(objects, {
+    projectConfig,
+    title: req.outputName,
+    customGcodes: req.customGcodes,
+    extruders,
+  });
 }
 
 function sanitizeFilename(name: string, ext: string): string {

@@ -34,6 +34,7 @@ export async function importFiles(files: FileList | File[]) {
             await st.applyProjectConfig(proj.config);
             st.toast('info', `Applied project settings from ${f.name}`);
           }
+          if (proj.customGcodes?.length) st.setCustomGcodes(proj.customGcodes);
           const models = await loadModelFile(f);
           models.forEach((m, i) => {
             const po = proj.objects[i];

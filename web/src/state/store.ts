@@ -17,6 +17,7 @@ import {
   type Vendor,
   type VolumeType,
   type ThumbnailInput,
+  type CustomGcode,
 } from '../api';
 import { parseThumbnailSpec, type ThumbnailSpec } from '../three/thumbnail';
 import { decodeMmu, decodePaint, encodeMmu, encodePaint, remapPaint, subdivideForPainting, type PaintKind } from '../three/paint';
@@ -174,6 +175,15 @@ interface State {
   previewLayerRange: [number, number];
   previewShowTravel: boolean;
   previewFeatureVisibility: Record<string, boolean>;
+  /** how toolpaths are coloured in the preview */
+  previewColorMode: 'feature' | 'colorprint';
+  setPreviewColorMode: (m: 'feature' | 'colorprint') => void;
+  /** colour changes, pauses and custom G-code per layer height (plate level, like PrusaSlicer) */
+  customGcodes: CustomGcode[];
+  addCustomGcode: (c: CustomGcode) => void;
+  updateCustomGcode: (printZ: number, patch: Partial<CustomGcode>) => void;
+  removeCustomGcode: (printZ: number) => void;
+  setCustomGcodes: (codes: CustomGcode[]) => void;
 
   toasts: Toast[];
   /** registered by the Viewer: renders G-code preview thumbnails of the plater */
@@ -250,6 +260,20 @@ interface State {
 let toastId = 0;
 let objectId = 0;
 let refreshTimer: ReturnType<typeof setTimeout> | undefined;
+let resliceTimer: ReturnType<typeof setTimeout> | undefined;
+
+/**
+ * Re-slice automatically after colour changes / pauses were edited in the preview,
+ * like PrusaSlicer's background G-code export.
+ */
+function scheduleReslice() {
+  clearTimeout(resliceTimer);
+  resliceTimer = setTimeout(() => {
+    const s = useStore.getState();
+    const running = s.job && (s.job.status === 'running' || s.job.status === 'queued');
+    if (s.view === 'preview' && s.objects.length && !running) s.slice();
+  }, 900);
+}
 
 function emptySlot(name = ''): PresetSlot {
   return { name, saved: {}, current: {}, system: true };
@@ -441,6 +465,37 @@ export const useStore = create<State>((set, get) => ({
   previewLayerRange: [0, 0],
   previewShowTravel: false,
   previewFeatureVisibility: {},
+  previewColorMode: 'feature',
+  setPreviewColorMode: (previewColorMode) => set({ previewColorMode }),
+  customGcodes: [],
+  addCustomGcode: (c) => {
+    set((s) => ({
+      customGcodes: [...s.customGcodes.filter((x) => Math.abs(x.printZ - c.printZ) > 1e-4), c].sort((a, b) => a.printZ - b.printZ),
+      previewColorMode: c.type === 'color_change' ? 'colorprint' : s.previewColorMode,
+      sliceDirty: true,
+    }));
+    scheduleReslice();
+  },
+  updateCustomGcode: (printZ, patch) => {
+    set((s) => ({ customGcodes: s.customGcodes.map((x) => (Math.abs(x.printZ - printZ) <= 1e-4 ? { ...x, ...patch } : x)), sliceDirty: true }));
+    scheduleReslice();
+  },
+  removeCustomGcode: (printZ) => {
+    set((s) => {
+      const customGcodes = s.customGcodes.filter((x) => Math.abs(x.printZ - printZ) > 1e-4);
+      return {
+        customGcodes,
+        previewColorMode: customGcodes.some((x) => x.type === 'color_change') ? s.previewColorMode : 'feature',
+        sliceDirty: true,
+      };
+    });
+    scheduleReslice();
+  },
+  setCustomGcodes: (codes) =>
+    set({
+      customGcodes: [...codes].sort((a, b) => a.printZ - b.printZ),
+      previewColorMode: codes.some((x) => x.type === 'color_change') ? 'colorprint' : 'feature',
+    }),
   toasts: [],
 
   toast: (kind, text) => {
@@ -784,7 +839,7 @@ export const useStore = create<State>((set, get) => ({
 
   clearObjects: () => {
     get().recordHistory();
-    set({ objects: [], selectedIds: [], selectedVolumeId: undefined, sliceDirty: true, gcode: undefined, gcodeJobId: undefined });
+    set({ objects: [], selectedIds: [], selectedVolumeId: undefined, sliceDirty: true, gcode: undefined, gcodeJobId: undefined, customGcodes: [], previewColorMode: 'feature' });
   },
 
   duplicateObjects: async (ids) => {
@@ -1051,6 +1106,7 @@ export const useStore = create<State>((set, get) => ({
       printer: { name: s.presets.printer.name, config: s.presets.printer.current },
       outputName: s.objects.length > 1 ? `${first}_and_${s.objects.length - 1}_more` : first,
       binaryGcode: s.binaryGcode,
+      customGcodes: s.customGcodes.length ? s.customGcodes : undefined,
     };
   },
 
@@ -1117,7 +1173,14 @@ export const useStore = create<State>((set, get) => ({
       const parsed = await parseGcodeInWorker(text);
       const vis: Record<string, boolean> = {};
       for (const f of parsed.featureTypes) vis[f] = true;
-      set({ gcode: parsed, gcodeJobId: jobId, previewLayerRange: [0, Math.max(0, parsed.layerCount - 1)], previewFeatureVisibility: vis, view: 'preview' });
+      // keep the slider position when re-slicing (e.g. after adding a colour change)
+      const prev = get().gcode;
+      const prevRange = get().previewLayerRange;
+      const keep = prev && prev.layerCount === parsed.layerCount;
+      const range: [number, number] = keep ? prevRange : [0, Math.max(0, parsed.layerCount - 1)];
+      const oldVis = get().previewFeatureVisibility;
+      for (const f of parsed.featureTypes) if (keep && oldVis[f] === false) vis[f] = false;
+      set({ gcode: parsed, gcodeJobId: jobId, previewLayerRange: range, previewFeatureVisibility: vis, view: 'preview' });
     } finally {
       set({ gcodeLoading: false });
     }
@@ -1255,6 +1318,7 @@ useStore.subscribe((s, prev) => {
     const key = JSON.stringify([
       st.objects.map((o) => [o.id, o.position, o.rotation, o.scale, o.config, o.extruder, o.visible, o.volumes.map((v) => [v.id, v.type, v.position, v.rotation, v.scale, v.config])]),
       st.presets.print.name,
+      st.customGcodes,
       st.presets.printer.name,
       st.presets.filament.map((f) => f.name),
       isModified(st.presets.print),

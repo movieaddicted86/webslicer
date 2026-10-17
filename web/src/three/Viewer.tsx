@@ -5,7 +5,8 @@ import { TransformControls } from 'three/examples/jsm/controls/TransformControls
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
 import { useStore, bedShapeOf, objectBounds, type PlaterObject, type PlaterVolume } from '../state/store';
 import { FEATURE_COLORS, type ParsedGcode } from '../gcode/types';
-import type { VolumeType } from '../api';
+import type { CustomGcode, VolumeType } from '../api';
+import { colorAtZ, normalizeColor } from '../gcode/colorprint';
 import { renderThumbnails } from './thumbnail';
 import { computeCentroids, paintToColors, trianglesInSphere, type PaintKind } from './paint';
 
@@ -47,6 +48,8 @@ interface SceneRefs {
   gcodeLines?: THREE.LineSegments;
   travelLines?: THREE.LineSegments;
   gcodeRef?: ParsedGcode;
+  /** key of the colouring currently applied to the toolpaths */
+  colorKey?: string;
   bedKey?: string;
 }
 
@@ -168,22 +171,41 @@ function fitCamera(refs: SceneRefs, bedShape: string) {
   refs.controls.update();
 }
 
-function buildGcode(refs: SceneRefs, g: ParsedGcode) {
+interface GcodeColoring {
+  mode: 'feature' | 'colorprint';
+  baseColor: string;
+  codes: CustomGcode[];
+}
+
+/** Fill the per-vertex colours of the toolpath lines for the given colour mode. */
+function fillGcodeColors(colors: Float32Array, g: ParsedGcode, coloring: GcodeColoring) {
+  const set = (i: number, c: THREE.Color) => {
+    const o = i * 6;
+    colors[o] = colors[o + 3] = c.r;
+    colors[o + 1] = colors[o + 4] = c.g;
+    colors[o + 2] = colors[o + 5] = c.b;
+  };
+  if (coloring.mode === 'colorprint') {
+    // one colour per layer, switched by colour changes
+    const layerColor = Array.from(g.layerZ, (z) => new THREE.Color(colorAtZ(z, coloring.baseColor, coloring.codes)));
+    for (let i = 0; i < g.segmentCount; i++) set(i, layerColor[g.layers[i]] ?? layerColor[0]);
+    return;
+  }
+  const colorByType = g.featureTypes.map((t) => new THREE.Color(FEATURE_COLORS[t] || FEATURE_COLORS.Unknown));
+  for (let i = 0; i < g.segmentCount; i++) set(i, colorByType[g.types[i]]);
+}
+
+function coloringKey(c: GcodeColoring): string {
+  return c.mode === 'feature' ? 'feature' : `colorprint|${c.baseColor}|${c.codes.map((x) => `${x.type}:${x.printZ}:${x.color ?? ''}`).join(',')}`;
+}
+
+function buildGcode(refs: SceneRefs, g: ParsedGcode, coloring: GcodeColoring) {
   refs.gcodeGroup.clear();
   refs.gcodeLines = undefined;
   refs.travelLines = undefined;
   const colors = new Float32Array(g.positions.length);
-  const colorByType = g.featureTypes.map((t) => new THREE.Color(FEATURE_COLORS[t] || FEATURE_COLORS.Unknown));
-  for (let i = 0; i < g.segmentCount; i++) {
-    const c = colorByType[g.types[i]];
-    const o = i * 6;
-    colors[o] = c.r;
-    colors[o + 1] = c.g;
-    colors[o + 2] = c.b;
-    colors[o + 3] = c.r;
-    colors[o + 4] = c.g;
-    colors[o + 5] = c.b;
-  }
+  fillGcodeColors(colors, g, coloring);
+  refs.colorKey = coloringKey(coloring);
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.BufferAttribute(g.positions.slice(), 3));
   geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
@@ -283,6 +305,9 @@ export function Viewer() {
   const range = useStore((s) => s.previewLayerRange);
   const showTravel = useStore((s) => s.previewShowTravel);
   const featureVis = useStore((s) => s.previewFeatureVisibility);
+  const colorMode = useStore((s) => s.previewColorMode);
+  const customGcodes = useStore((s) => s.customGcodes);
+  const filamentColour = useStore((s) => s.presets.filament[0]?.current.filament_colour);
   const placeOnFace = useStore((s) => s.placeOnFace);
   const paintMode = useStore((s) => s.paintMode);
   // vendor bed model/texture of the selected printer ("vendor|model.stl|texture.svg", empty when none)
@@ -756,7 +781,15 @@ export function Viewer() {
   useEffect(() => {
     const refs = refsRef.current;
     if (!refs) return;
-    if (gcode && refs.gcodeRef !== gcode) buildGcode(refs, gcode);
+    const coloring: GcodeColoring = { mode: colorMode, baseColor: normalizeColor(filamentColour), codes: customGcodes };
+    if (gcode && refs.gcodeRef !== gcode) buildGcode(refs, gcode, coloring);
+    else if (gcode && refs.gcodeLines && refs.colorKey !== coloringKey(coloring)) {
+      // recolour in place (colour mode or colour changes edited)
+      const attr = refs.gcodeLines.geometry.getAttribute('color') as THREE.BufferAttribute;
+      fillGcodeColors(attr.array as Float32Array, gcode, coloring);
+      attr.needsUpdate = true;
+      refs.colorKey = coloringKey(coloring);
+    }
     if (!gcode) {
       refs.gcodeGroup.clear();
       refs.gcodeRef = undefined;
@@ -764,7 +797,7 @@ export function Viewer() {
     }
     refs.gcodeGroup.visible = view === 'preview' && !!gcode;
     if (gcode) applyGcodeRange(refs, range, showTravel, featureVis);
-  }, [gcode, view, range, showTravel, featureVis]);
+  }, [gcode, view, range, showTravel, featureVis, colorMode, customGcodes, filamentColour]);
 
   // keyboard
   useEffect(() => {

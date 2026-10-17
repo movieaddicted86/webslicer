@@ -94,3 +94,31 @@ test('3MF roundtrip of height ranges and MMU paint', async () => {
   assert.ok(model.includes('slic3rpe:mmu_segmentation="c3"'), model.match(/mmu_segmentation="[^"]*"/g)?.join(','));
   assert.ok(model.includes('slic3rpe:mmu_segmentation="8"'));
 });
+
+test('custom G-codes per print Z roundtrip', async () => {
+  const { customGcodeXml, parseCustomGcodeXml } = await import('./threemf.js');
+  const xml = customGcodeXml(
+    [
+      { printZ: 5.2, type: 'pause', extra: 'Insert magnets' },
+      { printZ: 2.4, type: 'color_change', extruder: 1, color: '#FF0000' },
+      { printZ: 8, type: 'custom', extra: 'M117 Hello\nG4 S1' },
+    ],
+    'SingleExtruder',
+    { color_change_gcode: 'M600', pause_print_gcode: 'M601' },
+  );
+  assert.ok(xml.indexOf('print_z="2.4"') < xml.indexOf('print_z="5.2"'), 'sorted by height');
+  assert.ok(xml.includes('type="0"') && xml.includes('type="1"') && xml.includes('type="4"'));
+  assert.ok(xml.includes('<mode value="SingleExtruder"/>'));
+  const codes = parseCustomGcodeXml(xml);
+  assert.deepEqual(
+    codes.map((c) => [c.printZ, c.type, c.color, c.extra]),
+    [
+      [2.4, 'color_change', '#FF0000', undefined],
+      [5.2, 'pause', undefined, 'Insert magnets'],
+      [8, 'custom', undefined, 'M117 Hello\nG4 S1'],
+    ],
+  );
+  const buf = await build3mf([{ name: 'c', mesh: cube(10), transform: I }], { customGcodes: codes });
+  const proj = await read3mfProject(buf);
+  assert.equal(proj.customGcodes.length, 3);
+});
