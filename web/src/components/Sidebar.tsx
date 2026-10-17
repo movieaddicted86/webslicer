@@ -124,6 +124,70 @@ function TransformInputs({
   );
 }
 
+/** Support / seam painting controls for the selected object */
+function PaintPanel({ o }: { o: PlaterObject }) {
+  const paintMode = useStore((s) => s.paintMode);
+  const paintTool = useStore((s) => s.paintTool);
+  const brushRadius = useStore((s) => s.brushRadius);
+  const startPaint = useStore((s) => s.startPaint);
+  const stopPaint = useStore((s) => s.stopPaint);
+  const setPaintTool = useStore((s) => s.setPaintTool);
+  const setBrushRadius = useStore((s) => s.setBrushRadius);
+  const clearPaint = useStore((s) => s.clearPaint);
+  const count = (arr?: Uint8Array) => (arr ? arr.reduce((a, v) => a + (v ? 1 : 0), 0) : 0);
+  const nSup = count(o.paint?.supports);
+  const nSeam = count(o.paint?.seam);
+  if (!paintMode) {
+    return (
+      <div className="paint-panel">
+        <div className="manip-actions">
+          <button onClick={() => startPaint(o.id, 'supports')} title="Paint support enforcers / blockers (L)">
+            🖌 Supports{nSup ? ` (${nSup})` : ''}
+          </button>
+          <button onClick={() => startPaint(o.id, 'seam')} title="Paint seam enforcers / blockers (P)">
+            🖌 Seam{nSeam ? ` (${nSeam})` : ''}
+          </button>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="paint-panel active">
+      <div className="section-head">
+        <span>{paintMode === 'supports' ? 'Paint supports' : 'Paint seam'}</span>
+        <button className="primary" onClick={stopPaint}>
+          Done
+        </button>
+      </div>
+      <div className="paint-tools">
+        <label className={`tool enforcer ${paintTool === 'enforcer' ? 'active' : ''}`} title="Left mouse button">
+          <input type="radio" checked={paintTool === 'enforcer'} onChange={() => setPaintTool('enforcer')} /> Enforcer
+        </label>
+        <label className={`tool blocker ${paintTool === 'blocker' ? 'active' : ''}`} title="Left mouse button (or right button any time)">
+          <input type="radio" checked={paintTool === 'blocker'} onChange={() => setPaintTool('blocker')} /> Blocker
+        </label>
+        <label className={`tool erase ${paintTool === 'erase' ? 'active' : ''}`} title="Left mouse button (or Shift+left any time)">
+          <input type="radio" checked={paintTool === 'erase'} onChange={() => setPaintTool('erase')} /> Erase
+        </label>
+      </div>
+      <label className="brush">
+        <span>Brush {brushRadius.toFixed(1)} mm</span>
+        <input type="range" min={0.5} max={25} step={0.5} value={brushRadius} onChange={(e) => setBrushRadius(Number(e.target.value))} />
+      </label>
+      <div className="manip-actions">
+        <button onClick={() => clearPaint(o.id, paintMode)} disabled={!(paintMode === 'supports' ? nSup : nSeam)}>
+          Clear all
+        </button>
+      </div>
+      <div className="muted small">
+        {paintMode === 'supports'
+          ? 'Enforcers force supports, blockers prevent them. Set Supports to "For support enforcers only" or "Everywhere".'
+          : 'Enforcers attract the seam, blockers repel it.'}
+      </div>
+    </div>
+  );
+}
+
 function ObjectManipulation({ o }: { o: PlaterObject }) {
   const updateRaw = useStore((s) => s.updateObject);
   const drop = useStore((s) => s.dropToBed);
@@ -161,6 +225,7 @@ function ObjectManipulation({ o }: { o: PlaterObject }) {
         <button onClick={() => set({ scale: [1, 1, 1] })}>Reset scale</button>
         <button onClick={() => set({ rotation: [0, 0, 0], scale: [1, 1, 1] })}>Reset all</button>
       </div>
+      <PaintPanel o={o} />
       <div className="manip-row extruder">
         {extruders > 1 && (
           <>
@@ -363,7 +428,7 @@ function QuickSettings() {
   const brim = (c.brim_type || 'outer_only') !== 'no_brim' && Number(c.brim_width) > 0;
   return (
     <div className="quick-settings">
-      <label>
+      <label className="span">
         <span>Supports</span>
         <select value={supports} onChange={(e) => setSupports(e.target.value)}>
           <option value="none">None</option>

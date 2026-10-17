@@ -7,6 +7,7 @@
 import JSZip from 'jszip';
 import type { IniSection } from './ini.js';
 import { escapeStringCstyle } from './values.js';
+import { attributeToTriangleState, PAINT_BLOCKER, PAINT_ENFORCER } from './paint.js';
 
 export interface Mesh {
   /** flat xyz positions */
@@ -160,6 +161,9 @@ export interface ThreeMfObject {
   extruder?: number;
   /** additional volumes (parts, modifiers, support enforcers/blockers, negative volumes) */
   volumes?: ThreeMfVolume[];
+  /** per-triangle paint of the main mesh, one char per triangle ('0' none, '4' enforcer, '8' blocker) */
+  supportPaint?: string;
+  seamPaint?: string;
 }
 
 function xmlEscape(s: string): string {
@@ -210,7 +214,11 @@ export async function build3mf(objects: ThreeMfObject[], opts: { projectConfig?:
     let triOffset = 0;
     const ranges: Array<{ vol: ThreeMfVolume; first: number; last: number }> = [];
     const triParts: string[] = [];
+    let volIndex = 0;
     for (const vol of all) {
+      const isMain = volIndex++ === 0;
+      const sup = isMain ? obj.supportPaint : undefined;
+      const seam = isMain ? obj.seamPaint : undefined;
       const v = vol.mesh.vertices;
       const vs: string[] = new Array(v.length / 3);
       for (let j = 0; j < v.length; j += 3) {
@@ -220,7 +228,11 @@ export async function build3mf(objects: ThreeMfObject[], opts: { projectConfig?:
       const t = vol.mesh.indices;
       const ts: string[] = new Array(t.length / 3);
       for (let j = 0; j < t.length; j += 3) {
-        ts[j / 3] = `     <triangle v1="${t[j] + vertexOffset}" v2="${t[j + 1] + vertexOffset}" v3="${t[j + 2] + vertexOffset}"/>`;
+        const ti = j / 3;
+        let attrs = '';
+        if (sup && sup[ti] && sup[ti] !== '0') attrs += ` slic3rpe:custom_supports="${sup[ti]}"`;
+        if (seam && seam[ti] && seam[ti] !== '0') attrs += ` slic3rpe:custom_seam="${seam[ti]}"`;
+        ts[ti] = `     <triangle v1="${t[j] + vertexOffset}" v2="${t[j + 1] + vertexOffset}" v3="${t[j + 2] + vertexOffset}"${attrs}/>`;
       }
       triParts.push(ts.join('\n'));
       const triCount = t.length / 3;
@@ -310,6 +322,41 @@ export interface ProjectObject {
   config: IniSection;
   extruder?: number;
   volumes: ProjectVolume[];
+  /** per-triangle paint over the whole object mesh, one char per triangle ('0', '4', '8') */
+  supportPaint?: string;
+  seamPaint?: string;
+}
+
+/** Read per-triangle paint attributes of every object in 3D/3dmodel.model (by object id). */
+function readPaintFromModel(model: string): Map<string, { supports?: string; seam?: string }> {
+  const out = new Map<string, { supports?: string; seam?: string }>();
+  const objRe = /<object\b([^>]*)>([\s\S]*?)<\/object>/g;
+  let m: RegExpExecArray | null;
+  while ((m = objRe.exec(model))) {
+    const idm = /\bid="([^"]+)"/.exec(m[1]);
+    if (!idm) continue;
+    const body = m[2];
+    if (!/slic3rpe:custom_(supports|seam)=/.test(body)) continue;
+    let sup = '';
+    let seam = '';
+    let anySup = false;
+    let anySeam = false;
+    const triRe = /<triangle\b([^>]*)\/?>/g;
+    let t: RegExpExecArray | null;
+    while ((t = triRe.exec(body))) {
+      const a = t[1];
+      const s = /slic3rpe:custom_supports="([^"]*)"/.exec(a);
+      const e = /slic3rpe:custom_seam="([^"]*)"/.exec(a);
+      const ss = attributeToTriangleState(s?.[1]);
+      const es = attributeToTriangleState(e?.[1]);
+      sup += ss === PAINT_ENFORCER ? '4' : ss === PAINT_BLOCKER ? '8' : '0';
+      seam += es === PAINT_ENFORCER ? '4' : es === PAINT_BLOCKER ? '8' : '0';
+      if (ss) anySup = true;
+      if (es) anySeam = true;
+    }
+    out.set(idm[1], { supports: anySup ? sup : undefined, seam: anySeam ? seam : undefined });
+  }
+  return out;
 }
 
 function xmlUnescape(v: string): string {
@@ -329,13 +376,21 @@ export async function read3mfProject(buf: Buffer): Promise<{ config: IniSection;
     }
   }
   const objects: ProjectObject[] = [];
+  let paintById = new Map<string, { supports?: string; seam?: string }>();
+  const modelFile = zip.file('3D/3dmodel.model');
+  if (modelFile) {
+    const model = await modelFile.async('string');
+    if (model.includes('slic3rpe:custom_')) paintById = readPaintFromModel(model);
+  }
   const mcFile = zip.file('Metadata/Slic3r_PE_model.config');
   if (mcFile) {
     const text = await mcFile.async('string');
-    const objRe = /<object\b[^>]*>([\s\S]*?)<\/object>/g;
+    const objRe = /<object\b([^>]*)>([\s\S]*?)<\/object>/g;
     let m: RegExpExecArray | null;
     while ((m = objRe.exec(text))) {
-      const body = m[1];
+      const objId = /\bid="([^"]+)"/.exec(m[1])?.[1] || '';
+      const paint = paintById.get(objId);
+      const body = m[2];
       const oc: IniSection = {};
       let name = '';
       let extruder: number | undefined;
@@ -370,7 +425,7 @@ export async function read3mfProject(buf: Buffer): Promise<{ config: IniSection;
         }
         volumes.push(vol);
       }
-      objects.push({ name, config: oc, extruder, volumes });
+      objects.push({ name, config: oc, extruder, volumes, supportPaint: paint?.supports, seamPaint: paint?.seam });
     }
   }
   return { config: cfg, objects };

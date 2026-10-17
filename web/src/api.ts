@@ -164,6 +164,8 @@ export interface SliceObjectInput {
   config?: Config;
   extruder?: number;
   volumes?: SliceVolumeInput[];
+  supportPaint?: string;
+  seamPaint?: string;
 }
 
 export interface ProjectVolume {
@@ -180,6 +182,8 @@ export interface ProjectObject {
   config: Config;
   extruder?: number;
   volumes: ProjectVolume[];
+  supportPaint?: string;
+  seamPaint?: string;
 }
 
 export interface ThumbnailInput {

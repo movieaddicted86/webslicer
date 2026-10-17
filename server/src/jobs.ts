@@ -34,6 +34,9 @@ export interface SliceObjectInput {
   config?: IniSection;
   extruder?: number;
   volumes?: SliceVolumeInput[];
+  /** per-triangle paint of the main mesh: one char per triangle ('0' none, '4' enforcer, '8' blocker) */
+  supportPaint?: string;
+  seamPaint?: string;
 }
 
 export interface SliceRequest {
@@ -262,7 +265,16 @@ export async function build3mfForRequest(req: SliceRequest, projectConfig?: IniS
         extruder: v.extruder,
       });
     }
-    objects.push({ name: o.name || 'object', mesh, transform: o.transform, config: o.config, extruder: o.extruder, volumes });
+    objects.push({
+      name: o.name || 'object',
+      mesh,
+      transform: o.transform,
+      config: o.config,
+      extruder: o.extruder,
+      volumes,
+      supportPaint: o.supportPaint,
+      seamPaint: o.seamPaint,
+    });
   }
   return build3mf(objects, { projectConfig, title: req.outputName });
 }

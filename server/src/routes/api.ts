@@ -488,6 +488,10 @@ function validateSliceRequest(body: SliceRequest) {
   for (const o of body.objects) {
     if (!isId(o.modelId)) throw new Error('invalid modelId');
     if (!Array.isArray(o.transform) || o.transform.length !== 16) throw new Error('transform must have 16 entries');
+    for (const key of ['supportPaint', 'seamPaint'] as const) {
+      const p = o[key];
+      if (p !== undefined && (typeof p !== 'string' || p.length > 2_000_000 || !/^[048]*$/.test(p))) throw new Error(`invalid ${key}`);
+    }
     for (const v of o.volumes || []) {
       if (!isId(v.modelId)) throw new Error('invalid volume modelId');
       if (!Array.isArray(v.transform) || v.transform.length !== 16) throw new Error('volume transform must have 16 entries');

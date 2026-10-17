@@ -7,6 +7,7 @@ import { useStore, bedShapeOf, objectBounds, type PlaterObject, type PlaterVolum
 import { FEATURE_COLORS, type ParsedGcode } from '../gcode/types';
 import type { VolumeType } from '../api';
 import { renderThumbnails } from './thumbnail';
+import { computeCentroids, paintToColors, trianglesInSphere } from './paint';
 
 const OBJECT_COLOR = 0xe6b84a;
 const SELECTED_COLOR = 0x6fb1ff;
@@ -280,6 +281,7 @@ export function Viewer() {
   const showTravel = useStore((s) => s.previewShowTravel);
   const featureVis = useStore((s) => s.previewFeatureVisibility);
   const placeOnFace = useStore((s) => s.placeOnFace);
+  const paintMode = useStore((s) => s.paintMode);
   // vendor bed model/texture of the selected printer ("vendor|model.stl|texture.svg", empty when none)
   const bedAssetKey = useStore((s) => {
     const p = s.presets.printer;
@@ -391,9 +393,87 @@ export function Viewer() {
 
     // picking
     let downPos: [number, number] | null = null;
+    // --- painting (support enforcers/blockers, seam)
+    const brushCursor = new THREE.Mesh(
+      new THREE.SphereGeometry(1, 24, 16),
+      new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.25, depthWrite: false }),
+    );
+    brushCursor.visible = false;
+    brushCursor.renderOrder = 20;
+    scene.add(brushCursor);
+    let paintStroke: { objectId: string; value: number; kind: 'supports' | 'seam'; button: number } | null = null;
+    const centroidCache = new WeakMap<THREE.BufferGeometry, Float32Array>();
+    const pickPaintHit = (e: PointerEvent) => {
+      const st = useStore.getState();
+      if (!st.paintMode || st.selectedIds.length !== 1) return null;
+      const node = refs.nodes.get(st.selectedIds[0]);
+      if (!node) return null;
+      const rect = renderer.domElement.getBoundingClientRect();
+      const ndc = new THREE.Vector2(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
+      refs.raycaster.setFromCamera(ndc, camera);
+      const hit = refs.raycaster.intersectObject(node.mesh, false)[0];
+      return hit ? { hit, node, st } : null;
+    };
+    const paintAt = (e: PointerEvent) => {
+      if (!paintStroke) return;
+      const p = pickPaintHit(e);
+      if (!p) return;
+      const { hit, node, st } = p;
+      const o = st.objects.find((x) => x.id === paintStroke!.objectId);
+      if (!o) return;
+      let centroids = centroidCache.get(o.geometry);
+      if (!centroids) {
+        centroids = computeCentroids(o.geometry);
+        centroidCache.set(o.geometry, centroids);
+      }
+      const local = node.mesh.worldToLocal(hit.point.clone());
+      const scale = (o.scale[0] + o.scale[1] + o.scale[2]) / 3 || 1;
+      const tris = trianglesInSphere(centroids, local, st.brushRadius / scale);
+      if (hit.faceIndex !== undefined && hit.faceIndex !== null) tris.push(hit.faceIndex);
+      st.applyPaint(o.id, paintStroke.kind, tris, paintStroke.value);
+    };
     const onPointerDown = (e: PointerEvent) => {
+      const st = useStore.getState();
+      if (st.paintMode && (e.button === 0 || e.button === 2)) {
+        const p = pickPaintHit(e);
+        if (p) {
+          const value = e.button === 2 ? 2 : e.shiftKey ? 0 : st.paintTool === 'enforcer' ? 1 : st.paintTool === 'blocker' ? 2 : 0;
+          paintStroke = { objectId: p.st.selectedIds[0], value, kind: st.paintMode, button: e.button };
+          controls.enabled = false;
+          st.beginPaintStroke(paintStroke.objectId);
+          paintAt(e);
+          e.preventDefault();
+          return;
+        }
+      }
       if (e.button !== 0) return;
       downPos = [e.clientX, e.clientY];
+    };
+    const onPointerMove = (e: PointerEvent) => {
+      const st = useStore.getState();
+      if (!st.paintMode) {
+        brushCursor.visible = false;
+        return;
+      }
+      if (paintStroke) {
+        paintAt(e);
+      }
+      const p = pickPaintHit(e);
+      if (p) {
+        brushCursor.visible = true;
+        brushCursor.position.copy(p.hit.point);
+        brushCursor.scale.setScalar(st.brushRadius);
+        const c = paintStroke ? paintStroke.value : st.paintTool === 'enforcer' ? 1 : st.paintTool === 'blocker' ? 2 : 0;
+        (brushCursor.material as THREE.MeshBasicMaterial).color.set(c === 1 ? 0x4d6bff : c === 2 ? 0xff4d4d : 0xffffff);
+      } else brushCursor.visible = false;
+    };
+    const endStroke = () => {
+      if (!paintStroke) return;
+      paintStroke = null;
+      controls.enabled = !refs.dragging;
+    };
+    const onContextMenu = (e: Event) => {
+      if (useStore.getState().paintMode) e.preventDefault();
     };
     const onPointerUp = (e: PointerEvent) => {
       if (e.button !== 0 || !downPos) return;
@@ -440,6 +520,10 @@ export function Viewer() {
     };
     renderer.domElement.addEventListener('pointerdown', onPointerDown);
     renderer.domElement.addEventListener('pointerup', onPointerUp);
+    renderer.domElement.addEventListener('pointermove', onPointerMove);
+    renderer.domElement.addEventListener('pointerup', endStroke);
+    renderer.domElement.addEventListener('pointerleave', endStroke);
+    renderer.domElement.addEventListener('contextmenu', onContextMenu);
 
     let raf = 0;
     const loop = () => {
@@ -454,6 +538,10 @@ export function Viewer() {
       ro.disconnect();
       renderer.domElement.removeEventListener('pointerdown', onPointerDown);
       renderer.domElement.removeEventListener('pointerup', onPointerUp);
+      renderer.domElement.removeEventListener('pointermove', onPointerMove);
+      renderer.domElement.removeEventListener('pointerup', endStroke);
+      renderer.domElement.removeEventListener('pointerleave', endStroke);
+      renderer.domElement.removeEventListener('contextmenu', onContextMenu);
       transform.dispose();
       controls.dispose();
       renderer.dispose();
@@ -516,8 +604,28 @@ export function Viewer() {
       node.mesh.userData.extruder = o.extruder;
       const base = o.extruder > 0 ? EXTRUDER_COLORS[(o.extruder - 1) % EXTRUDER_COLORS.length] : OBJECT_COLOR;
       const bodySelected = selected && !selectedVolumeId;
-      mat.color.set(outside ? OUTSIDE_COLOR : bodySelected ? SELECTED_COLOR : base);
-      mat.emissive.set(bodySelected ? 0x16304a : 0x000000);
+      const painted = !!(o.paint && (o.paint.supports || o.paint.seam));
+      const paintingThis = paintMode && selected;
+      if (painted || paintingThis) {
+        // per-triangle colours: paint over the object's base colour
+        const baseColor = new THREE.Color(outside ? OUTSIDE_COLOR : base);
+        const kind = paintMode || (o.paint?.supports ? 'supports' : 'seam');
+        const arr = o.paint?.[kind];
+        const existing = node.mesh.geometry.getAttribute('color') as THREE.BufferAttribute | undefined;
+        const colors = paintToColors(arr, o.triangles, baseColor, existing ? (existing.array as Float32Array) : undefined);
+        if (!existing || existing.array !== colors) node.mesh.geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+        else existing.needsUpdate = true;
+        mat.vertexColors = true;
+        mat.color.set(0xffffff);
+        mat.needsUpdate = true;
+      } else {
+        if (mat.vertexColors) {
+          mat.vertexColors = false;
+          mat.needsUpdate = true;
+        }
+        mat.color.set(outside ? OUTSIDE_COLOR : bodySelected ? SELECTED_COLOR : base);
+      }
+      mat.emissive.set(bodySelected && !paintMode ? 0x16304a : 0x000000);
 
       // volumes
       const seenVol = new Set<string>();
@@ -568,7 +676,7 @@ export function Viewer() {
     }
     // transform gizmo
     let target: THREE.Object3D | undefined;
-    if (selectedIds.length === 1 && view === 'plater') {
+    if (selectedIds.length === 1 && view === 'plater' && !paintMode) {
       const node = refs.nodes.get(selectedIds[0]);
       if (node) target = selectedVolumeId ? node.volumes.get(selectedVolumeId) || node.group : node.group;
     }
@@ -582,7 +690,7 @@ export function Viewer() {
       refs.transform.getHelper().visible = false;
       refs.transform.enabled = false;
     }
-  }, [objects, selectedIds, selectedVolumeId, transformMode, view, bedShape, maxHeight, gcode]);
+  }, [objects, selectedIds, selectedVolumeId, transformMode, view, bedShape, maxHeight, gcode, paintMode]);
 
   // --- gcode
   useEffect(() => {
@@ -608,6 +716,12 @@ export function Viewer() {
       if (e.key === 'Delete' || e.key === 'Backspace') {
         if (st.selectedVolumeId && st.selectedIds.length === 1) st.removeVolume(st.selectedIds[0], st.selectedVolumeId);
         else if (st.selectedIds.length) st.removeObjects(st.selectedIds);
+      } else if ((e.key === 'l' || e.key === 'L') && st.selectedIds.length === 1) {
+        if (st.paintMode === 'supports') st.stopPaint();
+        else st.startPaint(st.selectedIds[0], 'supports');
+      } else if ((e.key === 'p' || e.key === 'P') && st.selectedIds.length === 1) {
+        if (st.paintMode === 'seam') st.stopPaint();
+        else st.startPaint(st.selectedIds[0], 'seam');
       } else if (e.key === 'f' || e.key === 'F') st.setPlaceOnFace(!st.placeOnFace);
       else if (e.key === 'm' || e.key === 'M') st.setTransformMode('translate');
       else if (e.key === 'r' || e.key === 'R') st.setTransformMode('rotate');
@@ -624,7 +738,8 @@ export function Viewer() {
         st.select(st.objects.map((o) => o.id));
       } else if (e.key === 'a' || e.key === 'A') st.arrange();
       else if (e.key === 'Escape') {
-        if (st.placeOnFace) st.setPlaceOnFace(false);
+        if (st.paintMode) st.stopPaint();
+        else if (st.placeOnFace) st.setPlaceOnFace(false);
         else st.select([]);
       }
     };
@@ -635,6 +750,11 @@ export function Viewer() {
   return (
     <div className={`viewer ${placeOnFace ? 'place-on-face' : ''}`} ref={containerRef}>
       {placeOnFace && <div className="viewer-banner">Place on face: click the face that should lie flat on the bed (Esc to cancel)</div>}
+      {paintMode && (
+        <div className="viewer-banner">
+          {paintMode === 'supports' ? 'Paint supports' : 'Paint seam'}: left = brush tool · right = blocker · Shift+left = erase · Esc = done
+        </div>
+      )}
       <div className="viewer-hint">
         {view === 'plater' ? 'Left: rotate · Right/Middle: pan · Wheel: zoom · M/R/S: move/rotate/scale · F: place on face · A: arrange · Del: delete' : ''}
       </div>

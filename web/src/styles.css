@@ -1155,3 +1155,49 @@ button.link:hover {
 .sidebar select {
   max-width: 100%;
 }
+
+.quick-settings label.span select {
+  grid-column: 2 / 4;
+}
+
+/* ---- painting */
+.paint-panel {
+  border-top: 1px dashed var(--border);
+  padding-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.paint-tools {
+  display: flex;
+  gap: 4px;
+}
+.paint-tools .tool {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+.paint-tools .tool.active.enforcer {
+  border-color: #4d6bff;
+  background: #4d6bff33;
+}
+.paint-tools .tool.active.blocker {
+  border-color: #ff4d4d;
+  background: #ff4d4d33;
+}
+.paint-tools .tool.active.erase {
+  border-color: #ccc;
+  background: #ffffff22;
+}
+.paint-panel label.brush {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+}

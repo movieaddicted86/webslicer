@@ -10,6 +10,8 @@ type ImportItem = {
   config?: Record<string, string>;
   extruder?: number;
   volumes?: NewVolumeInput[];
+  supportPaint?: string;
+  seamPaint?: string;
 };
 
 export async function importFiles(files: FileList | File[]) {
@@ -33,7 +35,14 @@ export async function importFiles(files: FileList | File[]) {
           const models = await loadModelFile(f);
           models.forEach((m, i) => {
             const po = proj.objects[i];
-            const item: ImportItem = { name: po?.name || m.name, geometry: m.geometry, config: po?.config, extruder: po?.extruder };
+            const item: ImportItem = {
+              name: po?.name || m.name,
+              geometry: m.geometry,
+              config: po?.config,
+              extruder: po?.extruder,
+              supportPaint: po?.supportPaint,
+              seamPaint: po?.seamPaint,
+            };
             // restore sub-volumes (parts, modifiers, support enforcers/blockers) from the triangle ranges
             if (po && po.volumes.length > 1) {
               const parts = splitGeometryByRanges(m.geometry, po.volumes.map((v) => [v.first, v.last] as [number, number]));
@@ -42,6 +51,12 @@ export async function importFiles(files: FileList | File[]) {
                 po.volumes.findIndex((v) => v.type === 'ModelPart'),
               );
               item.geometry = parts[mainIdx];
+              // paint strings cover the whole mesh; keep the main part's triangle range
+              const mv = po.volumes[mainIdx];
+              if (mv) {
+                item.supportPaint = po.supportPaint?.slice(mv.first, mv.last + 1);
+                item.seamPaint = po.seamPaint?.slice(mv.first, mv.last + 1);
+              }
               item.volumes = po.volumes
                 .map((v, vi) => ({ name: v.name || VOLUME_LABELS[v.type], type: v.type, geometry: parts[vi], config: v.config, extruder: v.extruder }))
                 .filter((_, vi) => vi !== mainIdx);

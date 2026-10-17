@@ -19,6 +19,7 @@ import {
   type ThumbnailInput,
 } from '../api';
 import { parseThumbnailSpec, type ThumbnailSpec } from '../three/thumbnail';
+import { decodePaint, encodePaint, remapPaint, subdivideForPainting, type PaintKind } from '../three/paint';
 import { decodeVector, resizeVector, toBool, unescapeStringsCstyle } from '../values';
 import type { ParsedGcode } from '../gcode/types';
 
@@ -56,6 +57,12 @@ export interface PlaterObject {
   visible: boolean;
   triangles: number;
   volumes: PlaterVolume[];
+  /** per-triangle paint of the main mesh (support enforcers/blockers, seam) */
+  paint?: { supports?: Uint8Array; seam?: Uint8Array };
+  /** geometry has been subdivided for painting */
+  paintReady?: boolean;
+  /** bumped on every paint stroke so the viewer refreshes colours */
+  paintVersion?: number;
 }
 
 export interface NewVolumeInput {
@@ -124,6 +131,17 @@ interface State {
   /** rotate an object so that the given world-space face normal points down (-Z) */
   placeObjectOnFace: (id: string, worldNormal: [number, number, number]) => void;
   /** undo / redo of plater changes (objects, volumes, transforms, per-object settings) */
+  /** painting (support enforcers/blockers, seam) */
+  paintMode?: PaintKind;
+  paintTool: 'enforcer' | 'blocker' | 'erase';
+  brushRadius: number;
+  startPaint: (objectId: string, kind: PaintKind) => Promise<void>;
+  stopPaint: () => void;
+  setPaintTool: (t: 'enforcer' | 'blocker' | 'erase') => void;
+  setBrushRadius: (r: number) => void;
+  beginPaintStroke: (objectId: string) => void;
+  applyPaint: (objectId: string, kind: PaintKind, triangles: number[], value: number) => void;
+  clearPaint: (objectId: string, kind: PaintKind) => void;
   undoStack: PlaterObject[][];
   redoStack: PlaterObject[][];
   recordHistory: (snapshot?: PlaterObject[]) => void;
@@ -170,7 +188,15 @@ interface State {
   refreshPhysicalPrinters: () => Promise<void>;
 
   addObjects: (
-    items: Array<{ name: string; geometry: THREE.BufferGeometry; config?: Config; extruder?: number; volumes?: NewVolumeInput[] }>,
+    items: Array<{
+      name: string;
+      geometry: THREE.BufferGeometry;
+      config?: Config;
+      extruder?: number;
+      volumes?: NewVolumeInput[];
+      supportPaint?: string;
+      seamPaint?: string;
+    }>,
     opts?: { keepPositions?: boolean },
   ) => Promise<void>;
   addVolume: (objectId: string, input: NewVolumeInput) => Promise<void>;
@@ -661,6 +687,10 @@ export const useStore = create<State>((set, get) => ({
         visible: true,
         triangles: tri,
         volumes: (it.volumes || []).map((v) => makeVolume(v, offset)),
+        paint:
+          it.supportPaint || it.seamPaint
+            ? { supports: decodePaint(it.supportPaint, tri), seam: decodePaint(it.seamPaint, tri) }
+            : undefined,
       });
     }
     set((st) => ({ objects: [...st.objects, ...created], selectedIds: created.map((c) => c.id), selectedVolumeId: undefined, sliceDirty: true }));
@@ -747,6 +777,7 @@ export const useStore = create<State>((set, get) => ({
       position: [o.position[0] + 10, o.position[1] + 10, o.position[2]],
       config: { ...o.config },
       volumes: o.volumes.map((v) => ({ ...v, id: `vol-${++volumeId}`, config: { ...v.config } })),
+      paint: o.paint ? { supports: o.paint.supports?.slice(), seam: o.paint.seam?.slice() } : undefined,
     }));
     set((st) => ({ objects: [...st.objects, ...created], selectedIds: created.map((c) => c.id), selectedVolumeId: undefined, sliceDirty: true }));
     get().arrange();
@@ -759,6 +790,68 @@ export const useStore = create<State>((set, get) => ({
 
   placeOnFace: false,
   setPlaceOnFace: (placeOnFace) => set({ placeOnFace }),
+
+  paintTool: 'enforcer',
+  brushRadius: 3,
+
+  startPaint: async (objectId, kind) => {
+    const o = get().objects.find((x) => x.id === objectId);
+    if (!o) return;
+    set({ selectedIds: [objectId], selectedVolumeId: undefined, paintMode: kind, placeOnFace: false, view: 'plater' });
+    if (o.paintReady) return;
+    // subdivide the mesh so the brush has a useful resolution
+    get().recordHistory();
+    const maxDim = Math.max(o.size[0], o.size[1], o.size[2]);
+    const maxEdge = Math.min(5, Math.max(1, maxDim / 30));
+    const { geometry, parent } = subdivideForPainting(o.geometry, maxEdge);
+    const tri = geometry.getAttribute('position').count / 3;
+    const paint = o.paint ? { supports: remapPaint(o.paint.supports, parent), seam: remapPaint(o.paint.seam, parent) } : undefined;
+    get().updateObject(objectId, { geometry, triangles: tri, paint, paintReady: true, modelId: undefined, uploadError: undefined });
+    try {
+      const res = await api.uploadModel(geometryToStl(geometry), o.name);
+      get().updateObject(objectId, { modelId: res.id });
+    } catch (e) {
+      get().updateObject(objectId, { uploadError: (e as Error).message });
+      get().toast('error', `Upload of ${o.name} failed: ${(e as Error).message}`);
+    }
+  },
+  stopPaint: () => set({ paintMode: undefined }),
+  setPaintTool: (paintTool) => set({ paintTool }),
+  setBrushRadius: (brushRadius) => set({ brushRadius: Math.max(0.2, Math.min(50, brushRadius)) }),
+
+  beginPaintStroke: (objectId) => {
+    // history snapshot with copied paint arrays (strokes mutate them in place)
+    const s = get();
+    const snap = s.objects.map((o) => (o.id === objectId && o.paint ? { ...o, paint: { supports: o.paint.supports?.slice(), seam: o.paint.seam?.slice() } } : o));
+    s.recordHistory(snap);
+  },
+
+  applyPaint: (objectId, kind, triangles, value) => {
+    const o = get().objects.find((x) => x.id === objectId);
+    if (!o || !triangles.length) return;
+    const paint = o.paint ? { ...o.paint } : {};
+    let arr = paint[kind];
+    if (!arr) {
+      arr = new Uint8Array(o.triangles);
+      paint[kind] = arr;
+    }
+    for (const t of triangles) if (t < arr.length) arr[t] = value;
+    set((s) => ({
+      objects: s.objects.map((x) => (x.id === objectId ? { ...x, paint, paintVersion: (x.paintVersion || 0) + 1 } : x)),
+      sliceDirty: true,
+    }));
+  },
+
+  clearPaint: (objectId, kind) => {
+    const o = get().objects.find((x) => x.id === objectId);
+    if (!o?.paint?.[kind]) return;
+    get().recordHistory();
+    const paint = { ...o.paint, [kind]: undefined };
+    set((s) => ({
+      objects: s.objects.map((x) => (x.id === objectId ? { ...x, paint, paintVersion: (x.paintVersion || 0) + 1 } : x)),
+      sliceDirty: true,
+    }));
+  },
 
   undoStack: [],
   redoStack: [],
@@ -879,6 +972,8 @@ export const useStore = create<State>((set, get) => ({
         transform: objectMatrix(o).elements.slice(),
         config: Object.keys(o.config).length ? o.config : undefined,
         extruder: o.extruder || undefined,
+        supportPaint: o.paint?.supports && o.paint.supports.some((x) => x) ? encodePaint(o.paint.supports) : undefined,
+        seamPaint: o.paint?.seam && o.paint.seam.some((x) => x) ? encodePaint(o.paint.seam) : undefined,
         volumes: o.volumes
           .filter((v) => v.modelId)
           .map((v) => ({
