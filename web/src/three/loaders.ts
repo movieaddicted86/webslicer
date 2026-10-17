@@ -34,6 +34,24 @@ function collectMeshes(root: THREE.Object3D, baseName: string, splitObjects: boo
   return out;
 }
 
+/**
+ * Split a non-indexed geometry into sub-geometries by triangle ranges [first, last] (inclusive).
+ * Used to restore PrusaSlicer volumes (parts, modifiers…) from a 3MF object mesh.
+ */
+export function splitGeometryByRanges(geometry: THREE.BufferGeometry, ranges: Array<[number, number]>): THREE.BufferGeometry[] {
+  const g = geometry.getIndex() ? geometry.toNonIndexed() : geometry;
+  const pos = g.getAttribute('position') as THREE.BufferAttribute;
+  const arr = pos.array as Float32Array;
+  return ranges.map(([first, last]) => {
+    const start = Math.max(0, first) * 9;
+    const end = Math.min(pos.count / 3 - 1, last) * 9 + 9;
+    const out = new THREE.BufferGeometry();
+    out.setAttribute('position', new THREE.Float32BufferAttribute(arr.slice(start, Math.max(start, end)), 3));
+    out.computeVertexNormals();
+    return out;
+  });
+}
+
 /** Load a model file into one or more geometries (Z-up, millimeters). */
 export async function loadModelFile(file: File): Promise<LoadedModel[]> {
   const ext = file.name.split('.').pop()?.toLowerCase() || '';

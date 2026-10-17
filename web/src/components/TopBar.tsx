@@ -1,12 +1,20 @@
 import { useEffect, useRef } from 'react';
-import { useStore, isModified, type View } from '../state/store';
-import { loadModelFile, SUPPORTED_EXTENSIONS } from '../three/loaders';
+import { useStore, isModified, VOLUME_LABELS, type View, type NewVolumeInput } from '../state/store';
+import { loadModelFile, splitGeometryByRanges, SUPPORTED_EXTENSIONS } from '../three/loaders';
 import { api, downloadBlob } from '../api';
 import type { Mode } from '../api';
 
+type ImportItem = {
+  name: string;
+  geometry: import('three').BufferGeometry;
+  config?: Record<string, string>;
+  extruder?: number;
+  volumes?: NewVolumeInput[];
+};
+
 export async function importFiles(files: FileList | File[]) {
   const st = useStore.getState();
-  const items: Array<{ name: string; geometry: import('three').BufferGeometry }> = [];
+  const items: ImportItem[] = [];
   for (const f of Array.from(files)) {
     const ext = f.name.split('.').pop()?.toLowerCase() || '';
     if (!SUPPORTED_EXTENSIONS.includes(ext)) {
@@ -24,11 +32,28 @@ export async function importFiles(files: FileList | File[]) {
           }
           const models = await loadModelFile(f);
           models.forEach((m, i) => {
-            const oc = proj.objects[i]?.config;
-            if (oc) (m as unknown as { config?: Record<string, string> }).config = oc;
-            if (proj.objects[i]?.name) m.name = proj.objects[i].name;
+            const po = proj.objects[i];
+            const item: ImportItem = { name: po?.name || m.name, geometry: m.geometry, config: po?.config, extruder: po?.extruder };
+            // restore sub-volumes (parts, modifiers, support enforcers/blockers) from the triangle ranges
+            if (po && po.volumes.length > 1) {
+              const parts = splitGeometryByRanges(m.geometry, po.volumes.map((v) => [v.first, v.last] as [number, number]));
+              const mainIdx = Math.max(
+                0,
+                po.volumes.findIndex((v) => v.type === 'ModelPart'),
+              );
+              item.geometry = parts[mainIdx];
+              item.volumes = po.volumes
+                .map((v, vi) => ({ name: v.name || VOLUME_LABELS[v.type], type: v.type, geometry: parts[vi], config: v.config, extruder: v.extruder }))
+                .filter((_, vi) => vi !== mainIdx);
+              const mainVol = po.volumes[mainIdx];
+              if (mainVol?.extruder && !item.extruder) item.extruder = mainVol.extruder;
+              if (mainVol && Object.keys(mainVol.config).length) item.config = { ...(item.config || {}), ...mainVol.config };
+            } else if (po && po.volumes.length === 1) {
+              const mainVol = po.volumes[0];
+              if (mainVol.extruder && !item.extruder) item.extruder = mainVol.extruder;
+            }
+            items.push(item);
           });
-          items.push(...models);
           continue;
         } catch {
           /* fall through to plain mesh import */
@@ -42,15 +67,6 @@ export async function importFiles(files: FileList | File[]) {
   if (items.length) {
     const fromProject = Array.from(files).some((f) => f.name.toLowerCase().endsWith('.3mf'));
     await st.addObjects(items, { keepPositions: fromProject });
-    // apply per-object configs from 3MF
-    const objs = useStore.getState().objects.slice(-items.length);
-    items.forEach((it, i) => {
-      const cfg = (it as unknown as { config?: Record<string, string> }).config;
-      if (cfg && objs[i]) {
-        const { extruder, ...rest } = cfg;
-        st.updateObject(objs[i].id, { config: rest, extruder: extruder ? Number(extruder) : 0 });
-      }
-    });
   }
 }
 

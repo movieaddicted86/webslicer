@@ -1,7 +1,8 @@
 /**
  * Mesh helpers: binary/ASCII STL parsing and 3MF project writing/reading.
- * The 3MF writer produces files PrusaSlicer loads with per-object transforms
- * and (optionally) per-object config overrides in Metadata/Slic3r_PE_model.config.
+ * The 3MF writer produces files PrusaSlicer loads with per-object transforms,
+ * per-object config overrides and sub-volumes (parts, modifiers, support
+ * enforcers/blockers, negative volumes) in Metadata/Slic3r_PE_model.config.
  */
 import JSZip from 'jszip';
 import type { IniSection } from './ini.js';
@@ -13,6 +14,9 @@ export interface Mesh {
   /** triangle indices */
   indices: Uint32Array;
 }
+
+export type VolumeType = 'ModelPart' | 'ParameterModifier' | 'SupportEnforcer' | 'SupportBlocker' | 'NegativeVolume';
+export const VOLUME_TYPES: VolumeType[] = ['ModelPart', 'ParameterModifier', 'SupportEnforcer', 'SupportBlocker', 'NegativeVolume'];
 
 export function parseStl(buf: Buffer): Mesh {
   const isBinary = (() => {
@@ -109,14 +113,53 @@ export function writeBinaryStl(mesh: Mesh): Buffer {
   return buf;
 }
 
+/** Apply a column-major 4x4 matrix to every vertex (returns a new mesh). */
+export function transformMesh(mesh: Mesh, m: number[]): Mesh {
+  const src = mesh.vertices;
+  const out = new Float32Array(src.length);
+  for (let i = 0; i < src.length; i += 3) {
+    const x = src[i],
+      y = src[i + 1],
+      z = src[i + 2];
+    out[i] = m[0] * x + m[4] * y + m[8] * z + m[12];
+    out[i + 1] = m[1] * x + m[5] * y + m[9] * z + m[13];
+    out[i + 2] = m[2] * x + m[6] * y + m[10] * z + m[14];
+  }
+  // a mirroring transform flips the winding order
+  const det =
+    m[0] * (m[5] * m[10] - m[9] * m[6]) - m[4] * (m[1] * m[10] - m[9] * m[2]) + m[8] * (m[1] * m[6] - m[5] * m[2]);
+  let indices = mesh.indices;
+  if (det < 0) {
+    indices = new Uint32Array(mesh.indices.length);
+    for (let i = 0; i < indices.length; i += 3) {
+      indices[i] = mesh.indices[i];
+      indices[i + 1] = mesh.indices[i + 2];
+      indices[i + 2] = mesh.indices[i + 1];
+    }
+  }
+  return { vertices: out, indices };
+}
+
+export interface ThreeMfVolume {
+  name: string;
+  /** mesh in object coordinates (volume transform already applied) */
+  mesh: Mesh;
+  type: VolumeType;
+  config?: IniSection;
+  extruder?: number;
+}
+
 export interface ThreeMfObject {
   name: string;
+  /** main model part, in object coordinates */
   mesh: Mesh;
   /** 4x4 column-major transform (three.js Matrix4.elements order) */
   transform: number[];
   /** per-object config overrides (PrusaSlicer model config) */
   config?: IniSection;
   extruder?: number;
+  /** additional volumes (parts, modifiers, support enforcers/blockers, negative volumes) */
+  volumes?: ThreeMfVolume[];
 }
 
 function xmlEscape(s: string): string {
@@ -145,30 +188,53 @@ export async function build3mf(objects: ThreeMfObject[], opts: { projectConfig?:
     '<model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02" xmlns:slic3rpe="http://schemas.slic3r.org/3mf/2017/06">',
   );
   parts.push(` <metadata name="Application">WebSlicer</metadata>`);
+  // Mark the file as PrusaSlicer-style 3MF: build item transforms are instance transforms and
+  // volume meshes are in object coordinates. Without this, PrusaSlicer treats the file as a
+  // foreign 3MF and bakes the item transform into the first volume only, misplacing modifiers.
+  parts.push(` <metadata name="slic3rpe:Version3mf">1</metadata>`);
   if (opts.title) parts.push(` <metadata name="Title">${xmlEscape(opts.title)}</metadata>`);
   parts.push(' <resources>');
+
+  // Per object: concatenate the main part and all volumes into one mesh; remember triangle ranges.
+  const volumeRanges: Array<Array<{ vol: ThreeMfVolume; first: number; last: number }>> = [];
   objects.forEach((obj, i) => {
     const id = i + 1;
+    const all: ThreeMfVolume[] = [
+      { name: obj.name, mesh: obj.mesh, type: 'ModelPart', extruder: undefined },
+      ...(obj.volumes || []),
+    ];
     parts.push(`  <object id="${id}" name="${xmlEscape(obj.name)}" type="model">`);
     parts.push('   <mesh>');
     parts.push('    <vertices>');
-    const v = obj.mesh.vertices;
-    const vs: string[] = new Array(v.length / 3);
-    for (let j = 0; j < v.length; j += 3) {
-      vs[j / 3] = `     <vertex x="${fmt(v[j])}" y="${fmt(v[j + 1])}" z="${fmt(v[j + 2])}"/>`;
+    let vertexOffset = 0;
+    let triOffset = 0;
+    const ranges: Array<{ vol: ThreeMfVolume; first: number; last: number }> = [];
+    const triParts: string[] = [];
+    for (const vol of all) {
+      const v = vol.mesh.vertices;
+      const vs: string[] = new Array(v.length / 3);
+      for (let j = 0; j < v.length; j += 3) {
+        vs[j / 3] = `     <vertex x="${fmt(v[j])}" y="${fmt(v[j + 1])}" z="${fmt(v[j + 2])}"/>`;
+      }
+      parts.push(vs.join('\n'));
+      const t = vol.mesh.indices;
+      const ts: string[] = new Array(t.length / 3);
+      for (let j = 0; j < t.length; j += 3) {
+        ts[j / 3] = `     <triangle v1="${t[j] + vertexOffset}" v2="${t[j + 1] + vertexOffset}" v3="${t[j + 2] + vertexOffset}"/>`;
+      }
+      triParts.push(ts.join('\n'));
+      const triCount = t.length / 3;
+      ranges.push({ vol, first: triOffset, last: triOffset + triCount - 1 });
+      vertexOffset += v.length / 3;
+      triOffset += triCount;
     }
-    parts.push(vs.join('\n'));
     parts.push('    </vertices>');
     parts.push('    <triangles>');
-    const t = obj.mesh.indices;
-    const ts: string[] = new Array(t.length / 3);
-    for (let j = 0; j < t.length; j += 3) {
-      ts[j / 3] = `     <triangle v1="${t[j]}" v2="${t[j + 1]}" v3="${t[j + 2]}"/>`;
-    }
-    parts.push(ts.join('\n'));
+    parts.push(triParts.join('\n'));
     parts.push('    </triangles>');
     parts.push('   </mesh>');
     parts.push('  </object>');
+    volumeRanges.push(ranges);
   });
   parts.push(' </resources>');
   parts.push(' <build>');
@@ -188,7 +254,7 @@ export async function build3mf(objects: ThreeMfObject[], opts: { projectConfig?:
     '<?xml version="1.0" encoding="UTF-8"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">\n <Relationship Target="/3D/3dmodel.model" Id="rel-1" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/>\n</Relationships>',
   );
 
-  // PrusaSlicer model config: per-object settings + names
+  // PrusaSlicer model config: per-object settings + volumes
   const mc: string[] = ['<?xml version="1.0" encoding="UTF-8"?>', '<config>'];
   objects.forEach((obj, i) => {
     const id = i + 1;
@@ -198,13 +264,19 @@ export async function build3mf(objects: ThreeMfObject[], opts: { projectConfig?:
     for (const [k, val] of Object.entries(obj.config || {})) {
       mc.push(`  <metadata type="object" key="${xmlEscape(k)}" value="${xmlEscape(escapeStringCstyle(val))}"/>`);
     }
-    mc.push(`  <volume firstid="0" lastid="${obj.mesh.indices.length / 3 - 1}">`);
-    mc.push(`   <metadata type="volume" key="name" value="${xmlEscape(obj.name)}"/>`);
-    mc.push(`   <metadata type="volume" key="volume_type" value="ModelPart"/>`);
-    mc.push(`   <metadata type="volume" key="source_file" value="${xmlEscape(obj.name)}"/>`);
-    mc.push(`   <metadata type="volume" key="source_object_id" value="0"/>`);
-    mc.push(`   <metadata type="volume" key="source_volume_id" value="0"/>`);
-    mc.push('  </volume>');
+    for (const r of volumeRanges[i]) {
+      mc.push(`  <volume firstid="${r.first}" lastid="${r.last}">`);
+      mc.push(`   <metadata type="volume" key="name" value="${xmlEscape(r.vol.name)}"/>`);
+      mc.push(`   <metadata type="volume" key="volume_type" value="${r.vol.type}"/>`);
+      if (r.vol.extruder && r.vol.extruder > 0) mc.push(`   <metadata type="volume" key="extruder" value="${r.vol.extruder}"/>`);
+      for (const [k, val] of Object.entries(r.vol.config || {})) {
+        mc.push(`   <metadata type="volume" key="${xmlEscape(k)}" value="${xmlEscape(escapeStringCstyle(val))}"/>`);
+      }
+      mc.push(`   <metadata type="volume" key="source_file" value="${xmlEscape(r.vol.name)}"/>`);
+      mc.push(`   <metadata type="volume" key="source_object_id" value="0"/>`);
+      mc.push(`   <metadata type="volume" key="source_volume_id" value="0"/>`);
+      mc.push('  </volume>');
+    }
     mc.push(' </object>');
   });
   mc.push('</config>');
@@ -221,8 +293,31 @@ export async function build3mf(objects: ThreeMfObject[], opts: { projectConfig?:
   return zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE', compressionOptions: { level: 6 } });
 }
 
-/** Read the global config and object list from a PrusaSlicer 3MF project. */
-export async function read3mfProject(buf: Buffer): Promise<{ config: IniSection; objects: Array<{ name: string; config: IniSection }> }> {
+export interface ProjectVolume {
+  name: string;
+  type: VolumeType;
+  /** first/last triangle index inside the object's mesh */
+  first: number;
+  last: number;
+  config: IniSection;
+  extruder?: number;
+  /** PrusaSlicer volume matrix (row-major 4x4, 16 values) if present */
+  matrix?: number[];
+}
+
+export interface ProjectObject {
+  name: string;
+  config: IniSection;
+  extruder?: number;
+  volumes: ProjectVolume[];
+}
+
+function xmlUnescape(v: string): string {
+  return v.replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&apos;/g, "'").replace(/&amp;/g, '&');
+}
+
+/** Read the global config and object/volume list from a PrusaSlicer 3MF project. */
+export async function read3mfProject(buf: Buffer): Promise<{ config: IniSection; objects: ProjectObject[] }> {
   const zip = await JSZip.loadAsync(buf);
   const cfg: IniSection = {};
   const cfgFile = zip.file('Metadata/Slic3r_PE.config');
@@ -233,7 +328,7 @@ export async function read3mfProject(buf: Buffer): Promise<{ config: IniSection;
       if (m) cfg[m[1]] = m[2];
     }
   }
-  const objects: Array<{ name: string; config: IniSection }> = [];
+  const objects: ProjectObject[] = [];
   const mcFile = zip.file('Metadata/Slic3r_PE_model.config');
   if (mcFile) {
     const text = await mcFile.async('string');
@@ -243,15 +338,39 @@ export async function read3mfProject(buf: Buffer): Promise<{ config: IniSection;
       const body = m[1];
       const oc: IniSection = {};
       let name = '';
+      let extruder: number | undefined;
       const mdRe = /<metadata\s+type="object"\s+key="([^"]+)"\s+value="([^"]*)"/g;
       let mm: RegExpExecArray | null;
       while ((mm = mdRe.exec(body))) {
         const k = mm[1];
-        const v = mm[2].replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+        const v = xmlUnescape(mm[2]);
         if (k === 'name') name = v;
+        else if (k === 'extruder') extruder = Number(v) || undefined;
         else oc[k] = v;
       }
-      objects.push({ name, config: oc });
+      const volumes: ProjectVolume[] = [];
+      const volRe = /<volume\s+firstid="(\d+)"\s+lastid="(\d+)"[^>]*>([\s\S]*?)<\/volume>/g;
+      let vm: RegExpExecArray | null;
+      while ((vm = volRe.exec(body))) {
+        const vol: ProjectVolume = { name: '', type: 'ModelPart', first: Number(vm[1]), last: Number(vm[2]), config: {} };
+        const vmd = /<metadata\s+type="volume"\s+key="([^"]+)"\s+value="([^"]*)"/g;
+        let x: RegExpExecArray | null;
+        while ((x = vmd.exec(vm[3]))) {
+          const k = x[1];
+          const v = xmlUnescape(x[2]);
+          if (k === 'name') vol.name = v;
+          else if (k === 'volume_type') vol.type = (VOLUME_TYPES as string[]).includes(v) ? (v as VolumeType) : 'ModelPart';
+          else if (k === 'extruder') vol.extruder = Number(v) || undefined;
+          else if (k === 'matrix') vol.matrix = v.split(/\s+/).map(Number);
+          else if (k === 'modifier') {
+            if (v === '1' && vol.type === 'ModelPart') vol.type = 'ParameterModifier';
+          } else if (['source_file', 'source_object_id', 'source_volume_id', 'source_offset_x', 'source_offset_y', 'source_offset_z', 'source_in_inches', 'source_in_meters', 'mesh_stat', 'mesh_text_info'].includes(k)) {
+            /* ignore */
+          } else vol.config[k] = v;
+        }
+        volumes.push(vol);
+      }
+      objects.push({ name, config: oc, extruder, volumes });
     }
   }
   return { config: cfg, objects };

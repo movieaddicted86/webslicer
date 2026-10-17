@@ -9,12 +9,22 @@ import { randomUUID } from 'node:crypto';
 import { config } from './config.js';
 import { runSlicer } from './slicer/cli.js';
 import { serializeIni, type IniSection } from './slicer/ini.js';
-import { build3mf, parseStl, type ThreeMfObject } from './slicer/threemf.js';
+import { build3mf, parseStl, transformMesh, type ThreeMfObject, type ThreeMfVolume, type VolumeType } from './slicer/threemf.js';
 import { readGcodeInfo, type GcodeInfo } from './slicer/gcodeInfo.js';
 import { escapeStringsCstyle, unescapeStringsCstyle, splitVector } from './slicer/values.js';
 import type { Schema } from './slicer/schema.js';
 
 export type JobStatus = 'queued' | 'running' | 'done' | 'error' | 'cancelled';
+
+export interface SliceVolumeInput {
+  modelId: string;
+  name: string;
+  type: VolumeType;
+  /** transform relative to the object (column-major 4x4) */
+  transform: number[];
+  config?: IniSection;
+  extruder?: number;
+}
 
 export interface SliceObjectInput {
   modelId: string;
@@ -22,6 +32,7 @@ export interface SliceObjectInput {
   transform: number[];
   config?: IniSection;
   extruder?: number;
+  volumes?: SliceVolumeInput[];
 }
 
 export interface SliceRequest {
@@ -192,11 +203,13 @@ export function cancelJob(id: string): boolean {
  * Merge print + printer + filament presets into one flat PrusaSlicer config.
  * Filament options are per-extruder vectors; one filament preset per extruder.
  */
-export function mergeConfigs(schema: Schema, req: SliceRequest): IniSection {
+export function mergeConfigs(schema: Schema, req: SliceRequest, opts: { forProject?: boolean } = {}): IniSection {
   const merged: IniSection = {};
   const skip = new Set(['inherits', 'compatible_printers', 'compatible_printers_condition', 'compatible_prints', 'compatible_prints_condition']);
-  for (const [k, v] of Object.entries(req.print.config)) if (!skip.has(k)) merged[k] = v;
+  // Printer first, then print: a few keys occur in both preset types in vendor bundles
+  // (e.g. elefant_foot_compensation on SLA printers) and the print preset owns them.
   for (const [k, v] of Object.entries(req.printer.config)) if (!skip.has(k)) merged[k] = v;
+  for (const [k, v] of Object.entries(req.print.config)) if (!skip.has(k)) merged[k] = v;
 
   const nExtruders = Math.max(1, splitVector(req.printer.config.nozzle_diameter || '0.4').length);
   const filaments = req.filaments.length ? req.filaments : [{ name: '- default FFF -', config: {} }];
@@ -223,7 +236,8 @@ export function mergeConfigs(schema: Schema, req: SliceRequest): IniSection {
   merged.printer_settings_id = req.printer.name;
   merged.filament_settings_id = escapeStringsCstyle(filaments.slice(0, nExtruders).map((f) => f.name));
   if (!merged.printer_technology) merged.printer_technology = 'FFF';
-  if (merged.binary_gcode !== undefined) merged.binary_gcode = req.binaryGcode ? '1' : '0';
+  // Slicing honours the UI choice (ASCII by default for the preview); a project keeps the preset value.
+  if (merged.binary_gcode !== undefined && !opts.forProject) merged.binary_gcode = req.binaryGcode ? '1' : '0';
   return merged;
 }
 
@@ -233,7 +247,19 @@ export async function build3mfForRequest(req: SliceRequest, projectConfig?: IniS
     const file = path.join(config.modelsDir, `${o.modelId}.stl`);
     if (!fs.existsSync(file)) throw new Error(`Model ${o.modelId} not found on server; please re-upload`);
     const mesh = parseStl(fs.readFileSync(file));
-    objects.push({ name: o.name || 'object', mesh, transform: o.transform, config: o.config, extruder: o.extruder });
+    const volumes: ThreeMfVolume[] = [];
+    for (const v of o.volumes || []) {
+      const vf = path.join(config.modelsDir, `${v.modelId}.stl`);
+      if (!fs.existsSync(vf)) throw new Error(`Volume model ${v.modelId} not found on server; please re-add the volume`);
+      volumes.push({
+        name: v.name || v.type,
+        mesh: transformMesh(parseStl(fs.readFileSync(vf)), v.transform),
+        type: v.type,
+        config: v.config,
+        extruder: v.extruder,
+      });
+    }
+    objects.push({ name: o.name || 'object', mesh, transform: o.transform, config: o.config, extruder: o.extruder, volumes });
   }
   return build3mf(objects, { projectConfig, title: req.outputName });
 }

@@ -12,6 +12,10 @@ nativ in einem Proxmox-LXC.
 - **3D-Plater** (Three.js): STL / OBJ / 3MF / AMF importieren (Drag & Drop), mehrere Objekte,
   verschieben / drehen / skalieren (Gizmo + Zahleneingabe), Arrange, Duplizieren, Druckraum-Check,
   Extruder-Zuweisung, **Pro-Objekt-Einstellungen** (Overrides wie in PrusaSlicer).
+- **Volumen** wie in PrusaSlicer: **Modifier** (Bereich mit eigenen Einstellungen, z. B. 100 % Infill),
+  **Support-Verstärker / -Blocker**, **Negativ-Volumen** (Aussparungen) und zusätzliche **Teile** als
+  Box, Zylinder, Kugel, Slab oder aus einer Mesh-Datei; werden im 3MF gespeichert und beim Import
+  wiederhergestellt.
 - **Alle Slicing-Optionen** der installierten PrusaSlicer-Version: Das Optionsschema wird zur
   Laufzeit aus `prusa-slicer --help-fff/--help-sla` erzeugt und in die bekannten Tabs
   *Print / Filament / Printer Settings* mit Seiten und Gruppen einsortiert (Simple / Advanced /
@@ -32,8 +36,8 @@ nativ in einem Proxmox-LXC.
   im Drucker-Preset.
 - Mehrbenutzerfähig im LAN, keine Installation am Client, läuft auch auf Tablets.
 
-> Nicht enthalten (reine GUI-Features der Desktop-App): Support-/Seam-Painting, Variable Layer
-> Height Bearbeitung, Cut-Tool, Hollowing-Editor, Text-/SVG-Embossing. Das Slicing-Ergebnis ist
+> Noch nicht enthalten (siehe TODO.md): Support-/Seam-Painting, Variable Layer Height
+> Bearbeitung, Cut-Tool, Hollowing-Editor, Text-/SVG-Embossing. Das Slicing-Ergebnis ist
 > ansonsten identisch mit PrusaSlicer, da dieselbe Engine verwendet wird.
 
 ## Schnellstart mit Docker

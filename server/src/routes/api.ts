@@ -16,7 +16,7 @@ import {
   defaultPresetName,
   userPresetExists,
 } from '../slicer/presets.js';
-import { parseStl, writeBinaryStl, read3mfProject } from '../slicer/threemf.js';
+import { parseStl, writeBinaryStl, read3mfProject, VOLUME_TYPES } from '../slicer/threemf.js';
 import {
   createJob,
   getJob,
@@ -267,7 +267,7 @@ export function apiRouter(): express.Router {
       const body = req.body as SliceRequest;
       const s = await schemaOf();
       validateSliceRequest(body);
-      const merged = mergeConfigs(s, body);
+      const merged = mergeConfigs(s, body, { forProject: true });
       const buf = await build3mfForRequest(body, merged);
       const name = (body.outputName || 'project').replace(/[^A-Za-z0-9._ -]/g, '_') + '.3mf';
       res.setHeader('Content-Disposition', `attachment; filename="${name}"`);
@@ -433,9 +433,15 @@ function maskPrinter(p: ReturnType<typeof listPrinters>[number]) {
 function validateSliceRequest(body: SliceRequest) {
   if (!body || typeof body !== 'object') throw new Error('body required');
   if (!Array.isArray(body.objects) || !body.objects.length) throw new Error('at least one object required');
+  const isId = (id: unknown) => typeof id === 'string' && /^[0-9a-f-]{36}$/i.test(id);
   for (const o of body.objects) {
-    if (!o.modelId || !/^[0-9a-f-]{36}$/i.test(o.modelId)) throw new Error('invalid modelId');
+    if (!isId(o.modelId)) throw new Error('invalid modelId');
     if (!Array.isArray(o.transform) || o.transform.length !== 16) throw new Error('transform must have 16 entries');
+    for (const v of o.volumes || []) {
+      if (!isId(v.modelId)) throw new Error('invalid volume modelId');
+      if (!Array.isArray(v.transform) || v.transform.length !== 16) throw new Error('volume transform must have 16 entries');
+      if (!VOLUME_TYPES.includes(v.type)) throw new Error(`invalid volume type ${v.type}`);
+    }
   }
   if (!body.print?.config || !body.printer?.config) throw new Error('print and printer config required');
   if (!Array.isArray(body.filaments)) body.filaments = [];

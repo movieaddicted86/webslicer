@@ -891,3 +891,108 @@ table.kv td:first-child {
 .toast.success {
   border-left-color: var(--green);
 }
+
+/* ---- object tree / volumes */
+.object-item {
+  display: block !important;
+  padding: 0 !important;
+  cursor: default !important;
+}
+.object-item:hover {
+  background: transparent !important;
+}
+.object-row,
+.volume-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.object-row:hover,
+.volume-row:hover {
+  background: var(--bg3);
+}
+.object-row.selected,
+.volume-row.selected {
+  background: #2a3b55;
+}
+.object-row.outside .name {
+  color: var(--red);
+}
+.object-row .name,
+.volume-row .name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.object-row .add {
+  padding: 0 5px;
+  line-height: 1;
+}
+.volume-list {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 2px 18px;
+}
+.volume-row {
+  padding: 3px 6px;
+  font-size: 12px;
+}
+.vtype {
+  font-size: 11px;
+  min-width: 14px;
+  text-align: center;
+}
+.vtype.ParameterModifier {
+  color: #ffe14d;
+}
+.vtype.SupportEnforcer {
+  color: #7f94ff;
+}
+.vtype.SupportBlocker {
+  color: #ff6b6b;
+}
+.vtype.NegativeVolume {
+  color: #a0a0a0;
+}
+.vtype.ModelPart {
+  color: #e6b84a;
+}
+.add-volume {
+  margin: 4px 0 6px 18px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  box-shadow: 0 4px 12px #0006;
+}
+.add-volume-title {
+  font-weight: 600;
+  font-size: 12px;
+  margin-bottom: 2px;
+}
+.add-volume-row {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  align-items: center;
+  gap: 6px;
+}
+.add-volume-row .vtype {
+  text-align: left;
+  font-size: 12px;
+}
+.add-volume-row button {
+  padding: 1px 6px;
+  font-size: 11px;
+  margin: 1px 2px 1px 0;
+}
+.manip.volume {
+  border-top: 1px dashed var(--border);
+  padding-top: 6px;
+}

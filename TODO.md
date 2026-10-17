@@ -3,13 +3,14 @@
 Die PrusaSlicer-Engine verarbeitet alle unten genannten Daten bereits, sobald sie im 3MF stehen.
 Es fehlen jeweils der Editor im Browser und die Erweiterung des 3MF-Writers im Server.
 
-## 1. Modifier-Volumen, Support-Verstärker und -Blocker (höchster Nutzen, geringer–mittlerer Aufwand)
-- [ ] 3MF-Writer: mehrere Volumen pro Objekt mit `volume_type` (`ModelPart`, `ParameterModifier`,
-      `SupportEnforcer`, `SupportBlocker`) in `Metadata/Slic3r_PE_model.config`
-- [ ] Frontend: Hilfskörper (Box, Zylinder, Kugel, geladenes Mesh) als Kind-Volumen eines Objekts
+## 1. Modifier-Volumen, Support-Verstärker und -Blocker ✅ (umgesetzt)
+- [x] 3MF-Writer: mehrere Volumen pro Objekt mit `volume_type` (`ModelPart`, `ParameterModifier`,
+      `SupportEnforcer`, `SupportBlocker`, `NegativeVolume`) in `Metadata/Slic3r_PE_model.config`
+- [x] Frontend: Hilfskörper (Box, Zylinder, Kugel, Slab, geladenes Mesh) als Kind-Volumen eines Objekts
       platzieren, transformieren, mit eigenem Config-Override (gleicher Dialog wie Pro-Objekt-Settings)
-- [ ] Objektliste als Baum (Objekt → Volumen), Sichtbarkeit und Farben je Volumentyp
-- [ ] 3MF-Import: vorhandene Volumen aus Projekten übernehmen
+- [x] Objektliste als Baum (Objekt → Volumen), Farben je Volumentyp
+- [x] 3MF-Import: vorhandene Volumen aus Projekten übernehmen
+- [ ] Volumen per Drag & Drop zwischen Objekten verschieben; Volumen-Sichtbarkeit umschalten
 
 ## 2. Support- und Seam-Painting (mittlerer Aufwand)
 - [ ] Pinsel-Werkzeug im Viewer (Raycast, Radius, Kugel/Triangle-Modus), Enforcer/Blocker bzw.

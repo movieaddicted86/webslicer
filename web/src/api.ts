@@ -146,12 +146,40 @@ export interface JobEvent {
   job?: JobRecord;
 }
 
+export type VolumeType = 'ModelPart' | 'ParameterModifier' | 'SupportEnforcer' | 'SupportBlocker' | 'NegativeVolume';
+
+export interface SliceVolumeInput {
+  modelId: string;
+  name: string;
+  type: VolumeType;
+  transform: number[];
+  config?: Config;
+  extruder?: number;
+}
+
 export interface SliceObjectInput {
   modelId: string;
   name: string;
   transform: number[];
   config?: Config;
   extruder?: number;
+  volumes?: SliceVolumeInput[];
+}
+
+export interface ProjectVolume {
+  name: string;
+  type: VolumeType;
+  first: number;
+  last: number;
+  config: Config;
+  extruder?: number;
+}
+
+export interface ProjectObject {
+  name: string;
+  config: Config;
+  extruder?: number;
+  volumes: ProjectVolume[];
 }
 
 export interface SliceRequest {
@@ -228,7 +256,7 @@ export const api = {
     }).then((r) => handle<{ id: string; name: string; triangles: number }>(r)),
   parseProject: (data: ArrayBuffer) =>
     fetch('/api/projects/parse', { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: data }).then((r) =>
-      handle<{ config: Config; objects: Array<{ name: string; config: Config }> }>(r),
+      handle<{ config: Config; objects: ProjectObject[] }>(r),
     ),
   slice: (req: SliceRequest) => fetch('/api/slice', jsonInit('POST', req)).then((r) => handle<JobRecord>(r)),
   jobs: () => fetch('/api/jobs').then((r) => handle<JobRecord[]>(r)),

@@ -14,9 +14,28 @@ import {
   type ServerInfo,
   type SliceRequest,
   type Vendor,
+  type VolumeType,
 } from '../api';
 import { decodeVector, resizeVector, toBool, unescapeStringsCstyle } from '../values';
 import type { ParsedGcode } from '../gcode/types';
+
+/** A sub-volume of an object: additional part, modifier, support enforcer/blocker or negative volume. */
+export interface PlaterVolume {
+  id: string;
+  name: string;
+  type: VolumeType;
+  /** geometry centred at its own origin; transform is relative to the object */
+  geometry: THREE.BufferGeometry;
+  modelId?: string;
+  uploadError?: string;
+  position: [number, number, number];
+  rotation: [number, number, number];
+  scale: [number, number, number];
+  size: [number, number, number];
+  config: Config;
+  extruder: number;
+  triangles: number;
+}
 
 export interface PlaterObject {
   id: string;
@@ -33,7 +52,27 @@ export interface PlaterObject {
   extruder: number;
   visible: boolean;
   triangles: number;
+  volumes: PlaterVolume[];
 }
+
+export interface NewVolumeInput {
+  name: string;
+  type: VolumeType;
+  /** geometry in the object's (un-normalized) coordinate frame when imported, or centred for primitives */
+  geometry: THREE.BufferGeometry;
+  config?: Config;
+  extruder?: number;
+  /** position relative to the object origin (primitives); imported volumes are derived from geometry */
+  position?: [number, number, number];
+}
+
+export const VOLUME_LABELS: Record<VolumeType, string> = {
+  ModelPart: 'Part',
+  ParameterModifier: 'Modifier',
+  SupportEnforcer: 'Support enforcer',
+  SupportBlocker: 'Support blocker',
+  NegativeVolume: 'Negative volume',
+};
 
 export interface PresetSlot {
   name: string;
@@ -73,6 +112,8 @@ interface State {
 
   objects: PlaterObject[];
   selectedIds: string[];
+  /** selected sub-volume (belongs to the single selected object) */
+  selectedVolumeId?: string;
   transformMode: 'translate' | 'rotate' | 'scale';
 
   job?: JobRecord;
@@ -112,7 +153,15 @@ interface State {
   installPrinters: (list: InstalledPrinter[]) => Promise<void>;
   refreshPhysicalPrinters: () => Promise<void>;
 
-  addObjects: (items: Array<{ name: string; geometry: THREE.BufferGeometry }>, opts?: { keepPositions?: boolean }) => Promise<void>;
+  addObjects: (
+    items: Array<{ name: string; geometry: THREE.BufferGeometry; config?: Config; extruder?: number; volumes?: NewVolumeInput[] }>,
+    opts?: { keepPositions?: boolean },
+  ) => Promise<void>;
+  addVolume: (objectId: string, input: NewVolumeInput) => Promise<void>;
+  updateVolume: (objectId: string, volumeId: string, patch: Partial<PlaterVolume>) => void;
+  removeVolume: (objectId: string, volumeId: string) => void;
+  selectVolume: (objectId: string, volumeId?: string) => void;
+  uploadVolume: (objectId: string, v: PlaterVolume) => Promise<void>;
   updateObject: (id: string, patch: Partial<PlaterObject>) => void;
   removeObjects: (ids: string[]) => void;
   clearObjects: () => void;
@@ -187,11 +236,74 @@ export function objectMatrix(o: PlaterObject): THREE.Matrix4 {
   return m;
 }
 
+export function volumeMatrix(v: PlaterVolume): THREE.Matrix4 {
+  const m = new THREE.Matrix4();
+  const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(v.rotation[0], v.rotation[1], v.rotation[2], 'XYZ'));
+  m.compose(new THREE.Vector3(...v.position), q, new THREE.Vector3(...v.scale));
+  return m;
+}
+
+/** World-space bounds of the printable parts (main mesh + ModelPart volumes). */
 export function objectBounds(o: PlaterObject): THREE.Box3 {
   const box = new THREE.Box3();
   if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
-  box.copy(o.geometry.boundingBox!).applyMatrix4(objectMatrix(o));
+  const om = objectMatrix(o);
+  box.copy(o.geometry.boundingBox!).applyMatrix4(om);
+  for (const v of o.volumes || []) {
+    if (v.type !== 'ModelPart') continue;
+    if (!v.geometry.boundingBox) v.geometry.computeBoundingBox();
+    const vb = new THREE.Box3().copy(v.geometry.boundingBox!).applyMatrix4(volumeMatrix(v)).applyMatrix4(om);
+    box.union(vb);
+  }
   return box;
+}
+
+function geometrySize(g: THREE.BufferGeometry): [number, number, number] {
+  if (!g.boundingBox) g.computeBoundingBox();
+  const bb = g.boundingBox!;
+  return [bb.max.x - bb.min.x, bb.max.y - bb.min.y, bb.max.z - bb.min.z];
+}
+
+function triangleCount(g: THREE.BufferGeometry): number {
+  return g.getIndex() ? g.getIndex()!.count / 3 : g.getAttribute('position').count / 3;
+}
+
+let volumeId = 0;
+
+/**
+ * Build a PlaterVolume from an input. `offset` is the translation that was applied to the
+ * parent object's geometry during normalization; imported volume geometry shares that frame.
+ */
+function makeVolume(input: NewVolumeInput, offset: [number, number, number]): PlaterVolume {
+  const g = input.geometry;
+  g.computeBoundingBox();
+  let position: [number, number, number];
+  if (input.position) {
+    position = input.position;
+  } else {
+    // centre the geometry at its own origin and remember where it was (object frame)
+    const bb = g.boundingBox!;
+    const cx = (bb.min.x + bb.max.x) / 2;
+    const cy = (bb.min.y + bb.max.y) / 2;
+    const cz = (bb.min.z + bb.max.z) / 2;
+    g.translate(-cx, -cy, -cz);
+    g.computeBoundingBox();
+    position = [cx + offset[0], cy + offset[1], cz + offset[2]];
+  }
+  g.computeVertexNormals();
+  return {
+    id: `vol-${++volumeId}`,
+    name: input.name,
+    type: input.type,
+    geometry: g,
+    position,
+    rotation: [0, 0, 0],
+    scale: [1, 1, 1],
+    size: geometrySize(g),
+    config: { ...(input.config || {}) },
+    extruder: input.extruder || 0,
+    triangles: triangleCount(g),
+  };
 }
 
 /** Export a BufferGeometry as binary STL */
@@ -505,6 +617,7 @@ export const useStore = create<State>((set, get) => ({
       const pos = g.getAttribute('position');
       const tri = g.getIndex() ? g.getIndex()!.count / 3 : pos.count / 3;
       const id = `obj-${++objectId}`;
+      const offset: [number, number, number] = [-cx, -cy, -bb.min.z];
       created.push({
         id,
         name: it.name,
@@ -513,13 +626,14 @@ export const useStore = create<State>((set, get) => ({
         rotation: [0, 0, 0],
         scale: [1, 1, 1],
         size,
-        config: {},
-        extruder: 0,
+        config: { ...(it.config || {}) },
+        extruder: it.extruder || 0,
         visible: true,
         triangles: tri,
+        volumes: (it.volumes || []).map((v) => makeVolume(v, offset)),
       });
     }
-    set((st) => ({ objects: [...st.objects, ...created], selectedIds: created.map((c) => c.id), sliceDirty: true }));
+    set((st) => ({ objects: [...st.objects, ...created], selectedIds: created.map((c) => c.id), selectedVolumeId: undefined, sliceDirty: true }));
     if (!opts.keepPositions) get().arrange();
     // upload meshes
     for (const o of created) {
@@ -530,8 +644,47 @@ export const useStore = create<State>((set, get) => ({
         get().updateObject(o.id, { uploadError: (e as Error).message });
         get().toast('error', `Upload of ${o.name} failed: ${(e as Error).message}`);
       }
+      for (const v of o.volumes) await get().uploadVolume(o.id, v);
     }
   },
+
+  uploadVolume: async (objectId, v) => {
+    try {
+      const res = await api.uploadModel(geometryToStl(v.geometry), v.name);
+      get().updateVolume(objectId, v.id, { modelId: res.id });
+    } catch (e) {
+      get().updateVolume(objectId, v.id, { uploadError: (e as Error).message });
+      get().toast('error', `Upload of ${v.name} failed: ${(e as Error).message}`);
+    }
+  },
+
+  addVolume: async (objectId, input) => {
+    const o = get().objects.find((x) => x.id === objectId);
+    if (!o) return;
+    const v = makeVolume(input, [0, 0, 0]);
+    set((s) => ({
+      objects: s.objects.map((x) => (x.id === objectId ? { ...x, volumes: [...x.volumes, v] } : x)),
+      selectedIds: [objectId],
+      selectedVolumeId: v.id,
+      sliceDirty: true,
+    }));
+    await get().uploadVolume(objectId, v);
+  },
+
+  updateVolume: (objectId, vid, patch) =>
+    set((s) => ({
+      objects: s.objects.map((o) => (o.id === objectId ? { ...o, volumes: o.volumes.map((v) => (v.id === vid ? { ...v, ...patch } : v)) } : o)),
+      sliceDirty: true,
+    })),
+
+  removeVolume: (objectId, vid) =>
+    set((s) => ({
+      objects: s.objects.map((o) => (o.id === objectId ? { ...o, volumes: o.volumes.filter((v) => v.id !== vid) } : o)),
+      selectedVolumeId: s.selectedVolumeId === vid ? undefined : s.selectedVolumeId,
+      sliceDirty: true,
+    })),
+
+  selectVolume: (objectId, vid) => set({ selectedIds: [objectId], selectedVolumeId: vid }),
 
   updateObject: (id, patch) =>
     set((s) => ({ objects: s.objects.map((o) => (o.id === id ? { ...o, ...patch } : o)), sliceDirty: true })),
@@ -540,10 +693,11 @@ export const useStore = create<State>((set, get) => ({
     set((s) => ({
       objects: s.objects.filter((o) => !ids.includes(o.id)),
       selectedIds: s.selectedIds.filter((i) => !ids.includes(i)),
+      selectedVolumeId: undefined,
       sliceDirty: true,
     })),
 
-  clearObjects: () => set({ objects: [], selectedIds: [], sliceDirty: true, gcode: undefined, gcodeJobId: undefined }),
+  clearObjects: () => set({ objects: [], selectedIds: [], selectedVolumeId: undefined, sliceDirty: true, gcode: undefined, gcodeJobId: undefined }),
 
   duplicateObjects: async (ids) => {
     const s = get();
@@ -553,13 +707,14 @@ export const useStore = create<State>((set, get) => ({
       id: `obj-${++objectId}`,
       position: [o.position[0] + 10, o.position[1] + 10, o.position[2]],
       config: { ...o.config },
+      volumes: o.volumes.map((v) => ({ ...v, id: `vol-${++volumeId}`, config: { ...v.config } })),
     }));
-    set((st) => ({ objects: [...st.objects, ...created], selectedIds: created.map((c) => c.id), sliceDirty: true }));
+    set((st) => ({ objects: [...st.objects, ...created], selectedIds: created.map((c) => c.id), selectedVolumeId: undefined, sliceDirty: true }));
     get().arrange();
   },
 
   select: (ids, additive = false) =>
-    set((s) => ({ selectedIds: additive ? Array.from(new Set([...s.selectedIds, ...ids])) : ids })),
+    set((s) => ({ selectedIds: additive ? Array.from(new Set([...s.selectedIds, ...ids])) : ids, selectedVolumeId: undefined })),
 
   setTransformMode: (transformMode) => set({ transformMode }),
 
@@ -628,6 +783,16 @@ export const useStore = create<State>((set, get) => ({
         transform: objectMatrix(o).elements.slice(),
         config: Object.keys(o.config).length ? o.config : undefined,
         extruder: o.extruder || undefined,
+        volumes: o.volumes
+          .filter((v) => v.modelId)
+          .map((v) => ({
+            modelId: v.modelId!,
+            name: v.name,
+            type: v.type,
+            transform: volumeMatrix(v).elements.slice(),
+            config: Object.keys(v.config).length ? v.config : undefined,
+            extruder: v.extruder || undefined,
+          })),
       }));
     const first = s.objects[0]?.name?.replace(/\.[^.]+$/, '') || 'print';
     return {
@@ -646,7 +811,7 @@ export const useStore = create<State>((set, get) => ({
       get().toast('error', 'Add a model first');
       return;
     }
-    const pending = s.objects.filter((o) => !o.modelId && !o.uploadError);
+    const pending = s.objects.filter((o) => (!o.modelId && !o.uploadError) || o.volumes.some((v) => !v.modelId && !v.uploadError));
     if (pending.length) {
       get().toast('info', 'Waiting for model upload…');
       await new Promise((r) => setTimeout(r, 1000));
@@ -703,9 +868,17 @@ export const useStore = create<State>((set, get) => ({
     const s = get();
     const schema = s.schema;
     if (!schema) return;
+    // A few keys occur in several preset types in vendor bundles; the owner order is print > filament > printer.
+    const printSet = new Set(schema.presetKeys.print);
+    const filamentSet = new Set(schema.presetKeys.filament);
     const pick = (type: PresetType) => {
       const out: Config = {};
-      for (const k of schema.presetKeys[type]) if (cfg[k] !== undefined) out[k] = cfg[k];
+      for (const k of schema.presetKeys[type]) {
+        if (cfg[k] === undefined) continue;
+        if (type === 'printer' && (printSet.has(k) || filamentSet.has(k))) continue;
+        if (type === 'filament' && printSet.has(k)) continue;
+        out[k] = cfg[k];
+      }
       return out;
     };
     const printerName = cfg.printer_settings_id;

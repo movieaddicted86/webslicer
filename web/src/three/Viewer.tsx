@@ -2,13 +2,29 @@ import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
-import { useStore, bedShapeOf, objectBounds, type PlaterObject } from '../state/store';
+import { useStore, bedShapeOf, objectBounds, type PlaterObject, type PlaterVolume } from '../state/store';
 import { FEATURE_COLORS, type ParsedGcode } from '../gcode/types';
+import type { VolumeType } from '../api';
 
 const OBJECT_COLOR = 0xe6b84a;
 const SELECTED_COLOR = 0x6fb1ff;
 const OUTSIDE_COLOR = 0xd94f4f;
 const EXTRUDER_COLORS = [0xe6b84a, 0x73c2fb, 0xd96fd9, 0x84d08a, 0xf09b59, 0xa9a9f5];
+
+/** Colours of sub-volumes, close to PrusaSlicer's */
+export const VOLUME_COLORS: Record<VolumeType, { color: number; opacity: number }> = {
+  ModelPart: { color: 0xe6b84a, opacity: 1 },
+  ParameterModifier: { color: 0xffe14d, opacity: 0.45 },
+  SupportEnforcer: { color: 0x4d6bff, opacity: 0.45 },
+  SupportBlocker: { color: 0xff4d4d, opacity: 0.45 },
+  NegativeVolume: { color: 0x707070, opacity: 0.45 },
+};
+
+interface ObjectNode {
+  group: THREE.Group;
+  mesh: THREE.Mesh;
+  volumes: Map<string, THREE.Mesh>;
+}
 
 interface SceneRefs {
   renderer: THREE.WebGLRenderer;
@@ -19,7 +35,7 @@ interface SceneRefs {
   bedGroup: THREE.Group;
   objectsGroup: THREE.Group;
   gcodeGroup: THREE.Group;
-  meshes: Map<string, THREE.Mesh>;
+  nodes: Map<string, ObjectNode>;
   raycaster: THREE.Raycaster;
   dragging: boolean;
   gcodeLines?: THREE.LineSegments;
@@ -39,7 +55,6 @@ function buildBed(group: THREE.Group, bedShape: string) {
   mesh.name = 'bed';
   group.add(mesh);
 
-  // grid 10mm / 50mm
   const w = bed.max[0] - bed.min[0];
   const h = bed.max[1] - bed.min[1];
   const minor: number[] = [];
@@ -63,11 +78,9 @@ function buildBed(group: THREE.Group, bedShape: string) {
     new THREE.LineBasicMaterial({ color: 0x8f9bb3 }),
   );
   group.add(outline);
-  // axes at origin
   const axes = new THREE.AxesHelper(Math.min(w, h) * 0.15);
   axes.position.set(bed.min[0], bed.min[1], 0.02);
   group.add(axes);
-  // front marker
   const front = new THREE.Mesh(
     new THREE.PlaneGeometry(Math.min(30, w * 0.2), 2),
     new THREE.MeshBasicMaterial({ color: 0x3f4756, side: THREE.DoubleSide }),
@@ -103,7 +116,7 @@ function buildGcode(refs: SceneRefs, g: ParsedGcode) {
     colors[o + 5] = c.b;
   }
   const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.BufferAttribute(g.positions, 3));
+  geo.setAttribute('position', new THREE.BufferAttribute(g.positions.slice(), 3));
   geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
   const lines = new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ vertexColors: true }));
   lines.frustumCulled = false;
@@ -128,13 +141,10 @@ function applyGcodeRange(refs: SceneRefs, range: [number, number], showTravel: b
   const startSeg = g.layerStart[lo];
   const endSeg = g.layerStart[hi + 1];
   refs.gcodeLines.geometry.setDrawRange(startSeg * 2, (endSeg - startSeg) * 2);
-  // feature visibility → collapse hidden segments by setting color alpha? LineBasicMaterial has no per-vertex alpha,
-  // so we rebuild the position attribute mask cheaply: move hidden segments to NaN would break bounding; instead
-  // use a second attribute via onBeforeCompile is overkill. We toggle by zero-length segments.
+  // hidden feature types are collapsed to zero-length segments
   const posAttr = refs.gcodeLines.geometry.getAttribute('position') as THREE.BufferAttribute;
   const src = g.positions;
   const dst = posAttr.array as Float32Array;
-  let changed = false;
   const hidden = g.featureTypes.map((t) => visibility[t] === false);
   if (hidden.some(Boolean) || (refs.gcodeLines.userData.masked as boolean)) {
     for (let i = startSeg; i < endSeg; i++) {
@@ -149,10 +159,9 @@ function applyGcodeRange(refs: SceneRefs, range: [number, number], showTravel: b
         dst[o + 5] = src[o + 5];
       }
     }
-    changed = true;
+    posAttr.needsUpdate = true;
     refs.gcodeLines.userData.masked = hidden.some(Boolean);
   }
-  if (changed) posAttr.needsUpdate = true;
   if (refs.travelLines) {
     refs.travelLines.visible = showTravel;
     const ts = g.travelLayerStart[lo];
@@ -161,12 +170,42 @@ function applyGcodeRange(refs: SceneRefs, range: [number, number], showTravel: b
   }
 }
 
+function makeVolumeMesh(v: PlaterVolume): THREE.Mesh {
+  const c = VOLUME_COLORS[v.type];
+  const mat = new THREE.MeshStandardMaterial({
+    color: c.color,
+    roughness: 0.6,
+    metalness: 0.05,
+    transparent: c.opacity < 1,
+    opacity: c.opacity,
+    depthWrite: c.opacity >= 1,
+    side: THREE.DoubleSide,
+  });
+  const mesh = new THREE.Mesh(v.geometry, mat);
+  mesh.userData = { kind: 'volume', id: v.id };
+  // non-part volumes are drawn on top so they stay visible inside the object
+  if (c.opacity < 1) {
+    mesh.renderOrder = 10;
+    mat.depthTest = false;
+  }
+  return mesh;
+}
+
+function readTransform(obj: THREE.Object3D) {
+  return {
+    position: [obj.position.x, obj.position.y, obj.position.z] as [number, number, number],
+    rotation: [obj.rotation.x, obj.rotation.y, obj.rotation.z] as [number, number, number],
+    scale: [obj.scale.x, obj.scale.y, obj.scale.z] as [number, number, number],
+  };
+}
+
 export function Viewer() {
   const containerRef = useRef<HTMLDivElement>(null);
   const refsRef = useRef<SceneRefs | null>(null);
 
   const objects = useStore((s) => s.objects);
   const selectedIds = useStore((s) => s.selectedIds);
+  const selectedVolumeId = useStore((s) => s.selectedVolumeId);
   const transformMode = useStore((s) => s.transformMode);
   const bedShape = useStore((s) => s.presets.printer.current.bed_shape || '0x0,200x0,200x200,0x200');
   const maxHeight = useStore((s) => Number(s.presets.printer.current.max_print_height || 200));
@@ -221,11 +260,25 @@ export function Viewer() {
       bedGroup,
       objectsGroup,
       gcodeGroup,
-      meshes: new Map(),
+      nodes: new Map(),
       raycaster: new THREE.Raycaster(),
       dragging: false,
     };
     refsRef.current = refs;
+
+    const applyToStore = (target: THREE.Object3D, commit: boolean) => {
+      const st = useStore.getState();
+      const t = readTransform(target);
+      if (target.userData.kind === 'volume') {
+        const objectId = target.parent?.userData.id as string;
+        st.updateVolume(objectId, target.userData.id as string, t);
+        if (commit) st.dropToBed(objectId);
+      } else {
+        const id = target.userData.id as string;
+        st.updateObject(id, t);
+        if (commit) st.dropToBed(id);
+      }
+    };
 
     // Live-update the store while dragging so the manipulation panel follows the gizmo.
     let liveRaf = 0;
@@ -233,42 +286,16 @@ export function Viewer() {
       if (liveRaf) return;
       liveRaf = requestAnimationFrame(() => {
         liveRaf = 0;
-        const mesh = transform.object as THREE.Mesh | undefined;
-        if (!mesh || !refs.dragging) return;
-        const id = mesh.userData.id as string;
-        useStore.setState((st) => ({
-          objects: st.objects.map((o) =>
-            o.id === id
-              ? {
-                  ...o,
-                  position: [mesh.position.x, mesh.position.y, mesh.position.z],
-                  rotation: [mesh.rotation.x, mesh.rotation.y, mesh.rotation.z],
-                  scale: [mesh.scale.x, mesh.scale.y, mesh.scale.z],
-                }
-              : o,
-          ),
-        }));
+        const target = transform.object;
+        if (!target || !refs.dragging) return;
+        applyToStore(target, false);
       });
     });
     transform.addEventListener('dragging-changed', (e) => {
-      controls.enabled = !(e as unknown as { value: boolean }).value;
-      refs.dragging = (e as unknown as { value: boolean }).value;
-      if (!refs.dragging) {
-        // commit transform
-        const mesh = transform.object as THREE.Mesh | undefined;
-        if (mesh) {
-          const id = mesh.userData.id as string;
-          const st = useStore.getState();
-          const o = st.objects.find((x) => x.id === id);
-          if (o) {
-            const position: [number, number, number] = [mesh.position.x, mesh.position.y, mesh.position.z];
-            const rotation: [number, number, number] = [mesh.rotation.x, mesh.rotation.y, mesh.rotation.z];
-            const scale: [number, number, number] = [mesh.scale.x, mesh.scale.y, mesh.scale.z];
-            st.updateObject(id, { position, rotation, scale });
-            st.dropToBed(id);
-          }
-        }
-      }
+      const dragging = (e as unknown as { value: boolean }).value;
+      controls.enabled = !dragging;
+      refs.dragging = dragging;
+      if (!dragging && transform.object) applyToStore(transform.object, true);
     });
 
     const onResize = () => {
@@ -293,16 +320,27 @@ export function Viewer() {
       const moved = Math.hypot(e.clientX - downPos[0], e.clientY - downPos[1]);
       downPos = null;
       if (moved > 4 || refs.dragging) return;
-      // A click on a gizmo handle must not change the selection.
-      if (refs.transform.axis) return;
+      if (refs.transform.axis) return; // click on a gizmo handle
       if (useStore.getState().view !== 'plater') return;
       const rect = renderer.domElement.getBoundingClientRect();
       const ndc = new THREE.Vector2(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
       refs.raycaster.setFromCamera(ndc, camera);
-      const hits = refs.raycaster.intersectObjects([...refs.meshes.values()].filter((m) => m.visible), false);
+      const pickables: THREE.Object3D[] = [];
+      for (const n of refs.nodes.values()) {
+        if (!n.group.visible) continue;
+        pickables.push(n.mesh, ...n.volumes.values());
+      }
+      const hits = refs.raycaster.intersectObjects(pickables, false);
       const st = useStore.getState();
       if (hits.length) {
-        const id = hits[0].object.userData.id as string;
+        // prefer a volume hit over the object body when both are under the cursor at similar depth
+        const hit = hits.find((h) => h.object.userData.kind === 'volume' && h.distance <= hits[0].distance + 0.5) || hits[0];
+        const obj = hit.object;
+        if (obj.userData.kind === 'volume') {
+          st.selectVolume(obj.parent!.userData.id as string, obj.userData.id as string);
+          return;
+        }
+        const id = obj.userData.id as string;
         if (e.shiftKey || e.ctrlKey) {
           if (st.selectedIds.includes(id)) st.select(st.selectedIds.filter((x) => x !== id));
           else st.select([id], true);
@@ -352,21 +390,26 @@ export function Viewer() {
     const bed = bedShapeOf({ bed_shape: bedShape });
     for (const o of objects) {
       seen.add(o.id);
-      let mesh = refs.meshes.get(o.id);
-      if (!mesh) {
-        mesh = new THREE.Mesh(o.geometry, new THREE.MeshStandardMaterial({ color: OBJECT_COLOR, roughness: 0.55, metalness: 0.05 }));
-        mesh.userData.id = o.id;
-        refs.meshes.set(o.id, mesh);
-        refs.objectsGroup.add(mesh);
+      let node = refs.nodes.get(o.id);
+      if (!node) {
+        const group = new THREE.Group();
+        group.userData = { kind: 'object', id: o.id };
+        const mesh = new THREE.Mesh(o.geometry, new THREE.MeshStandardMaterial({ color: OBJECT_COLOR, roughness: 0.55, metalness: 0.05 }));
+        mesh.userData = { kind: 'object', id: o.id };
+        group.add(mesh);
+        node = { group, mesh, volumes: new Map() };
+        refs.nodes.set(o.id, node);
+        refs.objectsGroup.add(group);
       }
-      if (mesh.geometry !== o.geometry) mesh.geometry = o.geometry;
-      if (!refs.dragging || refs.transform.object !== mesh) {
-        mesh.position.set(...o.position);
-        mesh.rotation.set(...o.rotation);
-        mesh.scale.set(...o.scale);
+      if (node.mesh.geometry !== o.geometry) node.mesh.geometry = o.geometry;
+      const dragTarget = refs.dragging ? refs.transform.object : undefined;
+      if (dragTarget !== node.group) {
+        node.group.position.set(...o.position);
+        node.group.rotation.set(...o.rotation);
+        node.group.scale.set(...o.scale);
       }
       // Keep the models visible in the preview until a toolpath is available (e.g. while slicing).
-      mesh.visible = o.visible && (view === 'plater' || !gcode);
+      node.group.visible = o.visible && (view === 'plater' || !gcode);
       const selected = selectedIds.includes(o.id);
       const box = objectBounds(o);
       const outside =
@@ -375,23 +418,66 @@ export function Viewer() {
         box.max.x > bed.max[0] + 0.01 ||
         box.max.y > bed.max[1] + 0.01 ||
         box.max.z > maxHeight + 0.01;
-      const mat = mesh.material as THREE.MeshStandardMaterial;
+      const mat = node.mesh.material as THREE.MeshStandardMaterial;
       const base = o.extruder > 0 ? EXTRUDER_COLORS[(o.extruder - 1) % EXTRUDER_COLORS.length] : OBJECT_COLOR;
-      mat.color.set(outside ? OUTSIDE_COLOR : selected ? SELECTED_COLOR : base);
-      mat.emissive.set(selected ? 0x16304a : 0x000000);
+      const bodySelected = selected && !selectedVolumeId;
+      mat.color.set(outside ? OUTSIDE_COLOR : bodySelected ? SELECTED_COLOR : base);
+      mat.emissive.set(bodySelected ? 0x16304a : 0x000000);
+
+      // volumes
+      const seenVol = new Set<string>();
+      for (const v of o.volumes) {
+        seenVol.add(v.id);
+        let vm = node.volumes.get(v.id);
+        if (!vm) {
+          vm = makeVolumeMesh(v);
+          node.volumes.set(v.id, vm);
+          node.group.add(vm);
+        }
+        if (vm.geometry !== v.geometry) vm.geometry = v.geometry;
+        if (dragTarget !== vm) {
+          vm.position.set(...v.position);
+          vm.rotation.set(...v.rotation);
+          vm.scale.set(...v.scale);
+        }
+        const vmat = vm.material as THREE.MeshStandardMaterial;
+        const spec = VOLUME_COLORS[v.type];
+        const volSelected = selected && selectedVolumeId === v.id;
+        const partBase = v.type === 'ModelPart' && v.extruder > 0 ? EXTRUDER_COLORS[(v.extruder - 1) % EXTRUDER_COLORS.length] : spec.color;
+        vmat.color.set(volSelected ? SELECTED_COLOR : partBase);
+        vmat.emissive.set(volSelected ? 0x16304a : 0x000000);
+        vmat.opacity = volSelected ? Math.min(1, spec.opacity + 0.25) : spec.opacity;
+        vmat.transparent = spec.opacity < 1;
+        vmat.depthTest = spec.opacity >= 1;
+        vmat.depthWrite = spec.opacity >= 1;
+        vm.renderOrder = spec.opacity < 1 ? 10 : 0;
+      }
+      for (const [vid, vm] of node.volumes) {
+        if (!seenVol.has(vid)) {
+          node.group.remove(vm);
+          (vm.material as THREE.Material).dispose();
+          node.volumes.delete(vid);
+          if (refs.transform.object === vm) refs.transform.detach();
+        }
+      }
     }
-    for (const [id, mesh] of refs.meshes) {
+    for (const [id, node] of refs.nodes) {
       if (!seen.has(id)) {
-        refs.objectsGroup.remove(mesh);
-        (mesh.material as THREE.Material).dispose();
-        refs.meshes.delete(id);
-        if (refs.transform.object === mesh) refs.transform.detach();
+        refs.objectsGroup.remove(node.group);
+        (node.mesh.material as THREE.Material).dispose();
+        for (const vm of node.volumes.values()) (vm.material as THREE.Material).dispose();
+        refs.nodes.delete(id);
+        if (refs.transform.object === node.group || (refs.transform.object && refs.transform.object.parent === node.group)) refs.transform.detach();
       }
     }
     // transform gizmo
-    const sel = selectedIds.length === 1 ? refs.meshes.get(selectedIds[0]) : undefined;
-    if (sel && view === 'plater') {
-      if (refs.transform.object !== sel) refs.transform.attach(sel);
+    let target: THREE.Object3D | undefined;
+    if (selectedIds.length === 1 && view === 'plater') {
+      const node = refs.nodes.get(selectedIds[0]);
+      if (node) target = selectedVolumeId ? node.volumes.get(selectedVolumeId) || node.group : node.group;
+    }
+    if (target) {
+      if (refs.transform.object !== target) refs.transform.attach(target);
       refs.transform.setMode(transformMode);
       refs.transform.getHelper().visible = true;
       refs.transform.enabled = true;
@@ -400,7 +486,7 @@ export function Viewer() {
       refs.transform.getHelper().visible = false;
       refs.transform.enabled = false;
     }
-  }, [objects, selectedIds, transformMode, view, bedShape, maxHeight, gcode]);
+  }, [objects, selectedIds, selectedVolumeId, transformMode, view, bedShape, maxHeight, gcode]);
 
   // --- gcode
   useEffect(() => {
@@ -424,7 +510,8 @@ export function Viewer() {
       const st = useStore.getState();
       if (st.view !== 'plater') return;
       if (e.key === 'Delete' || e.key === 'Backspace') {
-        if (st.selectedIds.length) st.removeObjects(st.selectedIds);
+        if (st.selectedVolumeId && st.selectedIds.length === 1) st.removeVolume(st.selectedIds[0], st.selectedVolumeId);
+        else if (st.selectedIds.length) st.removeObjects(st.selectedIds);
       } else if (e.key === 'm' || e.key === 'M') st.setTransformMode('translate');
       else if (e.key === 'r' || e.key === 'R') st.setTransformMode('rotate');
       else if (e.key === 's' || e.key === 'S') st.setTransformMode('scale');
