@@ -107,7 +107,8 @@ export function parseBundle(file: string, text: string): { vendor: Vendor; prese
         vendorId,
         vendorName,
         id,
-        name: values.name || id,
+        // wxWidgets escapes "&" as "&&" in bundle names; show a single ampersand like PrusaSlicer
+        name: (values.name || id).replace(/&&/g, '&'),
         variants: (values.variants || '')
           .split(';')
           .map((s) => s.trim())

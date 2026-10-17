@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.0-rc.2 – 2026-10-17
+
+UAT-Durchlauf (docs/UAT-Protokoll.md): UAT-01 bis 14, 16 und 17 bestanden. Behobene Befunde:
+- Custom-Drucker: fällt auf „- default FFF -“ zurück statt ein inkompatibles Vendor-Druckprofil zu behalten
+- Kamera folgt der Bettgröße beim Druckerwechsel
+- Modellnamen mit „&&“ werden als „&“ angezeigt
+- Kopfzeile bricht bei schmalen Fenstern um, kein horizontales Seitenscrollen
+
 ## 1.0.0-rc.1 – 2026-10-17
 
 Erster Release-Kandidat für den User Acceptance Test.

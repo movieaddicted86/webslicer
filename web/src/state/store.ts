@@ -548,7 +548,7 @@ export const useStore = create<State>((set, get) => ({
       const preferred = wanted ? lists.print.find((x) => x.name === wanted && x.compatible !== false) : undefined;
       const first = preferred || lists.print.find((x) => x.compatible !== false && !isDefault(x.name));
       if (first && first.name !== curPrint) await get().selectPreset('print', first.name);
-      else if (!curPrint) await get().selectPreset('print', '- default FFF -');
+      else if (!first && curPrint !== '- default FFF -') await get().selectPreset('print', '- default FFF -');
     }
     const model = get().vendors.flatMap((v) => v.models).find((m) => m.vendorId === printer.vendorId && m.id === printer.printerModel);
     const defaultFilaments = printer.current.default_filament_profile ? unescapeStringsCstyle(printer.current.default_filament_profile) : [];
@@ -561,7 +561,7 @@ export const useStore = create<State>((set, get) => ({
       const preferred = candidates.map((d) => fl.find((x) => x.name === d && x.compatible !== false)).find(Boolean);
       const first = preferred || fl.find((x) => x.compatible !== false && !isDefault(x.name));
       if (first && first.name !== cur) await get().selectPreset('filament', first.name, i);
-      else if (!cur) await get().selectPreset('filament', '- default FFF -', i);
+      else if (!first && cur !== '- default FFF -') await get().selectPreset('filament', '- default FFF -', i);
     }
   },
 

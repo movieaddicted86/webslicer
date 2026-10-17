@@ -567,7 +567,9 @@ export function Viewer() {
     if (refs.bedKey !== key) {
       const [vendor, model, texture] = bedAssetKey.split('|');
       buildBed(refs.bedGroup, bedShape, vendor ? { vendor, model: model || undefined, texture: texture || undefined } : undefined);
-      if (!refs.bedKey) fitCamera(refs, bedShape);
+      // refit the camera on the first bed and whenever the bed shape changes (printer switch)
+      const prevShape = refs.bedKey?.split('|')[0];
+      if (!refs.bedKey || prevShape !== bedShape) fitCamera(refs, bedShape);
       refs.bedKey = key;
     }
   }, [bedShape, bedAssetKey]);

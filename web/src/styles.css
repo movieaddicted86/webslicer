@@ -1238,3 +1238,17 @@ button.link:hover {
 .paint-tools .tool.extruder.active {
   background: #ffffff18;
 }
+
+/* ---- narrow viewports: let the top bar wrap instead of scrolling the page */
+.topbar {
+  flex-wrap: wrap;
+  height: auto;
+  min-height: 46px;
+}
+.main {
+  min-width: 0;
+}
+html,
+body {
+  overflow-x: hidden;
+}

@@ -1,6 +1,6 @@
 # WebSlicer – User Acceptance Test (UAT)
 
-Version: 1.0.0-rc.1 · Engine: PrusaSlicer 2.9.6 · Stand: 2026-10-17
+Version: 1.0.0-rc.2 · Engine: PrusaSlicer 2.9.6 · Stand: 2026-10-17
 
 Ziel: Bestätigen, dass WebSlicer den Alltags-Workflow eines PrusaSlicer-Anwenders im Browser abdeckt.
 Jeder Testfall hat Schritte und ein erwartetes Ergebnis. Bitte Abweichungen mit Testfall-Nummer,

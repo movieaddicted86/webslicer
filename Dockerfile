@@ -72,7 +72,7 @@ COPY --from=build /app/web/dist ./web/dist
 COPY samples/*.stl ./samples/
 
 ENV NODE_ENV=production \
-    WEBSLICER_VERSION=1.0.0-rc.1 \
+    WEBSLICER_VERSION=1.0.0-rc.2 \
     PORT=8080 \
     DATA_DIR=/data \
     PRUSASLICER_BIN=/opt/prusaslicer/AppRun \
