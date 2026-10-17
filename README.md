@@ -195,6 +195,13 @@ zusammengeführte Konfiguration (Print + Filament(e) + Printer) als `config.ini`
 | POST | `/api/jobs/:id/send` | Upload an physischen Drucker |
 | POST | `/api/export/3mf` | Projekt-3MF |
 
+## Weitere Dokumente
+
+- [CHANGELOG.md](CHANGELOG.md) – Versionen
+- [docs/UAT.md](docs/UAT.md) – Abnahmetestplan (User Acceptance Test)
+- [docs/MCP-Konzept.md](docs/MCP-Konzept.md) – Konzept für die Steuerung durch LLM-Agenten (MCP)
+- [TODO.md](TODO.md) – Roadmap
+
 ## Lizenz
 
 WebSlicer steht unter der AGPL-3.0, wie PrusaSlicer. PrusaSlicer ist © Prusa Research; WebSlicer

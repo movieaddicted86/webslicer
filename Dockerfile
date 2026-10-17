@@ -69,8 +69,10 @@ COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/server/package.json ./server/
 COPY --from=build /app/server/dist ./server/dist
 COPY --from=build /app/web/dist ./web/dist
+COPY samples/*.stl ./samples/
 
 ENV NODE_ENV=production \
+    WEBSLICER_VERSION=1.0.0-rc.1 \
     PORT=8080 \
     DATA_DIR=/data \
     PRUSASLICER_BIN=/opt/prusaslicer/AppRun \

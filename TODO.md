@@ -23,6 +23,11 @@ alle Daten, sobald sie im 3MF stehen; es fehlen jeweils Editor im Browser und 3M
 6. [ ] **Druckerstatus** nach dem Upload (Fortschritt, Temperaturen, Dateiliste) – braucht Hardware-Test
 7. [x] **MMU-Painting** (`slic3rpe:mmu_segmentation`), Extruder je Dreieck
 
+## Release
+- [x] 1.0.0-rc.1: UAT-Testplan (docs/UAT.md), Changelog, Beispielmodelle, Versionsanzeige
+- [ ] UAT durchführen, Befunde beheben → 1.0.0
+- [ ] MCP-Integration gemäß docs/MCP-Konzept.md (nach Freigabe)
+
 ## Später
 - [ ] Cut-Tool (Schnittebene, Mesh-Boolean, optional Verbinder)
 - [ ] Text-/SVG-Embossing

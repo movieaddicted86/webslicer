@@ -71,7 +71,7 @@ export function apiRouter(): express.Router {
     asyncHandler(async (_req, res) => {
       const bundles = loadBundles();
       res.json({
-        version: process.env.npm_package_version || '0.1.0',
+        version: process.env.WEBSLICER_VERSION || process.env.npm_package_version || '1.0.0-rc.1',
         slicerVersion: await getSlicerVersion(),
         slicerBin: config.slicerBin,
         resourcesDir: bundles.resourcesDir,

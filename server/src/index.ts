@@ -7,6 +7,7 @@ import { loadBundles } from './slicer/bundles.js';
 import { getSchema } from './slicer/schema.js';
 import { apiRouter } from './routes/api.js';
 import { loadJobsFromDisk, setSchema } from './jobs.js';
+import { seedSamples } from './samples.js';
 
 async function main() {
   ensureDirs();
@@ -30,6 +31,7 @@ async function main() {
     console.error(`[webslicer] could not build option schema: ${(e as Error).message}`);
   }
   loadJobsFromDisk();
+  seedSamples();
 
   const app = express();
   app.disable('x-powered-by');
