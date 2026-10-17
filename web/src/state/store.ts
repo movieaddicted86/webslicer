@@ -123,6 +123,12 @@ interface State {
   setPlaceOnFace: (on: boolean) => void;
   /** rotate an object so that the given world-space face normal points down (-Z) */
   placeObjectOnFace: (id: string, worldNormal: [number, number, number]) => void;
+  /** undo / redo of plater changes (objects, volumes, transforms, per-object settings) */
+  undoStack: PlaterObject[][];
+  redoStack: PlaterObject[][];
+  recordHistory: (snapshot?: PlaterObject[]) => void;
+  undo: () => void;
+  redo: () => void;
 
   job?: JobRecord;
   jobLog: string[];
@@ -623,6 +629,7 @@ export const useStore = create<State>((set, get) => ({
   },
 
   addObjects: async (items, opts = {}) => {
+    get().recordHistory();
     const s = get();
     const bed = bedShapeOf(s.presets.printer.current);
     const created: PlaterObject[] = [];
@@ -684,6 +691,7 @@ export const useStore = create<State>((set, get) => ({
   addVolume: async (objectId, input) => {
     const o = get().objects.find((x) => x.id === objectId);
     if (!o) return;
+    get().recordHistory();
     const v = makeVolume(input, [0, 0, 0]);
     set((s) => ({
       objects: s.objects.map((x) => (x.id === objectId ? { ...x, volumes: [...x.volumes, v] } : x)),
@@ -700,29 +708,37 @@ export const useStore = create<State>((set, get) => ({
       sliceDirty: true,
     })),
 
-  removeVolume: (objectId, vid) =>
+  removeVolume: (objectId, vid) => {
+    get().recordHistory();
     set((s) => ({
       objects: s.objects.map((o) => (o.id === objectId ? { ...o, volumes: o.volumes.filter((v) => v.id !== vid) } : o)),
       selectedVolumeId: s.selectedVolumeId === vid ? undefined : s.selectedVolumeId,
       sliceDirty: true,
-    })),
+    }));
+  },
 
   selectVolume: (objectId, vid) => set({ selectedIds: [objectId], selectedVolumeId: vid }),
 
   updateObject: (id, patch) =>
     set((s) => ({ objects: s.objects.map((o) => (o.id === id ? { ...o, ...patch } : o)), sliceDirty: true })),
 
-  removeObjects: (ids) =>
+  removeObjects: (ids) => {
+    get().recordHistory();
     set((s) => ({
       objects: s.objects.filter((o) => !ids.includes(o.id)),
       selectedIds: s.selectedIds.filter((i) => !ids.includes(i)),
       selectedVolumeId: undefined,
       sliceDirty: true,
-    })),
+    }));
+  },
 
-  clearObjects: () => set({ objects: [], selectedIds: [], selectedVolumeId: undefined, sliceDirty: true, gcode: undefined, gcodeJobId: undefined }),
+  clearObjects: () => {
+    get().recordHistory();
+    set({ objects: [], selectedIds: [], selectedVolumeId: undefined, sliceDirty: true, gcode: undefined, gcodeJobId: undefined });
+  },
 
   duplicateObjects: async (ids) => {
+    get().recordHistory();
     const s = get();
     const items = s.objects.filter((o) => ids.includes(o.id));
     const created: PlaterObject[] = items.map((o) => ({
@@ -744,9 +760,47 @@ export const useStore = create<State>((set, get) => ({
   placeOnFace: false,
   setPlaceOnFace: (placeOnFace) => set({ placeOnFace }),
 
+  undoStack: [],
+  redoStack: [],
+  recordHistory: (snapshot) => {
+    const s = get();
+    const snap = snapshot ?? s.objects;
+    if (s.undoStack[s.undoStack.length - 1] === snap) return;
+    set({ undoStack: [...s.undoStack.slice(-49), snap], redoStack: [] });
+  },
+  undo: () => {
+    const s = get();
+    const snap = s.undoStack[s.undoStack.length - 1];
+    if (!snap) return;
+    const restored = mergeUploadState(snap, s.objects);
+    set({
+      undoStack: s.undoStack.slice(0, -1),
+      redoStack: [...s.redoStack, s.objects],
+      objects: restored,
+      selectedIds: s.selectedIds.filter((id) => restored.some((o) => o.id === id)),
+      selectedVolumeId: undefined,
+      sliceDirty: true,
+    });
+  },
+  redo: () => {
+    const s = get();
+    const snap = s.redoStack[s.redoStack.length - 1];
+    if (!snap) return;
+    const restored = mergeUploadState(snap, s.objects);
+    set({
+      redoStack: s.redoStack.slice(0, -1),
+      undoStack: [...s.undoStack, s.objects],
+      objects: restored,
+      selectedIds: s.selectedIds.filter((id) => restored.some((o) => o.id === id)),
+      selectedVolumeId: undefined,
+      sliceDirty: true,
+    });
+  },
+
   placeObjectOnFace: (id, worldNormal) => {
     const o = get().objects.find((x) => x.id === id);
     if (!o) return;
+    get().recordHistory();
     const n = new THREE.Vector3(...worldNormal).normalize();
     if (n.lengthSq() < 0.5) return;
     const down = new THREE.Vector3(0, 0, -1);
@@ -767,6 +821,7 @@ export const useStore = create<State>((set, get) => ({
   },
 
   arrange: () => {
+    get().recordHistory();
     const s = get();
     const bed = bedShapeOf(s.presets.printer.current);
     const spacing = Number(s.presets.print.current.extruder_clearance_radius) > 0 && toBool(s.presets.print.current.complete_objects) ? Number(s.presets.print.current.extruder_clearance_radius) : 6;
@@ -999,6 +1054,23 @@ export const useStore = create<State>((set, get) => ({
     set({ autosaveInfo: undefined });
   },
 }));
+
+/**
+ * History snapshots may predate the mesh uploads; carry the upload bookkeeping
+ * (modelId / uploadError) of the current objects over to the restored snapshot.
+ */
+function mergeUploadState(snapshot: PlaterObject[], current: PlaterObject[]): PlaterObject[] {
+  const byId = new Map(current.map((o) => [o.id, o]));
+  return snapshot.map((o) => {
+    const cur = byId.get(o.id);
+    const volumes = o.volumes.map((v) => {
+      const cv = cur?.volumes.find((x) => x.id === v.id);
+      return cv && (cv.modelId || cv.uploadError) && !v.modelId ? { ...v, modelId: cv.modelId, uploadError: cv.uploadError } : v;
+    });
+    if (cur && (cur.modelId || cur.uploadError) && !o.modelId) return { ...o, modelId: cur.modelId, uploadError: cur.uploadError, volumes };
+    return volumes.some((v, i) => v !== o.volumes[i]) ? { ...o, volumes } : o;
+  });
+}
 
 /** Stable per-browser id for the server-side autosave */
 export function clientId(): string {

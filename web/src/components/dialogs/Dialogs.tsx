@@ -407,7 +407,11 @@ function ObjectSettingsDialog({ onClose, objectId, volumeId }: { onClose: () => 
   );
   if (!o) return null;
   const config = vol ? vol.config : o.config;
-  const setConfig = (c: Record<string, string>) => (vol ? updateVolume(o.id, vol.id, { config: c }) : updateObject(o.id, { config: c }));
+  const setConfig = (c: Record<string, string>) => {
+    useStore.getState().recordHistory();
+    if (vol) updateVolume(o.id, vol.id, { config: c });
+    else updateObject(o.id, { config: c });
+  };
   const keys = Object.keys(config);
   const title = vol ? `${vol.type === 'ParameterModifier' ? 'Modifier' : 'Part'} settings – ${vol.name} (${o.name})` : `Per-object settings – ${o.name}`;
   return (

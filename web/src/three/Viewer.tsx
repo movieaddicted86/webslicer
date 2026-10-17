@@ -294,11 +294,17 @@ export function Viewer() {
         applyToStore(target, false);
       });
     });
+    let dragSnapshot: PlaterObject[] | undefined;
     transform.addEventListener('dragging-changed', (e) => {
       const dragging = (e as unknown as { value: boolean }).value;
       controls.enabled = !dragging;
       refs.dragging = dragging;
-      if (!dragging && transform.object) applyToStore(transform.object, true);
+      if (dragging) dragSnapshot = useStore.getState().objects;
+      if (!dragging && transform.object) {
+        if (dragSnapshot) useStore.getState().recordHistory(dragSnapshot);
+        dragSnapshot = undefined;
+        applyToStore(transform.object, true);
+      }
     });
 
     const onResize = () => {
@@ -533,7 +539,14 @@ export function Viewer() {
       else if (e.key === 'm' || e.key === 'M') st.setTransformMode('translate');
       else if (e.key === 'r' || e.key === 'R') st.setTransformMode('rotate');
       else if (e.key === 's' || e.key === 'S') st.setTransformMode('scale');
-      else if (e.key === 'a' && e.ctrlKey) {
+      else if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) {
+        e.preventDefault();
+        if (e.shiftKey) st.redo();
+        else st.undo();
+      } else if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || e.key === 'Y')) {
+        e.preventDefault();
+        st.redo();
+      } else if (e.key === 'a' && e.ctrlKey) {
         e.preventDefault();
         st.select(st.objects.map((o) => o.id));
       } else if (e.key === 'a' || e.key === 'A') st.arrange();

@@ -125,10 +125,15 @@ function TransformInputs({
 }
 
 function ObjectManipulation({ o }: { o: PlaterObject }) {
-  const update = useStore((s) => s.updateObject);
+  const updateRaw = useStore((s) => s.updateObject);
   const drop = useStore((s) => s.dropToBed);
   const openDialog = useStore((s) => s.openDialog);
   const extruders = useStore((s) => s.extruderCount());
+  const recordHistory = useStore((s) => s.recordHistory);
+  const update = (id: string, patch: Partial<PlaterObject>) => {
+    recordHistory();
+    updateRaw(id, patch);
+  };
   const set = (patch: Partial<TransformLike>) => {
     update(o.id, patch);
     drop(o.id);
@@ -187,7 +192,9 @@ function VolumeManipulation({ o, v }: { o: PlaterObject; v: PlaterVolume }) {
   const drop = useStore((s) => s.dropToBed);
   const openDialog = useStore((s) => s.openDialog);
   const extruders = useStore((s) => s.extruderCount());
+  const recordHistory = useStore((s) => s.recordHistory);
   const set = (patch: Partial<PlaterVolume>) => {
+    recordHistory();
     updateVolume(o.id, v.id, patch);
     if (v.type === 'ModelPart' || patch.scale) drop(o.id);
   };
@@ -432,6 +439,11 @@ export function Sidebar() {
   const printerBinary = useStore((s) => s.presets.printer.current.binary_gcode);
   const binaryGcode = useStore((s) => s.binaryGcode);
   const [addMenuFor, setAddMenuFor] = useState<string | null>(null);
+  const undo = useStore((s) => s.undo);
+  const redo = useStore((s) => s.redo);
+  const canUndo = useStore((s) => s.undoStack.length > 0);
+  const canRedo = useStore((s) => s.redoStack.length > 0);
+  const recordHistory = useStore((s) => s.recordHistory);
   const autosaveInfo = useStore((s) => s.autosaveInfo);
   const autosaveState = useStore((s) => s.autosaveState);
   const restoreAutosave = useStore((s) => s.restoreAutosave);
@@ -476,6 +488,12 @@ export function Sidebar() {
             <div className="section-head">
               <span>Objects ({objects.length})</span>
               <div className="tools">
+                <button title="Undo (Ctrl+Z)" onClick={undo} disabled={!canUndo}>
+                  ↶
+                </button>
+                <button title="Redo (Ctrl+Y)" onClick={redo} disabled={!canRedo}>
+                  ↷
+                </button>
                 <button className={transformMode === 'translate' ? 'active' : ''} title="Move (M)" onClick={() => setTransformMode('translate')}>
                   ✥
                 </button>
@@ -519,7 +537,10 @@ export function Sidebar() {
                       <input
                         type="checkbox"
                         checked={o.visible}
-                        onChange={(e) => update(o.id, { visible: e.target.checked })}
+                        onChange={(e) => {
+                          recordHistory();
+                          update(o.id, { visible: e.target.checked });
+                        }}
                         onClick={(e) => e.stopPropagation()}
                         title="Visible / printable"
                       />
