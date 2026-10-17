@@ -1,53 +1,53 @@
-# WebSlicer – ToDo / Roadmap
+# WebSlicer – To-do / Roadmap
 
-Grundlage: [docs/Funktionsabgleich.md](docs/Funktionsabgleich.md) (PrusaSlicer 2.9 ↔ WebSlicer).
-Priorität nach Nutzungshäufigkeit im Druckalltag und PrusaSlicer-Parität.
+Based on [docs/Feature-Comparison.md](docs/Feature-Comparison.md) (PrusaSlicer 2.9 ↔ WebSlicer).
+Priority by frequency of use in everyday printing and PrusaSlicer parity.
 
-## P1 – für Version 1.0 (in dieser Reihenfolge)
-1. [ ] **Farbwechsel / Pause / Custom G-Code am Layer** über den Vorschau-Slider (M600, Farbdruck-Vorschau)
-2. [ ] **Vorschau-Farbschemata**: Höhe, Breite, Geschwindigkeit, Lüfter, Temperatur, Volumenstrom, Layerzeit,
-       Extruder; Legende mit Wertebereich (Parser um `;WIDTH`, `;HEIGHT`, F, Fan, Temp erweitern)
-3. [ ] **Instanzen**: Anzahl setzen, Bett füllen, Instanzen in der Objektliste (gleiche Geometrie, eigene Transform)
-4. [ ] **Spiegeln** X/Y/Z im Manipulationspanel
-5. [ ] **Split to objects / parts** (zusammenhängende Shells trennen)
-6. [ ] **Unsaved-Changes-Dialog** beim Presetwechsel: Transfer / Save / Discard
+## P1 – required for version 1.0 (in this order)
+1. [ ] **Colour change / pause / custom G-code at a layer** via the preview slider (M600, colour print preview)
+2. [ ] **Preview colour schemes**: height, width, speed, fan speed, temperature, volumetric flow, layer time,
+       extruder; legend with value range (extend the parser for `;WIDTH`, `;HEIGHT`, F, fan, temperature)
+3. [ ] **Instances**: set number, fill bed, instances in the object list (shared geometry, own transform)
+4. [ ] **Mirror** X/Y/Z in the manipulation panel
+5. [ ] **Split to objects / parts** (separate connected shells)
+6. [ ] **Unsaved-changes dialog** on preset switch: transfer / save / discard
 
-## P2 – wichtig danach
-- [ ] Vorschau: horizontaler Slider, Anzeigeoptionen (Retractions, Seams, Wipe, Tool-/Farbwechsel, Shells), Zeit je Feature, Slicer-Warnungen
-- [ ] STEP-Import über die CLI (`--export-stl`)
-- [ ] Merge von Objekten; Objekt-Info (Volumen, Manifold-Prüfung), Umbenennen
-- [ ] Arrange mit Einstellungen (Abstand, Rotation) und „Arrange selection“
-- [ ] Cut-Tool (Schnittebene; Verbinder später)
-- [ ] Stufenloses Layerhöhen-Profil (Glättung, adaptiv)
-- [ ] Preset umbenennen; Config-Bundle Import/Export; Config aus G-Code importieren
-- [ ] Vendor-Profile online aktualisieren (PrusaSlicer-settings)
-- [ ] Konfigurationsassistent erweitern (Filamente je Hersteller, Temperaturen)
-- [ ] Kamera: Ansichten (Iso/Oben/Vorn/…), Ortho, Zoom auf Auswahl
-- [ ] Druckerstatus / Upload-Warteschlange (braucht Hardware-Test)
-- [ ] Deutsche Oberfläche (i18n)
-- [ ] G-Code-Viewer für Dateien aus der Bibliothek; bgcode-Konvertierung und Thumbnails in bgcode
+## P2 – important afterwards
+- [ ] Preview: horizontal slider, view options (retractions, seams, wipe, tool/colour changes, shells), time per feature, slicer warnings
+- [ ] STEP import through the CLI (`--export-stl`)
+- [ ] Merge objects; object info (volume, manifold check), rename
+- [ ] Arrange with settings (spacing, rotation) and "arrange selection"
+- [ ] Cut tool (cut plane; connectors later)
+- [ ] Continuous layer-height profile (smoothing, adaptive)
+- [ ] Rename preset; config bundle import/export; import config from G-code
+- [ ] Update vendor profiles online (PrusaSlicer-settings)
+- [ ] Extend the configuration wizard (filaments per vendor, temperatures)
+- [ ] Camera: views (iso/top/front/…), orthographic, zoom to selection
+- [ ] Printer status / upload queue (needs hardware test)
+- [ ] Localized UI (German, …)
+- [ ] G-code viewer for files from the library; bgcode conversion and thumbnails in bgcode
 
-## P3 – Komfort
-- [ ] Measure-Tool, Text-/SVG-Embossing, Shape Gallery (resources/shapes zurück ins Image)
-- [ ] Pinsel-Optionen (Smart Fill, Bucket Fill, Höhenbereich), Welt-/Lokal-Gizmo, Rechteckauswahl, Kopieren/Einfügen
-- [ ] Compare Presets, Detach from system, globale Suche, Undo-Verlauf, Preferences
-- [ ] Simplify model, Einheiten umrechnen, Reload from disk, Recent projects
-- [ ] Mehrere Betten, Purging-Volumes-Dialog, Stealth-Zeit, G-Code-Textfenster, Sidebar einklappen
-- [ ] Weitere Druckhosts (Prusa Connect, Duet, Repetier, Obico), physische Drucker mit Preset-Verknüpfung
-- [ ] SLA: Support-Point-Editor, Hollowing-Editor, SLA-Vorschau
-- [ ] Docker-Image Stufe 2: eigener PrusaSlicer-Build ohne GUI (≈ 300–400 MB)
-- [ ] Bibliothek: Vorschaubilder, Suche, Sortierung
+## P3 – convenience
+- [ ] Measure tool, text/SVG embossing, shape gallery (put resources/shapes back into the image)
+- [ ] Brush options (smart fill, bucket fill, height range), world/local gizmo, rectangle selection, copy/paste
+- [ ] Compare presets, detach from system, global search, undo history, preferences
+- [ ] Simplify model, unit conversion, reload from disk, recent projects
+- [ ] Multiple beds, purging volumes dialog, stealth time, G-code text window, collapsible sidebar
+- [ ] More print hosts (Prusa Connect, Duet, Repetier, Obico), physical printers linked to presets
+- [ ] SLA: support point editor, hollowing editor, SLA preview
+- [ ] Docker image stage 2: own PrusaSlicer build without GUI (≈ 300–400 MB)
+- [ ] Library: thumbnails, search, sorting
 
-## P4 – später oder nicht geplant
-- Netfabb/Microsoft-Repair, Firmware-Flasher, Printables-Integration, Toolpaths als OBJ, Gantry-Darstellung, Configuration Snapshots
+## P4 – later or not planned
+- Netfabb/Microsoft repair, firmware flasher, Printables integration, toolpaths as OBJ, gantry visualization, configuration snapshots
 
-## Erledigt
-- [x] Slicing-Kern, Profile, Settings-Tabs (Modi), Schnelleinstellungen, Vorschau nach Feature-Typ, Thumbnails
-- [x] Volumen (Modifier, Support-Verstärker/Blocker, Negativ, Teile), Höhenbereiche, Support-/Seam-/MMU-Painting
-- [x] Auf Fläche legen, Undo/Redo, Herstellerbett, Bibliothek, Autosave, Projekt speichern/laden
-- [x] Druckhosts PrusaLink/OctoPrint/Moonraker mit TLS-Option, Docker, Proxmox, UAT 1.0.0-rc.2
+## Done
+- [x] Slicing core, profiles, settings tabs (modes), quick settings, preview by feature type, thumbnails
+- [x] Volumes (modifiers, support enforcers/blockers, negative, parts), height ranges, support/seam/MMU painting
+- [x] Place on face, undo/redo, vendor bed, library, autosave, project save/load
+- [x] Print hosts PrusaLink/OctoPrint/Moonraker with TLS option, Docker, Proxmox, UAT 1.0.0-rc.2
 
-## Braucht dich (Robert)
-- [ ] Upload an einen echten Drucker testen (PrusaLink / Klipper / OctoPrint) – Typ und Adresse nennen
-- [ ] Proxmox-Helper auf einem echten PVE-Host testen
-- [ ] MCP-Integration gemäß docs/MCP-Konzept.md freigeben
+## Needs you (Robert)
+- [ ] Test the upload against a real printer (PrusaLink / Klipper / OctoPrint) – provide type and address
+- [ ] Test the Proxmox helper on a real PVE host
+- [ ] Approve the MCP integration per docs/MCP-Concept.md

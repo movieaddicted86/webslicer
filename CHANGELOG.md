@@ -2,33 +2,33 @@
 
 ## 1.0.0-rc.2 – 2026-10-17
 
-UAT-Durchlauf (docs/UAT-Protokoll.md): UAT-01 bis 14, 16 und 17 bestanden. Behobene Befunde:
-- Custom-Drucker: fällt auf „- default FFF -“ zurück statt ein inkompatibles Vendor-Druckprofil zu behalten
-- Kamera folgt der Bettgröße beim Druckerwechsel
-- Modellnamen mit „&&“ werden als „&“ angezeigt
-- Kopfzeile bricht bei schmalen Fenstern um, kein horizontales Seitenscrollen
-- Modus Simple blendet im Plater die Objektliste mit Modifiern, Painting und Höhenbereichen aus, wie in PrusaSlicer
+UAT run (docs/UAT-Report.md): UAT-01 to 14, 16 and 17 passed. Fixed findings:
+- custom printer: falls back to "- default FFF -" instead of keeping an incompatible vendor print profile
+- camera follows the bed size when switching printers
+- model names containing "&&" are shown as "&"
+- top bar wraps on narrow windows, no horizontal page scrolling
+- Simple mode hides the object list with modifiers, painting and height ranges in the plater, like PrusaSlicer
 
 ## 1.0.0-rc.1 – 2026-10-17
 
-Erster Release-Kandidat für den User Acceptance Test.
+First release candidate for the user acceptance test.
 
 ### Slicing
-- PrusaSlicer-Engine 2.9.6 (CLI) im Container, alle Druck-/Filament-/Druckeroptionen aus der installierten Version
-- Herstellerprofile aller mitgelieferten Bundles mit Vererbung, Kompatibilitätsbedingungen und Alias-Auflösung
-- Eigene Presets als PrusaSlicer-kompatible INI, Standardprofile des Druckers werden automatisch gewählt
-- Pro-Objekt-Einstellungen, Modifier, Support-Verstärker/-Blocker, Negativ-Volumen, Zusatzteile
-- Support-, Seam- und MMU-Painting; Höhenbereiche mit eigener Layerhöhe
-- G-Code mit Vorschaubildern (PNG/JPG/QOI) in Filamentfarbe
+- PrusaSlicer engine 2.9.6 (CLI) in the container, all print/filament/printer options of the installed version
+- vendor profiles of all bundled vendors with inheritance, compatibility conditions and alias resolution
+- user presets as PrusaSlicer-compatible INI, the printer's default profiles are selected automatically
+- per-object settings, modifiers, support enforcers/blockers, negative volumes, additional parts
+- support, seam and MMU painting; height ranges with their own layer height
+- G-code with thumbnails (PNG/JPG/QOI) in filament colour
 
-### Oberfläche
-- 3D-Plater mit Gizmo, Zahleneingabe, Auf-Fläche-legen, Arrange, Undo/Redo, Herstellerbett
-- Settings-Tabs wie PrusaSlicer (Simple/Advanced/Expert, Suche, Änderungsmarkierung)
-- Schnelleinstellungen Supports/Infill/Brim, G-Code-Vorschau mit Layer-Slider und Legende
-- Dateibibliothek (gemountetes Verzeichnis), Projekt speichern/laden, Autosave mit Wiederherstellung
-- Upload an PrusaLink, OctoPrint, Klipper/Moonraker, optional mit selbstsigniertem Zertifikat
+### User interface
+- 3D plater with gizmo, numeric input, place on face, arrange, undo/redo, vendor bed
+- settings tabs like PrusaSlicer (Simple/Advanced/Expert, search, modified markers)
+- quick settings supports/infill/brim, G-code preview with layer slider and legend
+- file library (mounted directory), project save/load, autosave with restore
+- upload to PrusaLink, OctoPrint, Klipper/Moonraker, optionally with self-signed certificate
 
-### Betrieb
-- Docker-Image (≈ 1,2 GB) mit Compose-Datei, Volumes `/data` und `/library`
-- Proxmox-LXC-Helper und Debian-Installer mit systemd-Dienst
-- Beispielmodelle werden beim ersten Start in die Bibliothek kopiert
+### Operations
+- Docker image (≈ 1.2 GB) with Compose file, volumes `/data` and `/library`
+- Proxmox LXC helper and Debian installer with systemd service
+- sample models are copied into the library on first start

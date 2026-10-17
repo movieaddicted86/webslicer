@@ -1,209 +1,203 @@
 # WebSlicer
 
-Ein vollwertiger 3D-Druck-Slicer als Webanwendung. WebSlicer nutzt die **originale
-PrusaSlicer-Engine** (CLI) im Backend und stellt Plater, Einstellungen, Profile,
-G-Code-Vorschau und Druckerupload im Browser bereit. Läuft als Docker-Container oder
-nativ in einem Proxmox-LXC.
+A full-featured 3D printing slicer as a web application. WebSlicer runs the **original PrusaSlicer
+engine** (CLI) in the backend and brings plater, settings, profiles, G-code preview and printer upload
+to the browser. Runs as a Docker container or natively in a Proxmox LXC.
 
 ![Stack](https://img.shields.io/badge/engine-PrusaSlicer%202.9.x-orange) ![Node](https://img.shields.io/badge/node-%E2%89%A520-green) ![License](https://img.shields.io/badge/license-AGPL--3.0-blue)
 
-## Funktionen
+## Features
 
-- **3D-Plater** (Three.js): STL / OBJ / 3MF / AMF importieren (Drag & Drop), mehrere Objekte,
-  verschieben / drehen / skalieren (Gizmo + Zahleneingabe), **Auf Fläche legen** (Taste F), Arrange, Duplizieren, Druckraum-Check,
-  Extruder-Zuweisung, **Pro-Objekt-Einstellungen** (Overrides wie in PrusaSlicer).
-- **Support-, Seam- und MMU-Painting**: Verstärker und Blocker bzw. den Extruder per Pinsel direkt auf das
-  Modell malen (Taste L bzw. P, Radius einstellbar, Undo), gespeichert wie in PrusaSlicer als
-  Dreiecksattribute im 3MF.
-- **Höhenbereiche**: Z-Bereiche eines Objekts mit eigener Layerhöhe und beliebigen weiteren Einstellungen
-  (variable Layerhöhe), wie die Höhenbereichs-Modifier in PrusaSlicer.
-- **Undo/Redo** im Plater, **Herstellerbett** mit Modell und Textur des gewählten Druckers.
-- **Volumen** wie in PrusaSlicer: **Modifier** (Bereich mit eigenen Einstellungen, z. B. 100 % Infill),
-  **Support-Verstärker / -Blocker**, **Negativ-Volumen** (Aussparungen) und zusätzliche **Teile** als
-  Box, Zylinder, Kugel, Slab oder aus einer Mesh-Datei; werden im 3MF gespeichert und beim Import
-  wiederhergestellt.
-- **Alle Slicing-Optionen** der installierten PrusaSlicer-Version: Das Optionsschema wird zur
-  Laufzeit aus `prusa-slicer --help-fff/--help-sla` erzeugt und in die bekannten Tabs
-  *Print / Filament / Printer Settings* mit Seiten und Gruppen einsortiert (Simple / Advanced /
-  Expert-Modus, Suche, Änderungsmarkierung, Zurücksetzen).
-- **Hersteller-Profile**: Alle Vendor-Bundles von PrusaSlicer (Prusa, Creality, Bambu, Anycubic, …
-  >100 Hersteller) inkl. Vererbung, Kompatibilitätsbedingungen (`compatible_printers_condition`),
-  Drucker-/Düsen-Varianten, Standard-Filamente. Eigene Presets werden als PrusaSlicer-kompatible
-  `.ini` gespeichert.
-- **Slicen** über die echte Engine (FFF und SLA), Fortschritt per Server-Sent-Events, Job-Queue
-  mit parallelen Jobs.
-- **G-Code-Vorschau**: Toolpaths nach Feature-Typ eingefärbt (PrusaSlicer-Farben), Layer-Slider
-  (oben/unten), Travel-Moves, Legende mit Längen, Druckzeit / Filamentverbrauch / Kosten.
-- **Export**: G-Code (auch binärer `.bgcode`), Projekt als 3MF (mit allen Einstellungen, öffnet
-  direkt im Desktop-PrusaSlicer), Config-Bundle `.ini`.
-- **Physische Drucker**: Upload (optional mit Druckstart) an **PrusaLink**, **OctoPrint** und
-  **Klipper/Moonraker** (Mainsail/Fluidd), auch über HTTPS mit selbstsigniertem Zertifikat.
-- **Vorschaubilder im G-Code**: Der Browser rendert die Thumbnails in den Größen und Formaten des
-  Druckerprofils (PNG, JPG, QOI für Prusa-Displays), der Server bettet sie in den G-Code ein. Die
-  Drucker-Displays und Mainsail/Fluidd/OctoPrint zeigen den Druck damit mit Bild.
-- **Multi-Extruder / MMU**: Filament-Preset je Extruder, Wipe-Tower-Einstellungen, Extruder-Anzahl
-  im Drucker-Preset.
-- **Dateibibliothek**: Ein gemountetes Verzeichnis (`/library`, z. B. NAS-Share) mit STL/OBJ/3MF/AMF,
-  Projekten und G-Code. Dateien lassen sich im Browser durchsuchen und direkt öffnen, Projekte als 3MF
-  und fertiger G-Code dort ablegen – ohne Upload über den Browser.
-- **Autosave**: Der Plater wird automatisch als Projekt gesichert und nach einem Reload oder Absturz
-  des Browsers zur Wiederherstellung angeboten.
-- Mehrbenutzerfähig im LAN, keine Installation am Client, läuft auch auf Tablets.
+- **3D plater** (Three.js): import STL / OBJ / 3MF / AMF (drag & drop), multiple objects,
+  move / rotate / scale (gizmo + numeric input), **place on face** (key F), arrange, duplicate,
+  build-volume check, extruder assignment, **per-object settings** (overrides like in PrusaSlicer).
+- **Support, seam and MMU painting**: paint enforcers and blockers or the extruder directly onto the model
+  (keys L / P, adjustable brush radius, undo), stored like PrusaSlicer as per-triangle attributes in the 3MF.
+- **Undo/redo** in the plater, **vendor bed** with the model and texture of the selected printer.
+- **Volumes** like in PrusaSlicer: **modifiers** (regions with their own settings, e.g. 100 % infill),
+  **support enforcers / blockers**, **negative volumes** (cut-outs) and additional **parts** as box,
+  cylinder, sphere, slab or from a mesh file; stored in the 3MF and restored on import.
+- **Height ranges**: Z ranges of an object with their own layer height and any other setting
+  (variable layer height), like the height range modifiers in PrusaSlicer.
+- **All slicing options** of the installed PrusaSlicer version: the option schema is generated at
+  runtime from `prusa-slicer --help-fff/--help-sla` and sorted into the familiar
+  *Print / Filament / Printer Settings* tabs with pages and groups (Simple / Advanced / Expert mode,
+  search, modified markers, reset).
+- **Vendor profiles**: all PrusaSlicer vendor bundles (Prusa, Creality, Anycubic, … 35 vendors) including
+  inheritance, compatibility conditions (`compatible_printers_condition`), printer/nozzle variants,
+  default filaments. User presets are stored as PrusaSlicer-compatible `.ini` files.
+- **Slicing** with the real engine (FFF and SLA), progress via server-sent events, job queue with
+  parallel jobs.
+- **G-code preview**: toolpaths coloured by feature type (PrusaSlicer colours), layer slider
+  (top/bottom), travel moves, legend with lengths, print time / filament usage / cost.
+- **Export**: G-code (also binary `.bgcode`), project as 3MF (with all settings, opens directly in
+  desktop PrusaSlicer), config bundle `.ini`.
+- **Physical printers**: upload (optionally starting the print) to **PrusaLink**, **OctoPrint** and
+  **Klipper/Moonraker** (Mainsail/Fluidd), also over HTTPS with self-signed certificates.
+- **Thumbnails in G-code**: the browser renders previews in the sizes and formats of the printer profile
+  (PNG, JPG, QOI for Prusa displays), the server embeds them into the G-code. Printer displays and
+  Mainsail/Fluidd/OctoPrint then show the print with an image.
+- **Multi-extruder / MMU**: filament preset per extruder, wipe tower settings, extruder count in the
+  printer preset.
+- **File library**: a mounted directory (`/library`, e.g. a NAS share) with STL/OBJ/3MF/AMF, projects
+  and G-code. Files can be browsed and opened in the browser, projects stored as 3MF and finished G-code
+  dropped there, without uploading through the browser.
+- **Autosave**: the plater is saved automatically as a project and offered for restore after a reload
+  or browser crash.
+- Multi-user capable on the LAN, no client installation, also works on tablets.
 
-> Noch nicht enthalten (siehe TODO.md): Support-/Seam-Painting, Variable Layer Height
-> Bearbeitung, Cut-Tool, Hollowing-Editor, Text-/SVG-Embossing. Das Slicing-Ergebnis ist
-> ansonsten identisch mit PrusaSlicer, da dieselbe Engine verwendet wird.
+> Not included yet (see TODO.md): cut tool, text/SVG embossing, continuous layer-height profile,
+> measurement tool. The slicing result is otherwise identical to PrusaSlicer because the same engine
+> is used.
 
-## Schnellstart mit Docker
+## Quick start with Docker
 
 ```bash
 docker compose up -d
 # → http://localhost:8080
 ```
 
-Oder ohne Compose:
+Or without Compose:
 
 ```bash
 docker build -t webslicer .
-docker run -d --name webslicer -p 8080:8080 -v webslicer-data:/data -v /pfad/zu/modellen:/library webslicer
+docker run -d --name webslicer -p 8080:8080 -v webslicer-data:/data -v /path/to/models:/library webslicer
 ```
 
-`/data` hält Einstellungen, Profile, Drucker und Jobs; `/library` ist die Dateibibliothek, die du auf
-einen Ordner oder NAS-Share mounten kannst (Standard in Compose: `./library`).
+`/data` holds settings, profiles, printers and jobs; `/library` is the file library you can mount on a
+folder or NAS share (default in Compose: `./library`).
 
-Beim ersten Start öffnet sich der Dialog *Printers*: Hersteller und Druckermodell/Düse wählen
-(oder einen *Custom printer* anlegen). Danach Modell per Drag & Drop in die 3D-Ansicht ziehen und
-**Slice now** klicken.
+On first start the *Printers* dialog opens: pick vendor and printer model/nozzle (or create a *Custom
+printer*). Then drag a model into the 3D view and click **Slice now**.
 
-### Build-Argumente / Umgebungsvariablen
+### Build arguments / environment variables
 
-| Variable | Default | Bedeutung |
+| Variable | Default | Meaning |
 |---|---|---|
-| `PRUSASLICER_VERSION` (build arg) | `2.9.6` | PrusaSlicer-Version |
-| `PRUSASLICER_URL` (build arg) | – | Eigene AppImage-URL (überschreibt Version/Arch) |
-| `PORT` | `8080` | HTTP-Port |
-| `DATA_DIR` | `/data` | Presets, Modelle, Jobs, Druckerliste, Autosave |
-| `LIBRARY_DIR` | `/library` (Compose) bzw. `$DATA_DIR/library` | Dateibibliothek für STL/3MF/G-Code, zum Mounten gedacht |
-| `MAX_JOBS` | `2` | Parallele Slicing-Jobs |
-| `MAX_UPLOAD_BYTES` | `524288000` | Max. Upload-Größe pro Modell |
-| `JOB_RETENTION` | `50` | Aufbewahrte Jobs (G-Code) |
-| `SLICE_TIMEOUT_MS` | `3600000` | Timeout pro Slicing-Job |
-| `PRUSASLICER_BIN` | `/opt/prusaslicer/AppRun` | Pfad zur Slicer-Binary |
-| `PRUSASLICER_RESOURCES` | auto | Pfad zum `resources`-Verzeichnis (Profile) |
+| `PRUSASLICER_VERSION` (build arg) | `2.9.6` | PrusaSlicer version |
+| `PRUSASLICER_URL` (build arg) | – | Custom AppImage URL (overrides version/arch) |
+| `PORT` | `8080` | HTTP port |
+| `DATA_DIR` | `/data` | Presets, models, jobs, printer list, autosave |
+| `LIBRARY_DIR` | `/library` (Compose) or `$DATA_DIR/library` | File library for STL/3MF/G-code, meant to be mounted |
+| `MAX_JOBS` | `2` | Parallel slicing jobs |
+| `MAX_UPLOAD_BYTES` | `524288000` | Maximum upload size per model |
+| `JOB_RETENTION` | `50` | Jobs (G-code) kept |
+| `SLICE_TIMEOUT_MS` | `3600000` | Timeout per slicing job |
+| `PRUSASLICER_BIN` | `/opt/prusaslicer/AppRun` | Path to the slicer binary |
+| `PRUSASLICER_RESOURCES` | auto | Path to the `resources` directory (profiles) |
 
-Beispiel: `docker build --build-arg PRUSASLICER_VERSION=2.9.5 -t webslicer .`
+Example: `docker build --build-arg PRUSASLICER_VERSION=2.9.5 -t webslicer .`
 
-### Woher kommt die PrusaSlicer-Binary?
+### Where does the PrusaSlicer binary come from?
 
-Prusa Research veröffentlicht seit 2.9.0 keine Linux-Binaries mehr (nur Flatpak). Das Image nutzt
-daher die gepflegten Community-AppImages aus den unveränderten PrusaSlicer-Quellen:
+Prusa Research no longer publishes Linux binaries since 2.9.0 (Flatpak only). The image therefore uses
+the maintained community AppImages built from the unmodified PrusaSlicer sources:
 
 - x86_64: <https://github.com/gneiss15/PrusaSlicer.AppImage>
 - arm64: <https://github.com/davidk/PrusaSlicer-ARM.AppImage>
 
-Mit `PRUSASLICER_URL` kann jedes andere AppImage (z. B. ein eigener Build) verwendet werden; mit
-`PRUSASLICER_BIN` auch eine selbst kompilierte Binary, die per Volume eingebunden wird.
+With `PRUSASLICER_URL` any other AppImage (e.g. your own build) can be used; with `PRUSASLICER_BIN`
+also a self-compiled binary mounted as a volume.
 
-## Installation unter Proxmox VE (LXC)
+## Installation on Proxmox VE (LXC)
 
-Auf dem Proxmox-Host als root ausführen:
+Run on the Proxmox host as root:
 
 ```bash
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/movieaddicted86/webslicer/main/proxmox/webslicer-lxc.sh)"
 ```
 
-Das Skript fragt Container-ID, Hostname, Disk, CPU, RAM, Bridge, IP und Storage ab (whiptail),
-lädt das Debian-12-Template, legt einen unprivilegierten LXC an, installiert Node.js 22 und
-PrusaSlicer, baut WebSlicer und richtet den systemd-Dienst `webslicer` ein. Am Ende wird die URL
-ausgegeben.
+The script asks for container ID, hostname, disk, CPU, RAM, bridge, IP and storage (whiptail),
+downloads the Debian 12 template, creates an unprivileged LXC, installs Node.js 22 and PrusaSlicer,
+builds WebSlicer and sets up the systemd service `webslicer`. The URL is printed at the end.
 
-Nicht-interaktiv:
+Non-interactive:
 
 ```bash
 CTID=120 HOSTNAME=webslicer DISK=12 CORES=4 RAM=4096 STORAGE=local-lvm IP=dhcp YES=1 \
   bash proxmox/webslicer-lxc.sh
 ```
 
-Aus einem lokalen Checkout heraus (z. B. per `scp` auf den Host kopiert) werden die lokalen Quellen
-in den Container gepusht statt von GitHub geladen. Das Repo (`WEBSLICER_REPO`) und der Branch sind
-über Umgebungsvariablen einstellbar.
+When run from a local checkout (e.g. copied to the host with `scp`), the local sources are pushed into
+the container instead of being fetched from GitHub. Repository (`WEBSLICER_REPO`) and branch can be set
+via environment variables.
 
-Empfohlene Ressourcen: 2–4 Kerne, 3–4 GB RAM (große Modelle brauchen mehr), 10 GB Disk
-(PrusaSlicer entpackt ≈ 1 GB).
+Recommended resources: 2–4 cores, 3–4 GB RAM (large models need more), 10 GB disk (PrusaSlicer
+extracts to ≈ 1 GB).
 
-Nützliche Befehle im Container:
+Useful commands inside the container:
 
 ```bash
 systemctl status webslicer
 journalctl -u webslicer -f
-bash /root/webslicer-install.sh      # Update auf den aktuellen Branch / neue PrusaSlicer-Version
+bash /root/webslicer-install.sh      # update to the current branch / a new PrusaSlicer version
 ```
 
-Der Installer `proxmox/install.sh` funktioniert ebenso auf jedem Debian 12/13 oder Ubuntu 22.04+
-(VM, Bare Metal).
+The installer `proxmox/install.sh` also works on any Debian 12/13 or Ubuntu 22.04+ (VM, bare metal).
 
-### Alternative: Docker im LXC
+### Alternative: Docker inside the LXC
 
-Wer lieber Docker im LXC nutzt: Container mit `nesting=1` anlegen, Docker installieren und
-`docker compose up -d` im Repo ausführen.
+If you prefer Docker inside the LXC: create the container with `nesting=1`, install Docker and run
+`docker compose up -d` in the repository.
 
-## Entwicklung
+## Development
 
 ```bash
 npm install
-npm run dev          # Vite (5173, Proxy → API) + Server (8080, tsx watch)
+npm run dev          # Vite (5173, proxy → API) + server (8080, tsx watch)
 npm run build        # web/dist + server/dist
-npm test             # Server-Tests
+npm test             # server tests
 ```
 
-Für die lokale Entwicklung muss PrusaSlicer erreichbar sein (`PRUSASLICER_BIN`); unter Windows wird
-`prusa-slicer-console.exe` der Desktop-Installation automatisch gefunden.
+For local development PrusaSlicer must be reachable (`PRUSASLICER_BIN`); on Windows the
+`prusa-slicer-console.exe` of the desktop installation is found automatically.
 
-### Architektur
+### Architecture
 
 ```
-web/      React + Three.js + Zustand (Vite)      → Plater, Settings-UI, G-Code-Vorschau (Web Worker)
+web/      React + Three.js + Zustand (Vite)      → plater, settings UI, G-code preview (web worker)
 server/   Node 22 + Express
-  slicer/cli.ts        Aufruf von prusa-slicer
-  slicer/schema.ts     Optionsschema aus --help-fff/--help-sla + kuratiertes Tab-Layout
-  slicer/bundles.ts    Vendor-Bundles (resources/profiles/*.ini) mit Vererbung
-  slicer/condition.ts  Auswertung von compatible_*_condition
-  slicer/presets.ts    System-/User-Presets, installierte Drucker
-  slicer/threemf.ts    STL-Parser, 3MF-Writer (Transformationen, Pro-Objekt-Config)
-  jobs.ts              Job-Queue, Progress (SSE), G-Code-Statistik
-  printers.ts          PrusaLink / OctoPrint / Moonraker Upload
-proxmox/  LXC-Helper (Host) + Installer (Container)
+  slicer/cli.ts        invoking prusa-slicer
+  slicer/schema.ts     option schema from --help-fff/--help-sla + curated tab layout
+  slicer/bundles.ts    vendor bundles (resources/profiles/*.ini) with inheritance
+  slicer/condition.ts  evaluation of compatible_*_condition
+  slicer/presets.ts    system/user presets, installed printers
+  slicer/threemf.ts    STL parser, 3MF writer (transforms, volumes, paint, height ranges)
+  jobs.ts              job queue, progress (SSE), G-code statistics
+  printers.ts          PrusaLink / OctoPrint / Moonraker upload
+proxmox/  LXC helper (host) + installer (container)
 ```
 
-Slicing-Ablauf: Der Browser lädt das Modell, normalisiert die Geometrie und lädt sie als STL hoch.
-Beim Slicen erzeugt der Server aus allen Objekten + Transformationen ein 3MF, schreibt die
-zusammengeführte Konfiguration (Print + Filament(e) + Printer) als `config.ini` und ruft
-`prusa-slicer --export-gcode --load config.ini --dont-arrange model.3mf` auf.
+Slicing flow: the browser loads the model, normalizes the geometry and uploads it as STL. On slicing
+the server builds a 3MF from all objects + transforms, writes the merged configuration
+(print + filament(s) + printer) as `config.ini` and calls
+`prusa-slicer --export-gcode --load config.ini --dont-arrange model.3mf`.
 
-### API (Auszug)
+### API (excerpt)
 
-| Methode | Pfad | Zweck |
+| Method | Path | Purpose |
 |---|---|---|
-| GET | `/api/schema` | Optionsschema + Layout |
-| GET | `/api/vendors` | Hersteller & Druckermodelle |
-| POST | `/api/presets/:type/list` | Presets (mit Kompatibilität) |
-| GET/PUT/DELETE | `/api/presets/:type/:name` | Preset lesen / als User-Preset speichern / löschen |
-| POST | `/api/models` | STL hochladen (Body = Binär-STL) |
-| POST | `/api/slice` | Job anlegen → `202 {id}` |
-| GET | `/api/jobs/:id/events` | Fortschritt (SSE) |
-| GET | `/api/jobs/:id/gcode` | Ergebnis (`?download`) |
-| POST | `/api/jobs/:id/send` | Upload an physischen Drucker |
-| POST | `/api/export/3mf` | Projekt-3MF |
+| GET | `/api/schema` | option schema + layout |
+| GET | `/api/vendors` | vendors & printer models |
+| POST | `/api/presets/:type/list` | presets (with compatibility) |
+| GET/PUT/DELETE | `/api/presets/:type/:name` | read preset / save as user preset / delete |
+| POST | `/api/models` | upload STL (body = binary STL) |
+| POST | `/api/slice` | create job → `202 {id}` |
+| GET | `/api/jobs/:id/events` | progress (SSE) |
+| GET | `/api/jobs/:id/gcode` | result (`?download`) |
+| POST | `/api/jobs/:id/send` | upload to a physical printer |
+| POST | `/api/export/3mf` | project 3MF |
+| GET | `/api/library` | file library |
 
-## Weitere Dokumente
+## More documents
 
-- [CHANGELOG.md](CHANGELOG.md) – Versionen
-- [docs/UAT.md](docs/UAT.md) – Abnahmetestplan, [docs/UAT-Protokoll.md](docs/UAT-Protokoll.md) – Ergebnis
-- [docs/Funktionsabgleich.md](docs/Funktionsabgleich.md) – Funktionsumfang PrusaSlicer ↔ WebSlicer mit Prioritäten
-- [docs/MCP-Konzept.md](docs/MCP-Konzept.md) – Konzept für die Steuerung durch LLM-Agenten (MCP)
-- [TODO.md](TODO.md) – Roadmap
+- [CHANGELOG.md](CHANGELOG.md) – versions
+- [docs/UAT.md](docs/UAT.md) – acceptance test plan, [docs/UAT-Report.md](docs/UAT-Report.md) – results
+- [docs/Feature-Comparison.md](docs/Feature-Comparison.md) – PrusaSlicer ↔ WebSlicer feature inventory with priorities
+- [docs/MCP-Concept.md](docs/MCP-Concept.md) – concept for controlling WebSlicer through LLM agents (MCP)
+- [TODO.md](TODO.md) – roadmap
 
-## Lizenz
+## License
 
-WebSlicer steht unter der AGPL-3.0, wie PrusaSlicer. PrusaSlicer ist © Prusa Research; WebSlicer
-ist ein unabhängiges Projekt und steht in keiner Verbindung zu Prusa Research.
+WebSlicer is licensed under the AGPL-3.0, like PrusaSlicer. PrusaSlicer is © Prusa Research; WebSlicer
+is an independent project and not affiliated with Prusa Research.
