@@ -175,6 +175,27 @@ test('3MF transform round trip keeps a rotation (not its transpose)', async () =
   closeTo([e[0], e[1], e[2]], [0, 1, 0], 1e-3);
 });
 
+test('3MF roundtrip keeps a mirrored instance transform (rotation + mirror + non-uniform scale)', async () => {
+  // PrusaSlicer's "Mirror X" through the instance position: M' = T(p)·S(axis=-1)·T(-p)·M. The
+  // column-major elements below are that product for a 30 mm object placed at (10, 20) and rotated
+  // 90° about Z with a non-uniform scale; the sign ends up in the scale, so the determinant stays
+  // negative.  (Computed with three.js, rounded to the values the 3MF writer prints.)
+  const mirrored = [0, 1.5, 0, 0, 1, 0, 0, 0, 0, 0, 2, 0, 10, 20, 0, 1];
+  const det = (m: number[]) => m[0] * (m[5] * m[10] - m[9] * m[6]) - m[4] * (m[1] * m[10] - m[9] * m[2]) + m[8] * (m[1] * m[6] - m[5] * m[2]);
+  assert.ok(det(mirrored) < 0);
+  const buf = await build3mf([{ name: 'cube', mesh: cube(30), transform: mirrored, instances: [mirrored] }]);
+  const proj = await read3mfProject(buf);
+  assert.equal(proj.objects[0].instances.length, 1);
+  closeTo(proj.objects[0].instances[0], mirrored, 1e-3);
+  // the written item transform is the same matrix, and it is not transposed on the way out
+  const items = await readItems(buf);
+  closeTo(items[0].transform, [0, 1.5, 0, 1, 0, 0, 0, 0, 2, 10, 20, 0], 1e-3);
+  // the object mesh stays in object coordinates (the mirror is a build item, not baked in)
+  const JSZip = (await import('jszip')).default;
+  const model = await (await JSZip.loadAsync(buf)).file('3D/3dmodel.model')!.async('string');
+  assert.ok(/<vertex x="0" y="0" z="0"\/>/.test(model), model.slice(0, 1200));
+});
+
 test('3MF transform parser handles arbitrary row-major strings', async () => {
   // m00 m01 m02 | m10 m11 m12 | m20 m21 m22 | m30 m31 m32  (row-major, translation in the last row)
   // three.js elements are the transpose: the 3x3 block maps straight across, translation -> e12-14
