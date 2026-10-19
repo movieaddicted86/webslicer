@@ -25,7 +25,7 @@ browser and screenshot.
 | UAT-05 | Manipulation | Select object; enter rotation X = 45°; key F, click a face; scale 150 %; "Mirror X" (then "Mirror X" again); arrange (A) | After rotation the object does not sink below the bed; after "place on face" the face lies flat; bounding box shows 30 mm; object stays on the bed. Mirror X flips the object about the X axis through its position (mirrored copy of the outline, sits on the bed again, size fields keep showing positive percentages – the sign lives on the hidden scale axis); a second Mirror X restores the original orientation. Ctrl+Z undoes every step. |
 | UAT-06 | Slice and preview | Slice now | Progress bar, then a preview with coloured toolpaths, working layer slider, statistics with time, filament, layers. |
 | UAT-07 | Settings | Print Settings → Infill → fill density 40 %; mode Expert → more options; search field "seam"; mode Simple in the plater | Preset shows "(modified)", orange dot on the tab; Expert shows more options than Simple; search finds "Seam position"; in the plater Simple hides the object list with modifiers/painting/height ranges (like PrusaSlicer), Advanced/Expert show it. |
-| UAT-08 | Save preset | 💾 next to the print profile → name "UAT Test" → Save; switch preset and back; 🗑 delete | Preset appears under "User presets", values are kept, deleting falls back to the printer's default profile. |
+| UAT-08 | Save preset | 💾 next to the print profile → name "UAT Test" → Save; switch preset and back; 🗑 delete. Then change fill density and perimeters and pick another print preset; try Transfer, Save, Discard and Cancel | Preset appears under "User presets", values are kept, deleting falls back to the printer's default profile. With modifications the "Unsaved Changes" dialog opens: it lists exactly the changed options with old and new value, **Transfer** keeps them in the new preset (which then shows "(modified)"), **Save** stores the changed preset under a name and switches afterwards, **Discard** switches without them, **Cancel**/Esc/✕ changes nothing. In a filament row the dialog affects only that extruder; for a printer preset **Transfer** is disabled ("Printer settings are not transferred to another printer"). Switching an unmodified preset asks nothing. |
 | UAT-09 | Supports/painting | Load `bridge_table.stl`; supports = "For support enforcers only"; slice → no supports; key L, paint the underside of the plate, Done; slice | Second slice contains green support material only below the painted area. "Clear all" removes the paint. |
 | UAT-10 | Modifier | Load cube; "+" in the object row → Modifier → box; modifier settings → fill density 100 %; slice | Modifier visible as a yellow box; filament usage rises compared to UAT-06; blockers/negative volumes can be added the same way. |
 | UAT-11 | Height ranges | `stepped_pyramid.stl`; "+ Range" 0–6 mm, layer h. 0.1; slice | Slab in the viewer; layer count rises, the first layers are 0.1 mm high (preview slider shows Z 0.1, 0.2, …). |
@@ -49,6 +49,8 @@ browser and screenshot.
 - The printer upload was implemented against the API documentation and is not yet verified with real
   hardware (which makes UAT-15 especially important).
 - The user interface is English only.
+- The "Unsaved Changes" dialog only appears on preset switches the user starts; automatic switches
+  (an incompatible preset after a printer change) and opening a project do not ask.
 
 ## Acceptance criterion
 
