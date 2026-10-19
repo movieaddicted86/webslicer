@@ -18,6 +18,8 @@
 - Helper: when the container does not start, the real LXC error is shown (debug start log); if the
   model library mount prevents the start, the install continues without it and explains how to add it
   later; the library is checked for write access with a share-type specific hint (CIFS, NFS, local)
+- Helper: the LXC template is chosen for the host architecture – `pveam` also lists arm64 templates,
+  and an x86_64 host could get the arm64 Debian 13 template ("Exec format error" on start)
 
 ## 1.0.0-rc.2 – 2026-10-17
 

@@ -156,11 +156,15 @@ failure_hints() {
 show_start_error() {
   [ -s "$START_LOG" ] || return 0
   local errs
-  errs="$(grep -E ' ERROR +' "$START_LOG" | sed -E 's/^.* ERROR +//' | grep -v -e 'sync_wait' -e '__lxc_start' | tail -n 8)"
+  errs="$(grep -E '(^|[[:space:]])ERROR[[:space:]]+' "$START_LOG" | sed -E 's/^(.*[[:space:]])?ERROR[[:space:]]+//' |
+    grep -v -e 'sync_wait' -e '__lxc_start' | tail -n 8)"
   [ -n "$errs" ] || errs="$(grep -iE 'error|fail' "$START_LOG" | tail -n 8)"
   [ -n "$errs" ] || return 0
   echo -e "${TAB}${YW}LXC reports:${CL}"
   printf '%s\n' "$errs" | sed "s/^/${TAB}${TAB}/"
+  if grep -q 'Exec format error' "$START_LOG"; then
+    echo -e "${TAB}${YW}The container's binaries do not match the host architecture (${HOST_ARCH}) – wrong template.${CL}"
+  fi
   echo -e "${TAB}${DGN}Full debug log: ${START_LOG}${CL}"
 }
 trap 'on_error $LINENO' ERR
@@ -250,8 +254,10 @@ if [ -n "$PVE_VER" ] && [ "$PVE_VER" -lt 8 ]; then
   echo "Proxmox VE 8 or newer is required (found ${PVE_VER})." >&2
   exit 1
 fi
-case "$(dpkg --print-architecture 2>/dev/null || uname -m)" in
-  amd64 | x86_64 | arm64 | aarch64) ;;
+HOST_ARCH="$(dpkg --print-architecture 2>/dev/null || uname -m)"
+case "$HOST_ARCH" in
+  amd64 | x86_64) HOST_ARCH=amd64 ;;
+  arm64 | aarch64) HOST_ARCH=arm64 ;;
   *)
     echo "Unsupported architecture." >&2
     exit 1
@@ -264,6 +270,11 @@ if [ "$YES" != "1" ]; then
 fi
 
 # ---- helpers for settings ---------------------------------------------------------------
+# newest Debian template for the host architecture (pveam also lists templates of other architectures)
+latest_template() {
+  pveam available --section system 2>/dev/null |
+    awk -v re="^debian-$1-standard_.*_${HOST_ARCH}[.]tar" '$2 ~ re {print $2}' | sort -V | tail -n1
+}
 next_ctid() { pvesh get /cluster/nextid 2>/dev/null || echo 100; }
 ctid_in_use() { pct status "$1" >/dev/null 2>&1 || qm status "$1" >/dev/null 2>&1; }
 storages_for() { # content type → "name|type|avail_kib" lines
@@ -333,8 +344,8 @@ advanced_settings() {
   local v
   # OS version (only offer versions with an available template)
   local os_menu=() d12 d13
-  d12="$(pveam available --section system 2>/dev/null | awk '/debian-12-standard/ {print $2}' | sort -V | tail -n1)"
-  d13="$(pveam available --section system 2>/dev/null | awk '/debian-13-standard/ {print $2}' | sort -V | tail -n1)"
+  d12="$(latest_template 12)"
+  d13="$(latest_template 13)"
   [ -n "$d12" ] && os_menu+=("12" "Debian 12 Bookworm (tested)" "$([ "$var_os_version" = 12 ] && echo ON || echo OFF)")
   [ -n "$d13" ] && os_menu+=("13" "Debian 13 Trixie" "$([ "$var_os_version" = 13 ] && echo ON || echo OFF)")
   [ -z "$d12" ] && [ -n "$d13" ] && var_os_version=13
@@ -542,9 +553,9 @@ echo -e "${TAB}${DGN}Log file: ${LOG}${CL}\n"
 # ---- template ------------------------------------------------------------------------
 msg_info "Updating the template list"
 run pveam update || true
-TEMPLATE="$(pveam available --section system 2>/dev/null | awk "/debian-${var_os_version}-standard/ {print \$2}" | sort -V | tail -n1)"
+TEMPLATE="$(latest_template "$var_os_version")"
 [ -n "$TEMPLATE" ] || {
-  msg_error "No Debian ${var_os_version} template available"
+  msg_error "No Debian ${var_os_version} template for ${HOST_ARCH} available"
   exit 1
 }
 msg_ok "Template ${TEMPLATE}"
