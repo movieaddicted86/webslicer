@@ -892,7 +892,14 @@ export function Viewer() {
       if (st.view !== 'plater') return;
       if (e.key === 'Delete' || e.key === 'Backspace') {
         if (st.selectedVolumeId && st.selectedIds.length === 1) st.removeVolume(st.selectedIds[0], st.selectedVolumeId);
-        else if (st.selectedIds.length) st.removeObjects(st.selectedIds);
+        // AC-4.4: a selected instance goes first, the object only once it is the last instance
+        else if (st.selectedIds.length === 1 && (st.objects.find((o) => o.id === st.selectedIds[0])?.instances.length ?? 1) > 1) {
+          st.removeInstance(st.selectedIds[0], st.selectedInstanceId);
+        } else if (st.selectedIds.length) st.removeObjects(st.selectedIds);
+      } else if (e.key === '+' || e.key === '=' || e.code === 'NumpadAdd') {
+        if (st.selectedIds.length === 1) st.addInstances(st.selectedIds[0]);
+      } else if (e.key === '-' || e.key === '_' || e.code === 'NumpadSubtract') {
+        if (st.selectedIds.length === 1) st.removeInstance(st.selectedIds[0], st.selectedInstanceId);
       } else if ((e.key === 'l' || e.key === 'L') && st.selectedIds.length === 1) {
         if (st.paintMode === 'supports') st.stopPaint();
         else st.startPaint(st.selectedIds[0], 'supports');

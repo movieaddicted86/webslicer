@@ -955,6 +955,45 @@ table.kv td:first-child {
   margin: 0;
   padding: 0 0 2px 18px;
 }
+.instance-list {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 2px 18px;
+}
+.instance-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 6px;
+  font-size: 12px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.instance-row:hover {
+  background: var(--bg3);
+}
+.instance-row.selected {
+  background: #2a3b55;
+}
+.instance-row .iname {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.instance-row .icon {
+  padding: 0 4px;
+  line-height: 1;
+}
+.badge.inst {
+  cursor: pointer;
+  border: none;
+  color: inherit;
+  background: var(--bg4);
+}
+.manip-row.instances input {
+  width: 64px;
+}
 .volume-row {
   padding: 3px 6px;
   font-size: 12px;

@@ -265,7 +265,8 @@ interface State {
   duplicateObjects: (ids: string[]) => Promise<void>;
   select: (ids: string[], additive?: boolean) => void;
   setTransformMode: (m: State['transformMode']) => void;
-  arrange: () => void;
+  /** arrange every instance on the bed; false (and no change) when they do not all fit */
+  arrange: () => boolean;
   dropToBed: (id: string) => void;
 
   buildSliceRequest: () => SliceRequest;
@@ -1097,7 +1098,6 @@ export const useStore = create<State>((set, get) => ({
   },
 
   arrange: () => {
-    get().recordHistory();
     const s = get();
     const bed = bedShapeOf(s.presets.printer.current);
     const spacing = arrangementSpacing(s.presets.print.current);
@@ -1114,9 +1114,11 @@ export const useStore = create<State>((set, get) => ({
       bed,
     );
     if (!packed) {
-      s.toast('error', 'The objects do not fit on the bed');
-      return;
+      // nothing fits: report it and leave the plater untouched (checked before recording history)
+      s.toast('error', 'Not all objects fit on the bed');
+      return false;
     }
+    get().recordHistory();
     const byKey = new Map(items.map((it) => [it.key, it]));
     const updates = new Map<string, [number, number, number]>();
     for (const p of packed) {
@@ -1132,6 +1134,7 @@ export const useStore = create<State>((set, get) => ({
       }),
       sliceDirty: true,
     }));
+    return true;
   },
 
   addInstances: (objectId, count = 1) => {
@@ -1143,7 +1146,6 @@ export const useStore = create<State>((set, get) => ({
       s0.toast('info', `${o.name} already has the maximum of 1000 instances`);
       return;
     }
-    get().recordHistory();
     const template = selectedInstance(s0, o);
     const added: PlaterInstance[] = Array.from({ length: add }, () => ({
       id: `inst-${++instanceId}`,
@@ -1151,6 +1153,21 @@ export const useStore = create<State>((set, get) => ({
       rotation: [...template.rotation] as [number, number, number],
       scale: [...template.scale] as [number, number, number],
     }));
+    const preview = { ...o, instances: [...o.instances, ...added] };
+    const rest = s0.objects.filter((x) => x.id !== objectId);
+    const bed = bedShapeOf(s0.presets.printer.current);
+    const spacing = arrangementSpacing(s0.presets.print.current);
+    const item = (obj: PlaterObject, i: PlaterInstance, key: string): PackItem => {
+      const b = instanceBounds(obj, i);
+      return { id: key, width: b.max.x - b.min.x + spacing, height: b.max.y - b.min.y + spacing };
+    };
+    const layout = [...rest, preview].flatMap((obj) => obj.instances.map((i, k) => item(obj, i, `${obj.id}:${i.id}:${k}`)));
+    if (!packShelf(layout, bed)) {
+      // the copies would be born off the bed; refuse instead of leaving an unprintable plater
+      s0.toast('error', `Not enough room on the bed for ${add > 1 ? `${add} more instances` : 'another instance'} of ${o.name}`);
+      return;
+    }
+    get().recordHistory();
     set((s) => ({
       objects: s.objects.map((x) => (x.id === objectId ? { ...x, instances: [...x.instances, ...added] } : x)),
       selectedIds: [objectId],

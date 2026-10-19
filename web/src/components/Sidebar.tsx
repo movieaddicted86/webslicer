@@ -277,6 +277,12 @@ function ObjectManipulation({ o }: { o: PlaterObject }) {
   const openDialog = useStore((s) => s.openDialog);
   const extruders = useStore((s) => s.extruderCount());
   const recordHistory = useStore((s) => s.recordHistory);
+  const setInstanceCount = useStore((s) => s.setInstanceCount);
+  const fillBedWithInstances = useStore((s) => s.fillBedWithInstances);
+  // the instance count field keeps the typed text while it is edited, so a half-typed "1" of "12"
+  // does not immediately shrink the plater
+  const [countText, setCountText] = useState(() => String(o.instances.length));
+  const [editingCount, setEditingCount] = useState(false);
   // the manipulation fields edit the selected instance (instance 1 when none is selected)
   const selectedIds = useStore((s) => s.selectedIds);
   const selectedInstanceId = useStore((s) => s.selectedInstanceId);
@@ -305,6 +311,30 @@ function ObjectManipulation({ o }: { o: PlaterObject }) {
           } else set(patch);
         }}
       />
+      <div className="manip-row instances">
+        <span>Instances</span>
+        <input
+          type="number"
+          min={1}
+          max={1000}
+          step={1}
+          value={editingCount ? countText : String(o.instances.length)}
+          onChange={(e) => {
+            setCountText(e.target.value);
+            const n = Number(e.target.value);
+            // AC-2.1: out-of-range or non-integer input is rejected without touching the plater
+            if (Number.isInteger(n) && n >= 1 && n <= 1000) setInstanceCount(o.id, n);
+          }}
+          onFocus={() => {
+            setCountText(String(o.instances.length));
+            setEditingCount(true);
+          }}
+          onBlur={() => setEditingCount(false)}
+        />
+        <button title="Add as many instances as fit on the bed" onClick={() => fillBedWithInstances(o.id)}>
+          Fill bed
+        </button>
+      </div>
       <div className="muted small">
         Bounding box: {fmt(box.max.x - box.min.x)} × {fmt(box.max.y - box.min.y)} × {fmt(box.max.z - box.min.z)} mm
       </div>
@@ -572,10 +602,15 @@ export function Sidebar() {
   const objects = useStore((s) => s.objects);
   const selectedIds = useStore((s) => s.selectedIds);
   const selectedVolumeId = useStore((s) => s.selectedVolumeId);
+  const selectedInstanceId = useStore((s) => s.selectedInstanceId);
   const select = useStore((s) => s.select);
   const selectVolume = useStore((s) => s.selectVolume);
   const removeObjects = useStore((s) => s.removeObjects);
   const removeVolume = useStore((s) => s.removeVolume);
+  const addInstances = useStore((s) => s.addInstances);
+  const removeInstance = useStore((s) => s.removeInstance);
+  const selectInstance = useStore((s) => s.selectInstance);
+  const instanceToObject = useStore((s) => s.instanceToObject);
   const duplicate = useStore((s) => s.duplicateObjects);
   const arrange = useStore((s) => s.arrange);
   const clear = useStore((s) => s.clearObjects);
@@ -599,6 +634,8 @@ export function Sidebar() {
   const simple = mode === 'simple';
   const binaryGcode = useStore((s) => s.binaryGcode);
   const [addMenuFor, setAddMenuFor] = useState<string | null>(null);
+  // which objects show their instance sub-list (like the volume list, collapsed by default)
+  const [instancesOpen, setInstancesOpen] = useState<Record<string, boolean>>({});
   const undo = useStore((s) => s.undo);
   const redo = useStore((s) => s.redo);
   const canUndo = useStore((s) => s.undoStack.length > 0);
@@ -618,8 +655,18 @@ export function Sidebar() {
 
   const deleteSelection = () => {
     if (selectedVolume && selected.length === 1) removeVolume(selected[0].id, selectedVolume.id);
+    // AC-4.4: a selected instance is removed first, the object only when it is the last one
+    else if (selected.length === 1 && selected[0].instances.length > 1) removeInstance(selected[0].id, selectedInstanceId);
     else removeObjects(selectedIds);
   };
+
+  const addInstance = () => {
+    if (selected.length === 1) addInstances(selected[0].id);
+  };
+  const removeOneInstance = () => {
+    if (selected.length === 1) removeInstance(selected[0].id, selectedInstanceId);
+  };
+  const instanceCount = selected.length === 1 ? selected[0].instances.length : 0;
 
   return (
     <aside className="sidebar">
@@ -675,6 +722,12 @@ export function Sidebar() {
                 <button title="Arrange (A)" onClick={arrange} disabled={!objects.length}>
                   ▦
                 </button>
+                <button title="Add instance (+)" onClick={addInstance} disabled={selected.length !== 1}>
+                  +
+                </button>
+                <button title="Remove instance (−)" onClick={removeOneInstance} disabled={selected.length !== 1 || instanceCount <= 1}>
+                  −
+                </button>
                 <button title="Duplicate" onClick={() => duplicate(selectedIds)} disabled={!selected.length}>
                   ⧉
                 </button>
@@ -710,6 +763,18 @@ export function Sidebar() {
                       </span>
                       {o.extruder > 0 && <span className="badge">E{o.extruder}</span>}
                       {Object.keys(o.config).length > 0 && <span className="badge">⚙</span>}
+                      {o.instances.length > 1 && (
+                        <button
+                          className="badge inst"
+                          title={`${o.instances.length} instances – click to show them`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setInstancesOpen((m) => ({ ...m, [o.id]: !m[o.id] }));
+                          }}
+                        >
+                          ×{o.instances.length}
+                        </button>
+                      )}
                       <button
                         className="icon add"
                         title="Add modifier / support enforcer / blocker / part"
@@ -722,6 +787,47 @@ export function Sidebar() {
                       </button>
                     </div>
                     {addMenuFor === o.id && <AddVolumeMenu o={o} onClose={() => setAddMenuFor(null)} />}
+                    {o.instances.length > 1 && instancesOpen[o.id] && (
+                      <ul className="instance-list">
+                        {o.instances.map((inst, i) => (
+                          <li
+                            key={inst.id}
+                            className={`instance-row ${isSel && selectedInstanceId === inst.id ? 'selected' : ''}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              selectInstance(o.id, inst.id);
+                            }}
+                            title={`Instance ${i + 1} of ${o.instances.length}`}
+                          >
+                            <span className="iname">Instance {i + 1}</span>
+                            <span className="muted small">
+                              {inst.position.map((v) => fmt(v)).join(' / ')}
+                            </span>
+                            <button
+                              className="icon"
+                              title="Set as separate object"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                instanceToObject(o.id, inst.id);
+                              }}
+                            >
+                              ⧉
+                            </button>
+                            <button
+                              className="icon"
+                              title="Delete instance"
+                              disabled={o.instances.length <= 1}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                removeInstance(o.id, inst.id);
+                              }}
+                            >
+                              🗑
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                     {o.volumes.length > 0 && (
                       <ul className="volume-list">
                         {o.volumes.map((v) => (
@@ -780,6 +886,12 @@ export function Sidebar() {
                 <div className="tools">
                   <button title="Arrange (A)" onClick={arrange} disabled={!objects.length}>
                     ▦
+                  </button>
+                  <button title="Add instance (+)" onClick={addInstance} disabled={selected.length !== 1}>
+                    +
+                  </button>
+                  <button title="Remove instance (−)" onClick={removeOneInstance} disabled={selected.length !== 1 || instanceCount <= 1}>
+                    −
                   </button>
                   <button title="Delete selected (Del)" onClick={deleteSelection} disabled={!selected.length}>
                     🗑
