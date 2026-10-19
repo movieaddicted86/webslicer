@@ -1434,3 +1434,40 @@ body {
   gap: 6px;
   margin: 4px 0;
 }
+
+/* ---- toolpath play-back slider (PrusaSlicer's horizontal slider) */
+.move-slider {
+  display: grid;
+  grid-template-columns: 40px 1fr;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 0 2px;
+}
+.move-slider input[type='range'] {
+  width: 100%;
+}
+.move-slider > .muted {
+  grid-column: 2;
+  margin-top: -4px;
+}
+
+/* ---- view options (markers and shells) */
+.view-options {
+  margin: 6px 0;
+}
+.view-options > .muted {
+  margin-bottom: 2px;
+}
+.view-options label.checkbox {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 1px 0;
+}
+.view-options .swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  border: 1px solid #0006;
+  flex: none;
+}

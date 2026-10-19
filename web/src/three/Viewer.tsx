@@ -13,7 +13,8 @@ import {
   type PlaterObject,
   type PlaterVolume,
 } from '../state/store';
-import { FEATURE_COLORS, type ParsedGcode } from '../gcode/types';
+import { FEATURE_COLORS, MARKER_COLORS, MARKER_KINDS, type MarkerKind, type ParsedGcode } from '../gcode/types';
+import { moveWindow, toolPosition } from '../gcode/moves';
 import { RANGE_SCHEMES, rangeColor, rangePosition, schemeRange, type PreviewColorMode } from '../gcode/colorschemes';
 import type { CustomGcode, VolumeType } from '../api';
 import { colorAtZ, normalizeColor } from '../gcode/colorprint';
@@ -66,10 +67,18 @@ interface SceneRefs {
   dragging: boolean;
   gcodeLines?: THREE.LineSegments;
   travelLines?: THREE.LineSegments;
+  wipeLines?: THREE.LineSegments;
+  /** one THREE.Points per marker kind, so each kind can be toggled and coloured on its own */
+  markerPoints?: Map<MarkerKind, THREE.Points>;
+  /** cone following the horizontal slider */
+  toolMarker?: THREE.Mesh;
   gcodeRef?: ParsedGcode;
   /** key of the colouring currently applied to the toolpaths */
   colorKey?: string;
   bedKey?: string;
+  /** meshes of the plater, drawn translucent while "Shells" is on */
+  shells: { mesh: THREE.Mesh; key: string }[];
+  shellsOn: boolean;
 }
 
 interface BedAsset {
@@ -244,6 +253,9 @@ function buildGcode(refs: SceneRefs, g: ParsedGcode, coloring: GcodeColoring) {
   refs.gcodeGroup.clear();
   refs.gcodeLines = undefined;
   refs.travelLines = undefined;
+  refs.wipeLines = undefined;
+  refs.markerPoints = undefined;
+  refs.toolMarker = undefined;
   const colors = new Float32Array(g.positions.length);
   fillGcodeColors(colors, g, coloring);
   refs.colorKey = coloringKey(coloring);
@@ -262,26 +274,136 @@ function buildGcode(refs: SceneRefs, g: ParsedGcode, coloring: GcodeColoring) {
   travel.visible = false;
   refs.gcodeGroup.add(travel);
   refs.travelLines = travel;
+
+  if (g.wipeCount) {
+    const wg = new THREE.BufferGeometry();
+    wg.setAttribute('position', new THREE.BufferAttribute(g.wipePositions, 3));
+    const wipe = new THREE.LineSegments(wg, new THREE.LineBasicMaterial({ color: MARKER_COLORS.wipe, transparent: true, opacity: 0.9 }));
+    wipe.frustumCulled = false;
+    wipe.visible = false;
+    refs.gcodeGroup.add(wipe);
+    refs.wipeLines = wipe;
+  }
+
+  // one Points object per marker kind: toggling a kind only flips its visibility
+  const points = new Map<MarkerKind, THREE.Points>();
+  for (let k = 0; k < MARKER_KINDS.length; k++) {
+    let n = 0;
+    for (let i = 0; i < g.markerCount; i++) if (g.markerKind[i] === k) n++;
+    if (!n) continue;
+    const arr = new Float32Array(n * 3);
+    const layer = new Uint32Array(n);
+    const move = new Uint32Array(n);
+    let w = 0;
+    for (let i = 0; i < g.markerCount; i++) {
+      if (g.markerKind[i] !== k) continue;
+      arr[w * 3] = g.markerPositions[i * 3];
+      arr[w * 3 + 1] = g.markerPositions[i * 3 + 1];
+      arr[w * 3 + 2] = g.markerPositions[i * 3 + 2];
+      layer[w] = g.markerLayer[i];
+      move[w] = g.markerMove[i];
+      w++;
+    }
+    const mg = new THREE.BufferGeometry();
+    mg.setAttribute('position', new THREE.BufferAttribute(arr, 3));
+    const kind = MARKER_KINDS[k];
+    const mp = new THREE.Points(mg, new THREE.PointsMaterial({ color: new THREE.Color(MARKER_COLORS[kind]), size: 3, sizeAttenuation: false }));
+    mp.frustumCulled = false;
+    mp.visible = false;
+    // markers of one kind are sorted by layer and move (both grow in G-code order), so the window of
+    // a layer is a contiguous range found by binary search – no per-frame allocation
+    mp.userData = { layer, move, count: n };
+    refs.gcodeGroup.add(mp);
+    points.set(kind, mp);
+  }
+  refs.markerPoints = points;
+
+  const cone = new THREE.Mesh(
+    new THREE.ConeGeometry(0.6, 1.6, 12),
+    new THREE.MeshBasicMaterial({ color: 0xffd24d }),
+  );
+  cone.rotation.x = Math.PI / 2; // PrusaSlicer's marker points along +Z
+  cone.visible = false;
+  cone.renderOrder = 30;
+  refs.gcodeGroup.add(cone);
+  refs.toolMarker = cone;
+
   refs.gcodeRef = g;
 }
 
-function applyGcodeRange(refs: SceneRefs, range: [number, number], showTravel: boolean, visibility: Record<string, boolean>) {
-  const g = refs.gcodeRef;
-  if (!g || !refs.gcodeLines) return;
-  const lo = Math.max(0, Math.min(range[0], g.layerCount - 1));
-  const hi = Math.max(lo, Math.min(range[1], g.layerCount - 1));
-  const startSeg = g.layerStart[lo];
-  const endSeg = g.layerStart[hi + 1];
-  refs.gcodeLines.geometry.setDrawRange(startSeg * 2, (endSeg - startSeg) * 2);
+/**
+ * How much of the top visible layer is printed. `cut === undefined` means the whole layer; otherwise
+ * everything up to and including the global move `cut` is drawn.
+ */
+interface Cut {
+  extrusion: number;
+  travel: number;
+  wipe: number;
+  marker: number;
+}
+
+/** Number of leading segments of a sorted move array whose move index is <= cut. */
+function countUpTo(moves: Uint32Array, from: number, to: number, cut: number | undefined): number {
+  if (cut === undefined) return to - from;
+  let n = 0;
+  for (let i = from; i < to; i++) {
+    if (moves[i] > cut) break;
+    n++;
+  }
+  return n;
+}
+
+/** First index in a sorted array whose value is >= `value`. */
+function lowerBound(arr: Uint32Array, value: number, len: number): number {
+  let lo = 0;
+  let hi = len;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (arr[mid] < value) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo;
+}
+
+/** First index in a sorted array whose value is > `value`. */
+function upperBound(arr: Uint32Array, value: number, len: number): number {
+  let lo = 0;
+  let hi = len;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (arr[mid] <= value) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo;
+}
+
+function applyGcodeRange(
+  refs: SceneRefs,
+  gcode: ParsedGcode,
+  range: [number, number],
+  cut: Cut,
+  showTravel: boolean,
+  markers: Record<MarkerKind, boolean>,
+  visibility: Record<string, boolean>,
+) {
+  if (!refs.gcodeLines) return;
+  const lo = Math.max(0, Math.min(range[0], gcode.layerCount - 1));
+  const hi = Math.max(lo, Math.min(range[1], gcode.layerCount - 1));
+  const startSeg = gcode.layerStart[lo];
+  const endSeg = gcode.layerStart[hi + 1];
+  // the bottom layers stay complete, only the top layer is cut by the horizontal slider
+  const cutSeg = hi === lo ? 0 : countUpTo(gcode.moveIndex, gcode.layerStart[hi], endSeg, cut.extrusion);
+  const drawnSegs = gcode.layerStart[hi] - startSeg + cutSeg;
+  refs.gcodeLines.geometry.setDrawRange(startSeg * 2, drawnSegs * 2);
   // hidden feature types are collapsed to zero-length segments
   const posAttr = refs.gcodeLines.geometry.getAttribute('position') as THREE.BufferAttribute;
-  const src = g.positions;
+  const src = gcode.positions;
   const dst = posAttr.array as Float32Array;
-  const hidden = g.featureTypes.map((t) => visibility[t] === false);
+  const hidden = gcode.featureTypes.map((t) => visibility[t] === false);
   if (hidden.some(Boolean) || (refs.gcodeLines.userData.masked as boolean)) {
-    for (let i = startSeg; i < endSeg; i++) {
+    for (let i = startSeg; i < startSeg + drawnSegs; i++) {
       const o = i * 6;
-      if (hidden[g.types[i]]) {
+      if (hidden[gcode.types[i]]) {
         dst[o + 3] = src[o];
         dst[o + 4] = src[o + 1];
         dst[o + 5] = src[o + 2];
@@ -293,12 +415,40 @@ function applyGcodeRange(refs: SceneRefs, range: [number, number], showTravel: b
     }
     posAttr.needsUpdate = true;
     refs.gcodeLines.userData.masked = hidden.some(Boolean);
+    refs.gcodeLines.geometry.computeBoundingSphere();
   }
   if (refs.travelLines) {
+    const ts = gcode.travelLayerStart[lo];
+    const te = gcode.travelLayerStart[hi + 1];
+    const tn = te - ts - countUpTo(gcode.travelMove, gcode.travelLayerStart[hi], te, cut.travel);
     refs.travelLines.visible = showTravel;
-    const ts = g.travelLayerStart[lo];
-    const te = g.travelLayerStart[hi + 1];
-    refs.travelLines.geometry.setDrawRange(ts * 2, (te - ts) * 2);
+    refs.travelLines.geometry.setDrawRange(ts * 2, tn * 2);
+  }
+  if (refs.wipeLines) {
+    const ws = gcode.wipeLayerStart[lo];
+    const we = gcode.wipeLayerStart[hi + 1];
+    const wn = we - ws - countUpTo(gcode.wipeMove, gcode.wipeLayerStart[hi], we, cut.wipe);
+    refs.wipeLines.visible = markers.wipe;
+    refs.wipeLines.geometry.setDrawRange(ws * 2, wn * 2);
+  }
+  if (refs.markerPoints) {
+    for (let k = 0; k < MARKER_KINDS.length; k++) {
+      const kind = MARKER_KINDS[k];
+      const points = refs.markerPoints.get(kind);
+      if (!points) continue;
+      const { layer, move, count } = points.userData as { layer: Uint32Array; move: Uint32Array; count: number };
+      // markers of one kind are ordered by layer, so a layer is a contiguous range; only the top
+      // layer is additionally cut at the slider's move. Both ends come from binary searches.
+      const from = lowerBound(layer, lo, count);
+      const to = Math.min(upperBound(layer, hi, count), upperBound(move, cut.marker, count));
+      points.geometry.setDrawRange(from, Math.max(0, to - from));
+      points.visible = markers[kind];
+    }
+  }
+  if (refs.toolMarker) {
+    const pos = cut.extrusion < 0 && cut.travel < 0 && cut.wipe < 0 ? undefined : toolPosition(gcode, Math.max(cut.extrusion, cut.travel, cut.wipe));
+    refs.toolMarker.visible = !!pos && hi >= lo;
+    if (pos) refs.toolMarker.position.set(pos[0], pos[1], pos[2]);
   }
 }
 
@@ -347,12 +497,17 @@ export function Viewer() {
   const range = useStore((s) => s.previewLayerRange);
   const showTravel = useStore((s) => s.previewShowTravel);
   const featureVis = useStore((s) => s.previewFeatureVisibility);
+  const moveCut = useStore((s) => s.previewMoveCut);
+  const markerVis = useStore((s) => s.previewMarkers);
+  const showShells = useStore((s) => s.previewShowShells);
   const colorMode = useStore((s) => s.previewColorMode);
   const customGcodes = useStore((s) => s.customGcodes);
   const filamentColour = useStore((s) => s.presets.filament[0]?.current.filament_colour);
   const toolColorKey = useStore((s) => s.presets.filament.map((f) => normalizeColor(f.current.filament_colour)).join(','));
   const placeOnFace = useStore((s) => s.placeOnFace);
   const paintMode = useStore((s) => s.paintMode);
+  /** "Shells": the plater meshes shown translucent over the toolpaths */
+  const shells = useStore((s) => s.previewShowShells) && view === 'preview' && !!gcode;
   // vendor bed model/texture of the selected printer ("vendor|model.stl|texture.svg", empty when none)
   const bedAssetKey = useStore((s) => {
     const p = s.presets.printer;
@@ -409,6 +564,8 @@ export function Viewer() {
       nodes: new Map(),
       raycaster: new THREE.Raycaster(),
       dragging: false,
+      shells: [],
+      shellsOn: false,
     };
     refsRef.current = refs;
     useStore.setState({ renderThumbnails: (specs, colors) => renderThumbnails(scene, objectsGroup, specs, colors) });
@@ -701,8 +858,9 @@ export function Viewer() {
           if (refs.transform.object && refs.transform.object.parent === inode.group) refs.transform.detach();
         }
       }
-      // Keep the models visible in the preview until a toolpath is available (e.g. while slicing).
-      node.group.visible = o.visible && (view === 'plater' || !gcode);
+      // Keep the models visible in the preview until a toolpath is available (e.g. while slicing);
+      // "Shells" keeps them visible as translucent shapes over the toolpaths.
+      node.group.visible = o.visible && (view === 'plater' || !gcode || shells);
       const selected = selectedIds.includes(o.id);
       const selInst = selectedInstance({ selectedIds, selectedInstanceId }, o);
       const painted = !!(o.paint && (o.paint.supports || o.paint.seam || o.paint.mmu));
@@ -862,7 +1020,37 @@ export function Viewer() {
       refs.transform.getHelper().visible = false;
       refs.transform.enabled = false;
     }
-  }, [objects, selectedIds, selectedVolumeId, selectedInstanceId, transformMode, view, bedShape, maxHeight, gcode, paintMode]);
+  }, [objects, selectedIds, selectedVolumeId, selectedInstanceId, transformMode, view, bedShape, maxHeight, gcode, paintMode, shells]);
+
+  // --- shells: the plater meshes translucent over the toolpaths, so the print stays visible
+  useEffect(() => {
+    const refs = refsRef.current;
+    if (!refs) return;
+    if (!shells) {
+      if (!refs.shellsOn) return;
+      refs.shellsOn = false;
+      for (const node of refs.nodes.values()) {
+        for (const inode of node.instances.values()) {
+          const mat = inode.mesh.material as THREE.MeshStandardMaterial;
+          mat.transparent = false;
+          mat.opacity = 1;
+          mat.depthWrite = true;
+          mat.needsUpdate = true;
+        }
+      }
+      return;
+    }
+    refs.shellsOn = true;
+    for (const node of refs.nodes.values()) {
+      for (const inode of node.instances.values()) {
+        const mat = inode.mesh.material as THREE.MeshStandardMaterial;
+        mat.transparent = true;
+        mat.opacity = 0.25;
+        mat.depthWrite = false;
+        mat.needsUpdate = true;
+      }
+    }
+  }, [shells, objects]);
 
   // --- gcode
   useEffect(() => {
@@ -883,8 +1071,13 @@ export function Viewer() {
       refs.gcodeLines = undefined;
     }
     refs.gcodeGroup.visible = view === 'preview' && !!gcode;
-    if (gcode) applyGcodeRange(refs, range, showTravel, featureVis);
-  }, [gcode, view, range, showTravel, featureVis, colorMode, customGcodes, filamentColour, toolColorKey]);
+    if (gcode) {
+      const topLayer = Math.max(0, Math.min(range[1], gcode.layerCount - 1));
+      const window = moveWindow(gcode, topLayer);
+      const cut = moveCut === undefined ? { ...window.end, marker: Number.MAX_SAFE_INTEGER } : { ...window.end, marker: moveCut };
+      applyGcodeRange(refs, gcode, range, cut, showTravel, markerVis, featureVis);
+    }
+  }, [gcode, view, range, moveCut, showTravel, markerVis, featureVis, colorMode, customGcodes, filamentColour, toolColorKey]);
 
   // keyboard
   useEffect(() => {

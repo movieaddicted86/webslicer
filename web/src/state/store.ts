@@ -27,7 +27,7 @@ import { fillCount, packShelf, type PackItem } from '../plater/packing';
 import { mirrorPlacement } from '../plater/transform';
 import { shellPositions, splitShells } from '../plater/split';
 import { presetDiff, transferChanges } from '../plater/presetDiff';
-import type { ParsedGcode } from '../gcode/types';
+import type { MarkerKind, ParsedGcode } from '../gcode/types';
 import type { PreviewColorMode } from '../gcode/colorschemes';
 
 /** A sub-volume of an object: additional part, modifier, support enforcer/blocker or negative volume. */
@@ -200,6 +200,18 @@ interface State {
   previewLayerRange: [number, number];
   previewShowTravel: boolean;
   previewFeatureVisibility: Record<string, boolean>;
+  /**
+   * Highest global move index shown in the top visible layer (PrusaSlicer's horizontal slider);
+   * `undefined` means "the whole layer".
+   */
+  previewMoveCut?: number;
+  /** which marker kinds the preview draws */
+  previewMarkers: Record<MarkerKind, boolean>;
+  /** the plater meshes drawn translucent over the toolpaths */
+  previewShowShells: boolean;
+  setPreviewMoveCut: (m?: number) => void;
+  togglePreviewMarker: (k: MarkerKind) => void;
+  setPreviewShowShells: (b: boolean) => void;
   /** how toolpaths are coloured in the preview */
   previewColorMode: PreviewColorMode;
   setPreviewColorMode: (m: PreviewColorMode) => void;
@@ -630,6 +642,12 @@ export const useStore = create<State>((set, get) => ({
   previewLayerRange: [0, 0],
   previewShowTravel: false,
   previewFeatureVisibility: {},
+  previewMoveCut: undefined,
+  previewMarkers: { retract: false, deretract: false, seam: false, wipe: false, tool_change: false, color_change: false },
+  previewShowShells: false,
+  setPreviewMoveCut: (previewMoveCut) => set({ previewMoveCut }),
+  togglePreviewMarker: (k) => set((s) => ({ previewMarkers: { ...s.previewMarkers, [k]: !s.previewMarkers[k] } })),
+  setPreviewShowShells: (previewShowShells) => set({ previewShowShells }),
   previewColorMode: 'feature',
   setPreviewColorMode: (previewColorMode) => set({ previewColorMode }),
   customGcodes: [],
@@ -1691,13 +1709,14 @@ export const useStore = create<State>((set, get) => ({
       const range: [number, number] = keep ? prevRange : [0, Math.max(0, parsed.layerCount - 1)];
       const oldVis = get().previewFeatureVisibility;
       for (const f of parsed.featureTypes) if (keep && oldVis[f] === false) vis[f] = false;
-      set({ gcode: parsed, gcodeJobId: jobId, previewLayerRange: range, previewFeatureVisibility: vis, view: 'preview' });
+      set({ gcode: parsed, gcodeJobId: jobId, previewLayerRange: range, previewMoveCut: undefined, previewFeatureVisibility: vis, view: 'preview' });
     } finally {
       set({ gcodeLoading: false });
     }
   },
 
-  setPreviewLayerRange: (previewLayerRange) => set({ previewLayerRange }),
+  // moving a vertical slider resets the horizontal one to "end of layer"
+  setPreviewLayerRange: (previewLayerRange) => set({ previewLayerRange, previewMoveCut: undefined }),
   setPreviewShowTravel: (previewShowTravel) => set({ previewShowTravel }),
   togglePreviewFeature: (f) => set((s) => ({ previewFeatureVisibility: { ...s.previewFeatureVisibility, [f]: !s.previewFeatureVisibility[f] } })),
 

@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
 import { useStore } from '../state/store';
 import { api, type CustomGcodeType } from '../api';
-import { FEATURE_COLORS, type ParsedGcode } from '../gcode/types';
+import { FEATURE_COLORS, MARKER_COLORS, MARKER_KINDS, type MarkerKind, type ParsedGcode } from '../gcode/types';
+import { layerMoves, moveWindow, toolPosition } from '../gcode/moves';
 import { COLOR_MODES, RANGE_SCHEMES, legendSteps, schemeRange, type PreviewColorMode } from '../gcode/colorschemes';
 import { colorAtZ, colorPrintSegments, normalizeColor, suggestColor } from '../gcode/colorprint';
 
@@ -11,6 +12,15 @@ const CODE_LABEL: Record<CustomGcodeType, string> = {
   custom: 'Custom G-code',
   template: 'Template',
   tool_change: 'Tool change',
+};
+
+const MARKER_LABEL: Record<MarkerKind, string> = {
+  retract: 'Retractions',
+  deretract: 'Deretractions',
+  seam: 'Seams',
+  wipe: 'Wipe',
+  tool_change: 'Tool changes',
+  color_change: 'Color changes',
 };
 
 /** Index of the layer printed at height z (layer heights come from the G-code ;Z: markers). */
@@ -125,6 +135,43 @@ function fmtLayerTime(s: number) {
   return `${Math.floor(s / 60)}m ${String(Math.round(s % 60)).padStart(2, '0')}s`;
 }
 
+/**
+ * PrusaSlicer's horizontal slider: plays the moves of the top visible layer one by one. The range is
+ * the moves of that layer, "end of layer" (no cut) shows the whole layer.
+ */
+function MoveSlider({ gcode }: { gcode: ParsedGcode }) {
+  const range = useStore((s) => s.previewLayerRange);
+  const moveCut = useStore((s) => s.previewMoveCut);
+  const setMoveCut = useStore((s) => s.setPreviewMoveCut);
+  const moves = useMemo(() => layerMoves(gcode, range[1]), [gcode, range[1]]);
+  if (moves.length === 0) return null;
+  const first = moves[0];
+  const last = moves[moves.length - 1];
+  const value = moveCut ?? last;
+  const pos = toolPosition(gcode, value);
+  const done = value - first + 1;
+  return (
+    <div className="move-slider">
+      <label className="small">Move</label>
+      <input
+        type="range"
+        min={first}
+        max={last}
+        value={value}
+        title="Print the top layer move by move"
+        onChange={(e) => {
+          const v = Number(e.target.value);
+          setMoveCut(v >= last ? undefined : v);
+        }}
+      />
+      <div className="muted small">
+        {done} / {moves.length} moves
+        {pos ? ` · X ${pos[0].toFixed(1)} Y ${pos[1].toFixed(1)} Z ${pos[2].toFixed(2)}` : ''}
+      </div>
+    </div>
+  );
+}
+
 function fmtTime(s?: number) {
   if (!s) return '–';
   const h = Math.floor(s / 3600);
@@ -143,6 +190,10 @@ export function PreviewPanel() {
   const setShowTravel = useStore((s) => s.setPreviewShowTravel);
   const vis = useStore((s) => s.previewFeatureVisibility);
   const toggle = useStore((s) => s.togglePreviewFeature);
+  const markerVis = useStore((s) => s.previewMarkers);
+  const toggleMarker = useStore((s) => s.togglePreviewMarker);
+  const showShells = useStore((s) => s.previewShowShells);
+  const setShowShells = useStore((s) => s.setPreviewShowShells);
   const openDialog = useStore((s) => s.openDialog);
   const physical = useStore((s) => s.physicalPrinters);
   const setView = useStore((s) => s.setView);
@@ -286,9 +337,23 @@ export function PreviewPanel() {
                 firstLayer={range[1] === 0}
                 maxZ={gcode.layerZ[gcode.layerCount - 1] ?? 0}
               />
+              <MoveSlider gcode={gcode} />
               <label className="checkbox small">
                 <input type="checkbox" checked={showTravel} onChange={(e) => setShowTravel(e.target.checked)} /> Show travel moves
               </label>
+              <div className="view-options">
+                <div className="small muted">Show</div>
+                {MARKER_KINDS.map((k) => (
+                  <label key={k} className="checkbox small" title={`Mark ${MARKER_LABEL[k].toLowerCase()} in the preview`}>
+                    <input type="checkbox" checked={markerVis[k]} onChange={() => toggleMarker(k)} />
+                    <span className="swatch" style={{ background: MARKER_COLORS[k] }} />
+                    {MARKER_LABEL[k]}
+                  </label>
+                ))}
+                <label className="checkbox small" title="Draw the plater objects translucent over the toolpaths">
+                  <input type="checkbox" checked={showShells} onChange={(e) => setShowShells(e.target.checked)} /> Shells
+                </label>
+              </div>
               <label className="view-mode small">
                 <span>View</span>
                 <select value={colorMode} onChange={(e) => setColorMode(e.target.value as PreviewColorMode)}>
