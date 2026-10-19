@@ -91,12 +91,14 @@ function TransformInputs({
             key={a}
             type="number"
             step="5"
-            value={fmt(t.scale[i] * 100, 1)}
+            // AC-5: a mirrored instance has negative scale components internally; the panel shows
+            // magnitudes and editing keeps the sign, so the object stays mirrored
+            value={fmt(Math.abs(t.scale[i]) * 100, 1)}
             onChange={(e) => {
-              const v = num(e.target.value, t.scale[i] * 100) / 100;
+              const v = num(e.target.value, Math.abs(t.scale[i]) * 100) / 100;
               if (v <= 0) return;
               const s = [...t.scale] as [number, number, number];
-              s[i] = v;
+              s[i] = t.scale[i] < 0 ? -v : v;
               onChange({ scale: s });
             }}
           />
@@ -109,12 +111,12 @@ function TransformInputs({
             key={a}
             type="number"
             step="1"
-            value={fmt(size[i] * t.scale[i])}
+            value={fmt(Math.abs(size[i] * t.scale[i]))}
             onChange={(e) => {
-              const v = num(e.target.value, size[i] * t.scale[i]);
+              const v = num(e.target.value, Math.abs(size[i] * t.scale[i]));
               if (v <= 0 || size[i] <= 0) return;
               const s = [...t.scale] as [number, number, number];
-              s[i] = v / size[i];
+              s[i] = (t.scale[i] < 0 ? -v : v) / size[i];
               onChange({ scale: s });
             }}
           />
@@ -277,6 +279,7 @@ function ObjectManipulation({ o }: { o: PlaterObject }) {
   const openDialog = useStore((s) => s.openDialog);
   const extruders = useStore((s) => s.extruderCount());
   const recordHistory = useStore((s) => s.recordHistory);
+  const mirror = useStore((s) => s.mirror);
   const setInstanceCount = useStore((s) => s.setInstanceCount);
   const fillBedWithInstances = useStore((s) => s.fillBedWithInstances);
   // the instance count field keeps the typed text while it is edited, so a half-typed "1" of "12"
@@ -303,11 +306,12 @@ function ObjectManipulation({ o }: { o: PlaterObject }) {
         t={inst}
         size={[o.size[0], o.size[1], o.size[2]]}
         onChange={(patch) => {
-          // uniform scaling from the scale/size rows keeps proportions like PrusaSlicer's default
+          // uniform scaling from the scale/size rows keeps proportions like PrusaSlicer's default.
+          // A mirrored axis keeps its sign, otherwise typing a value would un-mirror the instance
           if (patch.scale) {
             const changed = patch.scale.findIndex((v, i) => v !== inst.scale[i]);
-            const f = changed >= 0 ? patch.scale[changed] : patch.scale[0];
-            set({ scale: [f, f, f] });
+            const f = changed >= 0 ? Math.abs(patch.scale[changed]) : Math.abs(patch.scale[0]);
+            set({ scale: inst.scale.map((v) => (v < 0 ? -f : f)) as [number, number, number] });
           } else set(patch);
         }}
       />
@@ -337,6 +341,13 @@ function ObjectManipulation({ o }: { o: PlaterObject }) {
       </div>
       <div className="muted small">
         Bounding box: {fmt(box.max.x - box.min.x)} × {fmt(box.max.y - box.min.y)} × {fmt(box.max.z - box.min.z)} mm
+      </div>
+      <div className="manip-actions mirror">
+        {AXES.map((a, i) => (
+          <button key={a} title={`Mirror along the ${a} axis`} onClick={() => mirror(i as 0 | 1 | 2)}>
+            Mirror {a}
+          </button>
+        ))}
       </div>
       <div className="manip-actions">
         <button onClick={() => set({ rotation: [0, 0, 0] })}>Reset rotation</button>
