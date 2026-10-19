@@ -35,6 +35,10 @@ Priority by frequency of use in everyday printing and PrusaSlicer parity.
 - [ ] Multiple beds, purging volumes dialog, stealth time, G-code text window, collapsible sidebar
 - [ ] More print hosts (Prusa Connect, Duet, Repetier, Obico), physical printers linked to presets
 - [ ] SLA: support point editor, hollowing editor, SLA preview
+- [ ] Mobile view: tablet fully usable (collapsible sidebar, touch-sized controls, buttons for every
+      shortcut), phone as companion (library → preset → slice → preview → send); planned as 4–5 tasks
+      M-1 layout breakpoints, M-2 touch interaction, M-3 mobile preview with performance limits,
+      M-4 phone companion flow, M-5 device tests and UAT
 - [ ] Docker image stage 2: own PrusaSlicer build without GUI (≈ 300–400 MB)
 - [ ] Library: thumbnails, search, sorting
 
