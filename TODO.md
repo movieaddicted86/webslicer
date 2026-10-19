@@ -7,7 +7,7 @@ Priority by frequency of use in everyday printing and PrusaSlicer parity.
 1. [x] **Colour change / pause / custom G-code at a layer** via the preview slider (M600, colour print preview)
 2. [x] **Preview colour schemes**: height, width, speed, fan speed, temperature, volumetric flow, layer time
        (linear/logarithmic), tool; gradient legend with value range
-3. [ ] **Instances**: set number, fill bed, instances in the object list (shared geometry, own transform)
+3. [x] **Instances**: set number, fill bed, instances in the object list (shared geometry, own transform)
 4. [ ] **Mirror** X/Y/Z in the manipulation panel
 5. [ ] **Split to objects / parts** (separate connected shells)
 6. [ ] **Unsaved-changes dialog** on preset switch: transfer / save / discard

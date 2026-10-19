@@ -28,7 +28,7 @@ Priority: **P1** needed for version 1.0 · **P2** important afterwards · **P3**
 | Feature | WebSlicer | Prio | Note |
 |---|---|---|---|
 | Object list with volumes, settings, ranges | ✅ | – | tree object → volume; ranges in the panel |
-| Instances (set number, fill bed, instance list) | ❌ | **P1** | currently only duplicates (separate objects) |
+| Instances (set number, fill bed, instance list) | ✅ | – | shared mesh/volumes/paint, own transform; `+`/`-` keys, `×n` badge, "Fill bed"; saved in the 3MF |
 | Move / rotate / scale (gizmo + numbers) | ✅ | – | |
 | Mirror (X/Y/Z) | ❌ | **P1** | trivial, missing in the panel |
 | World/local coordinates in the gizmo | 🟡 | P3 | world only |

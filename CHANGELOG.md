@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Instances: set the number per object (1–1000), "Fill bed" places as many copies as fit, "Add instance" /
+  "Remove instance" buttons and the `+` / `-` keys, a `×n` badge in the object list that expands into one
+  row per instance (select, set as separate object, delete). All instances share one mesh, its volumes,
+  paint and settings but have their own position, rotation and scale; slicing sends one transform per
+  instance, so the slicer plans them in one job and the filament/time estimates cover all copies
+- Arrange packs the instances themselves (not whole objects), so a part-placed object is filled efficiently
+- 3MF projects save and restore the instances (one `<item>` per instance), so a project reopened from the
+  library, the autosave or desktop PrusaSlicer comes back with the same layout
 - Colour change (M600), pause (with printer message) and custom G-code at a layer: buttons at the top
   slider position in the preview, markers on the slider, editable list, automatic re-slice; stored in
   the 3MF as `Metadata/Prusa_Slicer_custom_gcode_per_print_z.xml` and read from PrusaSlicer projects
