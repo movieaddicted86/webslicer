@@ -26,6 +26,7 @@ import { decodeVector, resizeVector, toBool, unescapeStringsCstyle } from '../va
 import { fillCount, packShelf, type PackItem } from '../plater/packing';
 import { mirrorPlacement } from '../plater/transform';
 import { shellPositions, splitShells } from '../plater/split';
+import { presetDiff, transferChanges } from '../plater/presetDiff';
 import type { ParsedGcode } from '../gcode/types';
 import type { PreviewColorMode } from '../gcode/colorschemes';
 
@@ -121,6 +122,16 @@ export interface PresetSlot {
 
 export type View = 'plater' | 'preview' | 'print' | 'filament' | 'printer';
 
+/** A preset switch the user started while the current preset has unsaved changes. */
+export interface PendingPresetSwitch {
+  type: PresetType;
+  extruderIdx: number;
+  /** the preset to switch to (not yet selected) */
+  target: string;
+  /** the preset that carries the changes */
+  source: PresetSlot;
+}
+
 export interface Toast {
   id: number;
   kind: 'info' | 'error' | 'success';
@@ -202,7 +213,7 @@ interface State {
   toasts: Toast[];
   /** registered by the Viewer: renders G-code preview thumbnails of the plater */
   renderThumbnails?: (specs: ThumbnailSpec[], colors: string[]) => ThumbnailInput[];
-  dialog?: 'addPrinter' | 'physicalPrinters' | 'objectSettings' | 'sendToPrinter' | 'savePreset' | 'about' | 'library';
+  dialog?: 'addPrinter' | 'physicalPrinters' | 'objectSettings' | 'sendToPrinter' | 'savePreset' | 'about' | 'library' | 'unsavedChanges';
   dialogPayload?: unknown;
 
   // actions
@@ -217,6 +228,17 @@ interface State {
   refreshPresetLists: () => Promise<void>;
   ensureCompatiblePresets: () => Promise<void>;
   selectPreset: (type: PresetType, name: string, extruderIdx?: number) => Promise<void>;
+  /**
+   * User-initiated preset switch: asks the "Unsaved Changes" dialog when the current preset is
+   * modified, otherwise switches right away. Used by `PresetSelect` only.
+   */
+  requestPresetSwitch: (type: PresetType, name: string, extruderIdx?: number) => Promise<void>;
+  /** preset switch waiting for the user's answer in the "Unsaved Changes" dialog */
+  pendingSwitch?: PendingPresetSwitch;
+  /** "Unsaved Changes" → Transfer: switch to the target, then carry the changes over */
+  transferChanges: () => Promise<void>;
+  /** "Unsaved Changes" → Save: save the changed preset, then switch to the target */
+  savePendingPreset: (name: string) => Promise<void>;
   setOption: (type: PresetType, key: string, value: string, extruderIdx?: number) => void;
   resetOption: (type: PresetType, key: string, extruderIdx?: number) => void;
   discardChanges: (type: PresetType, extruderIdx?: number) => void;
@@ -341,6 +363,37 @@ export function isModified(slot: PresetSlot): boolean {
   const keys = new Set([...Object.keys(slot.saved), ...Object.keys(slot.current)]);
   for (const k of keys) if ((slot.saved[k] ?? '') !== (slot.current[k] ?? '')) return true;
   return false;
+}
+
+/** The preset slot of one type; `undefined` for types the plater does not hold. */
+function slotOf(presets: State['presets'], type: PresetType, extruderIdx = 0): PresetSlot | undefined {
+  if (type === 'filament') return presets.filament[extruderIdx];
+  if (type === 'print' || type === 'printer') return presets[type];
+  return undefined;
+}
+
+/**
+ * Keys the schema knows for a preset type. Without a schema (or an unknown type) every key is
+ * allowed: the dialog needs the schema for its labels, so this is a safety net, not a case in use.
+ */
+function validPresetKeys(schema: Schema | undefined, type: PresetType): string[] | undefined {
+  const keys = schema?.presetKeys[type];
+  return keys?.length ? keys : undefined;
+}
+
+/** Write a full config into one preset slot, keeping `saved` (that is what makes it "modified"). */
+function applySlotConfig(set: (fn: (s: State) => Partial<State>) => void, type: PresetType, extruderIdx: number, config: Config) {
+  set((s) => {
+    const presets = { ...s.presets };
+    if (type === 'filament') {
+      const fil = [...presets.filament];
+      fil[extruderIdx] = { ...fil[extruderIdx], current: config };
+      presets.filament = fil;
+    } else if (type === 'print' || type === 'printer') {
+      presets[type] = { ...presets[type], current: config };
+    }
+    return { presets, sliceDirty: true };
+  });
 }
 
 const LS_KEY = 'webslicer.selection';
@@ -622,7 +675,7 @@ export const useStore = create<State>((set, get) => ({
     saveSelection(get());
   },
   openDialog: (dialog, dialogPayload) => set({ dialog, dialogPayload }),
-  closeDialog: () => set({ dialog: undefined, dialogPayload: undefined }),
+  closeDialog: () => set({ dialog: undefined, dialogPayload: undefined, pendingSwitch: undefined }),
 
   init: async () => {
     try {
@@ -672,6 +725,44 @@ export const useStore = create<State>((set, get) => ({
       api.listPresets('printer', {}),
     ]);
     set((st) => ({ presetLists: { ...st.presetLists, print, filament, printer } }));
+  },
+
+  requestPresetSwitch: async (type, name, extruderIdx = 0) => {
+    const s = get();
+    const slot = slotOf(s.presets, type, extruderIdx);
+    const pending: PendingPresetSwitch | undefined = slot && isModified(slot) && name !== slot.name ? { type, extruderIdx, target: name, source: { ...slot, saved: { ...slot.saved }, current: { ...slot.current } } } : undefined;
+    if (pending) {
+      const changes = presetDiff(pending.source.saved, pending.source.current);
+      if (changes.length) {
+        set({ pendingSwitch: pending, dialog: 'unsavedChanges', dialogPayload: pending });
+        return;
+      }
+    }
+    await get().selectPreset(type, name, extruderIdx);
+  },
+
+  transferChanges: async () => {
+    const pending = get().pendingSwitch;
+    set({ pendingSwitch: undefined, dialog: undefined, dialogPayload: undefined });
+    if (!pending) return;
+    await get().selectPreset(pending.type, pending.target, pending.extruderIdx);
+    const valid = validPresetKeys(get().schema, pending.type);
+    const newSaved = slotOf(get().presets, pending.type, pending.extruderIdx)?.saved || {};
+    const changes = presetDiff(pending.source.saved, pending.source.current);
+    const current = transferChanges(newSaved, pending.source.saved, pending.source.current, valid ?? changes.map((c) => c.key));
+    applySlotConfig(set, pending.type, pending.extruderIdx, current);
+  },
+
+  savePendingPreset: async (name) => {
+    const pending = get().pendingSwitch;
+    if (!pending) return;
+    // save the *changed* preset under the new name, then switch to the target
+    const inherits = pending.source.inherits;
+    await api.savePreset(pending.type, name, pending.source.current, inherits);
+    await get().refreshPresetLists();
+    set({ pendingSwitch: undefined, dialog: undefined, dialogPayload: undefined });
+    await get().selectPreset(pending.type, pending.target, pending.extruderIdx);
+    get().toast('success', `Saved ${pending.type} preset "${name}"`);
   },
 
   selectPreset: async (type, name, extruderIdx = 0) => {
