@@ -9,7 +9,7 @@ import { randomUUID } from 'node:crypto';
 import { config } from './config.js';
 import { runSlicer } from './slicer/cli.js';
 import { serializeIni, type IniSection } from './slicer/ini.js';
-import { build3mf, parseStl, transformMesh, type CustomGcode, type ThreeMfObject, type ThreeMfVolume, type VolumeType } from './slicer/threemf.js';
+import { build3mf, parseStl, transformMesh, writeBinaryStl, type CustomGcode, type Mesh, type ThreeMfObject, type ThreeMfVolume, type VolumeType } from './slicer/threemf.js';
 import { readGcodeInfo, type GcodeInfo } from './slicer/gcodeInfo.js';
 import { injectThumbnails, type ThumbnailInput } from './slicer/thumbnails.js';
 import { escapeStringsCstyle, unescapeStringsCstyle, splitVector } from './slicer/values.js';
@@ -155,12 +155,52 @@ export function loadJobsFromDisk() {
   setInterval(pruneModels, 6 * 3600_000).unref();
 }
 
+/**
+ * Store a mesh in the model directory (the same code path the browser upload uses:
+ * `<id>.stl` plus a small `<id>.json` with the counts). Used by `POST /api/models` and by the
+ * headless plater when a project adds a model from the library.
+ */
+export function saveModel(mesh: Mesh, name: string): { id: string; name: string; triangles: number; vertices: number; createdAt: string } {
+  const id = randomUUID();
+  const info = {
+    id,
+    name,
+    triangles: mesh.indices.length / 3,
+    vertices: mesh.vertices.length / 3,
+    createdAt: new Date().toISOString(),
+  };
+  fs.writeFileSync(path.join(config.modelsDir, `${id}.stl`), writeBinaryStl(mesh));
+  fs.writeFileSync(path.join(config.modelsDir, `${id}.json`), JSON.stringify(info));
+  return info;
+}
+
+export interface PlaterHooks {
+  /** model ids live projects still reference – those files are never pruned */
+  keepModelIds: () => Set<string>;
+  /** remove projects whose TTL ran out, together with their models */
+  pruneProjects: () => void;
+}
+
+let platerHooks: PlaterHooks | undefined;
+
+/**
+ * The server-side plater (see `plater/project.ts`) owns server-side projects and their models; it
+ * registers here so the model life cycle stays in one place and `jobs.ts` does not have to know it.
+ */
+export function setPlaterHooks(hooks: PlaterHooks) {
+  platerHooks = hooks;
+}
+
 /** Remove uploaded model files that are older than MODEL_RETENTION_DAYS (default 7). */
 export function pruneModels() {
+  platerHooks?.pruneProjects();
   const days = Number(process.env.MODEL_RETENTION_DAYS || 7);
   const cutoff = Date.now() - days * 86400_000;
+  const keep = platerHooks?.keepModelIds() ?? new Set<string>();
   try {
     for (const f of fs.readdirSync(config.modelsDir)) {
+      const id = f.replace(/\.(stl|json)$/, '');
+      if (keep.has(id)) continue; // a live project still needs this model, whatever its age
       const p = path.join(config.modelsDir, f);
       try {
         if (fs.statSync(p).mtimeMs < cutoff) fs.unlinkSync(p);
