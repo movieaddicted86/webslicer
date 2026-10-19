@@ -1,4 +1,4 @@
-import type { ParsedGcode } from './types';
+import { MARKER_KINDS, type MarkerKind, type ParsedGcode } from './types';
 
 const TYPE_MAP: Record<string, string> = {
   Perimeter: 'Perimeter',
@@ -73,8 +73,17 @@ export function parseGcode(text: string): ParsedGcode {
   const types = new GrowArray(Uint8Array, 1 << 18);
   const layers = new GrowArray(Uint32Array, 1 << 18);
   const tools = new GrowArray(Uint8Array, 1 << 18);
+  const moveIndex = new GrowArray(Uint32Array, 1 << 18);
   const travelPositions = new GrowArray(Float32Array, 1 << 18);
   const travelLayers = new GrowArray(Uint32Array, 1 << 16);
+  const travelMove = new GrowArray(Uint32Array, 1 << 16);
+  const wipePositions = new GrowArray(Float32Array, 1 << 14);
+  const wipeLayers = new GrowArray(Uint32Array, 1 << 14);
+  const wipeMove = new GrowArray(Uint32Array, 1 << 14);
+  const markerKind = new GrowArray(Uint8Array, 1 << 12);
+  const markerPositions = new GrowArray(Float32Array, 1 << 12);
+  const markerLayer = new GrowArray(Uint32Array, 1 << 12);
+  const markerMove = new GrowArray(Uint32Array, 1 << 12);
   const featureTypes: string[] = [];
   const featureIndex = new Map<string, number>();
   const featureLength: Record<string, number> = {};
@@ -100,17 +109,38 @@ export function parseGcode(text: string): ParsedGcode {
   const layerZ: number[] = [];
   const layerStart: number[] = [];
   const travelLayerStart: number[] = [];
+  const wipeLayerStart: number[] = [];
   let segCount = 0;
   let travelCount = 0;
+  let wipeCount = 0;
+  // global move counter in G-code order: extrusion, travel and wipe segments all take one number,
+  // so the horizontal slider can cut the print at an exact move
+  let move = 0;
+  // retract/deretract stand on their own line (E move without XYZ); an E move inside a G1 with XYZ
+  // is an extrusion (or the deretract that follows a lift) and is not a marker
+  let lastEMove = 0;
+  let wiping = false;
+  // first extrusion after ;TYPE:External perimeter, i.e. the loop's seam
+  let externalPerimeter = false;
+  let sawExtrusionSinceType = false;
   const bmin = [Infinity, Infinity, Infinity];
   const bmax = [-Infinity, -Infinity, -Infinity];
   let pendingLayerChange = false;
+
+  const kindIdx = new Map<MarkerKind, number>(MARKER_KINDS.map((k, i) => [k, i]));
+  const addMarker = (kind: MarkerKind, mx: number, my: number, mz: number, atMove = move) => {
+    markerKind.push(kindIdx.get(kind)!);
+    markerPositions.push(mx, my, mz);
+    markerLayer.push(layer < 0 ? 0 : layer);
+    markerMove.push(atMove);
+  };
 
   const newLayer = (zval: number) => {
     layer++;
     layerZ.push(zval);
     layerStart.push(segCount);
     travelLayerStart.push(travelCount);
+    wipeLayerStart.push(wipeCount);
     layerTime.push(0);
   };
 
@@ -128,6 +158,14 @@ export function parseGcode(text: string): ParsedGcode {
       if (line.startsWith(';TYPE:')) {
         const t = line.slice(6).trim();
         curType = typeIdx(TYPE_MAP[t] || t || 'Unknown');
+        externalPerimeter = featureTypes[curType] === 'External perimeter';
+        sawExtrusionSinceType = false;
+      } else if (line.startsWith(';WIPE_START')) {
+        wiping = true;
+        addMarker('wipe', x, y, z);
+      } else if (line.startsWith(';WIPE_END')) {
+        wiping = false;
+        addMarker('wipe', x, y, z);
       } else if (line.startsWith(';LAYER_CHANGE')) {
         pendingLayerChange = true;
       } else if (line.startsWith(';Z:') && pendingLayerChange) {
@@ -184,6 +222,7 @@ export function parseGcode(text: string): ParsedGcode {
         if (layer < 0) newLayer(nz);
         if (feed > 0) layerTime[layer] += dist / feed;
         if (de > 0) {
+          const atMove = move++;
           positions.push(x, y, z, nx, ny, nz);
           types.push(curType);
           layers.push(layer);
@@ -196,19 +235,32 @@ export function parseGcode(text: string): ParsedGcode {
           // E is rounded in the G-code, so very short moves give noisy ratios
           if (dist >= 0.2 || mm3PerMm === 0) mm3PerMm = (de * filamentArea) / dist;
           flows.push(mm3PerMm * feed);
+          moveIndex.push(atMove);
           segCount++;
           const fname = featureTypes[curType];
           featureLength[fname] = (featureLength[fname] || 0) + dist;
+          if (externalPerimeter && !sawExtrusionSinceType && !wiping) addMarker('seam', x, y, z, atMove);
+          sawExtrusionSinceType = true;
           for (const [i, v] of [nx, ny, nz].entries()) {
             if (v < bmin[i]) bmin[i] = v;
             if (v > bmax[i]) bmax[i] = v;
           }
+        } else if (wiping) {
+          // wipe moves are their own kind: neither extrusion nor travel
+          wipePositions.push(x, y, z, nx, ny, nz);
+          wipeLayers.push(layer < 0 ? 0 : layer);
+          wipeMove.push(move++);
+          wipeCount++;
         } else {
           travelPositions.push(x, y, z, nx, ny, nz);
           travelLayers.push(layer);
+          travelMove.push(move++);
           travelCount++;
         }
       }
+      if (de < 0 && !moved) addMarker('retract', x, y, z);
+      else if (de > 0 && !moved && lastEMove <= 0) addMarker('deretract', x, y, z);
+      lastEMove = de;
       x = nx;
       y = ny;
       z = nz;
@@ -222,6 +274,9 @@ export function parseGcode(text: string): ParsedGcode {
       // a temperature for another tool (T parameter) does not change the active nozzle
       const tArg = parts.find((p) => p[0] === 'T');
       if (Number.isFinite(v) && (!tArg || parseInt(tArg.slice(1), 10) === curTool)) temp = v;
+    } else if (cmd === 'M600' || cmd === 'M601') {
+      // PrusaSlicer's colour change (M600) and pause (M601), from the custom G-code list
+      if (cmd === 'M600') addMarker('color_change', x, y, z);
     } else if (cmd === 'G90') absolute = true;
     else if (cmd === 'G91') absolute = false;
     else if (cmd === 'M82') absoluteE = true;
@@ -251,12 +306,16 @@ export function parseGcode(text: string): ParsedGcode {
       }
     } else if (cmd[0] === 'T') {
       const t = parseInt(cmd.slice(1), 10);
-      if (!Number.isNaN(t)) curTool = t;
+      if (!Number.isNaN(t)) {
+        if (t !== curTool) addMarker('tool_change', x, y, z);
+        curTool = t;
+      }
     }
   }
   if (layer < 0) newLayer(0);
   layerStart.push(segCount);
   travelLayerStart.push(travelCount);
+  wipeLayerStart.push(wipeCount);
   if (!Number.isFinite(bmin[0])) {
     bmin.fill(0);
     bmax.fill(0);
@@ -266,8 +325,20 @@ export function parseGcode(text: string): ParsedGcode {
     types: types.trim(),
     layers: layers.trim(),
     tools: tools.trim(),
+    moveIndex: moveIndex.trim(),
     travelPositions: travelPositions.trim(),
     travelLayers: travelLayers.trim(),
+    travelMove: travelMove.trim(),
+    wipePositions: wipePositions.trim(),
+    wipeLayers: wipeLayers.trim(),
+    wipeMove: wipeMove.trim(),
+    wipeLayerStart: Uint32Array.from(wipeLayerStart),
+    wipeCount,
+    markerKind: markerKind.trim(),
+    markerPositions: markerPositions.trim(),
+    markerLayer: markerLayer.trim(),
+    markerMove: markerMove.trim(),
+    markerCount: markerKind.len,
     layerZ: Float32Array.from(layerZ),
     layerCount: layerZ.length,
     featureTypes,
