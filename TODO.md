@@ -12,6 +12,13 @@ Priority by frequency of use in everyday printing and PrusaSlicer parity.
 5. [x] **Split to objects / parts** (separate connected shells)
 6. [x] **Unsaved-changes dialog** on preset switch: transfer / save / discard
 
+## MCP (approved 2026-10-19, docs/MCP-Concept.md) – scheduled right after T-004
+- [ ] Phase 0 – headless model import, server-side plater/arrange, project store (T-005)
+- [ ] Phase 1 – `/mcp` endpoint with per-user tokens, discover + slice tools (T-006)
+- [ ] Phase 2 – object tools, resources, prompts, audit log (within P2)
+- [ ] Phase 4 – stdio package `webslicer-mcp`, docs and client examples (within P2)
+- [ ] Phase 3 – `send_to_printer` with confirmation, variants, thumbnails (after the PrusaLink/OctoPrint hardware test)
+
 ## P2 – important afterwards
 - [ ] Preview: horizontal slider, view options (retractions, seams, wipe, tool/colour changes, shells), time per feature, slicer warnings
 - [ ] STEP import through the CLI (`--export-stl`)
@@ -43,6 +50,10 @@ Priority by frequency of use in everyday printing and PrusaSlicer parity.
 - [ ] Library: thumbnails, search, sorting
 
 ## P4 – later or not planned
+- [ ] User management, in stages: A) document login via a reverse proxy (Authentik/Authelia/
+      Nginx Proxy Manager) – no code; B) built-in local users (scrypt, session cookie, roles
+      admin/user, API/MCP tokens per user, per-user presets/library/printers/jobs/autosave,
+      migration of existing data to the first admin); C) OIDC single sign-on on top of B
 - Netfabb/Microsoft repair, firmware flasher, Printables integration, toolpaths as OBJ, gantry visualization, configuration snapshots
 
 ## Done
