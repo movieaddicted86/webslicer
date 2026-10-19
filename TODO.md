@@ -20,7 +20,8 @@ Priority by frequency of use in everyday printing and PrusaSlicer parity.
 - [ ] Phase 3 – `send_to_printer` with confirmation, variants, thumbnails (after the PrusaLink/OctoPrint hardware test)
 
 ## P2 – important afterwards
-- [ ] Preview: horizontal slider, view options (retractions, seams, wipe, tool/colour changes, shells), time per feature, slicer warnings
+- [x] Preview: horizontal slider and view options (retractions, seams, wipe, tool/colour changes, shells) and tool marker
+- [ ] Preview: time per feature, slicer warnings
 - [ ] STEP import through the CLI (`--export-stl`)
 - [ ] Merge objects; object info (volume, manifold check), rename
 - [ ] Arrange with settings (spacing, rotation) and "arrange selection"

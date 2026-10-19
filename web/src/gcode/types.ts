@@ -1,3 +1,19 @@
+/** Kinds of G-code markers shown in the preview (PrusaSlicer's marker list). */
+export type MarkerKind = 'retract' | 'deretract' | 'seam' | 'wipe' | 'tool_change' | 'color_change';
+
+/** Marker kinds in the order the parser stores them in `ParsedGcode.markerKind`. */
+export const MARKER_KINDS: MarkerKind[] = ['retract', 'deretract', 'seam', 'wipe', 'tool_change', 'color_change'];
+
+/** PrusaSlicer's marker colours. */
+export const MARKER_COLORS: Record<MarkerKind, string> = {
+  retract: '#ff00ff',
+  deretract: '#00ff80',
+  seam: '#c8c8c8',
+  wipe: '#ffff00',
+  tool_change: '#ff0000',
+  color_change: '#7a8ba8',
+};
+
 export interface ParsedGcode {
   /** xyz pairs per segment (6 floats per segment) for extrusion moves */
   positions: Float32Array;
@@ -7,9 +23,26 @@ export interface ParsedGcode {
   layers: Uint32Array;
   /** tool index per segment */
   tools: Uint8Array;
+  /** global move index per extrusion segment (G-code order, strictly increasing) */
+  moveIndex: Uint32Array;
   /** travel segments */
   travelPositions: Float32Array;
   travelLayers: Uint32Array;
+  /** global move index per travel segment, in the same counter as `moveIndex` */
+  travelMove: Uint32Array;
+  /** wipe segments (between ;WIPE_START and ;WIPE_END) – neither extrusions nor travels */
+  wipePositions: Float32Array;
+  wipeLayers: Uint32Array;
+  wipeMove: Uint32Array;
+  /** first wipe segment per layer (length layerCount+1) */
+  wipeLayerStart: Uint32Array;
+  wipeCount: number;
+  /** markers, in G-code order: kind index into `MARKER_KINDS`, position, layer, move index */
+  markerKind: Uint8Array;
+  markerPositions: Float32Array;
+  markerLayer: Uint32Array;
+  markerMove: Uint32Array;
+  markerCount: number;
   /** z per layer */
   layerZ: Float32Array;
   layerCount: number;

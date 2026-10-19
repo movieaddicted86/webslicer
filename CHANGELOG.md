@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Preview like PrusaSlicer, part 1: a **horizontal slider** under the layer sliders plays the moves of
+  the top visible layer one by one (at the end of its range it shows the whole layer again) and a small
+  tool marker sits at the current position – moving a layer slider resets it to "end of layer". The
+  **view options** below "Show travel moves" switch retractions (magenta), deretractions (cyan-green),
+  seams (light grey), wipe moves (yellow lines), tool changes (red) and colour changes (blue-grey) on and
+  off independently, and **Shells** draws the plater objects translucent over the toolpaths. The parser
+  records the markers and a global move index per move, so a slice cut at any point of a layer is drawn
+  without re-parsing; a 300 000-segment G-code stays interactive
 - Unsaved-changes dialog like PrusaSlicer: switching a print, filament or printer preset while the
   current one is modified asks what happens to the changes – **Transfer** (the new preset takes them
   over and shows as modified), **Save** (the changed preset is saved under a name, then the switch
