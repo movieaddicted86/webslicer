@@ -39,7 +39,7 @@ Priority: **P1** needed for version 1.0 · **P2** important afterwards · **P3**
 | Copy / paste | ❌ | P3 | duplicate available |
 | Rename, object info (size, volume, triangles, errors) | 🟡 | P2 | triangles yes; volume, manifold check, rename missing |
 | Reload from disk / replace with STL | ❌ | P3 | can be solved via the library |
-| Split to objects / split to parts | ❌ | **P1** | separate connected shells |
+| Split to objects / split to parts | ✅ | – | buttons in the manipulation panel and in the object list; splits a model of several connected shells into objects or into parts (ModelPart volumes); a hollow shell stays with the shell that encloses it |
 | Merge (combine objects) | ❌ | P2 | |
 | Unit conversion (inch / metre) | ❌ | P3 | scale ×25.4 as helper |
 | Simplify model (triangle reduction) | ❌ | P3 | three.js SimplifyModifier |

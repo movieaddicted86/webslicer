@@ -9,7 +9,7 @@ Priority by frequency of use in everyday printing and PrusaSlicer parity.
        (linear/logarithmic), tool; gradient legend with value range
 3. [x] **Instances**: set number, fill bed, instances in the object list (shared geometry, own transform)
 4. [x] **Mirror** X/Y/Z in the manipulation panel
-5. [ ] **Split to objects / parts** (separate connected shells)
+5. [x] **Split to objects / parts** (separate connected shells)
 6. [ ] **Unsaved-changes dialog** on preset switch: transfer / save / discard
 
 ## P2 – important afterwards
