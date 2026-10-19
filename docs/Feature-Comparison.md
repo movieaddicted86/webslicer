@@ -30,7 +30,7 @@ Priority: **P1** needed for version 1.0 · **P2** important afterwards · **P3**
 | Object list with volumes, settings, ranges | ✅ | – | tree object → volume; ranges in the panel |
 | Instances (set number, fill bed, instance list) | ✅ | – | shared mesh/volumes/paint, own transform; `+`/`-` keys, `×n` badge, "Fill bed"; saved in the 3MF |
 | Move / rotate / scale (gizmo + numbers) | ✅ | – | |
-| Mirror (X/Y/Z) | ❌ | **P1** | trivial, missing in the panel |
+| Mirror (X/Y/Z) | ✅ | – | buttons in the panel; mirrors the picked instance, else the whole selection, about the world axis through the instance position |
 | World/local coordinates in the gizmo | 🟡 | P3 | world only |
 | Place on face | ✅ | – | |
 | Arrange (with settings: spacing, rotation, alignment) | 🟡 | P2 | simple shelf packing without settings; "arrange selection" missing |

@@ -24,6 +24,7 @@ import { importFiles } from '../importFiles';
 import { decodeMmu, decodePaint, encodeMmu, encodePaint, remapPaint, subdivideForPainting, type PaintKind } from '../three/paint';
 import { decodeVector, resizeVector, toBool, unescapeStringsCstyle } from '../values';
 import { fillCount, packShelf, type PackItem } from '../plater/packing';
+import { mirrorPlacement } from '../plater/transform';
 import type { ParsedGcode } from '../gcode/types';
 import type { PreviewColorMode } from '../gcode/colorschemes';
 
@@ -259,6 +260,11 @@ interface State {
   fillBedWithInstances: (objectId: string) => void;
   /** turn one instance into an independent object (like Duplicate) and drop it from the original */
   instanceToObject: (objectId: string, instanceId: string) => void;
+  /**
+   * Mirror the selection along a world axis: the picked instance if there is one, otherwise every
+   * instance of the selected objects. One undo step, then the instances drop to the bed.
+   */
+  mirror: (axis: 0 | 1 | 2) => void;
 
   removeObjects: (ids: string[]) => void;
   clearObjects: () => void;
@@ -1001,7 +1007,7 @@ export const useStore = create<State>((set, get) => ({
     if (!o) return;
     get().recordHistory();
     const top = o.ranges.reduce((m, r) => Math.max(m, r.maxZ), 0);
-    const h = o.size[2] * selectedInstance(get(), o).scale[2];
+    const h = o.size[2] * Math.abs(selectedInstance(get(), o).scale[2]);
     const minZ = Math.min(top, h);
     const maxZ = Math.min(h, minZ + Math.max(2, h / 4));
     const r: LayerRange = {
@@ -1291,6 +1297,39 @@ export const useStore = create<State>((set, get) => ({
       selectedIds: [created.id],
       selectedInstanceId: created.instances[0].id,
       selectedVolumeId: undefined,
+      sliceDirty: true,
+    }));
+  },
+
+  mirror: (axis) => {
+    const s = get();
+    // AC-3: a picked instance is mirrored on its own, otherwise every instance of the selection
+    const targets = new Map<string, PlaterInstance>();
+    for (const o of s.objects) {
+      if (!s.selectedIds.includes(o.id)) continue;
+      const only = pickedInstanceId(s, o);
+      for (const inst of o.instances) {
+        if (only && inst.id !== only) continue;
+        targets.set(`${o.id}:${inst.id}`, { id: inst.id, ...mirrorPlacement(inst, axis) });
+      }
+    }
+    if (!targets.size) return;
+    get().recordHistory();
+    // the mirror keeps the instance position, but its rotated mesh can now reach below the bed
+    const dropped = new Map<string, PlaterInstance>();
+    for (const o of s.objects) {
+      for (const inst of o.instances) {
+        const next = targets.get(`${o.id}:${inst.id}`);
+        if (!next) continue;
+        const box = instanceBounds({ ...o, instances: [next] }, next);
+        dropped.set(`${o.id}:${inst.id}`, Math.abs(box.min.z) > 1e-6 ? { ...next, position: [next.position[0], next.position[1], next.position[2] - box.min.z] } : next);
+      }
+    }
+    set((st) => ({
+      objects: st.objects.map((o) => {
+        if (!o.instances.some((i) => targets.has(`${o.id}:${i.id}`))) return o;
+        return { ...o, instances: o.instances.map((i) => dropped.get(`${o.id}:${i.id}`) ?? i) };
+      }),
       sliceDirty: true,
     }));
   },

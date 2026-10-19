@@ -5,19 +5,10 @@
 import * as THREE from 'three';
 import { useStore, VOLUME_LABELS, type NewVolumeInput } from './state/store';
 import { loadModelFile, load3mfBuildItems, splitGeometryByRanges, SUPPORTED_EXTENSIONS } from './three/loaders';
+import { placementFromMatrix } from './plater/transform';
 import { api } from './api';
 
 type ImportTransform = { position: [number, number, number]; rotation: [number, number, number]; scale: [number, number, number] };
-
-/** Decompose a column-major matrix into the plater's position / Euler XYZ / scale triple. */
-function decomposeInstance(m: THREE.Matrix4): ImportTransform {
-  const position = new THREE.Vector3();
-  const quaternion = new THREE.Quaternion();
-  const scale = new THREE.Vector3();
-  m.decompose(position, quaternion, scale);
-  const e = new THREE.Euler().setFromQuaternion(quaternion, 'XYZ');
-  return { position: position.toArray() as [number, number, number], rotation: [e.x, e.y, e.z], scale: scale.toArray() as [number, number, number] };
-}
 
 type ImportItem = {
   name: string;
@@ -83,7 +74,7 @@ export async function importFiles(files: FileList | File[]) {
                 seamPaint: po.seamPaint,
                 mmuPaint: po.mmuPaint,
                 ranges: po.ranges,
-                instances: po.instances.map((m) => decomposeInstance(new THREE.Matrix4().fromArray(m))),
+                instances: po.instances.map((m) => placementFromMatrix(new THREE.Matrix4().fromArray(m))),
               };
               // restore sub-volumes (parts, modifiers, support enforcers/blockers) from the triangle ranges
               if (po.volumes.length > 1) {

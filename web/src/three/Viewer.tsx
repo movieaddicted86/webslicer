@@ -503,7 +503,8 @@ export function Viewer() {
       }
       // the hit mesh sits under one instance node; object-local coordinates are what the paint data uses
       const local = (hit.object as THREE.Mesh).worldToLocal(hit.point.clone());
-      const scale = (selInst.scale[0] + selInst.scale[1] + selInst.scale[2]) / 3 || 1;
+      // magnitudes: a mirrored instance has one negative scale component (AC-5)
+      const scale = (Math.abs(selInst.scale[0]) + Math.abs(selInst.scale[1]) + Math.abs(selInst.scale[2])) / 3 || 1;
       const tris = trianglesInSphere(centroids, local, st.brushRadius / scale);
       if (hit.faceIndex !== undefined && hit.faceIndex !== null) tris.push(hit.faceIndex);
       st.applyPaint(o.id, paintStroke.kind, tris, paintStroke.value);
@@ -765,7 +766,8 @@ export function Viewer() {
           const d = (bb.max.y - bb.min.y) * 1.1 + 2;
           const cx = (bb.min.x + bb.max.x) / 2;
           const cy = (bb.min.y + bb.max.y) / 2;
-          const sz = inst.scale[2] || 1;
+          // the ranges are measured on the object's Z, which a mirror flips; the slabs stay upright
+          const sz = Math.abs(inst.scale[2]) || 1;
           o.ranges.forEach((r, i) => {
             if (!(r.maxZ > r.minZ)) return;
             const h = (r.maxZ - r.minZ) / sz;
