@@ -35,8 +35,11 @@ type ImportItem = {
 
 export async function importFiles(files: FileList | File[]) {
   const st = useStore.getState();
+  // TopBar clears the input right after the change event, and a FileList is live: reading it again
+  // after the first await would come back empty. Snapshot it once, up front.
+  const list = Array.from(files);
   const items: ImportItem[] = [];
-  for (const f of Array.from(files)) {
+  for (const f of list) {
     const ext = f.name.split('.').pop()?.toLowerCase() || '';
     if (!SUPPORTED_EXTENSIONS.includes(ext)) {
       st.toast('error', `Unsupported file: ${f.name}`);
@@ -122,7 +125,7 @@ export async function importFiles(files: FileList | File[]) {
     }
   }
   if (items.length) {
-    const fromProject = Array.from(files).some((f) => f.name.toLowerCase().endsWith('.3mf'));
+    const fromProject = list.some((f) => f.name.toLowerCase().endsWith('.3mf'));
     await st.addObjects(items, { keepPositions: fromProject });
   }
 }

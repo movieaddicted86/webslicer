@@ -328,6 +328,13 @@ export function isModified(slot: PresetSlot): boolean {
 
 const LS_KEY = 'webslicer.selection';
 
+/** Placement used for a mesh that arrives without an item transform (STL, OBJ, plain 3MF). */
+const IDENTITY_PLACEMENT: { position: [number, number, number]; rotation: [number, number, number]; scale: [number, number, number] } = {
+  position: [0, 0, 0],
+  rotation: [0, 0, 0],
+  scale: [1, 1, 1],
+};
+
 function loadSelection(): { print?: string; filament?: string[]; printer?: string; mode?: Mode } {
   try {
     return JSON.parse(localStorage.getItem(LS_KEY) || '{}');
@@ -348,7 +355,7 @@ function saveSelection(s: State) {
 }
 
 /** World matrix of one instance of an object. */
-export function instanceMatrix(inst: PlaterInstance): THREE.Matrix4 {
+export function instanceMatrix(inst: Pick<PlaterInstance, 'position' | 'rotation' | 'scale'>): THREE.Matrix4 {
   const m = new THREE.Matrix4();
   const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(inst.rotation[0], inst.rotation[1], inst.rotation[2], 'XYZ'));
   m.compose(new THREE.Vector3(...inst.position), q, new THREE.Vector3(...inst.scale));
@@ -366,6 +373,17 @@ export function volumeMatrix(v: PlaterVolume): THREE.Matrix4 {
 export function selectedInstance(state: { selectedIds: string[]; selectedInstanceId?: string }, o: PlaterObject): PlaterInstance {
   const id = state.selectedIds.length === 1 && state.selectedIds[0] === o.id ? state.selectedInstanceId : undefined;
   return o.instances.find((i) => i.id === id) || o.instances[0];
+}
+
+/**
+ * The instance the user picked explicitly, if any: clicking an instance in the view, its row in the
+ * object list or one of the instance buttons sets this. Selecting the object row alone does not, which
+ * is what tells Del apart ("remove this copy" versus "remove the object", AC-4.4).
+ */
+export function pickedInstanceId(state: { selectedIds: string[]; selectedInstanceId?: string }, o: PlaterObject): string | undefined {
+  if (state.selectedIds.length !== 1 || state.selectedIds[0] !== o.id) return undefined;
+  const id = state.selectedInstanceId;
+  return id && o.instances.some((i) => i.id === id) ? id : undefined;
 }
 
 /** World-space bounds of one instance (its own scale applies to the object's volumes too). */
@@ -793,29 +811,35 @@ export const useStore = create<State>((set, get) => ({
     for (const it of items) {
       const g = it.geometry;
       g.computeBoundingBox();
-      const bb = g.boundingBox!;
+      // Snapshot the box as numbers: `g.boundingBox` is the geometry's live Box3, and the recompute
+      // below would overwrite what the offset has to be measured against.
+      const box = g.boundingBox!;
+      const lo: [number, number, number] = [box.min.x, box.min.y, box.min.z];
+      const hi: [number, number, number] = [box.max.x, box.max.y, box.max.z];
       // normalize: center XY at origin, min Z at 0
-      const cx = (bb.min.x + bb.max.x) / 2;
-      const cy = (bb.min.y + bb.max.y) / 2;
-      g.translate(-cx, -cy, -bb.min.z);
+      const c: [number, number, number] = [(lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, lo[2]];
+      g.translate(-c[0], -c[1], -c[2]);
       g.computeBoundingBox();
       g.computeVertexNormals();
-      const size: [number, number, number] = [bb.max.x - bb.min.x, bb.max.y - bb.min.y, bb.max.z - bb.min.z];
+      const size: [number, number, number] = [hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]];
       const pos = g.getAttribute('position');
       const tri = g.getIndex() ? g.getIndex()!.count / 3 : pos.count / 3;
       const id = mintObjectId();
-      const offset: [number, number, number] = [-cx, -cy, -bb.min.z];
+      const offset: [number, number, number] = [-c[0], -c[1], -c[2]];
       created.push({
         id,
         name: it.name,
         geometry: g,
-        // A project import brings object coordinates (object at its own origin) plus one transform per
-        // build item, so the instance matrix is T_j · Translate(c) – the geometry's normalisation
-        // offset c, which is exactly the `cx + …, cy + …` shift. (A raw mesh comes in world-baked, so
-        // the same shift turns its single copy into an instance at the bed centre.)
-        instances: (it.instances?.length ? it.instances : [{ position: [0, 0, 0], rotation: [0, 0, 0], scale: [1, 1, 1] }]).map((t) => ({
+        // Instances place `geometry`, which was just moved by the offset c. A project import brings object
+        // coordinates (object at its own origin) plus one transform per build item, so the copy has to go
+        // back where the file had it: the instance matrix is T_j · Translate(c) and its position is
+        // therefore M_j · c – rotation and scale stay those of M_j. (A raw mesh comes in world-baked and
+        // carries no item transform, so M_j is the identity there and the copy lands at the bed centre.)
+        instances: (it.instances?.length ? it.instances : [IDENTITY_PLACEMENT]).map((t) => ({
           id: `inst-${++instanceId}`,
-          position: opts.keepPositions ? ([cx + t.position[0], cy + t.position[1], t.position[2]] as [number, number, number]) : ([(bed.min[0] + bed.max[0]) / 2, (bed.min[1] + bed.max[1]) / 2, 0] as [number, number, number]),
+          position: opts.keepPositions
+            ? (new THREE.Vector3(...c).applyMatrix4(instanceMatrix(t)).toArray() as [number, number, number])
+            : ([(bed.min[0] + bed.max[0]) / 2, (bed.min[1] + bed.max[1]) / 2, 0] as [number, number, number]),
           rotation: [...t.rotation] as [number, number, number],
           scale: [...t.scale] as [number, number, number],
         })),
