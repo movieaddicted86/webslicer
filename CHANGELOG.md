@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Split to objects / split to parts: a model made of several separate shells (a plate of parts
+  exported as one STL) is split with one click into independent objects or into parts (ModelPart
+  volumes) of the same object. "Split to objects" gives every shell an object of its own with the
+  original settings, height ranges and per-triangle paint, and every copy of the object keeps its
+  exact place; "Split to parts" keeps the largest shell as the mesh and turns the rest into parts.
+  A hollow shell (an inward-facing inner wall) stays with the shell that encloses it, so a hollow
+  object counts as one part, and a single-shell object reports "The object consists of a single
+  part". One undo step each, buttons in the manipulation panel and in the object list
 - Instances: set the number per object (1–1000), "Fill bed" places as many copies as fit, "Add instance" /
   "Remove instance" buttons and the `+` / `-` keys, a `×n` badge in the object list that expands into one
   row per instance (select, set as separate object, delete). All instances share one mesh, its volumes,

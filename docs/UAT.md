@@ -39,6 +39,8 @@ browser and screenshot.
 | UAT-17 | Multi-user | Open a second browser/device in parallel and slice | Both jobs run (MAX_JOBS), objects do not mix; autosave is separate per browser. |
 | UAT-18 | Proxmox | Run `proxmox/webslicer-lxc.sh` on the PVE host | LXC is created, service runs, URL is printed; `systemctl status webslicer` is active. |
 
+| UAT-21 | Split | Load an STL that contains three separate cubes; select the object; "Split to objects" (in the panel and in the object row); then load a two-cube plate and "Split to parts"; undo each with Ctrl+Z | "Split to objects" replaces the object with one object per shell at exactly their previous positions; the object list shows three entries and slicing reports the same filament as before. With several instances each new object keeps all of them. "Split to parts" keeps the largest shell as the object's mesh and adds one "Part N" ModelPart volume per other shell; the filament stays the same. A hollow object (outer wall + inner wall) reports "The object consists of a single part" and is left alone, like a single-shell object; with modifiers or parts present the button is disabled ("Remove modifiers and parts first"). One Ctrl+Z restores the original object. |
+
 ## Known limitations (rc.2)
 
 - No cut tool, no text embossing, no continuous layer-height profile (height ranges only).

@@ -280,6 +280,8 @@ function ObjectManipulation({ o }: { o: PlaterObject }) {
   const extruders = useStore((s) => s.extruderCount());
   const recordHistory = useStore((s) => s.recordHistory);
   const mirror = useStore((s) => s.mirror);
+  const splitToObjects = useStore((s) => s.splitToObjects);
+  const splitToParts = useStore((s) => s.splitToParts);
   const setInstanceCount = useStore((s) => s.setInstanceCount);
   const fillBedWithInstances = useStore((s) => s.fillBedWithInstances);
   // the instance count field keeps the typed text while it is edited, so a half-typed "1" of "12"
@@ -348,6 +350,19 @@ function ObjectManipulation({ o }: { o: PlaterObject }) {
             Mirror {a}
           </button>
         ))}
+      </div>
+      <div className="manip-actions split">
+        {/* PrusaSlicer splits an object with several separate shells into objects or into parts */}
+        <button
+          title={o.volumes.length ? 'Remove modifiers and parts first' : 'Split the connected shells into separate objects'}
+          disabled={o.volumes.length > 0}
+          onClick={() => splitToObjects(o.id)}
+        >
+          Split to objects
+        </button>
+        <button title="Turn the connected shells into parts of this object" onClick={() => splitToParts(o.id)}>
+          Split to parts
+        </button>
       </div>
       <div className="manip-actions">
         <button onClick={() => set({ rotation: [0, 0, 0] })}>Reset rotation</button>
@@ -623,6 +638,8 @@ export function Sidebar() {
   const selectInstance = useStore((s) => s.selectInstance);
   const instanceToObject = useStore((s) => s.instanceToObject);
   const duplicate = useStore((s) => s.duplicateObjects);
+  const splitToObjects = useStore((s) => s.splitToObjects);
+  const splitToParts = useStore((s) => s.splitToParts);
   const arrange = useStore((s) => s.arrange);
   const clear = useStore((s) => s.clearObjects);
   const update = useStore((s) => s.updateObject);
@@ -800,6 +817,29 @@ export function Sidebar() {
                       >
                         ＋
                       </button>
+                      <button
+                        className="icon split"
+                        title={o.volumes.length ? 'Remove modifiers and parts first' : 'Split to objects'}
+                        disabled={o.volumes.length > 0}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          select([o.id]);
+                          splitToObjects(o.id);
+                        }}
+                      >
+                        ⑂
+                      </button>
+                      <button
+                        className="icon split"
+                        title="Split to parts"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          select([o.id]);
+                          splitToParts(o.id);
+                        }}
+                      >
+                        ◫
+                      </button>
                     </div>
                     {addMenuFor === o.id && <AddVolumeMenu o={o} onClose={() => setAddMenuFor(null)} />}
                     {o.instances.length > 1 && instancesOpen[o.id] && (
@@ -827,6 +867,17 @@ export function Sidebar() {
                               }}
                             >
                               ⧉
+                            </button>
+                            <button
+                              className="icon"
+                              title="Split to objects"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                selectInstance(o.id, inst.id);
+                                splitToObjects(o.id);
+                              }}
+                            >
+                              ⑂
                             </button>
                             <button
                               className="icon"
