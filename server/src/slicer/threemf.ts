@@ -156,6 +156,8 @@ export interface ThreeMfObject {
   mesh: Mesh;
   /** 4x4 column-major transform (three.js Matrix4.elements order) */
   transform: number[];
+  /** additional instance transforms of this object, including the first (3MF `<build><item>`) */
+  instances?: number[][];
   /** per-object config overrides (PrusaSlicer model config) */
   config?: IniSection;
   extruder?: number;
@@ -344,7 +346,10 @@ export async function build3mf(
   parts.push(' </resources>');
   parts.push(' <build>');
   objects.forEach((obj, i) => {
-    parts.push(`  <item objectid="${i + 1}" transform="${transformTo3mf(obj.transform)}" printable="1"/>`);
+    // one <item> per instance; the object mesh stays in object coordinates
+    for (const transform of obj.instances?.length ? obj.instances : [obj.transform]) {
+      parts.push(`  <item objectid="${i + 1}" transform="${transformTo3mf(transform)}" printable="1"/>`);
+    }
   });
   parts.push(' </build>');
   parts.push('</model>');
@@ -363,7 +368,7 @@ export async function build3mf(
   const mc: string[] = ['<?xml version="1.0" encoding="UTF-8"?>', '<config>'];
   objects.forEach((obj, i) => {
     const id = i + 1;
-    mc.push(` <object id="${id}" instances_count="1">`);
+    mc.push(` <object id="${id}" instances_count="${obj.instances?.length || 1}">`);
     mc.push(`  <metadata type="object" key="name" value="${xmlEscape(obj.name)}"/>`);
     if (obj.extruder && obj.extruder > 0) mc.push(`  <metadata type="object" key="extruder" value="${obj.extruder}"/>`);
     for (const [k, val] of Object.entries(obj.config || {})) {
@@ -439,6 +444,8 @@ export interface ProjectObject {
   name: string;
   config: IniSection;
   extruder?: number;
+  /** instance transforms (column-major 4x4, includes the first) in build order */
+  instances: number[][];
   volumes: ProjectVolume[];
   /** per-triangle paint over the whole object mesh, one char per triangle ('0', '4', '8') */
   supportPaint?: string;
@@ -490,8 +497,35 @@ function xmlUnescape(v: string): string {
   return v.replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&apos;/g, "'").replace(/&amp;/g, '&');
 }
 
+/** Convert a 3MF 12-value transform string (row-major 4x3, translation last) into a column-major 4x4. */
+export function transformFrom3mf(s: string): number[] {
+  const v = s.trim().split(/\s+/).map(Number);
+  const m = [0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1];
+  for (let i = 0; i < 9; i++) if (Number.isFinite(v[i])) m[4 * (i % 3) + Math.floor(i / 3)] = v[i];
+  for (let i = 0; i < 3; i++) if (Number.isFinite(v[9 + i])) m[12 + i] = v[9 + i];
+  return m;
+}
+
+/** Build items of 3D/3dmodel.model in document order: the object id each one instantiates and its transform. */
+function parse3mfBuild(model: string): Array<{ objectId: string; transform: number[] }> {
+  const build = /<build\b[^>]*>([\s\S]*?)<\/build>/.exec(model)?.[1];
+  if (!build) return [];
+  const out: Array<{ objectId: string; transform: number[] }> = [];
+  const itemRe = /<item\b([^>]*)\/?>/g;
+  let m: RegExpExecArray | null;
+  while ((m = itemRe.exec(build))) {
+    const objectId = /\bobjectid="([^"]+)"/.exec(m[1])?.[1];
+    if (!objectId) continue;
+    const t = /\btransform="([^"]+)"/.exec(m[1])?.[1];
+    out.push({ objectId, transform: t ? transformFrom3mf(t) : [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1] });
+  }
+  return out;
+}
+
 /** Read the global config and object/volume list from a PrusaSlicer 3MF project. */
-export async function read3mfProject(buf: Buffer): Promise<{ config: IniSection; objects: ProjectObject[]; customGcodes: CustomGcode[] }> {
+export async function read3mfProject(
+  buf: Buffer,
+): Promise<{ config: IniSection; objects: ProjectObject[]; customGcodes: CustomGcode[]; buildOrder: number[] }> {
   const zip = await JSZip.loadAsync(buf);
   const cfg: IniSection = {};
   const cfgFile = zip.file('Metadata/Slic3r_PE.config');
@@ -503,11 +537,15 @@ export async function read3mfProject(buf: Buffer): Promise<{ config: IniSection;
     }
   }
   const objects: ProjectObject[] = [];
+  /** model ids of the parsed objects, parallel to `objects` (for the build-item mapping) */
+  const objectIds: string[] = [];
+  let buildItems: Array<{ objectId: string; transform: number[] }> = [];
   let paintById = new Map<string, { supports?: string; seam?: string; mmu?: string }>();
   const modelFile = zip.file('3D/3dmodel.model');
   if (modelFile) {
     const model = await modelFile.async('string');
     if (model.includes('slic3rpe:custom_')) paintById = readPaintFromModel(model);
+    buildItems = parse3mfBuild(model);
   }
   // height range modifiers
   const rangesById = new Map<string, LayerRange[]>();
@@ -552,6 +590,7 @@ export async function read3mfProject(buf: Buffer): Promise<{ config: IniSection;
         else oc[k] = v;
       }
       const ranges: LayerRange[] = rangesById.get(objId) || [];
+      const instances = buildItems.filter((b) => b.objectId === objId).map((b) => b.transform);
       const volumes: ProjectVolume[] = [];
       const volRe = /<volume\s+firstid="(\d+)"\s+lastid="(\d+)"[^>]*>([\s\S]*?)<\/volume>/g;
       let vm: RegExpExecArray | null;
@@ -574,11 +613,14 @@ export async function read3mfProject(buf: Buffer): Promise<{ config: IniSection;
         }
         volumes.push(vol);
       }
-      objects.push({ name, config: oc, extruder, volumes, supportPaint: paint?.supports, seamPaint: paint?.seam, mmuPaint: paint?.mmu, ranges });
+      objects.push({ name, config: oc, extruder, instances, volumes, supportPaint: paint?.supports, seamPaint: paint?.seam, mmuPaint: paint?.mmu, ranges });
+      objectIds.push(objId);
     }
   }
   let customGcodes: CustomGcode[] = [];
   const cgFile = zip.file('Metadata/Prusa_Slicer_custom_gcode_per_print_z.xml');
   if (cgFile) customGcodes = parseCustomGcodeXml(await cgFile.async('string'));
-  return { config: cfg, objects, customGcodes };
+  // object index of every build item, in build order (a 3MF loader returns one mesh per item)
+  const buildOrder = buildItems.map((b) => objectIds.indexOf(b.objectId));
+  return { config: cfg, objects, customGcodes, buildOrder };
 }
