@@ -3,7 +3,16 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
-import { useStore, bedShapeOf, objectBounds, type PlaterObject, type PlaterVolume } from '../state/store';
+import {
+  useStore,
+  bedShapeOf,
+  instanceBounds,
+  objectBounds,
+  selectedInstance,
+  type PlaterInstance,
+  type PlaterObject,
+  type PlaterVolume,
+} from '../state/store';
 import { FEATURE_COLORS, type ParsedGcode } from '../gcode/types';
 import { RANGE_SCHEMES, rangeColor, rangePosition, schemeRange, type PreviewColorMode } from '../gcode/colorschemes';
 import type { CustomGcode, VolumeType } from '../api';
@@ -29,6 +38,8 @@ interface ObjectNode {
   group: THREE.Group;
   mesh: THREE.Mesh;
   volumes: Map<string, THREE.Mesh>;
+  /** scene node per instance (phase 1: exactly one). Shares mesh geometry with its siblings. */
+  instances: Map<string, THREE.Group>;
   /** translucent slabs visualizing height range modifiers */
   slabs?: THREE.Group;
   slabKey?: string;
@@ -320,6 +331,7 @@ export function Viewer() {
   const objects = useStore((s) => s.objects);
   const selectedIds = useStore((s) => s.selectedIds);
   const selectedVolumeId = useStore((s) => s.selectedVolumeId);
+  const selectedInstanceId = useStore((s) => s.selectedInstanceId);
   const transformMode = useStore((s) => s.transformMode);
   const bedShape = useStore((s) => s.presets.printer.current.bed_shape || '0x0,200x0,200x200,0x200');
   const maxHeight = useStore((s) => Number(s.presets.printer.current.max_print_height || 200));
@@ -401,9 +413,10 @@ export function Viewer() {
         const objectId = target.parent?.userData.id as string;
         st.updateVolume(objectId, target.userData.id as string, t);
         if (commit) st.dropToBed(objectId);
-      } else {
+      } else if (target.userData.instanceId) {
+        // the gizmo drives one instance; the volume children follow the instance node
         const id = target.userData.id as string;
-        st.updateObject(id, t);
+        st.updateInstance(id, target.userData.instanceId as string, t);
         if (commit) st.dropToBed(id);
       }
     };
@@ -473,13 +486,14 @@ export function Viewer() {
       const { hit, node, st } = p;
       const o = st.objects.find((x) => x.id === paintStroke!.objectId);
       if (!o) return;
+      const selInst = selectedInstance(st, o);
       let centroids = centroidCache.get(o.geometry);
       if (!centroids) {
         centroids = computeCentroids(o.geometry);
         centroidCache.set(o.geometry, centroids);
       }
       const local = node.mesh.worldToLocal(hit.point.clone());
-      const scale = (o.scale[0] + o.scale[1] + o.scale[2]) / 3 || 1;
+      const scale = (selInst.scale[0] + selInst.scale[1] + selInst.scale[2]) / 3 || 1;
       const tris = trianglesInSphere(centroids, local, st.brushRadius / scale);
       if (hit.faceIndex !== undefined && hit.faceIndex !== null) tris.push(hit.faceIndex);
       st.applyPaint(o.id, paintStroke.kind, tris, paintStroke.value);
@@ -573,6 +587,8 @@ export function Viewer() {
           if (st.selectedIds.includes(id)) st.select(st.selectedIds.filter((x) => x !== id));
           else st.select([id], true);
         } else st.select([id]);
+        const hitInstance = obj.userData.instanceId as string | undefined;
+        if (hitInstance) st.selectInstance(id, hitInstance);
       } else if (!e.shiftKey && !e.ctrlKey) st.select([]);
     };
     renderer.domElement.addEventListener('pointerdown', onPointerDown);
@@ -633,26 +649,45 @@ export function Viewer() {
       seen.add(o.id);
       let node = refs.nodes.get(o.id);
       if (!node) {
+        // the object group is a pure container; each instance is its own node under it
         const group = new THREE.Group();
         group.userData = { kind: 'object', id: o.id };
         const mesh = new THREE.Mesh(o.geometry, new THREE.MeshStandardMaterial({ color: OBJECT_COLOR, roughness: 0.55, metalness: 0.05 }));
-        mesh.userData = { kind: 'object', id: o.id };
-        group.add(mesh);
-        node = { group, mesh, volumes: new Map() };
+        node = { group, mesh, volumes: new Map(), instances: new Map() };
         refs.nodes.set(o.id, node);
         refs.objectsGroup.add(group);
       }
       if (node.mesh.geometry !== o.geometry) node.mesh.geometry = o.geometry;
-      const dragTarget = refs.dragging ? refs.transform.object : undefined;
-      if (dragTarget !== node.group) {
-        node.group.position.set(...o.position);
-        node.group.rotation.set(...o.rotation);
-        node.group.scale.set(...o.scale);
+      // instances (phase 1: exactly one) – all share the object's geometry and material
+      for (const inst of o.instances) {
+        let ig = node.instances.get(inst.id);
+        if (!ig) {
+          ig = new THREE.Group();
+          ig.userData = { kind: 'object', id: o.id, instanceId: inst.id };
+          node.group.add(ig);
+          node.instances.set(inst.id, ig);
+        }
+        if (!node.mesh.parent) {
+          node.mesh.userData = { kind: 'object', id: o.id, instanceId: inst.id };
+          ig.add(node.mesh);
+        }
+        if (!(refs.dragging && refs.transform.object === ig)) {
+          ig.position.set(...inst.position);
+          ig.rotation.set(...inst.rotation);
+          ig.scale.set(...inst.scale);
+        }
+      }
+      for (const [iid, ig] of node.instances) {
+        if (!o.instances.some((i) => i.id === iid)) {
+          node.group.remove(ig);
+          node.instances.delete(iid);
+        }
       }
       // Keep the models visible in the preview until a toolpath is available (e.g. while slicing).
       node.group.visible = o.visible && (view === 'plater' || !gcode);
       const selected = selectedIds.includes(o.id);
-      const box = objectBounds(o);
+      const selInst = selectedInstance({ selectedIds, selectedInstanceId }, o);
+      const box = instanceBounds(o, selInst);
       const outside =
         box.min.x < bed.min[0] - 0.01 ||
         box.min.y < bed.min[1] - 0.01 ||
@@ -709,7 +744,7 @@ export function Viewer() {
         const d = (bb.max.y - bb.min.y) * 1.1 + 2;
         const cx = (bb.min.x + bb.max.x) / 2;
         const cy = (bb.min.y + bb.max.y) / 2;
-        const sz = o.scale[2] || 1;
+        const sz = selInst.scale[2] || 1;
         o.ranges.forEach((r, i) => {
           if (!(r.maxZ > r.minZ)) return;
           const h = (r.maxZ - r.minZ) / sz;
@@ -728,7 +763,7 @@ export function Viewer() {
           slabs.add(edge);
         });
         // counter the group's scale so slab sizes stay in object units
-        slabs.scale.set(1 / (o.scale[0] || 1), 1 / (o.scale[1] || 1), 1);
+        slabs.scale.set(1 / (selInst.scale[0] || 1), 1 / (selInst.scale[1] || 1), 1);
         slabs.scale.x = 1;
         slabs.scale.y = 1;
         node.group.add(slabs);
@@ -747,7 +782,7 @@ export function Viewer() {
           node.group.add(vm);
         }
         if (vm.geometry !== v.geometry) vm.geometry = v.geometry;
-        if (dragTarget !== vm) {
+        if (!(refs.dragging && refs.transform.object === vm)) {
           vm.position.set(...v.position);
           vm.rotation.set(...v.rotation);
           vm.scale.set(...v.scale);
@@ -780,14 +815,19 @@ export function Viewer() {
         (node.mesh.material as THREE.Material).dispose();
         for (const vm of node.volumes.values()) (vm.material as THREE.Material).dispose();
         refs.nodes.delete(id);
-        if (refs.transform.object === node.group || (refs.transform.object && refs.transform.object.parent === node.group)) refs.transform.detach();
+        if (refs.transform.object && refs.transform.object.parent === node.group) refs.transform.detach();
       }
     }
     // transform gizmo
     let target: THREE.Object3D | undefined;
     if (selectedIds.length === 1 && view === 'plater' && !paintMode) {
+      const o = objects.find((x) => x.id === selectedIds[0]);
       const node = refs.nodes.get(selectedIds[0]);
-      if (node) target = selectedVolumeId ? node.volumes.get(selectedVolumeId) || node.group : node.group;
+      if (node && o) {
+        // the gizmo drives the selected instance; volumes stay children of it
+        const instNode = node.instances.get(selectedInstance({ selectedIds, selectedInstanceId }, o).id);
+        target = selectedVolumeId ? node.volumes.get(selectedVolumeId) || instNode || node.group : instNode || node.group;
+      }
     }
     if (target) {
       if (refs.transform.object !== target) refs.transform.attach(target);
@@ -799,7 +839,7 @@ export function Viewer() {
       refs.transform.getHelper().visible = false;
       refs.transform.enabled = false;
     }
-  }, [objects, selectedIds, selectedVolumeId, transformMode, view, bedShape, maxHeight, gcode, paintMode]);
+  }, [objects, selectedIds, selectedVolumeId, selectedInstanceId, transformMode, view, bedShape, maxHeight, gcode, paintMode]);
 
   // --- gcode
   useEffect(() => {
@@ -894,8 +934,7 @@ export function Viewer() {
 export function objectIsOutside(o: PlaterObject, bedShape: string, maxHeight: number): boolean {
   const bed = bedShapeOf({ bed_shape: bedShape });
   const box = objectBounds(o);
-  return (
-    box.min.x < bed.min[0] - 0.01 ||
+  return (    box.min.x < bed.min[0] - 0.01 ||
     box.min.y < bed.min[1] - 0.01 ||
     box.max.x > bed.max[0] + 0.01 ||
     box.max.y > bed.max[1] + 0.01 ||

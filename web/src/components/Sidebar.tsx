@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useStore, isModified, objectBounds, bedShapeOf, VOLUME_LABELS, type PlaterObject, type PlaterVolume } from '../state/store';
+import { useStore, isModified, bedShapeOf, instanceBounds, selectedInstance, VOLUME_LABELS, type PlaterObject, type PlaterVolume } from '../state/store';
 import { PresetSelect } from './PresetSelect';
 import { PreviewPanel } from './PreviewPanel';
 import { objectIsOutside } from '../three/Viewer';
@@ -272,29 +272,34 @@ function PaintPanel({ o }: { o: PlaterObject }) {
 }
 
 function ObjectManipulation({ o }: { o: PlaterObject }) {
-  const updateRaw = useStore((s) => s.updateObject);
+  const updateInstance = useStore((s) => s.updateInstance);
   const drop = useStore((s) => s.dropToBed);
   const openDialog = useStore((s) => s.openDialog);
   const extruders = useStore((s) => s.extruderCount());
   const recordHistory = useStore((s) => s.recordHistory);
-  const update = (id: string, patch: Partial<PlaterObject>) => {
+  // the manipulation fields edit the selected instance (instance 1 when none is selected)
+  const selectedIds = useStore((s) => s.selectedIds);
+  const selectedInstanceId = useStore((s) => s.selectedInstanceId);
+  const inst = selectedInstance({ selectedIds, selectedInstanceId }, o);
+  const update = (id: string, patch: Partial<Omit<PlaterObject, 'instances'>>) => {
     recordHistory();
-    updateRaw(id, patch);
+    useStore.getState().updateObject(id, patch);
   };
   const set = (patch: Partial<TransformLike>) => {
-    update(o.id, patch);
+    recordHistory();
+    updateInstance(o.id, inst.id, patch);
     drop(o.id);
   };
-  const box = objectBounds(o);
+  const box = instanceBounds(o, inst);
   return (
     <div className="manip">
       <TransformInputs
-        t={o}
+        t={inst}
         size={[o.size[0], o.size[1], o.size[2]]}
         onChange={(patch) => {
           // uniform scaling from the scale/size rows keeps proportions like PrusaSlicer's default
           if (patch.scale) {
-            const changed = patch.scale.findIndex((v, i) => v !== o.scale[i]);
+            const changed = patch.scale.findIndex((v, i) => v !== inst.scale[i]);
             const f = changed >= 0 ? patch.scale[changed] : patch.scale[0];
             set({ scale: [f, f, f] });
           } else set(patch);
@@ -400,6 +405,8 @@ function AddVolumeMenu({ o, onClose }: { o: PlaterObject; onClose: () => void })
   const addVolume = useStore((s) => s.addVolume);
   const toast = useStore((s) => s.toast);
   const bedShape = useStore((s) => s.presets.printer.current.bed_shape || '');
+  const selectedIds = useStore((s) => s.selectedIds);
+  const selectedInstanceId = useStore((s) => s.selectedInstanceId);
   const fileRef = useRef<HTMLInputElement>(null);
   const [fileType, setFileType] = useState<VolumeType>('ModelPart');
   const ref = useRef<HTMLDivElement>(null);
@@ -413,14 +420,15 @@ function AddVolumeMenu({ o, onClose }: { o: PlaterObject; onClose: () => void })
 
   const bed = bedShapeOf({ bed_shape: bedShape });
   const side = Math.max(5, 0.1 * Math.max(bed.max[0] - bed.min[0], bed.max[1] - bed.min[1]));
-  const objSize: [number, number, number] = [o.size[0] * o.scale[0], o.size[1] * o.scale[1], o.size[2] * o.scale[2]];
+  const objScale = selectedInstance({ selectedIds, selectedInstanceId }, o).scale;
+  const objSize: [number, number, number] = [o.size[0] * objScale[0], o.size[1] * objScale[1], o.size[2] * objScale[2]];
 
   const addPrimitive = async (type: VolumeType, shape: PrimitiveShape) => {
     const geometry = createPrimitive(shape, side, [o.size[0], o.size[1], o.size[2]]);
     geometry.computeBoundingBox();
     const h = geometry.boundingBox!.max.z - geometry.boundingBox!.min.z;
     // modifiers etc. start at the object centre; slabs and new parts sit on the bed
-    const position: [number, number, number] = shape === 'slab' || type === 'ModelPart' ? [0, 0, h / 2] : [0, 0, objSize[2] / 2 / o.scale[2]];
+    const position: [number, number, number] = shape === 'slab' || type === 'ModelPart' ? [0, 0, h / 2] : [0, 0, objSize[2] / 2 / objScale[2]];
     await addVolume(o.id, { name: `${VOLUME_LABELS[type]} ${shape}`, type, geometry, position });
     onClose();
   };

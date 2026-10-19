@@ -160,7 +160,10 @@ export interface SliceVolumeInput {
 export interface SliceObjectInput {
   modelId: string;
   name: string;
+  /** transform of instance 1, kept for older servers */
   transform: number[];
+  /** all instance transforms (including the first) when the object has more than one instance */
+  instances?: number[][];
   config?: Config;
   extruder?: number;
   volumes?: SliceVolumeInput[];

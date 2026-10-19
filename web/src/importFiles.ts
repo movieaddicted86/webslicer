@@ -6,12 +6,16 @@ import { useStore, VOLUME_LABELS, type NewVolumeInput } from './state/store';
 import { loadModelFile, splitGeometryByRanges, SUPPORTED_EXTENSIONS } from './three/loaders';
 import { api } from './api';
 
+type ImportTransform = { position: [number, number, number]; rotation: [number, number, number]; scale: [number, number, number] };
+
 type ImportItem = {
   name: string;
   geometry: import('three').BufferGeometry;
   config?: Record<string, string>;
   extruder?: number;
   volumes?: NewVolumeInput[];
+  /** instance transforms of a 3MF project (phase 5 fills these in) */
+  instances?: ImportTransform[];
   supportPaint?: string;
   seamPaint?: string;
   mmuPaint?: string;

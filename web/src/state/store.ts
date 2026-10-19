@@ -44,15 +44,22 @@ export interface PlaterVolume {
   triangles: number;
 }
 
+/** One copy of an object: shares geometry, volumes and paint with its siblings, owns its transform. */
+export interface PlaterInstance {
+  id: string;
+  position: [number, number, number];
+  rotation: [number, number, number];
+  scale: [number, number, number];
+}
+
 export interface PlaterObject {
   id: string;
   name: string;
   geometry: THREE.BufferGeometry;
   modelId?: string;
   uploadError?: string;
-  position: [number, number, number];
-  rotation: [number, number, number];
-  scale: [number, number, number];
+  /** copies of this object; always at least one, instance 1 is the object's main placement */
+  instances: PlaterInstance[];
   /** base size (unscaled bounding box) */
   size: [number, number, number];
   config: Config;
@@ -136,6 +143,8 @@ interface State {
   selectedIds: string[];
   /** selected sub-volume (belongs to the single selected object) */
   selectedVolumeId?: string;
+  /** selected copy of the single selected object; undefined means its first instance */
+  selectedInstanceId?: string;
   transformMode: 'translate' | 'rotate' | 'scale';
   /** "Place on face" tool: the next click on an object face lays that face flat on the bed */
   placeOnFace: boolean;
@@ -222,6 +231,7 @@ interface State {
       config?: Config;
       extruder?: number;
       volumes?: NewVolumeInput[];
+      instances?: Array<{ position: [number, number, number]; rotation: [number, number, number]; scale: [number, number, number] }>;
       supportPaint?: string;
       seamPaint?: string;
       mmuPaint?: string;
@@ -234,7 +244,10 @@ interface State {
   removeVolume: (objectId: string, volumeId: string) => void;
   selectVolume: (objectId: string, volumeId?: string) => void;
   uploadVolume: (objectId: string, v: PlaterVolume) => Promise<void>;
-  updateObject: (id: string, patch: Partial<PlaterObject>) => void;
+  updateObject: (id: string, patch: Partial<Omit<PlaterObject, 'instances'>>) => void;
+  /** change the transform of a single instance of an object */
+  updateInstance: (objectId: string, instanceId: string, patch: Partial<Pick<PlaterInstance, 'position' | 'rotation' | 'scale'>>) => void;
+  selectInstance: (objectId: string, instanceId: string) => void;
   removeObjects: (ids: string[]) => void;
   clearObjects: () => void;
   duplicateObjects: (ids: string[]) => Promise<void>;
@@ -321,10 +334,11 @@ function saveSelection(s: State) {
   }
 }
 
-export function objectMatrix(o: PlaterObject): THREE.Matrix4 {
+/** World matrix of one instance of an object. */
+export function instanceMatrix(inst: PlaterInstance): THREE.Matrix4 {
   const m = new THREE.Matrix4();
-  const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(o.rotation[0], o.rotation[1], o.rotation[2], 'XYZ'));
-  m.compose(new THREE.Vector3(...o.position), q, new THREE.Vector3(...o.scale));
+  const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(inst.rotation[0], inst.rotation[1], inst.rotation[2], 'XYZ'));
+  m.compose(new THREE.Vector3(...inst.position), q, new THREE.Vector3(...inst.scale));
   return m;
 }
 
@@ -335,18 +349,31 @@ export function volumeMatrix(v: PlaterVolume): THREE.Matrix4 {
   return m;
 }
 
-/** World-space bounds of the printable parts (main mesh + ModelPart volumes). */
-export function objectBounds(o: PlaterObject): THREE.Box3 {
+/** The instance a selection refers to: the selected one, or the object's first instance. */
+export function selectedInstance(state: { selectedIds: string[]; selectedInstanceId?: string }, o: PlaterObject): PlaterInstance {
+  const id = state.selectedIds.length === 1 && state.selectedIds[0] === o.id ? state.selectedInstanceId : undefined;
+  return o.instances.find((i) => i.id === id) || o.instances[0];
+}
+
+/** World-space bounds of one instance (its own scale applies to the object's volumes too). */
+export function instanceBounds(o: PlaterObject, inst: PlaterInstance): THREE.Box3 {
   const box = new THREE.Box3();
   if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
-  const om = objectMatrix(o);
-  box.copy(o.geometry.boundingBox!).applyMatrix4(om);
+  const im = instanceMatrix(inst);
+  box.copy(o.geometry.boundingBox!).applyMatrix4(im);
   for (const v of o.volumes || []) {
     if (v.type !== 'ModelPart') continue;
     if (!v.geometry.boundingBox) v.geometry.computeBoundingBox();
-    const vb = new THREE.Box3().copy(v.geometry.boundingBox!).applyMatrix4(volumeMatrix(v)).applyMatrix4(om);
+    const vb = new THREE.Box3().copy(v.geometry.boundingBox!).applyMatrix4(volumeMatrix(v)).applyMatrix4(im);
     box.union(vb);
   }
+  return box;
+}
+
+/** World-space bounds of all instances (for whole-object checks). */
+export function objectBounds(o: PlaterObject): THREE.Box3 {
+  const box = new THREE.Box3();
+  for (const inst of o.instances) box.union(instanceBounds(o, inst));
   return box;
 }
 
@@ -362,6 +389,7 @@ function triangleCount(g: THREE.BufferGeometry): number {
 
 let volumeId = 0;
 let rangeId = 0;
+let instanceId = 0;
 
 /**
  * Build a PlaterVolume from an input. `offset` is the translation that was applied to the
@@ -754,9 +782,12 @@ export const useStore = create<State>((set, get) => ({
         id,
         name: it.name,
         geometry: g,
-        position: opts.keepPositions ? [cx, cy, 0] : [(bed.min[0] + bed.max[0]) / 2, (bed.min[1] + bed.max[1]) / 2, 0],
-        rotation: [0, 0, 0],
-        scale: [1, 1, 1],
+        instances: (it.instances?.length ? it.instances : [{ position: [0, 0, 0], rotation: [0, 0, 0], scale: [1, 1, 1] }]).map((t) => ({
+          id: `inst-${++instanceId}`,
+          position: opts.keepPositions ? ([cx + t.position[0], cy + t.position[1], t.position[2]] as [number, number, number]) : ([(bed.min[0] + bed.max[0]) / 2, (bed.min[1] + bed.max[1]) / 2, 0] as [number, number, number]),
+          rotation: [...t.rotation] as [number, number, number],
+          scale: [...t.scale] as [number, number, number],
+        })),
         size,
         config: { ...(it.config || {}) },
         extruder: it.extruder || 0,
@@ -770,7 +801,7 @@ export const useStore = create<State>((set, get) => ({
         ranges: (it.ranges || []).map((r) => ({ id: `rng-${++rangeId}`, minZ: r.minZ, maxZ: r.maxZ, config: { ...r.config } })),
       });
     }
-    set((st) => ({ objects: [...st.objects, ...created], selectedIds: created.map((c) => c.id), selectedVolumeId: undefined, sliceDirty: true }));
+    set((st) => ({ objects: [...st.objects, ...created], selectedIds: created.map((c) => c.id), selectedVolumeId: undefined, selectedInstanceId: undefined, sliceDirty: true }));
     if (!opts.keepPositions) get().arrange();
     // upload meshes
     for (const o of created) {
@@ -829,19 +860,28 @@ export const useStore = create<State>((set, get) => ({
   updateObject: (id, patch) =>
     set((s) => ({ objects: s.objects.map((o) => (o.id === id ? { ...o, ...patch } : o)), sliceDirty: true })),
 
+  updateInstance: (objectId, instId, patch) =>
+    set((s) => ({
+      objects: s.objects.map((o) => (o.id === objectId ? { ...o, instances: o.instances.map((i) => (i.id === instId ? { ...i, ...patch } : i)) } : o)),
+      sliceDirty: true,
+    })),
+
+  selectInstance: (objectId, instId) => set({ selectedIds: [objectId], selectedInstanceId: instId, selectedVolumeId: undefined }),
+
   removeObjects: (ids) => {
     get().recordHistory();
     set((s) => ({
       objects: s.objects.filter((o) => !ids.includes(o.id)),
       selectedIds: s.selectedIds.filter((i) => !ids.includes(i)),
       selectedVolumeId: undefined,
+      selectedInstanceId: undefined,
       sliceDirty: true,
     }));
   },
 
   clearObjects: () => {
     get().recordHistory();
-    set({ objects: [], selectedIds: [], selectedVolumeId: undefined, sliceDirty: true, gcode: undefined, gcodeJobId: undefined, customGcodes: [], previewColorMode: 'feature' });
+    set({ objects: [], selectedIds: [], selectedVolumeId: undefined, selectedInstanceId: undefined, sliceDirty: true, gcode: undefined, gcodeJobId: undefined, customGcodes: [], previewColorMode: 'feature' });
   },
 
   duplicateObjects: async (ids) => {
@@ -851,18 +891,19 @@ export const useStore = create<State>((set, get) => ({
     const created: PlaterObject[] = items.map((o) => ({
       ...o,
       id: `obj-${++objectId}`,
-      position: [o.position[0] + 10, o.position[1] + 10, o.position[2]],
+      // independent copies: every instance gets its own transform (and id), offset like PrusaSlicer's duplicate
+      instances: o.instances.map((i) => ({ ...i, id: `inst-${++instanceId}`, position: [i.position[0] + 10, i.position[1] + 10, i.position[2]] })),
       config: { ...o.config },
       volumes: o.volumes.map((v) => ({ ...v, id: `vol-${++volumeId}`, config: { ...v.config } })),
       paint: o.paint ? { supports: o.paint.supports?.slice(), seam: o.paint.seam?.slice(), mmu: o.paint.mmu?.slice() } : undefined,
       ranges: o.ranges.map((r) => ({ ...r, id: `rng-${++rangeId}`, config: { ...r.config } })),
     }));
-    set((st) => ({ objects: [...st.objects, ...created], selectedIds: created.map((c) => c.id), selectedVolumeId: undefined, sliceDirty: true }));
+    set((st) => ({ objects: [...st.objects, ...created], selectedIds: created.map((c) => c.id), selectedVolumeId: undefined, selectedInstanceId: undefined, sliceDirty: true }));
     get().arrange();
   },
 
   select: (ids, additive = false) =>
-    set((s) => ({ selectedIds: additive ? Array.from(new Set([...s.selectedIds, ...ids])) : ids, selectedVolumeId: undefined })),
+    set((s) => ({ selectedIds: additive ? Array.from(new Set([...s.selectedIds, ...ids])) : ids, selectedVolumeId: undefined, selectedInstanceId: undefined })),
 
   setTransformMode: (transformMode) => set({ transformMode, placeOnFace: false }),
 
@@ -905,7 +946,7 @@ export const useStore = create<State>((set, get) => ({
     if (!o) return;
     get().recordHistory();
     const top = o.ranges.reduce((m, r) => Math.max(m, r.maxZ), 0);
-    const h = o.size[2] * o.scale[2];
+    const h = o.size[2] * selectedInstance(get(), o).scale[2];
     const minZ = Math.min(top, h);
     const maxZ = Math.min(h, minZ + Math.max(2, h / 4));
     const r: LayerRange = {
@@ -1011,19 +1052,22 @@ export const useStore = create<State>((set, get) => ({
     if (n.lengthSq() < 0.5) return;
     const down = new THREE.Vector3(0, 0, -1);
     const q = new THREE.Quaternion().setFromUnitVectors(n, down);
-    const cur = new THREE.Quaternion().setFromEuler(new THREE.Euler(o.rotation[0], o.rotation[1], o.rotation[2], 'XYZ'));
+    const inst = selectedInstance(get(), o);
+    const cur = new THREE.Quaternion().setFromEuler(new THREE.Euler(inst.rotation[0], inst.rotation[1], inst.rotation[2], 'XYZ'));
     const next = q.multiply(cur);
     const e = new THREE.Euler().setFromQuaternion(next, 'XYZ');
-    get().updateObject(id, { rotation: [e.x, e.y, e.z] });
+    get().updateInstance(id, inst.id, { rotation: [e.x, e.y, e.z] });
     get().dropToBed(id);
     set({ placeOnFace: false });
   },
 
   dropToBed: (id) => {
-    const o = get().objects.find((x) => x.id === id);
+    const s = get();
+    const o = s.objects.find((x) => x.id === id);
     if (!o) return;
-    const box = objectBounds(o);
-    if (Math.abs(box.min.z) > 1e-6) get().updateObject(id, { position: [o.position[0], o.position[1], o.position[2] - box.min.z] });
+    const inst = selectedInstance(s, o);
+    const box = instanceBounds(o, inst);
+    if (Math.abs(box.min.z) > 1e-6) get().updateInstance(id, inst.id, { position: [inst.position[0], inst.position[1], inst.position[2] - box.min.z] });
   },
 
   arrange: () => {
@@ -1053,7 +1097,7 @@ export const useStore = create<State>((set, get) => ({
     }
     const totalH = rows.reduce((acc, r) => acc + r.h, 0);
     let y = bed.min[1] + (bedH - totalH) / 2;
-    const updates = new Map<string, [number, number, number]>();
+    const updates = new Map<string, { instId: string; position: [number, number, number] }>();
     for (const row of rows) {
       const rowW = row.items.reduce((acc, i) => acc + i.w, 0);
       let x = bed.min[0] + (bedW - rowW) / 2;
@@ -1062,13 +1106,21 @@ export const useStore = create<State>((set, get) => ({
         const cy = y + row.h / 2;
         const curCx = (it.box.min.x + it.box.max.x) / 2;
         const curCy = (it.box.min.y + it.box.max.y) / 2;
-        updates.set(it.o.id, [it.o.position[0] + (cx - curCx), it.o.position[1] + (cy - curCy), it.o.position[2] - it.box.min.z]);
+        const inst = it.o.instances[0];
+        updates.set(it.o.id, {
+          instId: inst.id,
+          position: [inst.position[0] + (cx - curCx), inst.position[1] + (cy - curCy), inst.position[2] - it.box.min.z],
+        });
         x += it.w;
       }
       y += row.h;
     }
     set((st) => ({
-      objects: st.objects.map((o) => (updates.has(o.id) ? { ...o, position: updates.get(o.id)! } : o)),
+      objects: st.objects.map((o) => {
+        const up = updates.get(o.id);
+        if (!up) return o;
+        return { ...o, instances: o.instances.map((i) => (i.id === up.instId ? { ...i, position: up.position } : i)) };
+      }),
       sliceDirty: true,
     }));
   },
@@ -1082,7 +1134,8 @@ export const useStore = create<State>((set, get) => ({
       .map((o) => ({
         modelId: o.modelId!,
         name: o.name,
-        transform: objectMatrix(o).elements.slice(),
+        transform: instanceMatrix(o.instances[0]).elements.slice(),
+        instances: o.instances.length > 1 ? o.instances.map((i) => instanceMatrix(i).elements.slice()) : undefined,
         config: Object.keys(o.config).length ? o.config : undefined,
         extruder: o.extruder || undefined,
         supportPaint: o.paint?.supports && o.paint.supports.some((x) => x) ? encodePaint(o.paint.supports) : undefined,
@@ -1317,7 +1370,7 @@ useStore.subscribe((s, prev) => {
     if (!st.objects.length || st.objects.some((o) => !o.modelId && !o.uploadError)) return;
     // cheap change key: object ids/transforms/config + preset names + modified state
     const key = JSON.stringify([
-      st.objects.map((o) => [o.id, o.position, o.rotation, o.scale, o.config, o.extruder, o.visible, o.volumes.map((v) => [v.id, v.type, v.position, v.rotation, v.scale, v.config])]),
+      st.objects.map((o) => [o.id, o.instances.map((i) => [i.id, i.position, i.rotation, i.scale]), o.config, o.extruder, o.visible, o.volumes.map((v) => [v.id, v.type, v.position, v.rotation, v.scale, v.config])]),
       st.presets.print.name,
       st.customGcodes,
       st.presets.printer.name,
