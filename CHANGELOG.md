@@ -7,6 +7,11 @@
   row per instance (select, set as separate object, delete). All instances share one mesh, its volumes,
   paint and settings but have their own position, rotation and scale; slicing sends one transform per
   instance, so the slicer plans them in one job and the filament/time estimates cover all copies
+- Mirror X / Y / Z buttons in the manipulation panel: they flip the picked instance, or every instance
+  of the selection, about the world axis through the instance position (double mirror restores the
+  original), drop the result back onto the bed, and are one undo step each. The size fields keep showing
+  the magnitudes, the sign lives on the scale axis the mirror negated, and a mirrored project survives
+  save, reload and desktop PrusaSlicer (the 3MF keeps the negative-determinant item transform)
 - Arrange packs the instances themselves (not whole objects), so a part-placed object is filled efficiently
 - 3MF projects save and restore the instances (one `<item>` per instance), so a project reopened from the
   library, the autosave or desktop PrusaSlicer comes back with the same layout
