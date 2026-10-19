@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Unsaved-changes dialog like PrusaSlicer: switching a print, filament or printer preset while the
+  current one is modified asks what happens to the changes – **Transfer** (the new preset takes them
+  over and shows as modified), **Save** (the changed preset is saved under a name, then the switch
+  happens), **Discard** (switch without them) or **Cancel** (stay). The dialog lists every changed
+  option with label, key, old and new value; Transfer is disabled for printer presets, because those
+  describe the machine. The browser `confirm()` is gone
 - Split to objects / split to parts: a model made of several separate shells (a plate of parts
   exported as one STL) is split with one click into independent objects or into parts (ModelPart
   volumes) of the same object. "Split to objects" gives every shell an object of its own with the

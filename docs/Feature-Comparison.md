@@ -73,7 +73,7 @@ Priority: **P1** needed for version 1.0 · **P2** important afterwards · **P3**
 | Save / delete user presets | ✅ | – | |
 | Rename preset | ❌ | P2 | |
 | Detach from system preset | ❌ | P3 | |
-| Unsaved-changes dialog (transfer / save / discard) | 🟡 | **P1** | discard confirmation only; transferring the changes to the new preset is missing |
+| Unsaved-changes dialog (transfer / save / discard) | ✅ | – | dialog on user-initiated preset switches with the changed options listed; Transfer takes them over (not for printer presets), Save stores the changed preset first, Discard/Cancel as in PrusaSlicer |
 | Compare presets | ❌ | P3 | |
 | Mode Simple / Advanced / Expert | ✅ | – | settings tabs and plater |
 | Search in settings (Ctrl+F) | 🟡 | P3 | search field per tab; global search missing |
@@ -130,5 +130,5 @@ Priority: **P1** needed for version 1.0 · **P2** important afterwards · **P3**
 
 Covered are the complete slicing core, profiles, per-object settings, volumes, painting, height
 ranges, library and print hosts. The largest remaining gaps are in the **preview** (view options
-such as shells, sequential slider, tool marker) and in **object tools** (instances, mirror, split, cut,
-measure, emboss) as well as the **unsaved-changes transfer** and **STEP import**.
+such as shells, sequential slider, tool marker) and in **object tools** (cut, measure, emboss),
+followed by **STEP import**, **online profile updates** and the **G-code viewer**.

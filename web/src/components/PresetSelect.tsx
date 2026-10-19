@@ -39,7 +39,7 @@ function collapseAliases(list: PresetSummary[], currentName: string, showIncompa
 export function PresetSelect({ type, slot, extruderIdx = 0, label }: Props) {
   const list = useStore((s) => s.presetLists[type]);
   const showIncompatible = useStore((s) => s.showIncompatible);
-  const selectPreset = useStore((s) => s.selectPreset);
+  const requestPresetSwitch = useStore((s) => s.requestPresetSwitch);
   const openDialog = useStore((s) => s.openDialog);
   const deletePreset = useStore((s) => s.deletePreset);
   const discard = useStore((s) => s.discardChanges);
@@ -55,9 +55,9 @@ export function PresetSelect({ type, slot, extruderIdx = 0, label }: Props) {
   const current = list.find((p) => p.name === slot.name);
   const change = async (name: string) => {
     if (name === '__add_printer__') return openDialog('addPrinter');
-    if (modified && !confirm(`Discard unsaved changes to "${slot.name}"?`)) return;
+    // modified presets go through the "Unsaved Changes" dialog (transfer / save / discard / cancel)
     try {
-      await selectPreset(type, name, extruderIdx);
+      await requestPresetSwitch(type, name, extruderIdx);
     } catch (e) {
       toast('error', (e as Error).message);
     }
