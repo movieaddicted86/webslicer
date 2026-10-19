@@ -96,3 +96,25 @@ test('placementFromMatrix is the inverse of placementMatrix', () => {
   closeTo(back.rotation, rotated.rotation, 1e-6);
   closeTo(back.scale, rotated.scale, 1e-6);
 });
+
+test('placementFromMatrix reproduces a mirrored matrix with non-uniform scale', () => {
+  // A mirror does not have a unique placement: `Matrix4.decompose` always puts the sign on the
+  // first scale component, so "mirror Z" comes back as "mirror X" plus a 180 degree rotation. That
+  // is the same transform, but only as long as the rotation is taken with it - moving the sign to
+  // another axis without correcting the rotation would not recompose to the input matrix (that was
+  // review finding 1 of T-001, round 1). The round trip, not the axis label, is what has to hold.
+  const matrices = [
+    placementMatrix({ position: [0, 0, 0], rotation: [0, 0, 0], scale: [1, 1, -1.5] }),
+    placementMatrix({ position: [0, 0, 0], rotation: [0, 0, 0], scale: [1, -2, 1] }),
+    placementMatrix({ position: [10, 20, 0], rotation: [0, 0, 0], scale: [-1, 1, 1] }),
+    placementMatrix({ position: [-8, 4, 2], rotation: [0.3, -0.7, 2.1], scale: [-2, 1.25, 0.5] }),
+    placementMatrix(rotated),
+  ];
+  for (const m of matrices) {
+    const back = placementMatrix(placementFromMatrix(m));
+    closeTo(back.elements, m.elements, 1e-9);
+  }
+  // and a mirrored matrix really is mirrored: the round trip must not silently drop the mirror
+  const mirrored = placementMatrix({ position: [0, 0, 0], rotation: [0, 0, 0], scale: [1, 1, -1.5] });
+  assert.ok(placementMatrix(placementFromMatrix(mirrored)).determinant() < 0);
+});
