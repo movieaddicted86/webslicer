@@ -110,15 +110,28 @@ Run on the Proxmox host as root:
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/movieaddicted86/webslicer/main/proxmox/webslicer-lxc.sh)"
 ```
 
-The script asks for container ID, hostname, disk, CPU, RAM, bridge, IP and storage (whiptail),
-downloads the Debian 12 template, creates an unprivileged LXC, installs Node.js 22 and PrusaSlicer,
-builds WebSlicer and sets up the systemd service `webslicer`. The URL is printed at the end.
+The helper works like the community-scripts helpers: choose **Default settings** (2 cores, 3 GB RAM,
+10 GB disk, DHCP, unprivileged, console autologin) or **Advanced settings** (OS version, container type,
+root password, ID, hostname, disk, CPU, RAM, bridge, static IP/gateway, IPv6, VLAN, MTU, MAC, DNS,
+SSH key, web port, a host directory as model library, PrusaSlicer version, tags, verbose output).
+Storage pools are offered with their free space. The script downloads the Debian template, creates the
+LXC, installs Node.js 22 and PrusaSlicer, builds WebSlicer and sets up the systemd service
+`webslicer`; progress is shown step by step and the full output goes to a log file in `/tmp`. The URL
+is printed at the end.
 
-Non-interactive:
+To update, type `update` in the container console (or `pct exec <id> -- update` on the host), or run
+the helper command again inside the container.
+
+**Model library from the host / NAS:** in the advanced settings you can bind-mount a host directory as
+`/var/lib/webslicer/library`. In an unprivileged container WebSlicer runs as uid 101050 on the host, so
+the directory must be writable for that uid (e.g. `chown 101050:101050 /mnt/pve/nas/3d`) if you want to
+save projects and G-code there; reading works with normal read permissions.
+
+Non-interactive (all variables optional):
 
 ```bash
-CTID=120 HOSTNAME=webslicer DISK=12 CORES=4 RAM=4096 STORAGE=local-lvm IP=dhcp YES=1 \
-  bash proxmox/webslicer-lxc.sh
+YES=1 CTID=120 HOSTNAME_CT=webslicer DISK=12 CORES=4 RAM=4096 STORAGE=local-lvm IP=dhcp \
+  LIBRARY_PATH=/mnt/pve/nas/3d bash proxmox/webslicer-lxc.sh
 ```
 
 When run from a local checkout (e.g. copied to the host with `scp`), the local sources are pushed into
@@ -131,9 +144,9 @@ extracts to ≈ 1 GB).
 Useful commands inside the container:
 
 ```bash
+update                               # update WebSlicer and PrusaSlicer
 systemctl status webslicer
 journalctl -u webslicer -f
-bash /root/webslicer-install.sh      # update to the current branch / a new PrusaSlicer version
 ```
 
 The installer `proxmox/install.sh` also works on any Debian 12/13 or Ubuntu 22.04+ (VM, bare metal).

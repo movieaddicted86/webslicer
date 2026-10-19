@@ -20,6 +20,7 @@ import {
   type CustomGcode,
 } from '../api';
 import { parseThumbnailSpec, type ThumbnailSpec } from '../three/thumbnail';
+import { importFiles } from '../importFiles';
 import { decodeMmu, decodePaint, encodeMmu, encodePaint, remapPaint, subdivideForPainting, type PaintKind } from '../three/paint';
 import { decodeVector, resizeVector, toBool, unescapeStringsCstyle } from '../values';
 import type { ParsedGcode } from '../gcode/types';
@@ -1256,7 +1257,6 @@ export const useStore = create<State>((set, get) => ({
   restoreAutosave: async () => {
     try {
       const blob = await autosaveApi.fetch(clientId());
-      const { importFiles } = await import('../components/TopBar');
       await importFiles([new File([blob], 'autosave.3mf')]);
       set({ autosaveInfo: undefined });
       get().toast('success', 'Previous session restored');

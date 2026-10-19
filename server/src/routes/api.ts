@@ -71,7 +71,7 @@ export function apiRouter(): express.Router {
     asyncHandler(async (_req, res) => {
       const bundles = loadBundles();
       res.json({
-        version: process.env.WEBSLICER_VERSION || process.env.npm_package_version || '1.0.0-rc.1',
+        version: appVersion(),
         slicerVersion: await getSlicerVersion(),
         slicerBin: config.slicerBin,
         resourcesDir: bundles.resourcesDir,
@@ -475,6 +475,27 @@ export function apiRouter(): express.Router {
   });
 
   return r;
+}
+
+let cachedVersion: string | undefined;
+/** WebSlicer version: environment (Docker) or the root package.json (native install) */
+function appVersion(): string {
+  if (cachedVersion) return cachedVersion;
+  cachedVersion = process.env.WEBSLICER_VERSION || process.env.npm_package_version;
+  if (!cachedVersion) {
+    for (const p of [path.resolve(process.cwd(), 'package.json'), path.resolve(process.cwd(), '..', 'package.json')]) {
+      try {
+        const pkg = JSON.parse(fs.readFileSync(p, 'utf8')) as { name?: string; version?: string };
+        if (pkg.name === 'webslicer' && pkg.version) {
+          cachedVersion = pkg.version;
+          break;
+        }
+      } catch {
+        /* try next */
+      }
+    }
+  }
+  return (cachedVersion ||= 'unknown');
 }
 
 function maskPrinter(p: ReturnType<typeof listPrinters>[number]) {

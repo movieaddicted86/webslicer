@@ -48,6 +48,7 @@ Priority by frequency of use in everyday printing and PrusaSlicer parity.
 - [x] Print hosts PrusaLink/OctoPrint/Moonraker with TLS option, Docker, Proxmox, UAT 1.0.0-rc.2
 
 ## Needs you (Robert)
-- [ ] Test the upload against a real printer (PrusaLink / Klipper / OctoPrint) – provide type and address
-- [ ] Test the Proxmox helper on a real PVE host
+- [x] Upload to a real printer – Klipper/Moonraker tested 2026-10-19 (PrusaLink / OctoPrint still untested)
+- [x] Proxmox helper on a real PVE host – tested 2026-10-19
+- [ ] Re-test the reworked Proxmox helper (Default and Advanced settings)
 - [ ] Approve the MCP integration per docs/MCP-Concept.md

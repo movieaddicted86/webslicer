@@ -19,10 +19,10 @@ image `webslicer:latest`, PrusaSlicer 2.9.6) · Printer profile: Original Prusa 
 | UAT-12 | ✅ passed | Project with support enforcer and height range saved, delete all, reopened: object, position, volume, range and profiles identical; the only "modified" is the deliberately changed support setting. |
 | UAT-13 | ✅ passed | Autosave "saved", after reload notice "Unsaved session found", Restore brings the object including its modifier back. |
 | UAT-14 | ✅ passed | G-code download contains 16×16/QOI, 313×173/QOI, 480×240/QOI, 380×285/PNG. |
-| UAT-15 | ⏸ open | No printer in the test network. **To be done with hardware.** |
+| UAT-15 | ✅ passed (2026-10-19, Robert) | Klipper/Moonraker printer "V-Minion dark" at http://192.168.1.102: test connection "Connected", G-code upload and print start work. PrusaLink and OctoPrint not tested with hardware. |
 | UAT-16 | ✅ passed (limited) | A 3MF written by the PrusaSlicer CLI with a modifier (100 % infill) loads with object, modifier and its settings. A desktop project with paint was not available. |
 | UAT-17 | ✅ passed | Two parallel slicing clients (API) complete concurrently (MAX_JOBS = 2). Separate browser autosaves not checked (single browser). |
-| UAT-18 | ⏸ open | No Proxmox host in the test. |
+| UAT-18 | ✅ passed (2026-10-19, Robert) | Helper script on PVE host `pve-hp-1`: CT 112 created, WebSlicer running at http://192.168.1.144:8080. Finding F-6 (see below). |
 
 ## Findings
 
@@ -33,8 +33,9 @@ image `webslicer:latest`, PrusaSlicer 2.9.6) · Printer profile: Original Prusa 
 | F-3 | low | After switching to a printer with a different bed size the camera was not refitted, the larger bed was cut off. | fixed (camera follows the bed shape) |
 | F-4 | low | Keyboard shortcuts (F, L, P, A …) do not work while an input field has focus (e.g. after Tab out of a number field). Matches PrusaSlicer behaviour. | documented, no change |
 | F-5 | low | In windows narrower than ≈ 900 px the top bar overflowed and the whole page scrolled horizontally. | fixed (top bar wraps) |
+| F-6 | low | Proxmox helper: noisy raw output (template download, SSH key generation, npm/vite), perl/apt locale warnings in the container, root password printed at the end, little interactivity compared to the community-scripts helpers. | fixed: whiptail Default/Advanced flow, storage picker, step progress with a log file, locale fix, no password output, `update` command in the container |
 
 ## Conclusion
 
-Acceptance criterion for UAT-01 to UAT-14 met, no blockers. UAT-15 (printer upload) and UAT-18
-(Proxmox) require hardware or a PVE host and remain open for the tester.
+Acceptance criterion met: UAT-01 to UAT-14 without blockers, UAT-15 successful with a Klipper printer,
+UAT-18 successful on a real Proxmox host.

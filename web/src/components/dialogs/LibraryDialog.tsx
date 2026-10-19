@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useStore } from '../../state/store';
 import { libraryApi, type LibraryEntry } from '../../api';
-import { importFiles } from '../TopBar';
+import { importFiles } from '../../importFiles';
 import { Modal } from './Modal';
 
 export type LibraryMode = 'open' | 'saveProject' | 'saveGcode';

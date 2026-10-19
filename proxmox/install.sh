@@ -1,88 +1,141 @@
 #!/usr/bin/env bash
 # ---------------------------------------------------------------------------
-# WebSlicer native installer for Debian 12/13 (and Ubuntu 22.04+).
-# Runs inside the LXC container / VM. Idempotent: re-run to update.
+# WebSlicer native installer / updater for Debian 12/13 (and Ubuntu 22.04+).
+# Runs inside the LXC container or VM. Idempotent: re-run (or type `update`)
+# to update WebSlicer and PrusaSlicer.
 #
-# Environment overrides:
-#   WEBSLICER_REPO      git URL of the WebSlicer sources (default below)
+# Environment overrides (persisted in /etc/webslicer/installer.env):
+#   WEBSLICER_REPO      git URL of the WebSlicer sources
 #   WEBSLICER_BRANCH    branch/tag to check out (default: main)
-#   WEBSLICER_SRC       use a local source tree instead of git (path to a dir or .tar.gz)
 #   WEBSLICER_PORT      HTTP port (default: 8080)
+#   PRUSASLICER_VERSION PrusaSlicer version (default: installer default)
+#   PRUSASLICER_URL     explicit AppImage URL (overrides version/arch detection)
+# Not persisted:
+#   WEBSLICER_SRC       use a local source tree instead of git (dir or .tar.gz)
 #   WEBSLICER_DIR       install dir (default: /opt/webslicer)
 #   WEBSLICER_DATA      data dir (default: /var/lib/webslicer)
-#   PRUSASLICER_VERSION PrusaSlicer version (default: 2.9.6)
-#   PRUSASLICER_URL     explicit AppImage URL (overrides version/arch detection)
+#   WEBSLICER_UID       uid of the service user on first install (default: 1050)
 #   NODE_MAJOR          Node.js major version from NodeSource (default: 22)
+#
+# Output: step lines start with "==> " (begin) and " ✔ " (done) so that the
+# Proxmox helper can show them as progress while sending the rest to a log.
 # ---------------------------------------------------------------------------
-set -euo pipefail
+set -Eeuo pipefail
 
+# Debian LXC templates set LANG=en_US.UTF-8 without generating it; avoid perl/apt warnings.
+export LANG=C.UTF-8 LC_ALL=C.UTF-8
+export DEBIAN_FRONTEND=noninteractive
+export NPM_CONFIG_UPDATE_NOTIFIER=false NPM_CONFIG_FUND=false NPM_CONFIG_AUDIT=false
+
+DEFAULT_PRUSASLICER_VERSION="2.9.6"
+SETTINGS=/etc/webslicer/installer.env
+
+# Settings of a previous install (only for variables not given explicitly)
+if [ -f "$SETTINGS" ]; then
+  while IFS='=' read -r key value; do
+    case "$key" in
+      WEBSLICER_REPO | WEBSLICER_BRANCH | WEBSLICER_PORT | PRUSASLICER_VERSION | PRUSASLICER_URL)
+        [ -z "${!key:-}" ] && export "$key=$value" ;;
+    esac
+  done <"$SETTINGS"
+fi
+
+PIN_PRUSASLICER="${PRUSASLICER_VERSION:+1}"
 WEBSLICER_REPO="${WEBSLICER_REPO:-https://github.com/movieaddicted86/webslicer.git}"
 WEBSLICER_BRANCH="${WEBSLICER_BRANCH:-main}"
 WEBSLICER_SRC="${WEBSLICER_SRC:-}"
 WEBSLICER_PORT="${WEBSLICER_PORT:-8080}"
 WEBSLICER_DIR="${WEBSLICER_DIR:-/opt/webslicer}"
 WEBSLICER_DATA="${WEBSLICER_DATA:-/var/lib/webslicer}"
-PRUSASLICER_VERSION="${PRUSASLICER_VERSION:-2.9.6}"
+WEBSLICER_UID="${WEBSLICER_UID:-1050}"
+PRUSASLICER_VERSION="${PRUSASLICER_VERSION:-$DEFAULT_PRUSASLICER_VERSION}"
 PRUSASLICER_URL="${PRUSASLICER_URL:-}"
 PRUSASLICER_DIR="/opt/prusaslicer"
 NODE_MAJOR="${NODE_MAJOR:-22}"
 SERVICE_USER="webslicer"
 
-msg()  { echo -e "\e[1;34m==>\e[0m $*"; }
-ok()   { echo -e "\e[1;32m ✔\e[0m $*"; }
-die()  { echo -e "\e[1;31m ✖ $*\e[0m" >&2; exit 1; }
+msg() { echo -e "\e[1;34m==>\e[0m $*"; }
+ok() { echo -e "\e[1;32m ✔\e[0m $*"; }
+die() {
+  echo -e "\e[1;31m ✖ $*\e[0m" >&2
+  exit 1
+}
 
+trap 'die "Failed (line ${LINENO}): ${BASH_COMMAND}"' ERR
 [ "$(id -u)" -eq 0 ] || die "Run as root."
-export DEBIAN_FRONTEND=noninteractive
+UPDATE=0
+[ -d "${WEBSLICER_DIR}/server" ] && UPDATE=1
 
+# --- OS -----------------------------------------------------------------------
 msg "Installing base packages"
 apt-get update -qq
-apt-get install -y -qq --no-install-recommends ca-certificates curl git gnupg tar xz-utils >/dev/null
-ok "base packages"
+apt-get install -y -qq --no-install-recommends ca-certificates curl git gnupg tar xz-utils locales >/dev/null
+# generate the locale the template advertises so interactive shells stay quiet as well
+if [ -f /etc/locale.gen ]; then
+  want="$(sed -n 's/^LANG=//p' /etc/default/locale 2>/dev/null | tr -d '"')"
+  want="${want:-en_US.UTF-8}"
+  if ! locale -a 2>/dev/null | grep -qi "^${want//-/}$\|^${want}$"; then
+    sed -i "s/^# *\(${want} .*\)/\1/" /etc/locale.gen
+    grep -q "^${want} " /etc/locale.gen || echo "${want} UTF-8" >>/etc/locale.gen
+    locale-gen >/dev/null 2>&1 || true
+  fi
+fi
+ok "Base packages"
 
-# --- Node.js -----------------------------------------------------------------
+# --- Node.js -------------------------------------------------------------------
 if ! command -v node >/dev/null 2>&1 || [ "$(node -v | sed 's/^v//' | cut -d. -f1)" -lt 20 ]; then
-  msg "Installing Node.js ${NODE_MAJOR} (NodeSource)"
+  msg "Installing Node.js ${NODE_MAJOR}"
   mkdir -p /etc/apt/keyrings
   curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg --yes
-  echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_${NODE_MAJOR}.x nodistro main" > /etc/apt/sources.list.d/nodesource.list
+  echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_${NODE_MAJOR}.x nodistro main" >/etc/apt/sources.list.d/nodesource.list
   apt-get update -qq
   apt-get install -y -qq nodejs >/dev/null
 fi
-ok "node $(node -v), npm $(npm -v)"
+ok "Node.js $(node -v)"
 
-# --- PrusaSlicer -------------------------------------------------------------
+# --- PrusaSlicer -----------------------------------------------------------------
 ARCH="$(uname -m)"
 if [ -z "$PRUSASLICER_URL" ]; then
   case "$ARCH" in
-    x86_64)  PRUSASLICER_URL="https://github.com/gneiss15/PrusaSlicer.AppImage/releases/download/${PRUSASLICER_VERSION}/PrusaSlicer-${PRUSASLICER_VERSION}-x86_64_GN.AppImage" ;;
+    x86_64) PRUSASLICER_URL="https://github.com/gneiss15/PrusaSlicer.AppImage/releases/download/${PRUSASLICER_VERSION}/PrusaSlicer-${PRUSASLICER_VERSION}-x86_64_GN.AppImage" ;;
     aarch64) PRUSASLICER_URL="https://github.com/davidk/PrusaSlicer-ARM.AppImage/releases/download/version_${PRUSASLICER_VERSION}/PrusaSlicer-${PRUSASLICER_VERSION}-aarch64-full.AppImage" ;;
     *) die "Unsupported architecture $ARCH" ;;
   esac
 fi
 if [ ! -f "${PRUSASLICER_DIR}/VERSION" ] || [ "$(cat "${PRUSASLICER_DIR}/VERSION")" != "${PRUSASLICER_VERSION}" ]; then
-  msg "Downloading PrusaSlicer ${PRUSASLICER_VERSION} AppImage"
+  msg "Downloading PrusaSlicer ${PRUSASLICER_VERSION}"
   TMP="$(mktemp -d)"
-  curl -fL --retry 3 --progress-bar -o "${TMP}/PrusaSlicer.AppImage" "$PRUSASLICER_URL"
+  curl -fsSL --retry 3 -o "${TMP}/PrusaSlicer.AppImage" "$PRUSASLICER_URL" || die "Download of ${PRUSASLICER_URL} failed"
   chmod +x "${TMP}/PrusaSlicer.AppImage"
   (cd "$TMP" && ./PrusaSlicer.AppImage --appimage-extract >/dev/null)
   rm -rf "${PRUSASLICER_DIR}"
   mv "${TMP}/squashfs-root" "${PRUSASLICER_DIR}"
-  echo "${PRUSASLICER_VERSION}" > "${PRUSASLICER_DIR}/VERSION"
+  echo "${PRUSASLICER_VERSION}" >"${PRUSASLICER_DIR}/VERSION"
   # GUI-only resources are not needed for CLI slicing
   R="${PRUSASLICER_DIR}/usr/resources"
-  rm -rf "$R/localization" "$R/fonts" "$R/shapes" "$R/icons" "$R/workflows" "$R/web" "$R/applications" "$R/udev"          "$R/data/printer_gantries" "${PRUSASLICER_DIR}/usr/share/locale"
+  rm -rf "$R/localization" "$R/fonts" "$R/shapes" "$R/icons" "$R/workflows" "$R/web" "$R/applications" "$R/udev" \
+    "$R/data/printer_gantries" "${PRUSASLICER_DIR}/usr/share/locale"
   rm -rf "$TMP"
 fi
-HOME=/tmp "${PRUSASLICER_DIR}/AppRun" --help | head -n1 || die "PrusaSlicer does not start"
-ok "PrusaSlicer at ${PRUSASLICER_DIR}"
+HOME=/tmp "${PRUSASLICER_DIR}/AppRun" --help 2>/dev/null | head -n1 | grep -q PrusaSlicer || die "PrusaSlicer does not start"
+ok "PrusaSlicer ${PRUSASLICER_VERSION}"
 
-# --- Service user / dirs ------------------------------------------------------
-id -u "$SERVICE_USER" >/dev/null 2>&1 || useradd --system --home "$WEBSLICER_DATA" --shell /usr/sbin/nologin "$SERVICE_USER"
-mkdir -p "$WEBSLICER_DATA" "$WEBSLICER_DIR"
-chown -R "$SERVICE_USER:$SERVICE_USER" "$WEBSLICER_DATA"
+# --- Service user / dirs --------------------------------------------------------
+if ! id -u "$SERVICE_USER" >/dev/null 2>&1; then
+  # fixed uid so a bind-mounted library can be prepared on the host (unprivileged LXC: 100000 + uid)
+  if getent passwd "$WEBSLICER_UID" >/dev/null || getent group "$WEBSLICER_UID" >/dev/null; then
+    useradd --system --home "$WEBSLICER_DATA" --shell /usr/sbin/nologin "$SERVICE_USER"
+  else
+    groupadd --gid "$WEBSLICER_UID" "$SERVICE_USER"
+    useradd --uid "$WEBSLICER_UID" --gid "$WEBSLICER_UID" --no-create-home --home-dir "$WEBSLICER_DATA" --shell /usr/sbin/nologin "$SERVICE_USER"
+  fi
+fi
+mkdir -p "$WEBSLICER_DATA" "$WEBSLICER_DATA/library" "$WEBSLICER_DIR"
+# do not chown a bind-mounted library recursively (it may be a NAS share)
+find "$WEBSLICER_DATA" -mindepth 1 -maxdepth 1 ! -name library -exec chown -R "$SERVICE_USER:$SERVICE_USER" {} +
+chown "$SERVICE_USER:$SERVICE_USER" "$WEBSLICER_DATA" "$WEBSLICER_DATA/library" 2>/dev/null || true
 
-# --- Sources -----------------------------------------------------------------
+# --- Sources ---------------------------------------------------------------------
 msg "Fetching WebSlicer sources"
 if [ -n "$WEBSLICER_SRC" ]; then
   rm -rf "${WEBSLICER_DIR:?}"/* "${WEBSLICER_DIR}"/.[!.]* 2>/dev/null || true
@@ -92,28 +145,33 @@ if [ -n "$WEBSLICER_SRC" ]; then
     tar -xzf "$WEBSLICER_SRC" -C "$WEBSLICER_DIR" --strip-components=1
   fi
 elif [ -d "${WEBSLICER_DIR}/.git" ]; then
-  git -C "$WEBSLICER_DIR" fetch --depth 1 origin "$WEBSLICER_BRANCH"
-  git -C "$WEBSLICER_DIR" checkout -q FETCH_HEAD
+  # the tree belongs to the service user; tell git that root may operate on it
+  GIT=(git -c "safe.directory=${WEBSLICER_DIR}" -C "$WEBSLICER_DIR")
+  "${GIT[@]}" remote set-url origin "$WEBSLICER_REPO"
+  "${GIT[@]}" fetch -q --depth 1 origin "$WEBSLICER_BRANCH"
+  "${GIT[@]}" checkout -q -f FETCH_HEAD
 else
   rm -rf "${WEBSLICER_DIR:?}"
-  git clone --depth 1 --branch "$WEBSLICER_BRANCH" "$WEBSLICER_REPO" "$WEBSLICER_DIR"
+  git clone -q --depth 1 --branch "$WEBSLICER_BRANCH" "$WEBSLICER_REPO" "$WEBSLICER_DIR"
 fi
-ok "sources in ${WEBSLICER_DIR}"
+VERSION="$(sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' "${WEBSLICER_DIR}/package.json" | head -n1)"
+ok "WebSlicer ${VERSION:-sources}"
 
-# --- Build -------------------------------------------------------------------
-msg "Building WebSlicer (npm ci && npm run build)"
+# --- Build -------------------------------------------------------------------------
+msg "Building WebSlicer (takes a few minutes)"
 cd "$WEBSLICER_DIR"
 rm -rf node_modules/.cache
-npm ci --no-audit --no-fund --loglevel=error
-npm run build
-npm prune --omit=dev --no-audit --no-fund --loglevel=error
+npm ci --loglevel=error >/dev/null
+npm run build --silent >/dev/null
+npm prune --omit=dev --loglevel=error >/dev/null
 chown -R "$SERVICE_USER:$SERVICE_USER" "$WEBSLICER_DIR"
-ok "build complete"
+ok "Built WebSlicer ${VERSION}"
 
-# --- Config + systemd ---------------------------------------------------------
+# --- Config, systemd, update command -----------------------------------------------
+msg "Configuring service"
 mkdir -p /etc/webslicer
 if [ ! -f /etc/webslicer/webslicer.env ]; then
-cat > /etc/webslicer/webslicer.env <<EOF
+  cat >/etc/webslicer/webslicer.env <<EOF
 PORT=${WEBSLICER_PORT}
 HOST=0.0.0.0
 DATA_DIR=${WEBSLICER_DATA}
@@ -124,9 +182,20 @@ MAX_JOBS=2
 NODE_ENV=production
 HOME=${WEBSLICER_DATA}
 EOF
+else
+  sed -i "s/^PORT=.*/PORT=${WEBSLICER_PORT}/" /etc/webslicer/webslicer.env
+  grep -q '^LIBRARY_DIR=' /etc/webslicer/webslicer.env || echo "LIBRARY_DIR=${WEBSLICER_DATA}/library" >>/etc/webslicer/webslicer.env
 fi
 
-cat > /etc/systemd/system/webslicer.service <<EOF
+{
+  echo "WEBSLICER_REPO=${WEBSLICER_REPO}"
+  echo "WEBSLICER_BRANCH=${WEBSLICER_BRANCH}"
+  echo "WEBSLICER_PORT=${WEBSLICER_PORT}"
+  [ -n "$PIN_PRUSASLICER" ] && echo "PRUSASLICER_VERSION=${PRUSASLICER_VERSION}"
+  [ -n "$PRUSASLICER_URL" ] && [ -n "$PIN_PRUSASLICER" ] && echo "PRUSASLICER_URL=${PRUSASLICER_URL}"
+} >"$SETTINGS"
+
+cat >/etc/systemd/system/webslicer.service <<EOF
 [Unit]
 Description=WebSlicer – web based 3D printing slicer (PrusaSlicer engine)
 After=network-online.target
@@ -150,14 +219,33 @@ ReadWritePaths=${WEBSLICER_DATA}
 WantedBy=multi-user.target
 EOF
 
+# `update` inside the container: newest installer from the repository (local copy as fallback)
+RAW_URL="${WEBSLICER_REPO%.git}"
+RAW_URL="${RAW_URL/github.com/raw.githubusercontent.com}/${WEBSLICER_BRANCH}/proxmox/install.sh"
+cat >/usr/bin/update <<EOF
+#!/usr/bin/env bash
+# Update WebSlicer and PrusaSlicer (generated by the WebSlicer installer)
+set -e
+if curl -fsSL "${RAW_URL}" -o /root/webslicer-install.sh.new; then
+  mv /root/webslicer-install.sh.new /root/webslicer-install.sh
+fi
+exec bash /root/webslicer-install.sh "\$@"
+EOF
+chmod +x /usr/bin/update
+ok "Service configured"
+
+msg "Starting WebSlicer"
 systemctl daemon-reload
 systemctl enable -q webslicer
 systemctl restart webslicer
-sleep 2
-if systemctl is-active -q webslicer; then
+for _ in $(seq 1 30); do
+  curl -fsS "http://127.0.0.1:${WEBSLICER_PORT}/api/health" >/dev/null 2>&1 && break
+  sleep 1
+done
+if curl -fsS "http://127.0.0.1:${WEBSLICER_PORT}/api/health" >/dev/null 2>&1; then
   IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
-  ok "WebSlicer is running: http://${IP:-<host>}:${WEBSLICER_PORT}"
+  if [ "$UPDATE" = 1 ]; then ok "Updated to WebSlicer ${VERSION}: http://${IP:-<host>}:${WEBSLICER_PORT}"; else ok "WebSlicer is running: http://${IP:-<host>}:${WEBSLICER_PORT}"; fi
 else
-  journalctl -u webslicer --no-pager -n 30
-  die "service failed to start"
+  journalctl -u webslicer --no-pager -n 30 >&2
+  die "WebSlicer service failed to start"
 fi

@@ -7,6 +7,14 @@
   the 3MF as `Metadata/Prusa_Slicer_custom_gcode_per_print_z.xml` and read from PrusaSlicer projects
 - Preview colour mode "Color print" with a legend of the colour segments
 - The preview keeps the slider position when re-slicing
+- Proxmox helper reworked in the style of the community-scripts: header, Default/Advanced settings
+  (OS version, container type, password or console autologin, ID, hostname, disk, CPU, RAM, bridge,
+  static IP/gateway, IPv6, VLAN, MTU, MAC, DNS, SSH key/root login, web port, model library bind mount,
+  PrusaSlicer version, tags, verbose), storage picker with free space, step progress with spinner and
+  a log file, clear error output, no password printed, `update` command inside the container; running
+  the helper inside an existing WebSlicer LXC updates it
+- Installer: no locale warnings, quiet npm, settings persisted for updates, service user with fixed
+  uid 1050 (host uid 101050 in unprivileged containers) for bind-mounted libraries
 
 ## 1.0.0-rc.2 – 2026-10-17
 

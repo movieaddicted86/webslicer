@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { importFiles } from './TopBar';
+import { importFiles } from '../importFiles';
 
 export function DropZone({ children }: { children: ReactNode }) {
   const [over, setOver] = useState(false);
