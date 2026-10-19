@@ -193,6 +193,8 @@ export interface ProjectObject {
   name: string;
   config: Config;
   extruder?: number;
+  /** instance transforms (column-major 4x4, includes the first) in build order */
+  instances: number[][];
   volumes: ProjectVolume[];
   supportPaint?: string;
   seamPaint?: string;
@@ -299,7 +301,7 @@ export const api = {
     }).then((r) => handle<{ id: string; name: string; triangles: number }>(r)),
   parseProject: (data: ArrayBuffer) =>
     fetch('/api/projects/parse', { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: data }).then((r) =>
-      handle<{ config: Config; objects: ProjectObject[]; customGcodes?: CustomGcode[] }>(r),
+      handle<{ config: Config; objects: ProjectObject[]; customGcodes?: CustomGcode[]; buildOrder: number[] }>(r),
     ),
   slice: (req: SliceRequest) => fetch('/api/slice', jsonInit('POST', req)).then((r) => handle<JobRecord>(r)),
   jobs: () => fetch('/api/jobs').then((r) => handle<JobRecord[]>(r)),

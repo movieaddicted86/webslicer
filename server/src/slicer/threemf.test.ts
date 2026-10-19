@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { build3mf, read3mfProject, transformMesh, transformTo3mf, type Mesh } from './threemf.js';
+import { build3mf, read3mfProject, transformFrom3mf, transformMesh, transformTo3mf, type Mesh } from './threemf.js';
 
 function cube(size: number): Mesh {
   const s = size;
@@ -149,6 +149,39 @@ const closeTo = (a: number[], b: number[], tol = 1e-6) => {
   assert.equal(a.length, b.length);
   a.forEach((v, i) => assert.ok(Math.abs(v - b[i]) <= tol, `${i}: ${v} != ${b[i]}`));
 };
+
+/** three.js Matrix4.elements of a rotation of `deg` about Z plus the translation (x, y, z). */
+function rotZ(deg: number, x = 0, y = 0, z = 0): number[] {
+  const a = (deg * Math.PI) / 180;
+  const c = Math.cos(a);
+  const s = Math.sin(a);
+  // column-major: [m00,m10,m20,m30, m01,m11,m21,m31, m02,m12,m22,m32, m03,m13,m23,m33]
+  return [c, s, 0, 0, -s, c, 0, 0, 0, 0, 1, 0, x, y, z, 1];
+}
+
+test('3MF transform round trip keeps a rotation (not its transpose)', async () => {
+  // a 90 deg rotation about Z is the case that distinguishes R from R^T: the translation-only
+  // tests above cannot see the difference
+  const m = rotZ(90, 5, 0, 1);
+  const buf = await build3mf([{ name: 'cube', mesh: cube(20), transform: m, instances: [m] }]);
+  const view = await readItems(buf);
+  // the string is the 4x3 row-major form: the first 9 numbers are the rows of R
+  closeTo([...view[0].transform.slice(0, 3), ...view[0].transform.slice(3, 6)], [0, 1, 0, -1, 0, 0], 1e-3);
+  closeTo(view[0].transform.slice(9), [5, 0, 1], 1e-3);
+  const proj = await read3mfProject(buf);
+  closeTo(proj.objects[0].instances[0], m, 1e-3);
+  // and applying the parsed matrix to the +X axis really gives +Y (three.js' reading of the file)
+  const e = proj.objects[0].instances[0];
+  closeTo([e[0], e[1], e[2]], [0, 1, 0], 1e-3);
+});
+
+test('3MF transform parser handles arbitrary row-major strings', async () => {
+  // m00 m01 m02 | m10 m11 m12 | m20 m21 m22 | m30 m31 m32  (row-major, translation in the last row)
+  // three.js elements are the transpose: the 3x3 block maps straight across, translation -> e12-14
+  closeTo(transformFrom3mf('0 1 0 -1 0 0 0 0 1 7 8 9'), [0, 1, 0, 0, -1, 0, 0, 0, 0, 0, 1, 0, 7, 8, 9, 1]);
+  closeTo(transformFrom3mf('1 0 0 0 1 0 0 0 1 2 3 4'), translate(2, 3, 4));
+  closeTo(transformFrom3mf('  '), I);
+});
 
 test('3MF writer emits one item per instance and instances_count', async () => {
   const instances = [translate(10, 0, 0), translate(0, 20, 0), translate(30, 30, 0)];

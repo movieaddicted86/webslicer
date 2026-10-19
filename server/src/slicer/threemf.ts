@@ -499,10 +499,16 @@ function xmlUnescape(v: string): string {
 
 /** Convert a 3MF 12-value transform string (row-major 4x3, translation last) into a column-major 4x4. */
 export function transformFrom3mf(s: string): number[] {
+  const m = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
+  // an empty attribute means identity – note Number('') is 0, not NaN, so the guard below cannot catch it
+  if (!s.trim()) return m;
   const v = s.trim().split(/\s+/).map(Number);
-  const m = [0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1];
-  for (let i = 0; i < 9; i++) if (Number.isFinite(v[i])) m[4 * (i % 3) + Math.floor(i / 3)] = v[i];
-  for (let i = 0; i < 3; i++) if (Number.isFinite(v[9 + i])) m[12 + i] = v[9 + i];
+  // 3MF stores "m00 m01 m02 m10 m11 m12 m20 m21 m22 m30 m31 m32" – row-major, translation in the last
+  // row. three.js reads those 12 numbers with Matrix4.set (row-major arguments) and keeps column-major
+  // elements, so its elements are [t0,t1,t2,0, t3,t4,t5,0, t6,t7,t8,0, t9,t10,t11,1] – the same slot
+  // order as transformTo3mf writes. This is the exact inverse of that mapping.
+  const slots = [0, 1, 2, 4, 5, 6, 8, 9, 10, 12, 13, 14];
+  for (let i = 0; i < 12; i++) if (Number.isFinite(v[i])) m[slots[i]] = v[i];
   return m;
 }
 

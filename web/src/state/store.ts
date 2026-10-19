@@ -809,6 +809,10 @@ export const useStore = create<State>((set, get) => ({
         id,
         name: it.name,
         geometry: g,
+        // A project import brings object coordinates (object at its own origin) plus one transform per
+        // build item, so the instance matrix is T_j · Translate(c) – the geometry's normalisation
+        // offset c, which is exactly the `cx + …, cy + …` shift. (A raw mesh comes in world-baked, so
+        // the same shift turns its single copy into an instance at the bed centre.)
         instances: (it.instances?.length ? it.instances : [{ position: [0, 0, 0], rotation: [0, 0, 0], scale: [1, 1, 1] }]).map((t) => ({
           id: `inst-${++instanceId}`,
           position: opts.keepPositions ? ([cx + t.position[0], cy + t.position[1], t.position[2]] as [number, number, number]) : ([(bed.min[0] + bed.max[0]) / 2, (bed.min[1] + bed.max[1]) / 2, 0] as [number, number, number]),

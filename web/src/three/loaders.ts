@@ -52,6 +52,24 @@ export function splitGeometryByRanges(geometry: THREE.BufferGeometry, ranges: Ar
   });
 }
 
+/**
+ * One geometry per `<build><item>` of a 3MF file, in build order, with that item's transform baked in.
+ * `loadModelFile` flattens all items into a list of meshes, which loses the item boundaries a project
+ * import needs to restore instances. A composite item contributes one merged geometry.
+ */
+export function load3mfBuildItems(buf: ArrayBuffer): THREE.BufferGeometry[] {
+  const group = new ThreeMFLoader().parse(buf);
+  group.rotation.set(0, 0, 0);
+  group.updateMatrixWorld(true);
+  const out: THREE.BufferGeometry[] = [];
+  for (const child of group.children) {
+    const geoms = collectMeshes(child, 'item', true).map((m) => m.geometry);
+    const merged = geoms.length === 1 ? geoms[0] : geoms.length ? mergeGeometries(geoms, false) : undefined;
+    if (merged) out.push(merged);
+  }
+  return out;
+}
+
 /** Load a model file into one or more geometries (Z-up, millimeters). */
 export async function loadModelFile(file: File): Promise<LoadedModel[]> {
   const ext = file.name.split('.').pop()?.toLowerCase() || '';
