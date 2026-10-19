@@ -25,6 +25,7 @@ import { decodeMmu, decodePaint, encodeMmu, encodePaint, remapPaint, subdivideFo
 import { decodeVector, resizeVector, toBool, unescapeStringsCstyle } from '../values';
 import { fillCount, packShelf, type PackItem } from '../plater/packing';
 import { mirrorPlacement } from '../plater/transform';
+import { shellPositions, splitShells } from '../plater/split';
 import type { ParsedGcode } from '../gcode/types';
 import type { PreviewColorMode } from '../gcode/colorschemes';
 
@@ -239,7 +240,7 @@ interface State {
       mmuPaint?: string;
       ranges?: Array<{ minZ: number; maxZ: number; config: Config }>;
     }>,
-    opts?: { keepPositions?: boolean },
+    opts?: { keepPositions?: boolean; snapshot?: PlaterObject[] },
   ) => Promise<void>;
   addVolume: (objectId: string, input: NewVolumeInput) => Promise<void>;
   updateVolume: (objectId: string, volumeId: string, patch: Partial<PlaterVolume>) => void;
@@ -265,6 +266,16 @@ interface State {
    * instance of the selected objects. One undo step, then the instances drop to the bed.
    */
   mirror: (axis: 0 | 1 | 2) => void;
+  /**
+   * Split the selected object's connected shells into independent objects, one per shell, each
+   * copy of the original keeping exactly its place (keepPositions). One undo step.
+   */
+  splitToObjects: (objectId: string) => Promise<void>;
+  /**
+   * Split the selected object's connected shells into parts of the same object: the largest shell
+   * stays the main mesh, every other one becomes a ModelPart volume. One undo step.
+   */
+  splitToParts: (objectId: string) => Promise<void>;
 
   removeObjects: (ids: string[]) => void;
   clearObjects: () => void;
@@ -426,6 +437,32 @@ function mintObjectId(): string {
 function arrangementSpacing(printCfg: Config): number {
   const radius = Number(printCfg.extruder_clearance_radius);
   return radius > 0 && toBool(printCfg.complete_objects) ? radius : 6;
+}
+
+/** One shell of a non-indexed mesh as a geometry of its own, in the object's coordinate frame. */
+function shellGeometry(positions: Float32Array, tris: Uint32Array): THREE.BufferGeometry {
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(shellPositions(positions, tris), 3));
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
+/**
+ * Object-frame offset that puts a shell's own mesh exactly where it sat inside the object: the
+ * object origin minus the shell's bounding-box centre. `addObjects` recentres the geometry by the
+ * same value, and `makeVolume` derives a volume's position from its geometry, so a part built from
+ * a shell keeps its place without extra bookkeeping.
+ */
+function shellOffset(positions: Float32Array): [number, number, number] {
+  const min = [Infinity, Infinity, Infinity];
+  const max = [-Infinity, -Infinity, -Infinity];
+  for (let i = 0; i < positions.length; i += 3) {
+    for (let a = 0; a < 3; a++) {
+      if (positions[i + a] < min[a]) min[a] = positions[i + a];
+      if (positions[i + a] > max[a]) max[a] = positions[i + a];
+    }
+  }
+  return [-(min[0] + max[0]) / 2, -(min[1] + max[1]) / 2, -(min[2] + max[2]) / 2];
 }
 
 function geometrySize(g: THREE.BufferGeometry): [number, number, number] {
@@ -810,7 +847,8 @@ export const useStore = create<State>((set, get) => ({
   },
 
   addObjects: async (items, opts = {}) => {
-    get().recordHistory();
+    // a caller that already changed the plater passes its own snapshot, so the undo step spans both
+    get().recordHistory(opts.snapshot);
     const s = get();
     const bed = bedShapeOf(s.presets.printer.current);
     const created: PlaterObject[] = [];
@@ -1332,6 +1370,131 @@ export const useStore = create<State>((set, get) => ({
       }),
       sliceDirty: true,
     }));
+  },
+
+  splitToObjects: async (objectId) => {
+    const s = get();
+    const o = s.objects.find((x) => x.id === objectId);
+    if (!o) return;
+    // AC-3 of the work package: modifiers and parts would have to be carried onto every shell, so
+    // the button is disabled for objects with volumes (the tooltip says why)
+    if (o.volumes.length) return;
+    const positions = o.geometry.getAttribute('position').array as Float32Array;
+    const shells = splitShells(positions);
+    if (shells.length < 2) {
+      s.toast('info', 'The object consists of a single part');
+      return;
+    }
+    const snapshot = s.objects;
+    // geometry in the object frame; addObjects translates it by the same offset again, which is
+    // exactly what it does when the object was imported, so the shells land where they sat.
+    // Paint is per triangle, so every shell carries the paint of the triangles that moved into it.
+    const shellPaint = (tris: Uint32Array) => {
+      const pick = (arr?: Uint8Array): Uint8Array | undefined => {
+        if (!arr) return undefined;
+        const out = new Uint8Array(tris.length);
+        for (let i = 0; i < tris.length; i++) out[i] = arr[tris[i]];
+        return out.some((v) => v) ? out : undefined;
+      };
+      const supports = pick(o.paint?.supports);
+      const seam = pick(o.paint?.seam);
+      const mmu = pick(o.paint?.mmu);
+      return { supports: supports && encodePaint(supports), seam: seam && encodePaint(seam), mmu: mmu && encodeMmu(mmu) };
+    };
+    const items = shells.map((tris, i) => {
+      const paint = shellPaint(tris);
+      return {
+        name: `${o.name} (${i + 1})`,
+        geometry: shellGeometry(positions, tris),
+        config: o.config,
+        extruder: o.extruder,
+        ranges: o.ranges.map((r) => ({ minZ: r.minZ, maxZ: r.maxZ, config: r.config })),
+        supportPaint: paint.supports,
+        seamPaint: paint.seam,
+        mmuPaint: paint.mmu,
+        instances: o.instances.map((inst) => ({ position: [...inst.position] as [number, number, number], rotation: [...inst.rotation] as [number, number, number], scale: [...inst.scale] as [number, number, number] })),
+      };
+    });
+    // one undo step for the whole action: the original goes, the shells arrive (the snapshot of
+    // `addObjects` has to be the plater from before the removal, hence the explicit one)
+    set((st) => ({
+      objects: st.objects.filter((x) => x.id !== objectId),
+      selectedIds: st.selectedIds.filter((id) => id !== objectId),
+      selectedVolumeId: undefined,
+      selectedInstanceId: undefined,
+    }));
+    await get().addObjects(items, { keepPositions: true, snapshot });
+    s.toast('info', `Split into ${shells.length} objects`);
+  },
+
+  splitToParts: async (objectId) => {
+    const s = get();
+    const o = s.objects.find((x) => x.id === objectId);
+    if (!o) return;
+    const positions = o.geometry.getAttribute('position').array as Float32Array;
+    const shells = splitShells(positions);
+    if (shells.length < 2) {
+      s.toast('info', 'The object consists of a single part');
+      return;
+    }
+    s.recordHistory();
+    const [main, ...rest] = shells;
+    // the object's origin sits at the centre of its bounding box in XY, its lowest point in Z, so
+    // every shell is placed relative to that origin
+    const originOffset = shellOffset(positions);
+    const mainGeometry = shellGeometry(positions, main);
+    // paint follows the triangle indices; shells that become parts lose theirs
+    const remap = (arr?: Uint8Array): Uint8Array | undefined => {
+      if (!arr) return undefined;
+      const out = new Uint8Array(main.length);
+      for (let i = 0; i < main.length; i++) out[i] = arr[main[i]];
+      return out.some((v) => v) ? out : undefined;
+    };
+    let dropped = false;
+    for (const kind of ['supports', 'seam', 'mmu'] as const) {
+      if (o.paint?.[kind] && !remap(o.paint[kind])) dropped = true;
+    }
+    const volumes: PlaterVolume[] = rest.map((tris, i) => {
+      const geometry = shellGeometry(positions, tris);
+      geometry.computeBoundingBox();
+      const bb = geometry.boundingBox!;
+      const centre: [number, number, number] = [(bb.min.x + bb.max.x) / 2, (bb.min.y + bb.max.y) / 2, (bb.min.z + bb.max.z) / 2];
+      geometry.translate(-centre[0], -centre[1], -centre[2]);
+      geometry.computeVertexNormals();
+      return {
+        id: `vol-${++volumeId}`,
+        name: `Part ${i + 2}`,
+        type: 'ModelPart',
+        geometry,
+        position: [centre[0] + originOffset[0], centre[1] + originOffset[1], centre[2] + originOffset[2]],
+        rotation: [0, 0, 0],
+        scale: [1, 1, 1],
+        size: geometrySize(geometry),
+        config: {},
+        extruder: 0,
+        triangles: tris.length,
+      };
+    });
+    const paint = o.paint
+      ? { supports: remap(o.paint.supports), seam: remap(o.paint.seam), mmu: remap(o.paint.mmu) }
+      : undefined;
+    set((st) => ({
+      objects: st.objects.map((x) =>
+        x.id === objectId ? { ...x, geometry: mainGeometry, triangles: main.length, volumes: [...x.volumes, ...volumes], paint, modelId: undefined, uploadError: undefined } : x,
+      ),
+      selectedVolumeId: undefined,
+      sliceDirty: true,
+    }));
+    if (dropped) s.toast('info', 'Paint on the parts that became volumes was dropped');
+    try {
+      const res = await api.uploadModel(geometryToStl(mainGeometry), o.name);
+      get().updateObject(objectId, { modelId: res.id });
+    } catch (e) {
+      get().updateObject(objectId, { uploadError: (e as Error).message });
+      get().toast('error', `Upload of ${o.name} failed: ${(e as Error).message}`);
+    }
+    for (const v of volumes) await get().uploadVolume(objectId, v);
+    s.toast('info', `Split into 1 object and ${volumes.length} parts`);
   },
 
   buildSliceRequest: () => {

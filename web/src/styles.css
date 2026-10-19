@@ -946,7 +946,8 @@ table.kv td:first-child {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.object-row .add {
+.object-row .add,
+.object-row .split {
   padding: 0 5px;
   line-height: 1;
 }
