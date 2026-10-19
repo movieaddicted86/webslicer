@@ -9,14 +9,33 @@ import { api } from './api';
 
 type ImportTransform = { position: [number, number, number]; rotation: [number, number, number]; scale: [number, number, number] };
 
-/** Decompose a column-major matrix into the plater's position / Euler XYZ / scale triple. */
+/**
+ * Decompose a column-major matrix into the plater's position / Euler XYZ / scale triple.
+ *
+ * `Matrix4.decompose` cannot represent a mirror: for a matrix with a negative determinant it
+ * negates the *first* scale component even when the sign belongs to the last one, which turns a
+ * "Mirror Z" into a "Mirror X" (plus a 180° rotation) on reload – so a file from our own exporter
+ * would come back looking different. The sign is therefore taken from the axis the exporter put it
+ * on: the one with the largest column norm, flipped when the determinant is negative. Placement
+ * (position, rotation and the scale magnitudes) is unaffected by that choice.
+ */
 function decomposeInstance(m: THREE.Matrix4): ImportTransform {
   const position = new THREE.Vector3();
   const quaternion = new THREE.Quaternion();
   const scale = new THREE.Vector3();
   m.decompose(position, quaternion, scale);
   const e = new THREE.Euler().setFromQuaternion(quaternion, 'XYZ');
-  return { position: position.toArray() as [number, number, number], rotation: [e.x, e.y, e.z], scale: scale.toArray() as [number, number, number] };
+  if (m.determinant() < 0) {
+    // rebuild the scale from the column norms and put the single sign on the largest column
+    const norms = [0, 1, 2].map((i) => Math.hypot(m.elements[i * 4], m.elements[i * 4 + 1], m.elements[i * 4 + 2]));
+    const axis = norms.indexOf(Math.max(...norms));
+    for (let i = 0; i < 3; i++) scale.setComponent(i, norms[i] * (i === axis ? -1 : 1));
+  }
+  return {
+    position: position.toArray() as [number, number, number],
+    rotation: [e.x, e.y, e.z],
+    scale: scale.toArray() as [number, number, number],
+  };
 }
 
 type ImportItem = {
