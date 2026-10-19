@@ -45,6 +45,32 @@ For an agent to work without a browser, the server must read and prepare models 
 Result: a server-side "plater model" (objects, transforms, volumes, presets) that both the UI and MCP
 tools can create and slice. The format is already the `SliceRequest`.
 
+### 3.1 Server-side projects (REST) – phase 0 as implemented
+
+`server/src/plater/` holds the headless plater (`meshes.ts` import, `normalize.ts` browser
+normalisation, `packing.ts` port of `web/src/plater/packing.ts`, `project.ts` state). A project is a
+JSON file in `data/projects/<uuid>.json` with the preset names plus the overrides the caller changed,
+and the objects with their instance matrices; the meshes live in the model directory like any uploaded
+model. A thin REST surface exposes it (the browser UI does not use these routes):
+
+| Route | Body | Answer |
+|---|---|---|
+| `POST /api/projects` | `{ printer, print, filaments?, owner? }` – a preset name or `{ name, config }` each | 201 with the project |
+| `GET /api/projects/:id` | – | the project, 404 if unknown or expired |
+| `POST /api/projects/:id/models` | `{ libraryPath, copies? }` (1–1000) | the project with the added objects |
+| `POST /api/projects/:id/arrange` | – | the project with the instances packed on the bed |
+| `POST /api/projects/:id/slice` | `{ binaryGcode?, outputName? }` | 202 with the job record (like `POST /api/slice`) |
+
+Inputs are validated like `validateSliceRequest`; a bad library path, an unknown preset, too many
+instances or objects that do not fit on the bed answer 400 with a message, an unknown project id 404.
+3MF import puts the objects of the file at the file's positions (one object per `<object>`, one
+instance per `<build><item>`); modifiers, parts and paint inside a 3MF are ignored in this phase.
+Headless slices carry no thumbnails (a rasterizer is phase 3).
+
+Projects expire 24 h after their last use (override with `PROJECT_TTL_HOURS`). The cleanup runs
+together with `pruneModels` (on start and every 6 h) and deletes expired projects and the models only
+they used; a model referenced by a live project is never pruned.
+
 ## 4. Tool catalogue (draft)
 
 Naming convention `webslicer.<verb>_<object>`; all inputs as JSON Schema (zod).
