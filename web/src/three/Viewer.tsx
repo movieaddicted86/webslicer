@@ -8,6 +8,7 @@ import {
   bedShapeOf,
   instanceBounds,
   selectedInstance,
+  pickedInstanceId,
   type PlaterInstance,
   type PlaterObject,
   type PlaterVolume,
@@ -891,15 +892,16 @@ export function Viewer() {
       const st = useStore.getState();
       if (st.view !== 'plater') return;
       if (e.key === 'Delete' || e.key === 'Backspace') {
+        const o = st.objects.find((x) => x.id === st.selectedIds[0]);
         if (st.selectedVolumeId && st.selectedIds.length === 1) st.removeVolume(st.selectedIds[0], st.selectedVolumeId);
-        // AC-4.4: a selected instance goes first, the object only once it is the last instance
-        else if (st.selectedIds.length === 1 && (st.objects.find((o) => o.id === st.selectedIds[0])?.instances.length ?? 1) > 1) {
-          st.removeInstance(st.selectedIds[0], st.selectedInstanceId);
-        } else if (st.selectedIds.length) st.removeObjects(st.selectedIds);
+        // AC-4.4: Del removes the instance that was picked; without one the whole object goes
+        else if (st.selectedIds.length === 1 && o && pickedInstanceId(st, o) && o.instances.length > 1) st.removeInstance(o.id, st.selectedInstanceId);
+        else if (st.selectedIds.length) st.removeObjects(st.selectedIds);
       } else if (e.key === '+' || e.key === '=' || e.code === 'NumpadAdd') {
         if (st.selectedIds.length === 1) st.addInstances(st.selectedIds[0]);
       } else if (e.key === '-' || e.key === '_' || e.code === 'NumpadSubtract') {
-        if (st.selectedIds.length === 1) st.removeInstance(st.selectedIds[0], st.selectedInstanceId);
+        // AC-1.2: "−" always drops the last copy
+        if (st.selectedIds.length === 1) st.removeInstance(st.selectedIds[0]);
       } else if ((e.key === 'l' || e.key === 'L') && st.selectedIds.length === 1) {
         if (st.paintMode === 'supports') st.stopPaint();
         else st.startPaint(st.selectedIds[0], 'supports');

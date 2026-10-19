@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useStore, isModified, bedShapeOf, instanceBounds, selectedInstance, VOLUME_LABELS, type PlaterObject, type PlaterVolume } from '../state/store';
+import { useStore, isModified, bedShapeOf, instanceBounds, selectedInstance, pickedInstanceId, VOLUME_LABELS, type PlaterObject, type PlaterVolume } from '../state/store';
 import { PresetSelect } from './PresetSelect';
 import { PreviewPanel } from './PreviewPanel';
 import { objectIsOutside } from '../three/Viewer';
@@ -653,10 +653,13 @@ export function Sidebar() {
   const running = job && (job.status === 'running' || job.status === 'queued');
   const anyModified = isModified(presets.print) || isModified(presets.printer) || presets.filament.some(isModified);
 
+  // an instance counts as picked only when clicking it in the view or its row selected it explicitly
+  const pickedInstance = selected.length === 1 ? pickedInstanceId({ selectedIds, selectedInstanceId }, selected[0]) : undefined;
+
   const deleteSelection = () => {
     if (selectedVolume && selected.length === 1) removeVolume(selected[0].id, selectedVolume.id);
-    // AC-4.4: a selected instance is removed first, the object only when it is the last one
-    else if (selected.length === 1 && selected[0].instances.length > 1) removeInstance(selected[0].id, selectedInstanceId);
+    // AC-4.4: Del removes the instance that was picked; without one the whole object goes
+    else if (selected.length === 1 && pickedInstance && selected[0].instances.length > 1) removeInstance(selected[0].id, pickedInstance);
     else removeObjects(selectedIds);
   };
 
@@ -664,7 +667,8 @@ export function Sidebar() {
     if (selected.length === 1) addInstances(selected[0].id);
   };
   const removeOneInstance = () => {
-    if (selected.length === 1) removeInstance(selected[0].id, selectedInstanceId);
+    // AC-1.2: "−" always drops the last copy, whatever is selected
+    if (selected.length === 1) removeInstance(selected[0].id);
   };
   const instanceCount = selected.length === 1 ? selected[0].instances.length : 0;
 
@@ -725,13 +729,13 @@ export function Sidebar() {
                 <button title="Add instance (+)" onClick={addInstance} disabled={selected.length !== 1}>
                   +
                 </button>
-                <button title="Remove instance (−)" onClick={removeOneInstance} disabled={selected.length !== 1 || instanceCount <= 1}>
+                <button title="Remove the last instance (−)" onClick={removeOneInstance} disabled={selected.length !== 1 || instanceCount <= 1}>
                   −
                 </button>
                 <button title="Duplicate" onClick={() => duplicate(selectedIds)} disabled={!selected.length}>
                   ⧉
                 </button>
-                <button title="Delete selected object or volume (Del)" onClick={deleteSelection} disabled={!selected.length}>
+                <button title="Delete the picked instance, otherwise the selected object or volume (Del)" onClick={deleteSelection} disabled={!selected.length}>
                   🗑
                 </button>
                 <button title="Delete all" onClick={() => objects.length && confirm('Remove all objects?') && clear()} disabled={!objects.length}>
@@ -890,10 +894,10 @@ export function Sidebar() {
                   <button title="Add instance (+)" onClick={addInstance} disabled={selected.length !== 1}>
                     +
                   </button>
-                  <button title="Remove instance (−)" onClick={removeOneInstance} disabled={selected.length !== 1 || instanceCount <= 1}>
+                  <button title="Remove the last instance (−)" onClick={removeOneInstance} disabled={selected.length !== 1 || instanceCount <= 1}>
                     −
                   </button>
-                  <button title="Delete selected (Del)" onClick={deleteSelection} disabled={!selected.length}>
+                  <button title="Delete the picked instance, otherwise the selected object (Del)" onClick={deleteSelection} disabled={!selected.length}>
                     🗑
                   </button>
                   <button title="Delete all" onClick={() => objects.length && confirm('Remove all objects?') && clear()} disabled={!objects.length}>
