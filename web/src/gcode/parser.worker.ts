@@ -13,6 +13,13 @@ self.onmessage = (ev: MessageEvent<{ text: string }>) => {
       parsed.layerZ.buffer,
       parsed.layerStart.buffer,
       parsed.travelLayerStart.buffer,
+      parsed.speed.buffer,
+      parsed.fan.buffer,
+      parsed.temperature.buffer,
+      parsed.width.buffer,
+      parsed.height.buffer,
+      parsed.flow.buffer,
+      parsed.layerTime.buffer,
     ];
     (self as unknown as Worker).postMessage({ ok: true, parsed }, transfer);
   } catch (e) {

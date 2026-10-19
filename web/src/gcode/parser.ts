@@ -37,8 +37,39 @@ class GrowArray<T extends Float32Array | Uint8Array | Uint32Array> {
   }
 }
 
+/** Value of "; key = value" from the config block PrusaSlicer appends to the G-code. */
+function configValue(text: string, key: string): string | undefined {
+  const i = text.lastIndexOf(`\n; ${key} = `);
+  if (i < 0) return undefined;
+  const start = i + key.length + 6;
+  const end = text.indexOf('\n', start);
+  return text.substring(start, end < 0 ? text.length : end).trim();
+}
+const firstNumber = (v: string | undefined, fallback: number) => {
+  const n = parseFloat((v ?? '').split(/[,;]/)[0]);
+  return Number.isFinite(n) ? n : fallback;
+};
+
 export function parseGcode(text: string): ParsedGcode {
   const positions = new GrowArray(Float32Array, 1 << 20);
+  const speeds = new GrowArray(Float32Array, 1 << 18);
+  const fans = new GrowArray(Float32Array, 1 << 18);
+  const temps = new GrowArray(Float32Array, 1 << 18);
+  const widths = new GrowArray(Float32Array, 1 << 18);
+  const heights = new GrowArray(Float32Array, 1 << 18);
+  const flows = new GrowArray(Float32Array, 1 << 18);
+  const layerTime: number[] = [];
+  const diameter = firstNumber(configValue(text, 'filament_diameter'), 1.75);
+  const filamentArea = Math.PI * (diameter / 2) ** 2;
+  // nozzle temperature until the first M104/M109 (start G-code macros often hide it)
+  const cfgTemp = firstNumber(configValue(text, 'temperature'), 0);
+  const cfgFirstTemp = firstNumber(configValue(text, 'first_layer_temperature'), cfgTemp);
+  let feed = 0; // mm/s
+  let fan = 0;
+  let temp = NaN;
+  let width = 0;
+  let height = 0;
+  let mm3PerMm = 0; // extruded volume per mm of the last move long enough for a reliable value
   const types = new GrowArray(Uint8Array, 1 << 18);
   const layers = new GrowArray(Uint32Array, 1 << 18);
   const tools = new GrowArray(Uint8Array, 1 << 18);
@@ -73,7 +104,6 @@ export function parseGcode(text: string): ParsedGcode {
   let travelCount = 0;
   const bmin = [Infinity, Infinity, Infinity];
   const bmax = [-Infinity, -Infinity, -Infinity];
-  let lastExtrudeZ = NaN;
   let pendingLayerChange = false;
 
   const newLayer = (zval: number) => {
@@ -81,6 +111,7 @@ export function parseGcode(text: string): ParsedGcode {
     layerZ.push(zval);
     layerStart.push(segCount);
     travelLayerStart.push(travelCount);
+    layerTime.push(0);
   };
 
   const len = text.length;
@@ -103,9 +134,12 @@ export function parseGcode(text: string): ParsedGcode {
         const zv = parseFloat(line.slice(3));
         if (!Number.isNaN(zv)) {
           newLayer(zv);
-          lastExtrudeZ = zv;
           pendingLayerChange = false;
         }
+      } else if (line.startsWith(';WIDTH:')) {
+        width = parseFloat(line.slice(7)) || width;
+      } else if (line.startsWith(';HEIGHT:')) {
+        height = parseFloat(line.slice(8)) || height;
       }
       continue;
     }
@@ -138,29 +172,38 @@ export function parseGcode(text: string): ParsedGcode {
             ne = absoluteE ? v : e + v;
             hasE = true;
             break;
+          case 'F':
+            feed = v / 60;
+            break;
         }
       }
       const de = hasE ? ne - e : 0;
       const moved = nx !== x || ny !== y || nz !== z;
       if (moved) {
+        const dist = Math.hypot(nx - x, ny - y, nz - z);
+        if (layer < 0) newLayer(nz);
+        if (feed > 0) layerTime[layer] += dist / feed;
         if (de > 0) {
-          if (layer < 0 || (Number.isNaN(lastExtrudeZ) ? false : false)) {
-            if (layer < 0) newLayer(nz);
-          }
-          if (layer < 0) newLayer(nz);
           positions.push(x, y, z, nx, ny, nz);
           types.push(curType);
           layers.push(layer);
           tools.push(curTool);
+          speeds.push(feed);
+          fans.push(fan);
+          temps.push(Number.isNaN(temp) ? (layer === 0 ? cfgFirstTemp : cfgTemp) : temp);
+          widths.push(width);
+          heights.push(height);
+          // E is rounded in the G-code, so very short moves give noisy ratios
+          if (dist >= 0.2 || mm3PerMm === 0) mm3PerMm = (de * filamentArea) / dist;
+          flows.push(mm3PerMm * feed);
           segCount++;
           const fname = featureTypes[curType];
-          featureLength[fname] = (featureLength[fname] || 0) + Math.hypot(nx - x, ny - y, nz - z);
+          featureLength[fname] = (featureLength[fname] || 0) + dist;
           for (const [i, v] of [nx, ny, nz].entries()) {
             if (v < bmin[i]) bmin[i] = v;
             if (v > bmax[i]) bmax[i] = v;
           }
         } else {
-          if (layer < 0) newLayer(nz);
           travelPositions.push(x, y, z, nx, ny, nz);
           travelLayers.push(layer);
           travelCount++;
@@ -170,6 +213,15 @@ export function parseGcode(text: string): ParsedGcode {
       y = ny;
       z = nz;
       e = ne;
+    } else if (cmd === 'M106' || cmd === 'M107') {
+      const sArg = cmd === 'M106' ? parts.find((p) => p[0] === 'S') : undefined;
+      fan = cmd === 'M107' ? 0 : Math.min(100, Math.max(0, ((sArg ? parseFloat(sArg.slice(1)) : 255) / 255) * 100));
+    } else if (cmd === 'M104' || cmd === 'M109') {
+      const sArg = parts.find((p) => p[0] === 'S' || p[0] === 'R');
+      const v = sArg ? parseFloat(sArg.slice(1)) : NaN;
+      // a temperature for another tool (T parameter) does not change the active nozzle
+      const tArg = parts.find((p) => p[0] === 'T');
+      if (Number.isFinite(v) && (!tArg || parseInt(tArg.slice(1), 10) === curTool)) temp = v;
     } else if (cmd === 'G90') absolute = true;
     else if (cmd === 'G91') absolute = false;
     else if (cmd === 'M82') absoluteE = true;
@@ -224,5 +276,12 @@ export function parseGcode(text: string): ParsedGcode {
     bbox: { min: bmin as [number, number, number], max: bmax as [number, number, number] },
     segmentCount: segCount,
     featureLength,
+    speed: speeds.trim(),
+    fan: fans.trim(),
+    temperature: temps.trim(),
+    width: widths.trim(),
+    height: heights.trim(),
+    flow: flows.trim(),
+    layerTime: Float32Array.from(layerTime),
   };
 }

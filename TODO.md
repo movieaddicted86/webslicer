@@ -5,8 +5,8 @@ Priority by frequency of use in everyday printing and PrusaSlicer parity.
 
 ## P1 – required for version 1.0 (in this order)
 1. [x] **Colour change / pause / custom G-code at a layer** via the preview slider (M600, colour print preview)
-2. [ ] **Preview colour schemes**: height, width, speed, fan speed, temperature, volumetric flow, layer time,
-       extruder; legend with value range (extend the parser for `;WIDTH`, `;HEIGHT`, F, fan, temperature)
+2. [x] **Preview colour schemes**: height, width, speed, fan speed, temperature, volumetric flow, layer time
+       (linear/logarithmic), tool; gradient legend with value range
 3. [ ] **Instances**: set number, fill bed, instances in the object list (shared geometry, own transform)
 4. [ ] **Mirror** X/Y/Z in the manipulation panel
 5. [ ] **Split to objects / parts** (separate connected shells)

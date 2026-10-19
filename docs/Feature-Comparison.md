@@ -96,7 +96,7 @@ Priority: **P1** needed for version 1.0 · **P2** important afterwards · **P3**
 | Slicing (FFF) with the full engine, progress | ✅ | – | |
 | Slicing (SLA) | 🟡 | P3 | `.sl1` export works; no preview, no support point editor |
 | Preview by feature type, legend, layer slider | ✅ | – | |
-| Preview colour schemes: height, width, speed, fan, temperature, volumetric flow, layer time, extruder, colour print | 🟡 | **P1** | feature type and colour print available; height, width, speed etc. need parser data (`;WIDTH`, `;HEIGHT`, F) |
+| Preview colour schemes: height, width, speed, fan, temperature, volumetric flow, layer time, extruder, colour print | ✅ | **P1** | all views incl. layer time linear/logarithmic; layer times are feedrate based, scaled to the slicer's time estimate |
 | Horizontal slider (moves within a layer) | ❌ | P2 | |
 | View options: travel, retractions, seams, wipe, tool changes, colour changes, shells, tool marker | 🟡 | P2 | travel only |
 | Legend with time/length per feature | 🟡 | P2 | length yes; time per feature missing |
@@ -129,6 +129,6 @@ Priority: **P1** needed for version 1.0 · **P2** important afterwards · **P3**
 ## Summary
 
 Covered are the complete slicing core, profiles, per-object settings, volumes, painting, height
-ranges, library and print hosts. The largest remaining gaps are in the **preview** (colour schemes,
-colour change at a layer, view options) and in **object tools** (instances, mirror, split, cut,
+ranges, library and print hosts. The largest remaining gaps are in the **preview** (view options
+such as shells, sequential slider, tool marker) and in **object tools** (instances, mirror, split, cut,
 measure, emboss) as well as the **unsaved-changes transfer** and **STEP import**.

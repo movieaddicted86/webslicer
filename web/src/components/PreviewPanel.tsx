@@ -1,6 +1,8 @@
+import { useMemo } from 'react';
 import { useStore } from '../state/store';
 import { api, type CustomGcodeType } from '../api';
-import { FEATURE_COLORS } from '../gcode/types';
+import { FEATURE_COLORS, type ParsedGcode } from '../gcode/types';
+import { COLOR_MODES, RANGE_SCHEMES, legendSteps, schemeRange, type PreviewColorMode } from '../gcode/colorschemes';
 import { colorAtZ, colorPrintSegments, normalizeColor, suggestColor } from '../gcode/colorprint';
 
 const CODE_LABEL: Record<CustomGcodeType, string> = {
@@ -94,6 +96,35 @@ function LayerCodes({ printZ, firstLayer, maxZ }: { printZ: number | undefined; 
   );
 }
 
+/** Gradient legend of a range colour scheme (speed, fan, temperature, …), maximum on top like PrusaSlicer. */
+function RangeLegend({ gcode, mode, estimatedSeconds }: { gcode: ParsedGcode; mode: PreviewColorMode; estimatedSeconds?: number }) {
+  const scheme = RANGE_SCHEMES[mode]!;
+  const range = useMemo(() => schemeRange(gcode, mode), [gcode, mode]);
+  // layer times come from feedrates only; scale them to the slicer's estimate (which includes acceleration)
+  const timeScale = useMemo(() => {
+    if (!scheme.perLayer || !estimatedSeconds) return 1;
+    const sum = gcode.layerTime.reduce((a, b) => a + b, 0);
+    return sum > 0 ? estimatedSeconds / sum : 1;
+  }, [gcode, scheme.perLayer, estimatedSeconds]);
+  const label = (v: number) => (scheme.perLayer ? fmtLayerTime(v * timeScale) : v.toFixed(scheme.decimals));
+  if (range[1] <= 0 && range[0] <= 0) return <div className="muted small">No data for this view in the G-code.</div>;
+  return (
+    <ul className="legend range">
+      {legendSteps(range, scheme.log).map((st, i) => (
+        <li key={i}>
+          <span className="swatch" style={{ background: st.color }} />
+          <span className="name">{label(st.value)}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function fmtLayerTime(s: number) {
+  if (s < 60) return `${s.toFixed(1)} s`;
+  return `${Math.floor(s / 60)}m ${String(Math.round(s % 60)).padStart(2, '0')}s`;
+}
+
 function fmtTime(s?: number) {
   if (!s) return '–';
   const h = Math.floor(s / 3600);
@@ -125,6 +156,8 @@ export function PreviewPanel() {
   const colorMode = useStore((s) => s.previewColorMode);
   const setColorMode = useStore((s) => s.setPreviewColorMode);
   const baseColor = useStore((s) => normalizeColor(s.presets.filament[0]?.current.filament_colour));
+  const toolColors = useStore((s) => s.presets.filament.map((f) => normalizeColor(f.current.filament_colour)).join(','));
+  const usedTools = useMemo(() => (gcode ? [...new Set(gcode.tools)].sort((a, b) => a - b) : []), [gcode]);
 
   const running = job && (job.status === 'running' || job.status === 'queued');
   const info = job?.info;
@@ -258,12 +291,26 @@ export function PreviewPanel() {
               </label>
               <label className="view-mode small">
                 <span>View</span>
-                <select value={colorMode} onChange={(e) => setColorMode(e.target.value as 'feature' | 'colorprint')}>
-                  <option value="feature">Feature type</option>
-                  <option value="colorprint">Color print</option>
+                <select value={colorMode} onChange={(e) => setColorMode(e.target.value as PreviewColorMode)}>
+                  {COLOR_MODES.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.label}
+                    </option>
+                  ))}
                 </select>
               </label>
-              {colorMode === 'colorprint' ? (
+              {RANGE_SCHEMES[colorMode] ? (
+                <RangeLegend gcode={gcode} mode={colorMode} estimatedSeconds={info?.estimatedTimeSeconds} />
+              ) : colorMode === 'tool' ? (
+                <ul className="legend">
+                  {usedTools.map((t) => (
+                    <li key={t}>
+                      <span className="swatch" style={{ background: toolColors.split(',')[t] ?? baseColor }} />
+                      <span className="name">Extruder {t + 1}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : colorMode === 'colorprint' ? (
                 <ul className="legend">
                   {colorPrintSegments(baseColor, customGcodes, gcode.layerZ[gcode.layerCount - 1] ?? 0).map((s, i) => (
                     <li key={i}>

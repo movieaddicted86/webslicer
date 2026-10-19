@@ -21,6 +21,20 @@ export interface ParsedGcode {
   segmentCount: number;
   /** per-feature extrusion length (mm) */
   featureLength: Record<string, number>;
+  /** per extrusion segment: feedrate (mm/s) */
+  speed: Float32Array;
+  /** per extrusion segment: part cooling fan (%) */
+  fan: Float32Array;
+  /** per extrusion segment: nozzle temperature (°C) */
+  temperature: Float32Array;
+  /** per extrusion segment: extrusion width (mm, from ;WIDTH:) */
+  width: Float32Array;
+  /** per extrusion segment: layer height (mm, from ;HEIGHT:) */
+  height: Float32Array;
+  /** per extrusion segment: volumetric flow (mm³/s) */
+  flow: Float32Array;
+  /** estimated time per layer (s), from feedrates and move lengths (no acceleration) */
+  layerTime: Float32Array;
 }
 
 export const FEATURE_COLORS: Record<string, string> = {

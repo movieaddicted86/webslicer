@@ -5,6 +5,7 @@ import { TransformControls } from 'three/examples/jsm/controls/TransformControls
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
 import { useStore, bedShapeOf, objectBounds, type PlaterObject, type PlaterVolume } from '../state/store';
 import { FEATURE_COLORS, type ParsedGcode } from '../gcode/types';
+import { RANGE_SCHEMES, rangeColor, rangePosition, schemeRange, type PreviewColorMode } from '../gcode/colorschemes';
 import type { CustomGcode, VolumeType } from '../api';
 import { colorAtZ, normalizeColor } from '../gcode/colorprint';
 import { renderThumbnails } from './thumbnail';
@@ -172,9 +173,11 @@ function fitCamera(refs: SceneRefs, bedShape: string) {
 }
 
 interface GcodeColoring {
-  mode: 'feature' | 'colorprint';
+  mode: PreviewColorMode;
   baseColor: string;
   codes: CustomGcode[];
+  /** colour per tool (filament colours) */
+  toolColors: string[];
 }
 
 /** Fill the per-vertex colours of the toolpath lines for the given colour mode. */
@@ -191,12 +194,32 @@ function fillGcodeColors(colors: Float32Array, g: ParsedGcode, coloring: GcodeCo
     for (let i = 0; i < g.segmentCount; i++) set(i, layerColor[g.layers[i]] ?? layerColor[0]);
     return;
   }
+  if (coloring.mode === 'tool') {
+    const toolColor = coloring.toolColors.map((c) => new THREE.Color(c));
+    const fallback = new THREE.Color(coloring.baseColor);
+    for (let i = 0; i < g.segmentCount; i++) set(i, toolColor[g.tools[i]] ?? fallback);
+    return;
+  }
+  const scheme = RANGE_SCHEMES[coloring.mode];
+  if (scheme) {
+    const values = scheme.values(g);
+    const range = schemeRange(g, coloring.mode);
+    // 256-entry lookup table instead of interpolating per segment
+    const lut = Array.from({ length: 256 }, (_, k) => new THREE.Color(...rangeColor(k / 255)));
+    for (let i = 0; i < g.segmentCount; i++) {
+      const v = scheme.perLayer ? values[g.layers[i]] : values[i];
+      set(i, lut[Math.round(Math.min(1, Math.max(0, rangePosition(v, range, scheme.log))) * 255)]);
+    }
+    return;
+  }
   const colorByType = g.featureTypes.map((t) => new THREE.Color(FEATURE_COLORS[t] || FEATURE_COLORS.Unknown));
   for (let i = 0; i < g.segmentCount; i++) set(i, colorByType[g.types[i]]);
 }
 
 function coloringKey(c: GcodeColoring): string {
-  return c.mode === 'feature' ? 'feature' : `colorprint|${c.baseColor}|${c.codes.map((x) => `${x.type}:${x.printZ}:${x.color ?? ''}`).join(',')}`;
+  if (c.mode === 'colorprint') return `colorprint|${c.baseColor}|${c.codes.map((x) => `${x.type}:${x.printZ}:${x.color ?? ''}`).join(',')}`;
+  if (c.mode === 'tool') return `tool|${c.baseColor}|${c.toolColors.join(',')}`;
+  return c.mode;
 }
 
 function buildGcode(refs: SceneRefs, g: ParsedGcode, coloring: GcodeColoring) {
@@ -308,6 +331,7 @@ export function Viewer() {
   const colorMode = useStore((s) => s.previewColorMode);
   const customGcodes = useStore((s) => s.customGcodes);
   const filamentColour = useStore((s) => s.presets.filament[0]?.current.filament_colour);
+  const toolColorKey = useStore((s) => s.presets.filament.map((f) => normalizeColor(f.current.filament_colour)).join(','));
   const placeOnFace = useStore((s) => s.placeOnFace);
   const paintMode = useStore((s) => s.paintMode);
   // vendor bed model/texture of the selected printer ("vendor|model.stl|texture.svg", empty when none)
@@ -781,7 +805,7 @@ export function Viewer() {
   useEffect(() => {
     const refs = refsRef.current;
     if (!refs) return;
-    const coloring: GcodeColoring = { mode: colorMode, baseColor: normalizeColor(filamentColour), codes: customGcodes };
+    const coloring: GcodeColoring = { mode: colorMode, baseColor: normalizeColor(filamentColour), codes: customGcodes, toolColors: toolColorKey.split(',') };
     if (gcode && refs.gcodeRef !== gcode) buildGcode(refs, gcode, coloring);
     else if (gcode && refs.gcodeLines && refs.colorKey !== coloringKey(coloring)) {
       // recolour in place (colour mode or colour changes edited)
@@ -797,7 +821,7 @@ export function Viewer() {
     }
     refs.gcodeGroup.visible = view === 'preview' && !!gcode;
     if (gcode) applyGcodeRange(refs, range, showTravel, featureVis);
-  }, [gcode, view, range, showTravel, featureVis, colorMode, customGcodes, filamentColour]);
+  }, [gcode, view, range, showTravel, featureVis, colorMode, customGcodes, filamentColour, toolColorKey]);
 
   // keyboard
   useEffect(() => {

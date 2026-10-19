@@ -7,6 +7,8 @@
   the 3MF as `Metadata/Prusa_Slicer_custom_gcode_per_print_z.xml` and read from PrusaSlicer projects
 - Preview colour mode "Color print" with a legend of the colour segments
 - The preview keeps the slider position when re-slicing
+- Preview colour schemes like PrusaSlicer: height, width, speed, fan speed, temperature, volumetric flow
+  rate, layer time (linear and logarithmic) and tool, each with a gradient legend of the value range
 - Proxmox helper reworked in the style of the community-scripts: header, Default/Advanced settings
   (OS version, container type, password or console autologin, ID, hostname, disk, CPU, RAM, bridge,
   static IP/gateway, IPv6, VLAN, MTU, MAC, DNS, SSH key/root login, web port, model library bind mount,

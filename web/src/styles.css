@@ -529,6 +529,15 @@ pre.log {
 .legend .name {
   flex: 1;
 }
+/* range legends (speed, fan, …) are a gradient scale, not toggles */
+.legend.range li {
+  cursor: default;
+  padding: 0;
+}
+.legend.range .swatch {
+  height: 12px;
+  border-radius: 0;
+}
 
 /* ---- settings */
 .settings {

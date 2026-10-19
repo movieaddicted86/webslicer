@@ -24,6 +24,7 @@ import { importFiles } from '../importFiles';
 import { decodeMmu, decodePaint, encodeMmu, encodePaint, remapPaint, subdivideForPainting, type PaintKind } from '../three/paint';
 import { decodeVector, resizeVector, toBool, unescapeStringsCstyle } from '../values';
 import type { ParsedGcode } from '../gcode/types';
+import type { PreviewColorMode } from '../gcode/colorschemes';
 
 /** A sub-volume of an object: additional part, modifier, support enforcer/blocker or negative volume. */
 export interface PlaterVolume {
@@ -177,8 +178,8 @@ interface State {
   previewShowTravel: boolean;
   previewFeatureVisibility: Record<string, boolean>;
   /** how toolpaths are coloured in the preview */
-  previewColorMode: 'feature' | 'colorprint';
-  setPreviewColorMode: (m: 'feature' | 'colorprint') => void;
+  previewColorMode: PreviewColorMode;
+  setPreviewColorMode: (m: PreviewColorMode) => void;
   /** colour changes, pauses and custom G-code per layer height (plate level, like PrusaSlicer) */
   customGcodes: CustomGcode[];
   addCustomGcode: (c: CustomGcode) => void;
@@ -486,17 +487,17 @@ export const useStore = create<State>((set, get) => ({
       const customGcodes = s.customGcodes.filter((x) => Math.abs(x.printZ - printZ) > 1e-4);
       return {
         customGcodes,
-        previewColorMode: customGcodes.some((x) => x.type === 'color_change') ? s.previewColorMode : 'feature',
+        previewColorMode: s.previewColorMode === 'colorprint' && !customGcodes.some((x) => x.type === 'color_change') ? 'feature' : s.previewColorMode,
         sliceDirty: true,
       };
     });
     scheduleReslice();
   },
   setCustomGcodes: (codes) =>
-    set({
+    set((s) => ({
       customGcodes: [...codes].sort((a, b) => a.printZ - b.printZ),
-      previewColorMode: codes.some((x) => x.type === 'color_change') ? 'colorprint' : 'feature',
-    }),
+      previewColorMode: codes.some((x) => x.type === 'color_change') ? 'colorprint' : s.previewColorMode === 'colorprint' ? 'feature' : s.previewColorMode,
+    })),
   toasts: [],
 
   toast: (kind, text) => {
