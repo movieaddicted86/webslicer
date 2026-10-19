@@ -448,21 +448,15 @@ function shellGeometry(positions: Float32Array, tris: Uint32Array): THREE.Buffer
 }
 
 /**
- * Object-frame offset that puts a shell's own mesh exactly where it sat inside the object: the
- * object origin minus the shell's bounding-box centre. `addObjects` recentres the geometry by the
- * same value, and `makeVolume` derives a volume's position from its geometry, so a part built from
- * a shell keeps its place without extra bookkeeping.
+ * Offset from the object's own coordinate frame to the plater frame of a normalized object
+ * (geometry centred in X/Y, standing on Z = 0): the negative of the object origin in the frame the
+ * geometry was imported in. `addObjects` centres a geometry by the same values, and `makeVolume`
+ * derives a volume's position from its geometry, so a part built from a shell keeps its place.
  */
-function shellOffset(positions: Float32Array): [number, number, number] {
-  const min = [Infinity, Infinity, Infinity];
-  const max = [-Infinity, -Infinity, -Infinity];
-  for (let i = 0; i < positions.length; i += 3) {
-    for (let a = 0; a < 3; a++) {
-      if (positions[i + a] < min[a]) min[a] = positions[i + a];
-      if (positions[i + a] > max[a]) max[a] = positions[i + a];
-    }
-  }
-  return [-(min[0] + max[0]) / 2, -(min[1] + max[1]) / 2, -(min[2] + max[2]) / 2];
+function objectFrameOffset(o: PlaterObject): [number, number, number] {
+  if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
+  const bb = o.geometry.boundingBox!;
+  return [-(bb.min.x + bb.max.x) / 2, -(bb.min.y + bb.max.y) / 2, -bb.min.z];
 }
 
 function geometrySize(g: THREE.BufferGeometry): [number, number, number] {
@@ -1439,9 +1433,6 @@ export const useStore = create<State>((set, get) => ({
     }
     s.recordHistory();
     const [main, ...rest] = shells;
-    // the object's origin sits at the centre of its bounding box in XY, its lowest point in Z, so
-    // every shell is placed relative to that origin
-    const originOffset = shellOffset(positions);
     const mainGeometry = shellGeometry(positions, main);
     // paint follows the triangle indices; shells that become parts lose theirs
     const remap = (arr?: Uint8Array): Uint8Array | undefined => {
@@ -1454,7 +1445,9 @@ export const useStore = create<State>((set, get) => ({
     for (const kind of ['supports', 'seam', 'mmu'] as const) {
       if (o.paint?.[kind] && !remap(o.paint[kind])) dropped = true;
     }
+    const offset = objectFrameOffset(o);
     const volumes: PlaterVolume[] = rest.map((tris, i) => {
+      // a volume is centred at its own origin and placed at its centre in the object frame
       const geometry = shellGeometry(positions, tris);
       geometry.computeBoundingBox();
       const bb = geometry.boundingBox!;
@@ -1466,7 +1459,7 @@ export const useStore = create<State>((set, get) => ({
         name: `Part ${i + 2}`,
         type: 'ModelPart',
         geometry,
-        position: [centre[0] + originOffset[0], centre[1] + originOffset[1], centre[2] + originOffset[2]],
+        position: [centre[0] + offset[0], centre[1] + offset[1], centre[2] + offset[2]],
         rotation: [0, 0, 0],
         scale: [1, 1, 1],
         size: geometrySize(geometry),
