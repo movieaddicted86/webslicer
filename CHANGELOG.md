@@ -15,6 +15,9 @@
   the helper inside an existing WebSlicer LXC updates it
 - Installer: no locale warnings, quiet npm, settings persisted for updates, service user with fixed
   uid 1050 (host uid 101050 in unprivileged containers) for bind-mounted libraries
+- Helper: when the container does not start, the real LXC error is shown (debug start log); if the
+  model library mount prevents the start, the install continues without it and explains how to add it
+  later; the library is checked for write access with a share-type specific hint (CIFS, NFS, local)
 
 ## 1.0.0-rc.2 – 2026-10-17
 

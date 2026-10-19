@@ -74,7 +74,9 @@ CROSS="${TAB}✖️${TAB}"
 INFO="${TAB}💡${TAB}"
 BACKTITLE="Proxmox VE Helper Script – ${APP}"
 LOG="/tmp/${NSAPP}-install-$(date +%Y%m%d-%H%M%S).log"
+START_LOG="${LOG%.log}-start-debug.log"
 SPINNER_PID=""
+CURRENT_STEP=""
 
 header_info() {
   clear 2>/dev/null || true
@@ -106,6 +108,7 @@ stop_spinner() {
 }
 msg_info() {
   stop_spinner
+  CURRENT_STEP="$1"
   if [ "$VERBOSE" = "yes" ] || [ ! -t 1 ]; then
     echo -e "${INFO}${YW}$1${CL}"
   else
@@ -129,17 +132,36 @@ run() {
 on_error() {
   local code=$? line=$1
   stop_spinner
-  msg_error "Failed in line ${line} (exit code ${code})"
+  msg_error "Failed${CURRENT_STEP:+: ${CURRENT_STEP}} (line ${line}, exit code ${code})"
   if [ -s "$LOG" ]; then
     echo -e "${TAB}${YW}Last lines of ${LOG}:${CL}"
     tail -n 20 "$LOG" | sed "s/^/${TAB}${TAB}/"
   fi
-  if [ -n "${CT_CREATED:-}" ]; then
-    echo -e "\n${TAB}The container ${var_ctid} was created but the installation failed."
-    echo -e "${TAB}Retry inside it with:  ${BL}pct exec ${var_ctid} -- bash /root/webslicer-install.sh${CL}"
-    echo -e "${TAB}Or remove it with:     ${BL}pct stop ${var_ctid}; pct destroy ${var_ctid}${CL}"
-  fi
+  failure_hints
   exit "$code"
+}
+failure_hints() {
+  [ -n "${CT_CREATED:-}" ] || return 0
+  echo
+  if [ -z "${CT_STARTED:-}" ]; then
+    echo -e "${TAB}The container ${var_ctid} was created but does not start."
+    echo -e "${TAB}Show the LXC error:    ${BL}pct start ${var_ctid} --debug 1${CL}"
+  else
+    echo -e "${TAB}The container ${var_ctid} is running but the installation failed."
+    echo -e "${TAB}Retry the install:     ${BL}pct exec ${var_ctid} -- bash -c \"\$(curl -fsSL ${INSTALL_URL})\"${CL}"
+  fi
+  echo -e "${TAB}Or remove it with:     ${BL}pct stop ${var_ctid}; pct destroy ${var_ctid}${CL}"
+}
+# Print the ERROR lines of an LXC debug start log (the real reason behind "Failed to spawn container")
+show_start_error() {
+  [ -s "$START_LOG" ] || return 0
+  local errs
+  errs="$(grep -E ' ERROR +' "$START_LOG" | sed -E 's/^.* ERROR +//' | grep -v -e 'sync_wait' -e '__lxc_start' | tail -n 8)"
+  [ -n "$errs" ] || errs="$(grep -iE 'error|fail' "$START_LOG" | tail -n 8)"
+  [ -n "$errs" ] || return 0
+  echo -e "${TAB}${YW}LXC reports:${CL}"
+  printf '%s\n' "$errs" | sed "s/^/${TAB}${TAB}/"
+  echo -e "${TAB}${DGN}Full debug log: ${START_LOG}${CL}"
 }
 trap 'on_error $LINENO' ERR
 trap 'stop_spinner' EXIT
@@ -448,6 +470,7 @@ advanced_settings() {
   if ask_yesno "Model library" "Mount a directory of the Proxmox host (e.g. a NAS share) as the WebSlicer model library?\n\nSTL/3MF files placed there can be opened in WebSlicer, projects and G-code can be saved there." "no"; then
     while :; do
       v="$(ask_input "Model library" "Host directory to mount (must exist)" "${var_library:-/mnt/pve/}")" || exit_script
+      [ "$v" != "/" ] && v="${v%/}"
       [ -d "$v" ] && {
         var_library="$v"
         break
@@ -488,6 +511,13 @@ else
   esac
 fi
 var_ctid="${var_ctid:-$(next_ctid)}"
+if [ -n "$var_library" ]; then
+  [ "$var_library" != "/" ] && var_library="${var_library%/}"
+  [ -d "$var_library" ] || {
+    msg_error "Library directory ${var_library} does not exist on the host"
+    exit 1
+  }
+fi
 if ctid_in_use "$var_ctid"; then
   msg_error "Container ID ${var_ctid} is already in use"
   exit 1
@@ -562,8 +592,37 @@ if [ -n "$var_library" ]; then
   msg_ok "Mounted ${var_library} as model library"
 fi
 
+start_ct() { # start the container; on failure keep an LXC debug log for show_start_error
+  run pct start "$var_ctid" && return 0
+  pct start "$var_ctid" --debug 1 >"$START_LOG" 2>&1 || true
+  pct status "$var_ctid" 2>/dev/null | grep -q running
+}
 msg_info "Starting the container"
-run pct start "$var_ctid"
+if ! start_ct; then
+  stop_spinner
+  if [ -n "$var_library" ]; then
+    msg_error "The container does not start with the model library mount"
+    show_start_error
+    msg_info "Retrying without the model library mount"
+    run pct set "$var_ctid" -delete mp0
+    if start_ct; then
+      msg_ok "Started without the model library"
+      LIB_FAILED="$var_library"
+      var_library=""
+    else
+      msg_error "The container does not start either without the library mount"
+      show_start_error
+      false
+    fi
+  else
+    msg_error "The container does not start"
+    show_start_error
+    false
+  fi
+fi
+[ -n "${LIB_FAILED:-}" ] || msg_ok "Started the container"
+CT_STARTED=1
+msg_info "Waiting for the network"
 for _ in $(seq 1 30); do
   pct exec "$var_ctid" -- bash -c "getent hosts deb.debian.org >/dev/null 2>&1" && break
   sleep 2
@@ -572,7 +631,7 @@ pct exec "$var_ctid" -- bash -c "getent hosts deb.debian.org >/dev/null 2>&1" ||
   msg_error "The container has no network / DNS"
   false
 }
-msg_ok "Started the container, network is up"
+msg_ok "Container is running, network is up"
 
 msg_info "Customizing the container"
 if [ -z "$var_password" ]; then
@@ -617,16 +676,32 @@ if [ "$INSTALL_RC" -ne 0 ]; then
   msg_error "The installation inside the container failed"
   echo -e "${TAB}${YW}Last lines of ${LOG}:${CL}"
   tail -n 20 "$LOG" | sed "s/^/${TAB}${TAB}/"
-  echo -e "\n${TAB}Retry inside the container with:  ${BL}pct exec ${var_ctid} -- update${CL}"
+  failure_hints
   exit 1
 fi
 
-if [ -n "$var_library" ] && [ "$var_unprivileged" = 1 ]; then
-  owner="$(stat -c %u "$var_library" 2>/dev/null || echo "?")"
-  if [ "$owner" != "$((100000 + SERVICE_UID))" ]; then
-    LIB_HINT="WebSlicer can only save into the library when the host directory is writable for uid $((100000 + SERVICE_UID)):
-      chown $((100000 + SERVICE_UID)):$((100000 + SERVICE_UID)) ${var_library}   (or adjust the share permissions)"
+if [ -n "$var_library" ]; then
+  LIB_TEST="/var/lib/webslicer/library/.webslicer-write-test"
+  if ! pct exec "$var_ctid" -- su -s /bin/sh webslicer -c "touch '${LIB_TEST}' && rm -f '${LIB_TEST}'" >>"$LOG" 2>&1; then
+    HOST_UID="$([ "$var_unprivileged" = 1 ] && echo $((100000 + SERVICE_UID)) || echo "$SERVICE_UID")"
+    case "$(stat -f -c %T "$var_library" 2>/dev/null)" in
+      cifs | smb2 | smb3)
+        LIB_HINT="The model library is read-only for WebSlicer. ${var_library} is a CIFS/SMB share:
+      ownership comes from the mount options – mount it with uid=${HOST_UID},gid=${HOST_UID}
+      (for a Proxmox storage: pvesm set <storage> --options uid=${HOST_UID},gid=${HOST_UID}, then remount)" ;;
+      nfs*)
+        LIB_HINT="The model library is read-only for WebSlicer. ${var_library} is an NFS export:
+      allow writes for uid/gid ${HOST_UID} on the NAS (or map all users to an account that may write)" ;;
+      *)
+        LIB_HINT="The model library is read-only for WebSlicer. Make it writable for uid ${HOST_UID}:
+      chown ${HOST_UID}:${HOST_UID} ${var_library}   (and any subfolders WebSlicer should save into)" ;;
+    esac
   fi
+fi
+if [ -n "${LIB_FAILED:-}" ]; then
+  LIB_HINT="The container did not start with ${LIB_FAILED} mounted, so WebSlicer was installed without
+      a model library (see the LXC error above and ${START_LOG}).
+      Add it later with:  pct set ${var_ctid} -mp0 ${LIB_FAILED},mp=/var/lib/webslicer/library"
 fi
 
 # ---- summary ------------------------------------------------------------------------------
