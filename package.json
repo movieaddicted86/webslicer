@@ -13,7 +13,7 @@
     "build": "npm run build -w web && npm run build -w server",
     "dev": "concurrently -n web,server -c cyan,green \"npm run dev -w web\" \"npm run dev -w server\"",
     "start": "node server/dist/index.js",
-    "test": "npm run test -w server"
+    "test": "npm run test -w server && npm run test -w web"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

@@ -502,13 +502,28 @@ function maskPrinter(p: ReturnType<typeof listPrinters>[number]) {
   return { ...p, apiKey: p.apiKey ? '••••••••' : undefined, hasApiKey: !!p.apiKey };
 }
 
-function validateSliceRequest(body: SliceRequest) {
+/** Validate a 4x4 transform: exactly 16 finite numbers. */
+function isTransform(t: unknown): t is number[] {
+  return Array.isArray(t) && t.length === 16 && t.every((v) => typeof v === 'number' && Number.isFinite(v));
+}
+
+export function validateSliceRequest(body: SliceRequest) {
   if (!body || typeof body !== 'object') throw new Error('body required');
   if (!Array.isArray(body.objects) || !body.objects.length) throw new Error('at least one object required');
   const isId = (id: unknown) => typeof id === 'string' && /^[0-9a-f-]{36}$/i.test(id);
   for (const o of body.objects) {
     if (!isId(o.modelId)) throw new Error('invalid modelId');
     if (!Array.isArray(o.transform) || o.transform.length !== 16) throw new Error('transform must have 16 entries');
+    if (o.instances !== undefined) {
+      if (!Array.isArray(o.instances) || !o.instances.length || o.instances.length > 1000) throw new Error('instances must have 1-1000 entries');
+      for (const t of o.instances) {
+        if (!isTransform(t)) throw new Error('every instance must be a transform with 16 finite numbers');
+      }
+      // keep the first instance in sync with the legacy field
+      o.transform = o.instances[0];
+    } else {
+      for (const v of o.transform) if (typeof v !== 'number' || !Number.isFinite(v)) throw new Error('transform must contain 16 finite numbers');
+    }
     for (const key of ['supportPaint', 'seamPaint'] as const) {
       const p = o[key];
       if (p !== undefined && (typeof p !== 'string' || p.length > 2_000_000 || !/^[048]*$/.test(p))) throw new Error(`invalid ${key}`);
@@ -523,7 +538,7 @@ function validateSliceRequest(body: SliceRequest) {
     }
     for (const v of o.volumes || []) {
       if (!isId(v.modelId)) throw new Error('invalid volume modelId');
-      if (!Array.isArray(v.transform) || v.transform.length !== 16) throw new Error('volume transform must have 16 entries');
+      if (!isTransform(v.transform)) throw new Error('volume transform must have 16 entries');
       if (!VOLUME_TYPES.includes(v.type)) throw new Error(`invalid volume type ${v.type}`);
     }
   }

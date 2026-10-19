@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { build3mf, read3mfProject, transformMesh, transformTo3mf, type Mesh } from './threemf.js';
+import { build3mf, read3mfProject, transformFrom3mf, transformMesh, transformTo3mf, type Mesh } from './threemf.js';
 
 function cube(size: number): Mesh {
   const s = size;
@@ -121,4 +121,154 @@ test('custom G-codes per print Z roundtrip', async () => {
   const buf = await build3mf([{ name: 'c', mesh: cube(10), transform: I }], { customGcodes: codes });
   const proj = await read3mfProject(buf);
   assert.equal(proj.customGcodes.length, 3);
+});
+
+/** Column-major translation matrix (three.js Matrix4.elements order). */
+function translate(x: number, y: number, z: number): number[] {
+  return [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, x, y, z, 1];
+}
+
+/** 3MF transform string of a column-major matrix, parsed back into numbers. */
+async function readItems(buf: Buffer): Promise<Array<{ objectId: string; transform: number[] }>> {
+  const JSZip = (await import('jszip')).default;
+  const model = await (await JSZip.loadAsync(buf)).file('3D/3dmodel.model')!.async('string');
+  const build = /<build\b[^>]*>([\s\S]*?)<\/build>/.exec(model)![1];
+  const out: Array<{ objectId: string; transform: number[] }> = [];
+  const re = /<item\b([^>]*)\/?>/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(build))) {
+    out.push({
+      objectId: /\bobjectid="([^"]+)"/.exec(m[1])![1],
+      transform: (/\btransform="([^"]+)"/.exec(m[1])?.[1] || '').split(' ').map(Number),
+    });
+  }
+  return out;
+}
+
+const closeTo = (a: number[], b: number[], tol = 1e-6) => {
+  assert.equal(a.length, b.length);
+  a.forEach((v, i) => assert.ok(Math.abs(v - b[i]) <= tol, `${i}: ${v} != ${b[i]}`));
+};
+
+/** three.js Matrix4.elements of a rotation of `deg` about Z plus the translation (x, y, z). */
+function rotZ(deg: number, x = 0, y = 0, z = 0): number[] {
+  const a = (deg * Math.PI) / 180;
+  const c = Math.cos(a);
+  const s = Math.sin(a);
+  // column-major: [m00,m10,m20,m30, m01,m11,m21,m31, m02,m12,m22,m32, m03,m13,m23,m33]
+  return [c, s, 0, 0, -s, c, 0, 0, 0, 0, 1, 0, x, y, z, 1];
+}
+
+test('3MF transform round trip keeps a rotation (not its transpose)', async () => {
+  // a 90 deg rotation about Z is the case that distinguishes R from R^T: the translation-only
+  // tests above cannot see the difference
+  const m = rotZ(90, 5, 0, 1);
+  const buf = await build3mf([{ name: 'cube', mesh: cube(20), transform: m, instances: [m] }]);
+  const view = await readItems(buf);
+  // the string is the 4x3 row-major form: the first 9 numbers are the rows of R
+  closeTo([...view[0].transform.slice(0, 3), ...view[0].transform.slice(3, 6)], [0, 1, 0, -1, 0, 0], 1e-3);
+  closeTo(view[0].transform.slice(9), [5, 0, 1], 1e-3);
+  const proj = await read3mfProject(buf);
+  closeTo(proj.objects[0].instances[0], m, 1e-3);
+  // and applying the parsed matrix to the +X axis really gives +Y (three.js' reading of the file)
+  const e = proj.objects[0].instances[0];
+  closeTo([e[0], e[1], e[2]], [0, 1, 0], 1e-3);
+});
+
+test('3MF transform parser handles arbitrary row-major strings', async () => {
+  // m00 m01 m02 | m10 m11 m12 | m20 m21 m22 | m30 m31 m32  (row-major, translation in the last row)
+  // three.js elements are the transpose: the 3x3 block maps straight across, translation -> e12-14
+  closeTo(transformFrom3mf('0 1 0 -1 0 0 0 0 1 7 8 9'), [0, 1, 0, 0, -1, 0, 0, 0, 0, 0, 1, 0, 7, 8, 9, 1]);
+  closeTo(transformFrom3mf('1 0 0 0 1 0 0 0 1 2 3 4'), translate(2, 3, 4));
+  closeTo(transformFrom3mf('  '), I);
+});
+
+test('3MF writer emits one item per instance and instances_count', async () => {
+  const instances = [translate(10, 0, 0), translate(0, 20, 0), translate(30, 30, 0)];
+  const buf = await build3mf([{ name: 'cube', mesh: cube(20), transform: instances[0], instances }]);
+  const items = await readItems(buf);
+  assert.equal(items.length, 3);
+  assert.deepEqual(items.map((i) => i.objectId), ['1', '1', '1']);
+  // 3MF item transform: 9 matrix values then the translation
+  assert.deepEqual(
+    items.map((i) => i.transform.slice(9)),
+    [
+      [10, 0, 0],
+      [0, 20, 0],
+      [30, 30, 0],
+    ],
+  );
+  const JSZip = (await import('jszip')).default;
+  const mc = await (await JSZip.loadAsync(buf)).file('Metadata/Slic3r_PE_model.config')!.async('string');
+  assert.ok(mc.includes('instances_count="3"'), mc);
+});
+
+test('3MF writer keeps the object mesh in object coordinates with instances', async () => {
+  const buf = await build3mf([{ name: 'cube', mesh: cube(20), transform: translate(10, 0, 0), instances: [translate(10, 0, 0), translate(40, 0, 0)] }]);
+  const JSZip = (await import('jszip')).default;
+  const model = await (await JSZip.loadAsync(buf)).file('3D/3dmodel.model')!.async('string');
+  // the resource mesh is untouched: a 20 mm cube starting at the origin
+  assert.ok(/<vertex x="0" y="0" z="0"\/>/.test(model), model.slice(0, 1200));
+  assert.ok(/<vertex x="20" y="20" z="20"\/>/.test(model));
+  const items = await readItems(buf);
+  assert.deepEqual(items.map((i) => i.transform[9]), [10, 40]);
+});
+
+test('3MF reader returns instance transforms and build order', async () => {
+  const instances = [translate(10, 0, 0), translate(0, 20, 0), translate(30, 30, 0)];
+  const buf = await build3mf([{ name: 'cube', mesh: cube(20), transform: instances[0], instances }]);
+  const proj = await read3mfProject(buf);
+  assert.equal(proj.objects.length, 1);
+  assert.equal(proj.objects[0].instances.length, 3);
+  proj.objects[0].instances.forEach((m, i) => closeTo(m, instances[i]));
+  assert.deepEqual(proj.buildOrder, [0, 0, 0]);
+});
+
+test('3MF reader without instances returns a single identity transform in build order', async () => {
+  const buf = await build3mf([{ name: 'cube', mesh: cube(20), transform: I }]);
+  const proj = await read3mfProject(buf);
+  assert.equal(proj.objects[0].instances.length, 1);
+  closeTo(proj.objects[0].instances[0], I);
+  assert.deepEqual(proj.buildOrder, [0]);
+});
+
+test('3MF reader maps mixed objects (A with 2 instances, B with 1) in build order', async () => {
+  const a = [translate(10, 10, 0), translate(40, 10, 0)];
+  const b = translate(10, 60, 0);
+  const buf = await build3mf([
+    { name: 'A', mesh: cube(20), transform: a[0], instances: a },
+    { name: 'B', mesh: cube(15), transform: b },
+  ]);
+  const items = await readItems(buf);
+  assert.deepEqual(items.map((i) => i.objectId), ['1', '1', '2']);
+  const proj = await read3mfProject(buf);
+  assert.equal(proj.objects.length, 2);
+  assert.equal(proj.objects[0].instances.length, 2);
+  assert.equal(proj.objects[1].instances.length, 1);
+  proj.objects[0].instances.forEach((m, i) => closeTo(m, a[i]));
+  closeTo(proj.objects[1].instances[0], b);
+  assert.deepEqual(proj.buildOrder, [0, 0, 1]);
+});
+
+test('3MF reader treats an item without transform as identity', async () => {
+  const JSZip = (await import('jszip')).default;
+  const buf = await build3mf([{ name: 'cube', mesh: cube(20), transform: translate(10, 10, 0) }]);
+  const zip = await JSZip.loadAsync(buf);
+  const model = await zip.file('3D/3dmodel.model')!.async('string');
+  zip.file('3D/3dmodel.model', model.replace(/\s+transform="[^"]*"/, ''));
+  const stripped = await zip.generateAsync({ type: 'nodebuffer' });
+  const proj = await read3mfProject(stripped);
+  assert.equal(proj.objects[0].instances.length, 1);
+  closeTo(proj.objects[0].instances[0], I);
+});
+
+test('3MF reader keeps identity instances for an object without build items', async () => {
+  const buf = await build3mf([{ name: 'cube', mesh: cube(20), transform: I }]);
+  const JSZip = (await import('jszip')).default;
+  const zip = await JSZip.loadAsync(buf);
+  const model = await zip.file('3D/3dmodel.model')!.async('string');
+  zip.file('3D/3dmodel.model', model.replace(/<build>[\s\S]*?<\/build>/, '<build></build>'));
+  const proj = await read3mfProject(await zip.generateAsync({ type: 'nodebuffer' }));
+  assert.deepEqual(proj.objects[0].instances, []);
+  assert.deepEqual(proj.buildOrder, []);
 });

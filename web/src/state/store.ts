@@ -23,6 +23,7 @@ import { parseThumbnailSpec, type ThumbnailSpec } from '../three/thumbnail';
 import { importFiles } from '../importFiles';
 import { decodeMmu, decodePaint, encodeMmu, encodePaint, remapPaint, subdivideForPainting, type PaintKind } from '../three/paint';
 import { decodeVector, resizeVector, toBool, unescapeStringsCstyle } from '../values';
+import { fillCount, packShelf, type PackItem } from '../plater/packing';
 import type { ParsedGcode } from '../gcode/types';
 import type { PreviewColorMode } from '../gcode/colorschemes';
 
@@ -44,15 +45,22 @@ export interface PlaterVolume {
   triangles: number;
 }
 
+/** One copy of an object: shares geometry, volumes and paint with its siblings, owns its transform. */
+export interface PlaterInstance {
+  id: string;
+  position: [number, number, number];
+  rotation: [number, number, number];
+  scale: [number, number, number];
+}
+
 export interface PlaterObject {
   id: string;
   name: string;
   geometry: THREE.BufferGeometry;
   modelId?: string;
   uploadError?: string;
-  position: [number, number, number];
-  rotation: [number, number, number];
-  scale: [number, number, number];
+  /** copies of this object; always at least one, instance 1 is the object's main placement */
+  instances: PlaterInstance[];
   /** base size (unscaled bounding box) */
   size: [number, number, number];
   config: Config;
@@ -136,6 +144,8 @@ interface State {
   selectedIds: string[];
   /** selected sub-volume (belongs to the single selected object) */
   selectedVolumeId?: string;
+  /** selected copy of the single selected object; undefined means its first instance */
+  selectedInstanceId?: string;
   transformMode: 'translate' | 'rotate' | 'scale';
   /** "Place on face" tool: the next click on an object face lays that face flat on the bed */
   placeOnFace: boolean;
@@ -222,6 +232,7 @@ interface State {
       config?: Config;
       extruder?: number;
       volumes?: NewVolumeInput[];
+      instances?: Array<{ position: [number, number, number]; rotation: [number, number, number]; scale: [number, number, number] }>;
       supportPaint?: string;
       seamPaint?: string;
       mmuPaint?: string;
@@ -234,13 +245,28 @@ interface State {
   removeVolume: (objectId: string, volumeId: string) => void;
   selectVolume: (objectId: string, volumeId?: string) => void;
   uploadVolume: (objectId: string, v: PlaterVolume) => Promise<void>;
-  updateObject: (id: string, patch: Partial<PlaterObject>) => void;
+  updateObject: (id: string, patch: Partial<Omit<PlaterObject, 'instances'>>) => void;
+  /** change the transform of a single instance of an object */
+  updateInstance: (objectId: string, instanceId: string, patch: Partial<Pick<PlaterInstance, 'position' | 'rotation' | 'scale'>>) => void;
+  selectInstance: (objectId: string, instanceId: string) => void;
+  /** add `count` copies of the first instance and arrange them on the bed */
+  addInstances: (objectId: string, count?: number) => void;
+  /** remove one instance (default: the last); does nothing on the last remaining instance */
+  removeInstance: (objectId: string, instanceId?: string) => void;
+  /** set the number of instances of an object (1-1000), adding or removing from the end */
+  setInstanceCount: (objectId: string, n: number) => void;
+  /** add as many copies of the selected instance as fit on the bed */
+  fillBedWithInstances: (objectId: string) => void;
+  /** turn one instance into an independent object (like Duplicate) and drop it from the original */
+  instanceToObject: (objectId: string, instanceId: string) => void;
+
   removeObjects: (ids: string[]) => void;
   clearObjects: () => void;
   duplicateObjects: (ids: string[]) => Promise<void>;
   select: (ids: string[], additive?: boolean) => void;
   setTransformMode: (m: State['transformMode']) => void;
-  arrange: () => void;
+  /** arrange every instance on the bed; false (and no change) when they do not all fit */
+  arrange: () => boolean;
   dropToBed: (id: string) => void;
 
   buildSliceRequest: () => SliceRequest;
@@ -302,6 +328,13 @@ export function isModified(slot: PresetSlot): boolean {
 
 const LS_KEY = 'webslicer.selection';
 
+/** Placement used for a mesh that arrives without an item transform (STL, OBJ, plain 3MF). */
+const IDENTITY_PLACEMENT: { position: [number, number, number]; rotation: [number, number, number]; scale: [number, number, number] } = {
+  position: [0, 0, 0],
+  rotation: [0, 0, 0],
+  scale: [1, 1, 1],
+};
+
 function loadSelection(): { print?: string; filament?: string[]; printer?: string; mode?: Mode } {
   try {
     return JSON.parse(localStorage.getItem(LS_KEY) || '{}');
@@ -321,10 +354,11 @@ function saveSelection(s: State) {
   }
 }
 
-export function objectMatrix(o: PlaterObject): THREE.Matrix4 {
+/** World matrix of one instance of an object. */
+export function instanceMatrix(inst: Pick<PlaterInstance, 'position' | 'rotation' | 'scale'>): THREE.Matrix4 {
   const m = new THREE.Matrix4();
-  const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(o.rotation[0], o.rotation[1], o.rotation[2], 'XYZ'));
-  m.compose(new THREE.Vector3(...o.position), q, new THREE.Vector3(...o.scale));
+  const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(inst.rotation[0], inst.rotation[1], inst.rotation[2], 'XYZ'));
+  m.compose(new THREE.Vector3(...inst.position), q, new THREE.Vector3(...inst.scale));
   return m;
 }
 
@@ -335,19 +369,57 @@ export function volumeMatrix(v: PlaterVolume): THREE.Matrix4 {
   return m;
 }
 
-/** World-space bounds of the printable parts (main mesh + ModelPart volumes). */
-export function objectBounds(o: PlaterObject): THREE.Box3 {
+/** The instance a selection refers to: the selected one, or the object's first instance. */
+export function selectedInstance(state: { selectedIds: string[]; selectedInstanceId?: string }, o: PlaterObject): PlaterInstance {
+  const id = state.selectedIds.length === 1 && state.selectedIds[0] === o.id ? state.selectedInstanceId : undefined;
+  return o.instances.find((i) => i.id === id) || o.instances[0];
+}
+
+/**
+ * The instance the user picked explicitly, if any: clicking an instance in the view, its row in the
+ * object list or one of the instance buttons sets this. Selecting the object row alone does not, which
+ * is what tells Del apart ("remove this copy" versus "remove the object", AC-4.4).
+ */
+export function pickedInstanceId(state: { selectedIds: string[]; selectedInstanceId?: string }, o: PlaterObject): string | undefined {
+  if (state.selectedIds.length !== 1 || state.selectedIds[0] !== o.id) return undefined;
+  const id = state.selectedInstanceId;
+  return id && o.instances.some((i) => i.id === id) ? id : undefined;
+}
+
+/** World-space bounds of one instance (its own scale applies to the object's volumes too). */
+export function instanceBounds(o: PlaterObject, inst: PlaterInstance): THREE.Box3 {
   const box = new THREE.Box3();
   if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
-  const om = objectMatrix(o);
-  box.copy(o.geometry.boundingBox!).applyMatrix4(om);
+  const im = instanceMatrix(inst);
+  box.copy(o.geometry.boundingBox!).applyMatrix4(im);
   for (const v of o.volumes || []) {
     if (v.type !== 'ModelPart') continue;
     if (!v.geometry.boundingBox) v.geometry.computeBoundingBox();
-    const vb = new THREE.Box3().copy(v.geometry.boundingBox!).applyMatrix4(volumeMatrix(v)).applyMatrix4(om);
+    const vb = new THREE.Box3().copy(v.geometry.boundingBox!).applyMatrix4(volumeMatrix(v)).applyMatrix4(im);
     box.union(vb);
   }
   return box;
+}
+
+/** World-space bounds of all instances (for whole-object checks). */
+export function objectBounds(o: PlaterObject): THREE.Box3 {
+  const box = new THREE.Box3();
+  for (const inst of o.instances) box.union(instanceBounds(o, inst));
+  return box;
+}
+
+/** next id of a plater object, same `obj-N` pattern as volumes, ranges and instances */
+function mintObjectId(): string {
+  return `obj-${++objectId}`;
+}
+
+/**
+ * Clearance kept between two arranged items. With sequential printing the extruder has to reach
+ * around every object, so the extruder clearance radius applies; otherwise a small fixed gap.
+ */
+function arrangementSpacing(printCfg: Config): number {
+  const radius = Number(printCfg.extruder_clearance_radius);
+  return radius > 0 && toBool(printCfg.complete_objects) ? radius : 6;
 }
 
 function geometrySize(g: THREE.BufferGeometry): [number, number, number] {
@@ -362,6 +434,7 @@ function triangleCount(g: THREE.BufferGeometry): number {
 
 let volumeId = 0;
 let rangeId = 0;
+let instanceId = 0;
 
 /**
  * Build a PlaterVolume from an input. `offset` is the translation that was applied to the
@@ -738,25 +811,38 @@ export const useStore = create<State>((set, get) => ({
     for (const it of items) {
       const g = it.geometry;
       g.computeBoundingBox();
-      const bb = g.boundingBox!;
+      // Snapshot the box as numbers: `g.boundingBox` is the geometry's live Box3, and the recompute
+      // below would overwrite what the offset has to be measured against.
+      const box = g.boundingBox!;
+      const lo: [number, number, number] = [box.min.x, box.min.y, box.min.z];
+      const hi: [number, number, number] = [box.max.x, box.max.y, box.max.z];
       // normalize: center XY at origin, min Z at 0
-      const cx = (bb.min.x + bb.max.x) / 2;
-      const cy = (bb.min.y + bb.max.y) / 2;
-      g.translate(-cx, -cy, -bb.min.z);
+      const c: [number, number, number] = [(lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, lo[2]];
+      g.translate(-c[0], -c[1], -c[2]);
       g.computeBoundingBox();
       g.computeVertexNormals();
-      const size: [number, number, number] = [bb.max.x - bb.min.x, bb.max.y - bb.min.y, bb.max.z - bb.min.z];
+      const size: [number, number, number] = [hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]];
       const pos = g.getAttribute('position');
       const tri = g.getIndex() ? g.getIndex()!.count / 3 : pos.count / 3;
-      const id = `obj-${++objectId}`;
-      const offset: [number, number, number] = [-cx, -cy, -bb.min.z];
+      const id = mintObjectId();
+      const offset: [number, number, number] = [-c[0], -c[1], -c[2]];
       created.push({
         id,
         name: it.name,
         geometry: g,
-        position: opts.keepPositions ? [cx, cy, 0] : [(bed.min[0] + bed.max[0]) / 2, (bed.min[1] + bed.max[1]) / 2, 0],
-        rotation: [0, 0, 0],
-        scale: [1, 1, 1],
+        // Instances place `geometry`, which was just moved by the offset c. A project import brings object
+        // coordinates (object at its own origin) plus one transform per build item, so the copy has to go
+        // back where the file had it: the instance matrix is T_j · Translate(c) and its position is
+        // therefore M_j · c – rotation and scale stay those of M_j. (A raw mesh comes in world-baked and
+        // carries no item transform, so M_j is the identity there and the copy lands at the bed centre.)
+        instances: (it.instances?.length ? it.instances : [IDENTITY_PLACEMENT]).map((t) => ({
+          id: `inst-${++instanceId}`,
+          position: opts.keepPositions
+            ? (new THREE.Vector3(...c).applyMatrix4(instanceMatrix(t)).toArray() as [number, number, number])
+            : ([(bed.min[0] + bed.max[0]) / 2, (bed.min[1] + bed.max[1]) / 2, 0] as [number, number, number]),
+          rotation: [...t.rotation] as [number, number, number],
+          scale: [...t.scale] as [number, number, number],
+        })),
         size,
         config: { ...(it.config || {}) },
         extruder: it.extruder || 0,
@@ -770,7 +856,7 @@ export const useStore = create<State>((set, get) => ({
         ranges: (it.ranges || []).map((r) => ({ id: `rng-${++rangeId}`, minZ: r.minZ, maxZ: r.maxZ, config: { ...r.config } })),
       });
     }
-    set((st) => ({ objects: [...st.objects, ...created], selectedIds: created.map((c) => c.id), selectedVolumeId: undefined, sliceDirty: true }));
+    set((st) => ({ objects: [...st.objects, ...created], selectedIds: created.map((c) => c.id), selectedVolumeId: undefined, selectedInstanceId: undefined, sliceDirty: true }));
     if (!opts.keepPositions) get().arrange();
     // upload meshes
     for (const o of created) {
@@ -829,19 +915,28 @@ export const useStore = create<State>((set, get) => ({
   updateObject: (id, patch) =>
     set((s) => ({ objects: s.objects.map((o) => (o.id === id ? { ...o, ...patch } : o)), sliceDirty: true })),
 
+  updateInstance: (objectId, instId, patch) =>
+    set((s) => ({
+      objects: s.objects.map((o) => (o.id === objectId ? { ...o, instances: o.instances.map((i) => (i.id === instId ? { ...i, ...patch } : i)) } : o)),
+      sliceDirty: true,
+    })),
+
+  selectInstance: (objectId, instId) => set({ selectedIds: [objectId], selectedInstanceId: instId, selectedVolumeId: undefined }),
+
   removeObjects: (ids) => {
     get().recordHistory();
     set((s) => ({
       objects: s.objects.filter((o) => !ids.includes(o.id)),
       selectedIds: s.selectedIds.filter((i) => !ids.includes(i)),
       selectedVolumeId: undefined,
+      selectedInstanceId: undefined,
       sliceDirty: true,
     }));
   },
 
   clearObjects: () => {
     get().recordHistory();
-    set({ objects: [], selectedIds: [], selectedVolumeId: undefined, sliceDirty: true, gcode: undefined, gcodeJobId: undefined, customGcodes: [], previewColorMode: 'feature' });
+    set({ objects: [], selectedIds: [], selectedVolumeId: undefined, selectedInstanceId: undefined, sliceDirty: true, gcode: undefined, gcodeJobId: undefined, customGcodes: [], previewColorMode: 'feature' });
   },
 
   duplicateObjects: async (ids) => {
@@ -850,19 +945,20 @@ export const useStore = create<State>((set, get) => ({
     const items = s.objects.filter((o) => ids.includes(o.id));
     const created: PlaterObject[] = items.map((o) => ({
       ...o,
-      id: `obj-${++objectId}`,
-      position: [o.position[0] + 10, o.position[1] + 10, o.position[2]],
+      id: mintObjectId(),
+      // independent copies: every instance gets its own transform (and id), offset like PrusaSlicer's duplicate
+      instances: o.instances.map((i) => ({ ...i, id: `inst-${++instanceId}`, position: [i.position[0] + 10, i.position[1] + 10, i.position[2]] })),
       config: { ...o.config },
       volumes: o.volumes.map((v) => ({ ...v, id: `vol-${++volumeId}`, config: { ...v.config } })),
       paint: o.paint ? { supports: o.paint.supports?.slice(), seam: o.paint.seam?.slice(), mmu: o.paint.mmu?.slice() } : undefined,
       ranges: o.ranges.map((r) => ({ ...r, id: `rng-${++rangeId}`, config: { ...r.config } })),
     }));
-    set((st) => ({ objects: [...st.objects, ...created], selectedIds: created.map((c) => c.id), selectedVolumeId: undefined, sliceDirty: true }));
+    set((st) => ({ objects: [...st.objects, ...created], selectedIds: created.map((c) => c.id), selectedVolumeId: undefined, selectedInstanceId: undefined, sliceDirty: true }));
     get().arrange();
   },
 
   select: (ids, additive = false) =>
-    set((s) => ({ selectedIds: additive ? Array.from(new Set([...s.selectedIds, ...ids])) : ids, selectedVolumeId: undefined })),
+    set((s) => ({ selectedIds: additive ? Array.from(new Set([...s.selectedIds, ...ids])) : ids, selectedVolumeId: undefined, selectedInstanceId: undefined })),
 
   setTransformMode: (transformMode) => set({ transformMode, placeOnFace: false }),
 
@@ -905,7 +1001,7 @@ export const useStore = create<State>((set, get) => ({
     if (!o) return;
     get().recordHistory();
     const top = o.ranges.reduce((m, r) => Math.max(m, r.maxZ), 0);
-    const h = o.size[2] * o.scale[2];
+    const h = o.size[2] * selectedInstance(get(), o).scale[2];
     const minZ = Math.min(top, h);
     const maxZ = Math.min(h, minZ + Math.max(2, h / 4));
     const r: LayerRange = {
@@ -1011,64 +1107,190 @@ export const useStore = create<State>((set, get) => ({
     if (n.lengthSq() < 0.5) return;
     const down = new THREE.Vector3(0, 0, -1);
     const q = new THREE.Quaternion().setFromUnitVectors(n, down);
-    const cur = new THREE.Quaternion().setFromEuler(new THREE.Euler(o.rotation[0], o.rotation[1], o.rotation[2], 'XYZ'));
+    const inst = selectedInstance(get(), o);
+    const cur = new THREE.Quaternion().setFromEuler(new THREE.Euler(inst.rotation[0], inst.rotation[1], inst.rotation[2], 'XYZ'));
     const next = q.multiply(cur);
     const e = new THREE.Euler().setFromQuaternion(next, 'XYZ');
-    get().updateObject(id, { rotation: [e.x, e.y, e.z] });
+    get().updateInstance(id, inst.id, { rotation: [e.x, e.y, e.z] });
     get().dropToBed(id);
     set({ placeOnFace: false });
   },
 
   dropToBed: (id) => {
-    const o = get().objects.find((x) => x.id === id);
+    const s = get();
+    const o = s.objects.find((x) => x.id === id);
     if (!o) return;
-    const box = objectBounds(o);
-    if (Math.abs(box.min.z) > 1e-6) get().updateObject(id, { position: [o.position[0], o.position[1], o.position[2] - box.min.z] });
+    const inst = selectedInstance(s, o);
+    const box = instanceBounds(o, inst);
+    if (Math.abs(box.min.z) > 1e-6) get().updateInstance(id, inst.id, { position: [inst.position[0], inst.position[1], inst.position[2] - box.min.z] });
   },
 
   arrange: () => {
-    get().recordHistory();
     const s = get();
     const bed = bedShapeOf(s.presets.printer.current);
-    const spacing = Number(s.presets.print.current.extruder_clearance_radius) > 0 && toBool(s.presets.print.current.complete_objects) ? Number(s.presets.print.current.extruder_clearance_radius) : 6;
-    const items = s.objects.map((o) => {
-      const box = objectBounds(o);
-      return { o, w: box.max.x - box.min.x + spacing, h: box.max.y - box.min.y + spacing, box };
-    });
-    // Shelf packing, largest first
-    items.sort((a, b) => b.w * b.h - a.w * a.h);
-    const bedW = bed.max[0] - bed.min[0];
-    const bedH = bed.max[1] - bed.min[1];
-    const rows: Array<{ y: number; h: number; x: number; items: typeof items }> = [];
-    for (const it of items) {
-      let row = rows.find((r) => r.x + it.w <= bedW && it.h <= r.h * 1.5);
-      if (!row) {
-        const y = rows.reduce((acc, r) => acc + r.h, 0);
-        row = { y, h: it.h, x: 0, items: [] };
-        rows.push(row);
+    const spacing = arrangementSpacing(s.presets.print.current);
+    // every instance is an item of its own (footprint = its own bounds incl. the spacing)
+    const items: Array<{ o: PlaterObject; inst: PlaterInstance; box: THREE.Box3; w: number; h: number; key: string }> = [];
+    for (const o of s.objects) {
+      for (const inst of o.instances) {
+        const box = instanceBounds(o, inst);
+        items.push({ o, inst, box, w: box.max.x - box.min.x + spacing, h: box.max.y - box.min.y + spacing, key: `${o.id}:${inst.id}` });
       }
-      row.items.push(it);
-      row.h = Math.max(row.h, it.h);
-      row.x += it.w;
     }
-    const totalH = rows.reduce((acc, r) => acc + r.h, 0);
-    let y = bed.min[1] + (bedH - totalH) / 2;
+    const packed = packShelf(
+      items.map((it) => ({ id: it.key, width: it.w, height: it.h }) satisfies PackItem),
+      bed,
+    );
+    if (!packed) {
+      // nothing fits: report it and leave the plater untouched (checked before recording history)
+      s.toast('error', 'Not all objects fit on the bed');
+      return false;
+    }
+    get().recordHistory();
+    const byKey = new Map(items.map((it) => [it.key, it]));
     const updates = new Map<string, [number, number, number]>();
-    for (const row of rows) {
-      const rowW = row.items.reduce((acc, i) => acc + i.w, 0);
-      let x = bed.min[0] + (bedW - rowW) / 2;
-      for (const it of row.items) {
-        const cx = x + it.w / 2;
-        const cy = y + row.h / 2;
-        const curCx = (it.box.min.x + it.box.max.x) / 2;
-        const curCy = (it.box.min.y + it.box.max.y) / 2;
-        updates.set(it.o.id, [it.o.position[0] + (cx - curCx), it.o.position[1] + (cy - curCy), it.o.position[2] - it.box.min.z]);
-        x += it.w;
-      }
-      y += row.h;
+    for (const p of packed) {
+      const it = byKey.get(p.id)!;
+      const curCx = (it.box.min.x + it.box.max.x) / 2;
+      const curCy = (it.box.min.y + it.box.max.y) / 2;
+      updates.set(it.key, [it.inst.position[0] + (p.x - curCx), it.inst.position[1] + (p.y - curCy), it.inst.position[2] - it.box.min.z]);
     }
     set((st) => ({
-      objects: st.objects.map((o) => (updates.has(o.id) ? { ...o, position: updates.get(o.id)! } : o)),
+      objects: st.objects.map((o) => {
+        if (!o.instances.some((i) => updates.has(`${o.id}:${i.id}`))) return o;
+        return { ...o, instances: o.instances.map((i) => (updates.has(`${o.id}:${i.id}`) ? { ...i, position: updates.get(`${o.id}:${i.id}`)! } : i)) };
+      }),
+      sliceDirty: true,
+    }));
+    return true;
+  },
+
+  addInstances: (objectId, count = 1) => {
+    const s0 = get();
+    const o = s0.objects.find((x) => x.id === objectId);
+    if (!o || !Number.isFinite(count) || count < 1) return;
+    const add = Math.min(Math.floor(count), 1000 - o.instances.length);
+    if (add < 1) {
+      s0.toast('info', `${o.name} already has the maximum of 1000 instances`);
+      return;
+    }
+    const template = selectedInstance(s0, o);
+    const added: PlaterInstance[] = Array.from({ length: add }, () => ({
+      id: `inst-${++instanceId}`,
+      position: [...template.position] as [number, number, number],
+      rotation: [...template.rotation] as [number, number, number],
+      scale: [...template.scale] as [number, number, number],
+    }));
+    const preview = { ...o, instances: [...o.instances, ...added] };
+    const rest = s0.objects.filter((x) => x.id !== objectId);
+    const bed = bedShapeOf(s0.presets.printer.current);
+    const spacing = arrangementSpacing(s0.presets.print.current);
+    const item = (obj: PlaterObject, i: PlaterInstance, key: string): PackItem => {
+      const b = instanceBounds(obj, i);
+      return { id: key, width: b.max.x - b.min.x + spacing, height: b.max.y - b.min.y + spacing };
+    };
+    const layout = [...rest, preview].flatMap((obj) => obj.instances.map((i, k) => item(obj, i, `${obj.id}:${i.id}:${k}`)));
+    if (!packShelf(layout, bed)) {
+      // the copies would be born off the bed; refuse instead of leaving an unprintable plater
+      s0.toast('error', `Not enough room on the bed for ${add > 1 ? `${add} more instances` : 'another instance'} of ${o.name}`);
+      return;
+    }
+    get().recordHistory();
+    set((s) => ({
+      objects: s.objects.map((x) => (x.id === objectId ? { ...x, instances: [...x.instances, ...added] } : x)),
+      selectedIds: [objectId],
+      selectedInstanceId: added[0].id,
+      selectedVolumeId: undefined,
+      sliceDirty: true,
+    }));
+    // AC-1.1: the new copies go to free bed space
+    get().arrange();
+  },
+
+  removeInstance: (objectId, instId) => {
+    const s = get();
+    const o = s.objects.find((x) => x.id === objectId);
+    if (!o || o.instances.length <= 1) return; // AC-1.2: the last instance stays
+    const target = instId ? o.instances.find((i) => i.id === instId) : o.instances[o.instances.length - 1];
+    if (!target) return;
+    get().recordHistory();
+    const kept = o.instances.filter((i) => i.id !== target.id);
+    set((s2) => ({
+      objects: s2.objects.map((x) => (x.id === objectId ? { ...x, instances: x.instances.filter((i) => i.id !== target.id) } : x)),
+      selectedInstanceId: s2.selectedInstanceId === target.id ? kept[kept.length - 1].id : s2.selectedInstanceId,
+      sliceDirty: true,
+    }));
+  },
+
+  setInstanceCount: (objectId, n) => {
+    const s = get();
+    const o = s.objects.find((x) => x.id === objectId);
+    if (!o) return;
+    if (!Number.isInteger(n) || n < 1 || n > 1000) return; // AC-2.1: invalid input changes nothing
+    if (n === o.instances.length) return;
+    if (n < o.instances.length) {
+      get().recordHistory();
+      const kept = o.instances.slice(0, n);
+      set((s2) => ({
+        objects: s2.objects.map((x) => (x.id === objectId ? { ...x, instances: x.instances.slice(0, n) } : x)),
+        selectedInstanceId: kept.some((i) => i.id === s2.selectedInstanceId) ? s2.selectedInstanceId : kept[kept.length - 1].id,
+        sliceDirty: true,
+      }));
+      return;
+    }
+    get().addInstances(objectId, n - o.instances.length);
+  },
+
+  fillBedWithInstances: (objectId) => {
+    const s = get();
+    const o = s.objects.find((x) => x.id === objectId);
+    if (!o) return;
+    const bed = bedShapeOf(s.presets.printer.current);
+    const spacing = arrangementSpacing(s.presets.print.current);
+    // every instance currently on the bed is an occupied slot, `fillCount` returns the copies that still fit
+    const items: PackItem[] = [];
+    for (const other of s.objects) {
+      for (const oi of other.instances) {
+        const b = instanceBounds(other, oi);
+        items.push({ id: `${other.id}:${oi.id}`, width: b.max.x - b.min.x + spacing, height: b.max.y - b.min.y + spacing });
+      }
+    }
+    const box = instanceBounds(o, selectedInstance(s, o));
+    const capacity = Math.max(0, Math.min(1000 - o.instances.length, 1000 - items.length));
+    const n = fillCount(box.max.x - box.min.x + spacing, box.max.y - box.min.y + spacing, items, bed, capacity);
+    if (n < 1) {
+      s.toast('info', 'No room left for another copy');
+      return;
+    }
+    get().addInstances(objectId, n);
+  },
+
+  instanceToObject: (objectId, instId) => {
+    const s = get();
+    const o = s.objects.find((x) => x.id === objectId);
+    const inst = o?.instances.find((i) => i.id === instId);
+    if (!o || !inst) return;
+    get().recordHistory();
+    const src = o;
+    // AC-4.5: a deep copy like Duplicate, but only this instance's transform is kept
+    const created: PlaterObject = {
+      ...src,
+      id: mintObjectId(),
+      instances: [{ id: `inst-${++instanceId}`, position: [...inst.position], rotation: [...inst.rotation], scale: [...inst.scale] }],
+      config: { ...src.config },
+      volumes: src.volumes.map((v) => ({ ...v, id: `vol-${++volumeId}`, config: { ...v.config } })),
+      paint: src.paint ? { supports: src.paint.supports?.slice(), seam: src.paint.seam?.slice(), mmu: src.paint.mmu?.slice() } : undefined,
+      ranges: src.ranges.map((r) => ({ ...r, id: `rng-${++rangeId}`, config: { ...r.config } })),
+    };
+    // the original keeps its other instances; with only one it disappears (like PrusaSlicer's split)
+    const rest = src.instances.filter((i) => i.id !== inst.id);
+    set((st) => ({
+      objects: [...st.objects.filter((x) => x.id !== objectId || rest.length > 0), created].map((x) =>
+        x.id === objectId ? { ...x, instances: rest } : x,
+      ),
+      selectedIds: [created.id],
+      selectedInstanceId: created.instances[0].id,
+      selectedVolumeId: undefined,
       sliceDirty: true,
     }));
   },
@@ -1082,7 +1304,8 @@ export const useStore = create<State>((set, get) => ({
       .map((o) => ({
         modelId: o.modelId!,
         name: o.name,
-        transform: objectMatrix(o).elements.slice(),
+        transform: instanceMatrix(o.instances[0]).elements.slice(),
+        instances: o.instances.length > 1 ? o.instances.map((i) => instanceMatrix(i).elements.slice()) : undefined,
         config: Object.keys(o.config).length ? o.config : undefined,
         extruder: o.extruder || undefined,
         supportPaint: o.paint?.supports && o.paint.supports.some((x) => x) ? encodePaint(o.paint.supports) : undefined,
@@ -1317,7 +1540,7 @@ useStore.subscribe((s, prev) => {
     if (!st.objects.length || st.objects.some((o) => !o.modelId && !o.uploadError)) return;
     // cheap change key: object ids/transforms/config + preset names + modified state
     const key = JSON.stringify([
-      st.objects.map((o) => [o.id, o.position, o.rotation, o.scale, o.config, o.extruder, o.visible, o.volumes.map((v) => [v.id, v.type, v.position, v.rotation, v.scale, v.config])]),
+      st.objects.map((o) => [o.id, o.instances.map((i) => [i.id, i.position, i.rotation, i.scale]), o.config, o.extruder, o.visible, o.volumes.map((v) => [v.id, v.type, v.position, v.rotation, v.scale, v.config])]),
       st.presets.print.name,
       st.customGcodes,
       st.presets.printer.name,

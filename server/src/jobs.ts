@@ -30,7 +30,10 @@ export interface SliceVolumeInput {
 export interface SliceObjectInput {
   modelId: string;
   name: string;
+  /** transform of instance 1 (kept for older clients) */
   transform: number[];
+  /** all instance transforms (including the first) when the object has more than one instance */
+  instances?: number[][];
   config?: IniSection;
   extruder?: number;
   volumes?: SliceVolumeInput[];
@@ -256,6 +259,8 @@ export function mergeConfigs(schema: Schema, req: SliceRequest, opts: { forProje
 export async function build3mfForRequest(req: SliceRequest, projectConfig?: IniSection): Promise<Buffer> {
   const objects: ThreeMfObject[] = [];
   for (const o of req.objects) {
+    // old clients send only `transform`; newer ones list every instance (including the first)
+    const transforms = o.instances?.length ? o.instances : [o.transform];
     const file = path.join(config.modelsDir, `${o.modelId}.stl`);
     if (!fs.existsSync(file)) throw new Error(`Model ${o.modelId} not found on server; please re-upload`);
     const mesh = parseStl(fs.readFileSync(file));
@@ -274,7 +279,8 @@ export async function build3mfForRequest(req: SliceRequest, projectConfig?: IniS
     objects.push({
       name: o.name || 'object',
       mesh,
-      transform: o.transform,
+      transform: transforms[0],
+      instances: transforms.length > 1 ? transforms : undefined,
       config: o.config,
       extruder: o.extruder,
       volumes,

@@ -498,7 +498,8 @@ function AboutDialog({ onClose }: { onClose: () => void }) {
         PrusaSlicer is © Prusa Research, licensed under AGPL-3.0. WebSlicer is an independent project and is not affiliated with Prusa Research.
       </p>
       <p className="small">
-        Shortcuts: <kbd>M</kbd> move · <kbd>R</kbd> rotate · <kbd>S</kbd> scale · <kbd>A</kbd> arrange · <kbd>Del</kbd> delete · <kbd>Ctrl+A</kbd> select all
+        Shortcuts: <kbd>M</kbd> move · <kbd>R</kbd> rotate · <kbd>S</kbd> scale · <kbd>A</kbd> arrange · <kbd>+</kbd> add instance ·{' '}
+        <kbd>−</kbd> remove instance · <kbd>Del</kbd> delete · <kbd>Ctrl+A</kbd> select all
       </p>
     </Modal>
   );
