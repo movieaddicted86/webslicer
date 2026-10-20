@@ -1,262 +1,27 @@
-export type PresetType = 'print' | 'filament' | 'printer' | 'sla_print' | 'sla_material';
-export type OptionType =
-  | 'float'
-  | 'int'
-  | 'percent'
-  | 'float_or_percent'
-  | 'string'
-  | 'bool'
-  | 'enum'
-  | 'point'
-  | 'point3'
-  | 'points'
-  | 'floats'
-  | 'ints'
-  | 'bools'
-  | 'strings'
-  | 'percents'
-  | 'floats_or_percents';
+/**
+ * The API client. Every type it speaks lives in `@webslicer/shared` (R-2) and is re-exported here,
+ * so `import { type Schema } from './api'` keeps working and there is exactly one declaration of
+ * each type – shared by the browser and the server.
+ */
+import type {
+  Config,
+  CustomGcode,
+  InstalledPrinter,
+  JobEvent,
+  JobRecord,
+  LibraryEntry,
+  PhysicalPrinter,
+  PresetSummary,
+  PresetType,
+  ProjectObject,
+  ResolvedPreset,
+  Schema,
+  ServerInfo,
+  SliceRequest,
+  Vendor,
+} from '@webslicer/shared';
 
-export type Mode = 'simple' | 'advanced' | 'expert';
-export type Config = Record<string, string>;
-
-export interface OptionDef {
-  key: string;
-  label: string;
-  tooltip: string;
-  category: string;
-  type: OptionType;
-  default: string;
-  enumValues?: string[];
-  enumLabels?: string[];
-  sidetext?: string;
-  mode?: Mode;
-  presetTypes: PresetType[];
-  perExtruder?: boolean;
-  nullable?: boolean;
-  multiline?: boolean;
-  gcode?: boolean;
-  technology?: 'FFF' | 'SLA' | 'any';
-}
-
-export interface LayoutGroup {
-  title: string;
-  keys: string[];
-}
-export interface LayoutPage {
-  title: string;
-  groups: LayoutGroup[];
-}
-export interface TabLayout {
-  presetType: PresetType;
-  title: string;
-  pages: LayoutPage[];
-}
-
-export interface Schema {
-  slicerVersion: string;
-  options: Record<string, OptionDef>;
-  layout: TabLayout[];
-  presetKeys: Record<PresetType, string[]>;
-}
-
-export interface PresetSummary {
-  type: PresetType;
-  name: string;
-  system: boolean;
-  vendorId?: string;
-  vendorName?: string;
-  inherits?: string;
-  alias?: string;
-  printerModel?: string;
-  printerVariant?: string;
-  technology?: 'FFF' | 'SLA';
-  compatible?: boolean;
-}
-
-export interface ResolvedPreset extends PresetSummary {
-  config: Config;
-  overrides: Config;
-}
-
-export interface PrinterModel {
-  vendorId: string;
-  vendorName: string;
-  id: string;
-  name: string;
-  variants: string[];
-  technology: 'FFF' | 'SLA';
-  family: string;
-  bedModel?: string;
-  bedTexture?: string;
-  thumbnail?: string;
-  defaultMaterials: string[];
-}
-
-export interface Vendor {
-  id: string;
-  name: string;
-  configVersion?: string;
-  models: PrinterModel[];
-}
-
-export interface InstalledPrinter {
-  vendorId: string;
-  modelId: string;
-  variant: string;
-}
-
-export interface GcodeInfo {
-  generator?: string;
-  estimatedTime?: string;
-  estimatedTimeSeconds?: number;
-  estimatedFirstLayerTime?: string;
-  filamentUsedMm?: number[];
-  filamentUsedCm3?: number[];
-  filamentUsedG?: number[];
-  filamentCost?: number[];
-  totalFilamentG?: number;
-  totalFilamentCost?: number;
-  /** warnings PrusaSlicer printed while the job still produced a G-code */
-  warnings?: string[];
-  sizeBytes: number;
-}
-
-export type JobStatus = 'queued' | 'running' | 'done' | 'error' | 'cancelled';
-
-export interface JobRecord {
-  id: string;
-  status: JobStatus;
-  createdAt: string;
-  startedAt?: string;
-  finishedAt?: string;
-  percent: number;
-  message: string;
-  error?: string;
-  outputName: string;
-  technology: 'FFF' | 'SLA';
-  info?: GcodeInfo;
-  presets: { print: string; filaments: string[]; printer: string };
-  objectNames: string[];
-}
-
-export interface JobEvent {
-  type: 'progress' | 'log' | 'done' | 'error' | 'status';
-  percent?: number;
-  message?: string;
-  line?: string;
-  job?: JobRecord;
-}
-
-export type VolumeType = 'ModelPart' | 'ParameterModifier' | 'SupportEnforcer' | 'SupportBlocker' | 'NegativeVolume';
-
-export interface SliceVolumeInput {
-  modelId: string;
-  name: string;
-  type: VolumeType;
-  transform: number[];
-  config?: Config;
-  extruder?: number;
-}
-
-export interface SliceObjectInput {
-  modelId: string;
-  name: string;
-  /** transform of instance 1, kept for older servers */
-  transform: number[];
-  /** all instance transforms (including the first) when the object has more than one instance */
-  instances?: number[][];
-  config?: Config;
-  extruder?: number;
-  volumes?: SliceVolumeInput[];
-  supportPaint?: string;
-  seamPaint?: string;
-  /** one hex char per triangle = extruder index */
-  mmuPaint?: string;
-  ranges?: LayerRangeInput[];
-}
-
-export interface LayerRangeInput {
-  minZ: number;
-  maxZ: number;
-  config: Config;
-}
-
-export interface ProjectVolume {
-  name: string;
-  type: VolumeType;
-  first: number;
-  last: number;
-  config: Config;
-  extruder?: number;
-}
-
-export interface ProjectObject {
-  name: string;
-  config: Config;
-  extruder?: number;
-  /** instance transforms (column-major 4x4, includes the first) in build order */
-  instances: number[][];
-  volumes: ProjectVolume[];
-  supportPaint?: string;
-  seamPaint?: string;
-  mmuPaint?: string;
-  ranges?: LayerRangeInput[];
-}
-
-export type CustomGcodeType = 'color_change' | 'pause' | 'tool_change' | 'template' | 'custom';
-
-/** Custom G-code inserted before the layer at printZ (like PrusaSlicer's vertical slider "+") */
-export interface CustomGcode {
-  printZ: number;
-  type: CustomGcodeType;
-  extruder?: number;
-  color?: string;
-  extra?: string;
-}
-
-export interface ThumbnailInput {
-  width: number;
-  height: number;
-  format: 'PNG' | 'JPG' | 'QOI';
-  /** base64 image data */
-  data: string;
-}
-
-export interface SliceRequest {
-  objects: SliceObjectInput[];
-  /** previews rendered by the browser, embedded into the G-code by the server */
-  thumbnails?: ThumbnailInput[];
-  /** colour changes, pauses and custom G-code at layer heights */
-  customGcodes?: CustomGcode[];
-  print: { name: string; config: Config };
-  filaments: Array<{ name: string; config: Config }>;
-  printer: { name: string; config: Config };
-  outputName?: string;
-  binaryGcode?: boolean;
-}
-
-export interface PhysicalPrinter {
-  id: string;
-  name: string;
-  type: 'octoprint' | 'moonraker' | 'prusalink';
-  host: string;
-  apiKey?: string;
-  hasApiKey?: boolean;
-  presetName?: string;
-  /** accept self-signed HTTPS certificates */
-  ignoreTls?: boolean;
-}
-
-export interface ServerInfo {
-  version: string;
-  slicerVersion: string;
-  slicerBin: string;
-  resourcesDir?: string;
-  vendors: number;
-  maxJobs: number;
-  maxUploadBytes: number;
-}
+export type * from '@webslicer/shared';
 
 async function handle<T>(res: Response): Promise<T> {
   if (!res.ok) {
@@ -355,15 +120,6 @@ export const api = {
     return () => es.close();
   },
 };
-
-export interface LibraryEntry {
-  name: string;
-  path: string;
-  dir: boolean;
-  size?: number;
-  mtime?: string;
-  kind?: 'model' | 'project' | 'gcode' | 'other';
-}
 
 export const libraryApi = {
   list: (p: string) => fetch(`/api/library?path=${encodeURIComponent(p)}`).then((r) => handle<{ root: string; path: string; entries: LibraryEntry[] }>(r)),

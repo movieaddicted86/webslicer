@@ -3,70 +3,7 @@ import path from 'node:path';
 import { config } from '../config.js';
 import { getHelpText, getSlicerVersion } from './cli.js';
 import { LAYOUT_FFF, KNOWN_OPTIONS, PRINT_VECTOR_KEYS, PRINTER_VECTOR_KEYS, PRINTER_STRING_VECTOR_KEYS } from './layout.js';
-
-export type OptionType =
-  | 'float'
-  | 'int'
-  | 'percent'
-  | 'float_or_percent'
-  | 'string'
-  | 'bool'
-  | 'enum'
-  | 'point'
-  | 'point3'
-  | 'points'
-  | 'floats'
-  | 'ints'
-  | 'bools'
-  | 'strings'
-  | 'percents'
-  | 'floats_or_percents';
-
-export type PresetType = 'print' | 'filament' | 'printer' | 'sla_print' | 'sla_material';
-
-export interface OptionDef {
-  key: string;
-  label: string;
-  tooltip: string;
-  category: string;
-  type: OptionType;
-  default: string;
-  enumValues?: string[];
-  enumLabels?: string[];
-  sidetext?: string;
-  mode?: 'simple' | 'advanced' | 'expert';
-  /** Preset types this option belongs to */
-  presetTypes: PresetType[];
-  /** Value is one-per-extruder (filament / printer extruder options) */
-  perExtruder?: boolean;
-  nullable?: boolean;
-  multiline?: boolean;
-  gcode?: boolean;
-  /** Printer technology the option applies to */
-  technology: 'FFF' | 'SLA' | 'any';
-}
-
-export interface LayoutGroup {
-  title: string;
-  keys: string[];
-}
-export interface LayoutPage {
-  title: string;
-  groups: LayoutGroup[];
-}
-export interface TabLayout {
-  presetType: PresetType;
-  title: string;
-  pages: LayoutPage[];
-}
-
-export interface Schema {
-  slicerVersion: string;
-  options: Record<string, OptionDef>;
-  layout: TabLayout[];
-  /** keys per preset type (from vendor bundles + fallback) */
-  presetKeys: Record<PresetType, string[]>;
-}
+import type { LayoutGroup, LayoutPage, OptionDef, OptionType, PresetType, Schema, TabLayout } from '@webslicer/shared';
 
 interface RawHelpOption {
   key: string;

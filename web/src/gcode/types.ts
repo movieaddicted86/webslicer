@@ -1,4 +1,7 @@
 /** Kinds of G-code markers shown in the preview (PrusaSlicer's marker list). */
+
+import type { Bounds } from '@webslicer/shared';
+
 export type MarkerKind = 'retract' | 'deretract' | 'seam' | 'wipe' | 'tool_change' | 'color_change';
 
 /** Marker kinds in the order the parser stores them in `ParsedGcode.markerKind`. */
@@ -50,7 +53,7 @@ export interface ParsedGcode {
   /** first segment index per layer (length layerCount+1) */
   layerStart: Uint32Array;
   travelLayerStart: Uint32Array;
-  bbox: { min: [number, number, number]; max: [number, number, number] };
+  bbox: Bounds;
   segmentCount: number;
   /** per-feature extrusion length (mm) */
   featureLength: Record<string, number>;

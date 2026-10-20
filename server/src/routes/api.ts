@@ -5,7 +5,7 @@ import { randomUUID } from 'node:crypto';
 import { config } from '../config.js';
 import { getSlicerVersion } from '../slicer/cli.js';
 import { loadBundles, resolveModelAsset } from '../slicer/bundles.js';
-import { getSchema, type PresetType, type Schema } from '../slicer/schema.js';
+import { getSchema } from '../slicer/schema.js';
 import {
   listPresets,
   resolvePreset,
@@ -16,7 +16,7 @@ import {
   defaultPresetName,
   userPresetExists,
 } from '../slicer/presets.js';
-import { parseStl, read3mfProject, VOLUME_TYPES, CUSTOM_GCODE_TYPES } from '../slicer/threemf.js';
+import { parseStl, read3mfProject } from '../slicer/threemf.js';
 import {
   createJob,
   getJob,
@@ -29,8 +29,9 @@ import {
   build3mfForRequest,
   mergeConfigs,
   saveModel,
-  type SliceRequest,
 } from '../jobs.js';
+import type { PresetType, Schema, SliceRequest } from '@webslicer/shared';
+import { CUSTOM_GCODE_TYPES, VOLUME_TYPES } from '@webslicer/shared';
 import { listPrinters, upsertPrinter, deletePrinter, getPrinter, testPrinter, uploadToPrinter } from '../printers.js';
 import { libraryRouter } from './library.js';
 import { projectsRouter } from './projects.js';

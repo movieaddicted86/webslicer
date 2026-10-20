@@ -4,7 +4,7 @@
  * are dropped at runtime; keys the slicer knows but this file does not are
  * added to an "Other options" page automatically.
  */
-import type { OptionType, PresetType } from './schema.js';
+import type { Mode, OptionType, PresetType } from '@webslicer/shared';
 
 export interface KnownOption {
   label?: string;
@@ -12,7 +12,7 @@ export interface KnownOption {
   vector?: boolean;
   enumLabels?: string[];
   sidetext?: string;
-  mode?: 'simple' | 'advanced' | 'expert';
+  mode?: Mode;
   presetType?: PresetType;
   nullable?: boolean;
   multiline?: boolean;

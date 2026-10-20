@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import type { Vec3 } from '@webslicer/shared';
 
 export type PrimitiveShape = 'box' | 'cylinder' | 'sphere' | 'slab';
 
@@ -7,7 +8,7 @@ export type PrimitiveShape = 'box' | 'cylinder' | 'sphere' | 'slab';
  * `side` is the generic size (PrusaSlicer uses 10 % of the largest bed dimension);
  * `objectSize` is used for the slab, which spans the object footprint.
  */
-export function createPrimitive(shape: PrimitiveShape, side: number, objectSize: [number, number, number]): THREE.BufferGeometry {
+export function createPrimitive(shape: PrimitiveShape, side: number, objectSize: Vec3): THREE.BufferGeometry {
   let g: THREE.BufferGeometry;
   switch (shape) {
     case 'cylinder':

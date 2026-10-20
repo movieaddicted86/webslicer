@@ -7,20 +7,7 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { Agent, fetch as undiciFetch, FormData as UndiciFormData } from 'undici';
 import { config } from './config.js';
-
-export type HostType = 'octoprint' | 'moonraker' | 'prusalink';
-
-export interface PhysicalPrinter {
-  id: string;
-  name: string;
-  type: HostType;
-  /** base URL, e.g. http://192.168.1.50 */
-  host: string;
-  apiKey?: string;
-  presetName?: string;
-  /** accept self-signed / invalid HTTPS certificates */
-  ignoreTls?: boolean;
-}
+import type { HostType, PhysicalPrinter } from '@webslicer/shared';
 
 function file(): string {
   return path.join(config.dataDir, 'physical_printers.json');

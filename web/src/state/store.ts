@@ -18,6 +18,9 @@ import {
   type VolumeType,
   type ThumbnailInput,
   type CustomGcode,
+  type LayerRangeInput,
+  type Placement,
+  type Vec3,
 } from '../api';
 import { parseThumbnailSpec, type ThumbnailSpec } from '../three/thumbnail';
 import { importFiles } from '../importFiles';
@@ -31,7 +34,7 @@ import type { MarkerKind, ParsedGcode } from '../gcode/types';
 import type { PreviewColorMode } from '../gcode/colorschemes';
 
 /** A sub-volume of an object: additional part, modifier, support enforcer/blocker or negative volume. */
-export interface PlaterVolume {
+export interface PlaterVolume extends Placement {
   id: string;
   name: string;
   type: VolumeType;
@@ -39,21 +42,15 @@ export interface PlaterVolume {
   geometry: THREE.BufferGeometry;
   modelId?: string;
   uploadError?: string;
-  position: [number, number, number];
-  rotation: [number, number, number];
-  scale: [number, number, number];
-  size: [number, number, number];
+  size: Vec3;
   config: Config;
   extruder: number;
   triangles: number;
 }
 
 /** One copy of an object: shares geometry, volumes and paint with its siblings, owns its transform. */
-export interface PlaterInstance {
+export interface PlaterInstance extends Placement {
   id: string;
-  position: [number, number, number];
-  rotation: [number, number, number];
-  scale: [number, number, number];
 }
 
 export interface PlaterObject {
@@ -65,7 +62,7 @@ export interface PlaterObject {
   /** copies of this object; always at least one, instance 1 is the object's main placement */
   instances: PlaterInstance[];
   /** base size (unscaled bounding box) */
-  size: [number, number, number];
+  size: Vec3;
   config: Config;
   extruder: number;
   visible: boolean;
@@ -81,11 +78,9 @@ export interface PlaterObject {
   paintVersion?: number;
 }
 
-export interface LayerRange {
+/** A height range modifier in the plater: the request form plus the id the UI edits it by. */
+export interface LayerRange extends LayerRangeInput {
   id: string;
-  minZ: number;
-  maxZ: number;
-  config: Config;
 }
 
 export interface NewVolumeInput {
@@ -96,7 +91,7 @@ export interface NewVolumeInput {
   config?: Config;
   extruder?: number;
   /** position relative to the object origin (primitives); imported volumes are derived from geometry */
-  position?: [number, number, number];
+  position?: Vec3;
 }
 
 export const VOLUME_LABELS: Record<VolumeType, string> = {
@@ -164,7 +159,7 @@ interface State {
   placeOnFace: boolean;
   setPlaceOnFace: (on: boolean) => void;
   /** rotate an object so that the given world-space face normal points down (-Z) */
-  placeObjectOnFace: (id: string, worldNormal: [number, number, number]) => void;
+  placeObjectOnFace: (id: string, worldNormal: Vec3) => void;
   /** undo / redo of plater changes (objects, volumes, transforms, per-object settings) */
   /** painting (support enforcers/blockers, seam) */
   paintMode?: PaintKind;
@@ -268,11 +263,11 @@ interface State {
       config?: Config;
       extruder?: number;
       volumes?: NewVolumeInput[];
-      instances?: Array<{ position: [number, number, number]; rotation: [number, number, number]; scale: [number, number, number] }>;
+      instances?: Placement[];
       supportPaint?: string;
       seamPaint?: string;
       mmuPaint?: string;
-      ranges?: Array<{ minZ: number; maxZ: number; config: Config }>;
+      ranges?: LayerRangeInput[];
     }>,
     opts?: { keepPositions?: boolean; snapshot?: PlaterObject[] },
   ) => Promise<void>;
@@ -411,7 +406,7 @@ function applySlotConfig(set: (fn: (s: State) => Partial<State>) => void, type: 
 const LS_KEY = 'webslicer.selection';
 
 /** Placement used for a mesh that arrives without an item transform (STL, OBJ, plain 3MF). */
-const IDENTITY_PLACEMENT: { position: [number, number, number]; rotation: [number, number, number]; scale: [number, number, number] } = {
+const IDENTITY_PLACEMENT: Placement = {
   position: [0, 0, 0],
   rotation: [0, 0, 0],
   scale: [1, 1, 1],

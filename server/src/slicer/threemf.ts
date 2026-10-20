@@ -8,6 +8,15 @@ import JSZip from 'jszip';
 import type { IniSection } from './ini.js';
 import { escapeStringCstyle, unescapeStringCstyle } from './values.js';
 import { attributeToTriangleState, triangleStateToAttribute, PAINT_BLOCKER, PAINT_ENFORCER } from './paint.js';
+import {
+  VOLUME_TYPES,
+  type CustomGcode,
+  type CustomGcodeType,
+  type LayerRangeInput,
+  type ProjectObject,
+  type ProjectVolume,
+  type VolumeType,
+} from '@webslicer/shared';
 
 export interface Mesh {
   /** flat xyz positions */
@@ -15,9 +24,6 @@ export interface Mesh {
   /** triangle indices */
   indices: Uint32Array;
 }
-
-export type VolumeType = 'ModelPart' | 'ParameterModifier' | 'SupportEnforcer' | 'SupportBlocker' | 'NegativeVolume';
-export const VOLUME_TYPES: VolumeType[] = ['ModelPart', 'ParameterModifier', 'SupportEnforcer', 'SupportBlocker', 'NegativeVolume'];
 
 export function parseStl(buf: Buffer): Mesh {
   const isBinary = (() => {
@@ -169,13 +175,7 @@ export interface ThreeMfObject {
   /** MMU painting: one hex char per triangle = extruder index (0 = default) */
   mmuPaint?: string;
   /** height range modifiers (object Z) with per-range settings */
-  ranges?: LayerRange[];
-}
-
-export interface LayerRange {
-  minZ: number;
-  maxZ: number;
-  config: IniSection;
+  ranges?: LayerRangeInput[];
 }
 
 function xmlEscape(s: string): string {
@@ -196,25 +196,8 @@ export function transformTo3mf(m: number[]): string {
 }
 
 /** Build a 3MF project archive from meshes. */
-/**
- * Custom G-code inserted before printing the layer at `printZ` (PrusaSlicer "custom G-code per print Z"):
- * colour change (M600), pause, custom G-code, template or tool change.
- */
-export type CustomGcodeType = 'color_change' | 'pause' | 'tool_change' | 'template' | 'custom';
-export const CUSTOM_GCODE_TYPES: CustomGcodeType[] = ['color_change', 'pause', 'tool_change', 'template', 'custom'];
 /** numeric values of PrusaSlicer's CustomGCode::Type */
 const CUSTOM_GCODE_TYPE_ID: Record<CustomGcodeType, number> = { color_change: 0, pause: 1, tool_change: 2, template: 3, custom: 4 };
-
-export interface CustomGcode {
-  printZ: number;
-  type: CustomGcodeType;
-  /** 1-based extruder (colour change / tool change) */
-  extruder?: number;
-  /** colour after a colour change, "#RRGGBB" */
-  color?: string;
-  /** pause message or custom G-code text */
-  extra?: string;
-}
 
 /** Build Metadata/Prusa_Slicer_custom_gcode_per_print_z.xml */
 export function customGcodeXml(codes: CustomGcode[], mode: 'SingleExtruder' | 'MultiAsSingle' | 'MultiExtruder', config?: IniSection): string {
@@ -428,33 +411,6 @@ export async function build3mf(
   return zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE', compressionOptions: { level: 6 } });
 }
 
-export interface ProjectVolume {
-  name: string;
-  type: VolumeType;
-  /** first/last triangle index inside the object's mesh */
-  first: number;
-  last: number;
-  config: IniSection;
-  extruder?: number;
-  /** PrusaSlicer volume matrix (row-major 4x4, 16 values) if present */
-  matrix?: number[];
-}
-
-export interface ProjectObject {
-  name: string;
-  config: IniSection;
-  extruder?: number;
-  /** instance transforms (column-major 4x4, includes the first) in build order */
-  instances: number[][];
-  volumes: ProjectVolume[];
-  /** per-triangle paint over the whole object mesh, one char per triangle ('0', '4', '8') */
-  supportPaint?: string;
-  seamPaint?: string;
-  /** MMU paint: one hex char per triangle = extruder index */
-  mmuPaint?: string;
-  ranges: LayerRange[];
-}
-
 /** Read per-triangle paint attributes of every object in 3D/3dmodel.model (by object id). */
 function readPaintFromModel(model: string): Map<string, { supports?: string; seam?: string; mmu?: string }> {
   const out = new Map<string, { supports?: string; seam?: string; mmu?: string }>();
@@ -554,14 +510,14 @@ export async function read3mfProject(
     buildItems = parse3mfBuild(model);
   }
   // height range modifiers
-  const rangesById = new Map<string, LayerRange[]>();
+  const rangesById = new Map<string, LayerRangeInput[]>();
   const lrFile = zip.file('Metadata/Prusa_Slicer_layer_config_ranges.xml');
   if (lrFile) {
     const text = await lrFile.async('string');
     const objRe = /<object\s+id="([^"]+)"[^>]*>([\s\S]*?)<\/object>/g;
     let om: RegExpExecArray | null;
     while ((om = objRe.exec(text))) {
-      const list: LayerRange[] = [];
+      const list: LayerRangeInput[] = [];
       const rangeRe = /<range\s+min_z="([^"]+)"\s+max_z="([^"]+)"[^>]*>([\s\S]*?)<\/range>/g;
       let rm: RegExpExecArray | null;
       while ((rm = rangeRe.exec(om[2]))) {
@@ -595,7 +551,7 @@ export async function read3mfProject(
         else if (k === 'extruder') extruder = Number(v) || undefined;
         else oc[k] = v;
       }
-      const ranges: LayerRange[] = rangesById.get(objId) || [];
+      const ranges: LayerRangeInput[] = rangesById.get(objId) || [];
       const instances = buildItems.filter((b) => b.objectId === objId).map((b) => b.transform);
       const volumes: ProjectVolume[] = [];
       const volRe = /<volume\s+firstid="(\d+)"\s+lastid="(\d+)"[^>]*>([\s\S]*?)<\/volume>/g;

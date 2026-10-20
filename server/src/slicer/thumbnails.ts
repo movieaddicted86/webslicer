@@ -11,16 +11,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-
-export type ThumbnailFormat = 'PNG' | 'JPG' | 'QOI';
-
-export interface ThumbnailInput {
-  width: number;
-  height: number;
-  format: ThumbnailFormat;
-  /** base64 encoded image data */
-  data: string;
-}
+import type { ThumbnailFormat, ThumbnailInput } from '@webslicer/shared';
 
 const TAGS: Record<ThumbnailFormat, string> = { PNG: 'thumbnail', JPG: 'thumbnail_JPG', QOI: 'thumbnail_QOI' };
 

@@ -6,9 +6,7 @@ import * as THREE from 'three';
 import { useStore, VOLUME_LABELS, type NewVolumeInput } from './state/store';
 import { loadModelFile, load3mfBuildItems, splitGeometryByRanges, SUPPORTED_EXTENSIONS } from './three/loaders';
 import { placementFromMatrix } from './plater/transform';
-import { api } from './api';
-
-type ImportTransform = { position: [number, number, number]; rotation: [number, number, number]; scale: [number, number, number] };
+import { api, type LayerRangeInput, type Placement } from './api';
 
 type ImportItem = {
   name: string;
@@ -17,11 +15,11 @@ type ImportItem = {
   extruder?: number;
   volumes?: NewVolumeInput[];
   /** instance transforms of a 3MF project: object coordinates plus one transform per build item */
-  instances?: ImportTransform[];
+  instances?: Placement[];
   supportPaint?: string;
   seamPaint?: string;
   mmuPaint?: string;
-  ranges?: Array<{ minZ: number; maxZ: number; config: Record<string, string> }>;
+  ranges?: LayerRangeInput[];
 };
 
 export async function importFiles(files: FileList | File[]) {

@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
-import { mirrorPlacement, placementFromMatrix, placementMatrix, type Placement } from './transform.js';
+import { mirrorPlacement, placementFromMatrix, placementMatrix } from './transform.js';
+import type { Placement } from '@webslicer/shared';
 
 const identity: Placement = { position: [0, 0, 0], rotation: [0, 0, 0], scale: [1, 1, 1] };
 

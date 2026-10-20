@@ -5,6 +5,7 @@
  * Loaded meshes are non-indexed, so shared vertices are duplicated in the buffer; connectivity is
  * rebuilt by welding positions onto a grid.
  */
+import type { Bounds } from '@webslicer/shared';
 
 /** Welding grid in mm: two vertices whose coordinates round to the same cell are one vertex. */
 const GRID = 1e-4;
@@ -99,11 +100,6 @@ export function signedVolume(positions: Float32Array, tris: Uint32Array): number
     volume += ax * (by * cz - bz * cy) - ay * (bx * cz - bz * cx) + az * (bx * cy - by * cx);
   }
   return volume / 6;
-}
-
-interface Bounds {
-  min: [number, number, number];
-  max: [number, number, number];
 }
 
 function shellBounds(positions: Float32Array, tris: Uint32Array): Bounds {

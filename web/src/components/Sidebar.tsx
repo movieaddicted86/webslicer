@@ -6,7 +6,7 @@ import { objectIsOutside } from '../three/Viewer';
 import { toBool } from '../values';
 import { createPrimitive, type PrimitiveShape } from '../three/primitives';
 import { loadModelFile } from '../three/loaders';
-import type { VolumeType } from '../api';
+import type { Placement, Vec3, VolumeType } from '../api';
 
 function fmt(n: number, d = 2) {
   return Number.isFinite(n) ? n.toFixed(d).replace(/\.?0+$/, '') : '0';
@@ -23,20 +23,14 @@ const VOLUME_ICONS: Record<VolumeType, string> = {
   NegativeVolume: '◌',
 };
 
-interface TransformLike {
-  position: [number, number, number];
-  rotation: [number, number, number];
-  scale: [number, number, number];
-}
-
 function TransformInputs({
   t,
   size,
   onChange,
 }: {
-  t: TransformLike;
-  size: [number, number, number];
-  onChange: (patch: Partial<TransformLike>) => void;
+  t: Placement;
+  size: Vec3;
+  onChange: (patch: Partial<Placement>) => void;
 }) {
   const num = (v: string, fallback: number) => {
     const n = parseFloat(v);
@@ -296,7 +290,7 @@ function ObjectManipulation({ o }: { o: PlaterObject }) {
     recordHistory();
     useStore.getState().updateObject(id, patch);
   };
-  const set = (patch: Partial<TransformLike>) => {
+  const set = (patch: Partial<Placement>) => {
     recordHistory();
     updateInstance(o.id, inst.id, patch);
     drop(o.id);

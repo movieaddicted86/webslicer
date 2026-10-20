@@ -15,14 +15,13 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { config } from '../config.js';
 import { resolveLibraryPath } from '../routes/library.js';
-import { saveModel, setPlaterHooks, type SliceRequest } from '../jobs.js';
+import { saveModel, setPlaterHooks } from '../jobs.js';
 import { defaultPresetName, resolvePreset } from '../slicer/presets.js';
 import type { IniSection } from '../slicer/ini.js';
-import type { PresetType, Schema } from '../slicer/schema.js';
-import type { CustomGcode } from '../slicer/threemf.js';
 import { loadModelFile } from './meshes.js';
 import { arrangementSpacing, bedShapeOf, packShelf } from './packing.js';
-import { instanceBounds, meshBounds, multiplyMatrix, normalize, translateMatrix, type Bounds, type Matrix4 } from './normalize.js';
+import { instanceBounds, meshBounds, multiplyMatrix, normalize, translateMatrix, type Matrix4 } from './normalize.js';
+import type { Bounds, CustomGcode, PresetType, Schema, SliceRequest } from '@webslicer/shared';
 
 /** hours a project stays alive after its last use */
 export const PROJECT_TTL_HOURS = Math.max(1, Number(process.env.PROJECT_TTL_HOURS || 24));
@@ -33,7 +32,8 @@ export interface ProjectPresetRef {
   config: IniSection;
 }
 
-export interface ProjectObject {
+/** An object of a *stored server project* (not the 3MF `ProjectObject` of `@webslicer/shared`). */
+export interface StoredProjectObject {
   id: string;
   /** model in the model directory (the normalised mesh) */
   modelId: string;
@@ -54,7 +54,7 @@ export interface Project {
   printer: ProjectPresetRef;
   print: ProjectPresetRef;
   filaments: ProjectPresetRef[];
-  objects: ProjectObject[];
+  objects: StoredProjectObject[];
   customGcodes?: CustomGcode[];
 }
 
