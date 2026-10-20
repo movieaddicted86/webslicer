@@ -135,6 +135,15 @@ function fmtLayerTime(s: number) {
   return `${Math.floor(s / 60)}m ${String(Math.round(s % 60)).padStart(2, '0')}s`;
 }
 
+/** PrusaSlicer's feature legend: `1h 02m`, `3m 10s`, `8.4 s`. */
+function fmtFeatureTime(s: number) {
+  if (s >= 3600) return `${Math.floor(s / 3600)}h ${String(Math.floor((s % 3600) / 60)).padStart(2, '0')}m`;
+  if (s >= 60) return `${Math.floor(s / 60)}m ${String(Math.round(s % 60)).padStart(2, '0')}s`;
+  return `${s.toFixed(1)}s`;
+}
+
+const sumTimes = (t: Record<string, number>) => Object.values(t).reduce((a, b) => a + b, 0);
+
 /**
  * PrusaSlicer's horizontal slider: plays the moves of the top visible layer one by one. The range is
  * the moves of that layer, "end of layer" (no cut) shows the whole layer.
@@ -212,6 +221,20 @@ export function PreviewPanel() {
 
   const running = job && (job.status === 'running' || job.status === 'queued');
   const info = job?.info;
+  // feature times come from feedrates only, scale them to the slicer's estimate (as the layer legend does)
+  const featureTimeScale = useMemo(() => {
+    const sum = sumTimes(gcode?.featureTime ?? {});
+    return info?.estimatedTimeSeconds && sum > 0 ? info.estimatedTimeSeconds / sum : 1;
+  }, [gcode, info?.estimatedTimeSeconds]);
+  // share of the print time without travel, so the extruding features add up to 100 %
+  const featureShare = useMemo(() => {
+    const share: Record<string, number> = {};
+    if (!gcode) return share;
+    const base = sumTimes(gcode.featureTime) - (gcode.featureTime.Travel || 0);
+    if (base <= 0) return share;
+    for (const [feature, seconds] of Object.entries(gcode.featureTime)) share[feature] = (seconds / base) * 100;
+    return share;
+  }, [gcode]);
 
   return (
     <div className="preview-panel">
@@ -252,6 +275,16 @@ export function PreviewPanel() {
       {job && job.status === 'done' && (
         <>
           {sliceDirty && <div className="warn">Settings or objects changed since this result. Slice again to update.</div>}
+          {info?.warnings?.length ? (
+            <details className="warnings" open>
+              <summary>{info.warnings.length === 1 ? '1 slicer warning' : `${info.warnings.length} slicer warnings`}</summary>
+              <ul>
+                {info.warnings.map((w, i) => (
+                  <li key={i}>{w}</li>
+                ))}
+              </ul>
+            </details>
+          ) : null}
           <section className="stats">
             <div className="section-head">
               <span>Sliced info</span>
@@ -388,14 +421,25 @@ export function PreviewPanel() {
                   ))}
                 </ul>
               ) : (
-                <ul className="legend">
+                <ul className="legend features" title="Time, share of the print time (without travel) and extruded length">
                   {gcode.featureTypes.map((f) => (
                     <li key={f} className={vis[f] === false ? 'off' : ''} onClick={() => toggle(f)}>
                       <span className="swatch" style={{ background: FEATURE_COLORS[f] || FEATURE_COLORS.Unknown }} />
                       <span className="name">{f}</span>
-                      <span className="muted">{((gcode.featureLength[f] || 0) / 1000).toFixed(1)} m</span>
+                      <span className="muted time">{fmtFeatureTime((gcode.featureTime[f] || 0) * featureTimeScale)}</span>
+                      <span className="muted pct">{(featureShare[f] ?? 0).toFixed(1)}%</span>
+                      <span className="muted len">{((gcode.featureLength[f] || 0) / 1000).toFixed(1)} m</span>
                     </li>
                   ))}
+                  {gcode.featureTime.Travel ? (
+                    <li className="static" title="Travel is not extruded and has no share of its own">
+                      <span className="swatch" style={{ background: FEATURE_COLORS.Unknown, opacity: 0.35 }} />
+                      <span className="name">Travel</span>
+                      <span className="muted time">{fmtFeatureTime(gcode.featureTime.Travel * featureTimeScale)}</span>
+                      <span className="pct" />
+                      <span className="len" />
+                    </li>
+                  ) : null}
                 </ul>
               )}
             </section>

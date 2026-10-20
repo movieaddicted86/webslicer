@@ -149,6 +149,25 @@ kbd {
   padding: 0 4px;
   font-family: inherit;
 }
+/* slicer warnings of a finished job – same yellow as .warn, but collapsible */
+.warnings {
+  background: #4a3a14;
+  border: 1px solid #7a5d1a;
+  color: #f0d080;
+  padding: 6px 8px;
+  border-radius: 4px;
+  margin-bottom: 8px;
+}
+.warnings summary {
+  cursor: pointer;
+}
+.warnings ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+.warnings li + li {
+  margin-top: 4px;
+}
 
 /* ---- layout */
 .app {
@@ -528,6 +547,26 @@ pre.log {
 }
 .legend .name {
   flex: 1;
+}
+.legend li.static {
+  cursor: default;
+}
+/* feature legend: name, time, share of the print time and extruded length line up in columns */
+.legend.features .time,
+.legend.features .pct,
+.legend.features .len {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.legend.features .time {
+  min-width: 58px;
+}
+.legend.features .pct {
+  min-width: 44px;
+}
+.legend.features .len {
+  min-width: 48px;
 }
 /* range legends (speed, fan, …) are a gradient scale, not toggles */
 .legend.range li {
