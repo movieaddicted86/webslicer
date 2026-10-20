@@ -6,11 +6,13 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
     "dev": "tsx watch src/index.ts",
     "test": "tsx --test src/slicer/*.test.ts src/routes/*.test.ts src/plater/*.test.ts src/mcp/*.test.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.1",
+    "@webslicer/shared": "*",
     "express": "^4.21.2",
     "jszip": "^3.10.1",
     "undici": "^7.30.1",

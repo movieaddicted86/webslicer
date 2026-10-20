@@ -6,10 +6,12 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -p tsconfig.json --noEmit && vite build",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
     "preview": "vite preview",
     "test": "tsx --test src/**/*.test.ts"
   },
   "dependencies": {
+    "@webslicer/shared": "*",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "three": "^0.171.0",
