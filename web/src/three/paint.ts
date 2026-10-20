@@ -16,10 +16,6 @@ export const PAINT_COLORS: Record<number, [number, number, number]> = {
   [PAINT_BLOCKER]: [1.0, 0.3, 0.3],
 };
 
-export function triangleCount(g: THREE.BufferGeometry): number {
-  return g.getAttribute('position').count / 3;
-}
-
 /**
  * Split triangles until no edge is longer than `maxEdge` (midpoint subdivision of the
  * longest edge). Returns a new non-indexed geometry; the first triangles keep their order
