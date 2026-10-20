@@ -93,5 +93,6 @@ test('arrangementSpacing uses the extruder clearance only with sequential printi
   assert.equal(arrangementSpacing({}), 6);
   assert.equal(arrangementSpacing({ extruder_clearance_radius: '20' }), 6);
   assert.equal(arrangementSpacing({ extruder_clearance_radius: '20', complete_objects: '1' }), 20);
+  assert.equal(arrangementSpacing({ extruder_clearance_radius: '20', complete_objects: 'true' }), 20);
   assert.equal(arrangementSpacing({ extruder_clearance_radius: '0', complete_objects: '0' }), 6);
 });
