@@ -593,7 +593,8 @@ function AboutDialog({ onClose }: { onClose: () => void }) {
       </p>
       <p className="small">
         Shortcuts: <kbd>M</kbd> move · <kbd>R</kbd> rotate · <kbd>S</kbd> scale · <kbd>A</kbd> arrange · <kbd>+</kbd> add instance ·{' '}
-        <kbd>−</kbd> remove instance · <kbd>Del</kbd> delete · <kbd>Ctrl+A</kbd> select all
+        <kbd>−</kbd> remove instance · <kbd>Del</kbd> delete · <kbd>Ctrl+A</kbd> select all · <kbd>0</kbd>…<kbd>6</kbd> views ·{' '}
+        <kbd>K</kbd> perspective/ortho · <kbd>Z</kbd> zoom to selection
       </p>
     </Modal>
   );
