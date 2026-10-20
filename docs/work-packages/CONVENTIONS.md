@@ -1,6 +1,7 @@
 # WebSlicer – Engineering conventions for contributors (human or LLM)
 
-These rules apply to every work package in this folder. Read them completely before you write code.
+These rules apply to every work package in this folder. Code structure, types and clean-code rules
+are in [CODING-GUIDELINES.md](CODING-GUIDELINES.md) – binding as well. Read them completely before you write code.
 If a work package contradicts this file, the work package wins for that package only.
 
 ## 1. Project in one paragraph
