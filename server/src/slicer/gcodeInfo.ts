@@ -23,6 +23,9 @@ export interface GcodeInfo {
 /** A job may warn many times (one block per object); the panel only keeps the first few. */
 export const MAX_WARNINGS = 20;
 
+/** Longest warning block: the `warning` line plus the lines that belong to it. */
+const MAX_BLOCK_LINES = 5;
+
 /** `[2026-10-20 14:27:04.825715] [0x00007baeafad6f40] [info]    Slicing process finished…` */
 const LOG_PREFIX = /^(?:(?:\[[0-9]{4}-\d\d-\d\d[^\]]*\]|\[0x[0-9a-f]+\]|\[(?:fatal|error|warning|info|debug|trace)\])\s*)+/i;
 
@@ -55,7 +58,7 @@ export function extractWarnings(lines: string[]): string[] {
     if (!/warning/i.test(lines[i])) continue;
     const parts = [lines[i].trim().replace(LOG_PREFIX, '').replace(/^(print\s+)?warning\s*:\s*/i, '')];
     // a following line that warns itself opens the next block instead of continuing this one
-    for (let j = i + 1; j < lines.length && parts.length < 3 && !isLogNoise(lines[j]) && !/warning/i.test(lines[j]); j++) {
+    for (let j = i + 1; j < lines.length && parts.length < MAX_BLOCK_LINES && !isLogNoise(lines[j]) && !/warning/i.test(lines[j]); j++) {
       parts.push(lines[j].trim());
       i = j;
     }

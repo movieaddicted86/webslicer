@@ -69,6 +69,23 @@ test('extractWarnings joins a warning block with its object name and hint, ignor
   ]);
 });
 
+test('extractWarnings keeps two blocks apart and reads every line of a four-line block', () => {
+  const warnings = extractWarnings([
+    '69 => Alert if supports needed',
+    'print warning: Detected print stability issues:',
+    'waist',
+    'Floating bridge anchors, Loose extrusions, Long bridging extrusions',
+    'Consider enabling supports.',
+    '89 => Calculating overhanging perimeters',
+    'print warning: Empty layer between 8.15 and 12.35.',
+    'Object name: waist',
+  ]);
+  assert.deepEqual(warnings, [
+    'Detected print stability issues: waist Floating bridge anchors, Loose extrusions, Long bridging extrusions Consider enabling supports.',
+    'Empty layer between 8.15 and 12.35. Object name: waist',
+  ]);
+});
+
 test('extractWarnings reads a severity-tagged warning line and reports none for a clean log', () => {
   const tagged = extractWarnings(['[2026-10-20 14:27:04.9] [0x00007baeafad6f40] [warning] Skipping empty layer']);
   assert.deepEqual(tagged, ['Skipping empty layer']);
