@@ -71,39 +71,55 @@ Projects expire 24 h after their last use (override with `PROJECT_TTL_HOURS`). T
 together with `pruneModels` (on start and every 6 h) and deletes expired projects and the models only
 they used; a model referenced by a live project is never pruned.
 
-## 4. Tool catalogue (draft)
+## 4. Tool catalogue
 
-Naming convention `webslicer.<verb>_<object>`; all inputs as JSON Schema (zod).
+Naming convention `webslicer.<verb>_<object>`; all inputs as JSON Schema (zod, `server/src/mcp/tools.ts`
+exports the catalogue). The tools of phase 1 are implemented and marked ✔; the rest is still planned.
+
+### 4.1 Implemented in phase 1 (T-006)
 
 **Discover**
-- `list_printers()` → installed printer profiles (+ physical printers)
-- `list_presets(type, printer?)` → compatible print/filament profiles with alias
-- `get_option_schema(query?)` → options with label, type, default, tooltip (filtered)
-- `list_library(path?)` / `search_library(text)` → models, projects, G-code
+
+- ✔ `list_printers()` → installed printers, their printer presets, and the default preset names
+- ✔ `list_presets(type, printer?, print?)` → print/filament/printer presets with the compatibility flag
+ (a printer only shows presets of an installed printer model – the setup wizard installs them)
+- ✔ `get_option_schema(query?, type?, limit?)` → options with label, type, default and enum values
+ (substring over key, label, category and tooltip; an exact key match ranks first)
+- ✔ `list_library(path?)` → models, projects and G-code in the library (`resolveLibraryPath`)
 
 **Build a project**
-- `create_project(printer, print_preset, filaments[])` → `project_id` (server-side state, TTL)
-- `add_model(project_id, library_path | upload_id, {position?, rotation?, scale?, copies?})`
-- `arrange(project_id)`, `transform_object(project_id, object_id, …)`, `place_on_face` (normal)
-- `set_settings(project_id, {key: value}, scope: print|filament[i]|printer)` – validated against the schema
-- `set_object_settings(project_id, object_id, {…})`, `add_modifier(...)`, `add_height_range(...)`
-- `quick_settings(project_id, {supports, infill, brim})` – the three plater quick settings
+
+- ✔ `create_project(printer, print, filaments[])` → `project_id` (server-side state, TTL 24 h,
+ max. 20 live projects per owner)
+- ✔ `add_model(project_id, library_path, copies?)` – STL or 3MF (3MF keeps its objects and placements)
+- ✔ `arrange(project_id)` – the shelf algorithm of the browser
+- ✔ `set_settings(project_id, scope, values)` – validated against the schema, unknown keys and keys of
+ another preset type are rejected; `scope` is `print`, `printer`, `filament` or `filament[<index>]`
+- ✔ `quick_settings(project_id, {supports, infill, brim})` – the three plater quick settings, mapped to
+ the same keys the browser writes
+- `transform_object(project_id, object_id, …)`, `place_on_face`, `set_object_settings`,
+ `add_modifier(...)`, `add_height_range(...)` (phase 2)
 
 **Slice and evaluate**
-- `slice(project_id, {binary_gcode?, thumbnails?})` → `job_id`; progress via MCP notification
-- `get_job(job_id)` → status, time, filament (mm/g/cost), layers, warnings from the slicer log
-- `compare(project_id, variants[])` → table time/filament per variant (uses the job queue in parallel)
-- `export_project(project_id, library_path)`, `export_gcode(job_id, library_path)`
 
-**Printers**
-- `list_print_hosts()`, `test_print_host(id)`
-- `send_to_printer(job_id, host_id, {start: boolean})` – **start=true only with explicit user approval**
-- later: `printer_status(host_id)` (roadmap: printer status)
+- ✔ `slice(project_id)` → `job_id` (headless, no thumbnails; progress via `get_job`)
+- ✔ `get_job(job_id)` → status, progress, time, filament (mm/g/cost), layers and the warnings of the
+ slicer log
+- `compare(project_id, variants[])` (phase 3), `export_project`, `export_gcode` (phase 2)
 
-**Resources (MCP resources)** – read-only: `webslicer://presets/{type}/{name}`, `webslicer://jobs/{id}/log`,
-`webslicer://library/{path}` (3MF/G-code as binary resource), `webslicer://schema`.
+**Printers** – `list_print_hosts`, `test_print_host`, `send_to_printer` (phase 3, with confirmation),
+later `printer_status(host_id)`.
 
-**Prompts** – predefined flows: `slice-and-print`, `optimize-for-time`, `compare-layer-heights`.
+### 4.2 Still planned
+
+- Object tools (phase 2): `transform_object`, `place_on_face`, `set_object_settings`, `add_modifier`,
+ `add_height_range`; `search_library(text)`; `export_project`, `export_gcode`
+- Resources (phase 2): `webslicer://presets/{type}/{name}`, `webslicer://jobs/{id}/log`,
+ `webslicer://library/{path}` (3MF/G-code as binary resource), `webslicer://schema`
+- Prompts (phase 2): `slice-and-print`, `optimize-for-time`, `compare-layer-heights`
+- `send_to_printer(job_id, host_id, {start})` (phase 3) – **start=true only with explicit user approval**
+
+The audit log planned for phase 2 is already in phase 1 (see §5).
 
 ## 5. Security
 
@@ -122,8 +138,8 @@ Naming convention `webslicer.<verb>_<object>`; all inputs as JSON Schema (zod).
 | Phase | Content | Effort |
 |---|---|---|
 | 0 | Headless import (3MF mesh reader, normalization, server-side arrange), project store with TTL | 2–3 days |
-| 1 | MCP endpoint (`@modelcontextprotocol/sdk`, Streamable HTTP, token auth), "discover" + "slice" tools (list_*, create_project, add_model, set_settings, slice, get_job) | 2 days |
-| 2 | Object tools (transform, modifiers, height ranges, quick settings), resources, prompts, audit log | 2 days |
+| 1 | MCP endpoint (`@modelcontextprotocol/sdk`, Streamable HTTP, token auth), "discover" + "slice" tools (list_*, create_project, add_model, set_settings, quick_settings, slice, get_job), audit log – **done (T-006)** | 2 days |
+| 2 | Object tools (transform, modifiers, height ranges), resources, prompts | 2 days |
 | 3 | `send_to_printer` with confirmation, variant comparison, thumbnail rasterizer | 2 days |
 | 4 | stdio variant as npm package (`webslicer-mcp`), docs, examples for Claude Desktop / Claude Code / Home Assistant | 1 day |
 

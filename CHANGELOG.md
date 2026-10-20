@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+- MCP endpoint for agents (phase 1): the server speaks the Model Context Protocol over Streamable HTTP
+  at `/mcp`, so an assistant can look through printers, presets and the library, build a project and
+  slice it. The endpoint exists only with a token – without `MCP_TOKEN` it answers 404, a missing or
+  wrong bearer token 401. Tokens are scrypt hashes in `data/mcp-tokens.json` (the environment token is
+  kept there as the owner `admin` and removed again when the variable disappears), every call lands in
+  `data/audit.log` with time, token id, owner, tool and parameters but without secrets, and a token
+  only ever sees the projects of its own owner. Eleven tools: `webslicer.list_printers`, `list_presets`,
+  `get_option_schema`, `list_library`, `create_project`, `add_model`, `arrange`, `set_settings`
+  (validated against the option schema), `quick_settings`, `slice` and `get_job`; the read-only ones
+  carry `readOnlyHint`, and `set_settings` rejects unknown options and options of another preset type.
+  The job result now also reports the layer count (read from the `;LAYER_CHANGE` markers of the
+  G-code). The README section "MCP" documents Docker Compose, the Proxmox environment file and client
+  configuration for Claude Code and Claude Desktop; `server/scripts/mcp-e2e.ts` runs the complete
+  workflow (library → project → settings → slice → evaluation) against a running server
 - Server-side projects (MCP phase 0): the server can build and slice a plater without a browser.
   `POST /api/projects` creates a project for a printer/print/filament preset (names plus overrides),
   `POST /api/projects/:id/models` adds an STL or 3MF from the library (3MF: one object per `<object>`,
