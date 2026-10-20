@@ -18,7 +18,7 @@ const { validateSliceRequest } = await import('../routes/api.js');
 const { keepModelIds, addModelFromLibrary, arrange, createProject, deleteProject, listProjects, loadProject, pruneProjects, toSliceRequest, touchProject } = await import('./project.js');
 const { writeBinaryStl } = await import('../slicer/threemf.js');
 const { saveModel } = await import('../jobs.js');
-const { IDENTITY, instanceBounds } = await import('./normalize.js');
+const { IDENTITY, instanceBounds } = await import('@webslicer/shared');
 
 const DEFAULT_PRINTER = '- default FFF -';
 const DEFAULT_PRINT = '- default FFF -';

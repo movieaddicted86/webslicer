@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { build3mf, read3mfProject, transformFrom3mf, transformMesh, transformTo3mf, type Mesh } from './threemf.js';
+import { build3mf, read3mfProject, transformMesh, type Mesh } from './threemf.js';
+import { IDENTITY, translate } from '@webslicer/shared';
 
 function cube(size: number): Mesh {
   const s = size;
@@ -9,7 +10,7 @@ function cube(size: number): Mesh {
   return { vertices: Float32Array.from(v), indices: Uint32Array.from(f) };
 }
 
-const I = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
+const I = IDENTITY;
 
 test('transformMesh applies translation and keeps winding', () => {
   const m = transformMesh(cube(1), [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 5, 6, 7, 1]);
@@ -20,10 +21,6 @@ test('transformMesh applies translation and keeps winding', () => {
   // mirrored transform flips winding
   const mirrored = transformMesh(cube(1), [-1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
   assert.deepEqual([...mirrored.indices.slice(0, 3)], [0, 1, 2]);
-});
-
-test('3MF transform string is row-major with translation last', () => {
-  assert.equal(transformTo3mf([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 10, 20, 30, 1]), '1 0 0 0 1 0 0 0 1 10 20 30');
 });
 
 test('3MF writer and reader roundtrip volumes', async () => {
@@ -123,11 +120,6 @@ test('custom G-codes per print Z roundtrip', async () => {
   assert.equal(proj.customGcodes.length, 3);
 });
 
-/** Column-major translation matrix (three.js Matrix4.elements order). */
-function translate(x: number, y: number, z: number): number[] {
-  return [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, x, y, z, 1];
-}
-
 /** 3MF transform string of a column-major matrix, parsed back into numbers. */
 async function readItems(buf: Buffer): Promise<Array<{ objectId: string; transform: number[] }>> {
   const JSZip = (await import('jszip')).default;
@@ -194,39 +186,6 @@ test('3MF roundtrip keeps a mirrored instance transform (rotation + mirror + non
   const JSZip = (await import('jszip')).default;
   const model = await (await JSZip.loadAsync(buf)).file('3D/3dmodel.model')!.async('string');
   assert.ok(/<vertex x="0" y="0" z="0"\/>/.test(model), model.slice(0, 1200));
-});
-
-test('3MF transform parser handles arbitrary row-major strings', async () => {
-  // m00 m01 m02 | m10 m11 m12 | m20 m21 m22 | m30 m31 m32  (row-major, translation in the last row)
-  // three.js elements are the transpose: the 3x3 block maps straight across, translation -> e12-14
-  closeTo(transformFrom3mf('0 1 0 -1 0 0 0 0 1 7 8 9'), [0, 1, 0, 0, -1, 0, 0, 0, 0, 0, 1, 0, 7, 8, 9, 1]);
-  closeTo(transformFrom3mf('1 0 0 0 1 0 0 0 1 2 3 4'), translate(2, 3, 4));
-  closeTo(transformFrom3mf('  '), I);
-});
-
-test('3MF transform round trip M -> string -> M is the identity for rotated, mirrored and scaled matrices', () => {
-  // The pair has to be an exact inverse of itself, or a project re-imported after an export silently
-  // moves every instance. The cases below are the ones the writer's row-major 4x3 form can get wrong:
-  // a 90 degree rotation (R versus R^T, the P1.3 bug), a mirror with a non-uniform scale (negative
-  // determinant, so the sign must survive the swap of rows and columns) and a plain scale + offset.
-  const cases: Array<[string, number[]]> = [
-    ['identity', I],
-    ['90 deg about Z', rotZ(90, 5, 0, 1)],
-    ['mirror + non-uniform scale', [0, 1.5, 0, 0, 1, 0, 0, 0, 0, 0, 2, 0, 10, 20, 0, 1]],
-    ['non-uniform scale + offset', [2, 0, 0, 0, 0, 0.5, 0, 0, 0, 0, 3, 0, -4, 7, 2, 1]],
-  ];
-  for (const [name, m] of cases) {
-    // the writer prints 6 decimals, so the round trip is exact to that precision and no further
-    closeTo(transformFrom3mf(transformTo3mf(m)), m, 1e-5);
-  }
-  // The round trip alone cannot see a writer and a reader that are transposed together, so pin the
-  // convention as well: row-major 4x3, translation last. R(90 deg about Z) has the rows (0,1,0),
-  // (-1,0,0), (0,0,1) – written as such, and read back as a matrix that maps +X to +Y.
-  assert.equal(transformTo3mf(rotZ(90, 5, 0, 1)), '0 1 0 -1 0 0 0 0 1 5 0 1');
-  const roundTrip = transformFrom3mf(transformTo3mf(rotZ(90, 5, 0, 1)));
-  closeTo([roundTrip[0], roundTrip[1], roundTrip[2]], [0, 1, 0], 1e-5);
-  closeTo(roundTrip.slice(12), [5, 0, 1, 1], 1e-5);
-  assert.equal(transformTo3mf([0, 1.5, 0, 0, 1, 0, 0, 0, 0, 0, 2, 0, 10, 20, 0, 1]), '0 1.5 0 1 0 0 0 0 2 10 20 0');
 });
 
 test('3MF writer emits one item per instance and instances_count', async () => {

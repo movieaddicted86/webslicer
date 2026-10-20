@@ -9,6 +9,8 @@ import type { IniSection } from './ini.js';
 import { escapeStringCstyle, unescapeStringCstyle } from './values.js';
 import { attributeToTriangleState, triangleStateToAttribute, PAINT_BLOCKER, PAINT_ENFORCER } from './paint.js';
 import {
+  transformFrom3mf,
+  transformTo3mf,
   VOLUME_TYPES,
   type CustomGcode,
   type CustomGcodeType,
@@ -182,17 +184,9 @@ function xmlEscape(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+/** Number as the 3MF writer prints it: an integer stays bare, everything else keeps 6 decimals. */
 function fmt(n: number): string {
   return Number.isInteger(n) ? String(n) : n.toFixed(6).replace(/\.?0+$/, '');
-}
-
-/** Convert a column-major 4x4 matrix into the 3MF 12-value transform string */
-export function transformTo3mf(m: number[]): string {
-  // 3MF: m00 m01 m02 m10 m11 m12 m20 m21 m22 m30 m31 m32 (row-major 4x3, translation last)
-  // three.js elements (column-major): [m00,m10,m20,m30, m01,m11,m21,m31, m02,m12,m22,m32, m03,m13,m23,m33]
-  const e = m;
-  const vals = [e[0], e[1], e[2], e[4], e[5], e[6], e[8], e[9], e[10], e[12], e[13], e[14]];
-  return vals.map(fmt).join(' ');
 }
 
 /** Build a 3MF project archive from meshes. */
@@ -451,21 +445,6 @@ function readPaintFromModel(model: string): Map<string, { supports?: string; sea
 
 function xmlUnescape(v: string): string {
   return v.replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&apos;/g, "'").replace(/&amp;/g, '&');
-}
-
-/** Convert a 3MF 12-value transform string (row-major 4x3, translation last) into a column-major 4x4. */
-export function transformFrom3mf(s: string): number[] {
-  const m = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
-  // an empty attribute means identity – note Number('') is 0, not NaN, so the guard below cannot catch it
-  if (!s.trim()) return m;
-  const v = s.trim().split(/\s+/).map(Number);
-  // 3MF stores "m00 m01 m02 m10 m11 m12 m20 m21 m22 m30 m31 m32" – row-major, translation in the last
-  // row. three.js reads those 12 numbers with Matrix4.set (row-major arguments) and keeps column-major
-  // elements, so its elements are [t0,t1,t2,0, t3,t4,t5,0, t6,t7,t8,0, t9,t10,t11,1] – the same slot
-  // order as transformTo3mf writes. This is the exact inverse of that mapping.
-  const slots = [0, 1, 2, 4, 5, 6, 8, 9, 10, 12, 13, 14];
-  for (let i = 0; i < 12; i++) if (Number.isFinite(v[i])) m[slots[i]] = v[i];
-  return m;
 }
 
 /** Build items of 3D/3dmodel.model in document order: the object id each one instantiates and its transform. */

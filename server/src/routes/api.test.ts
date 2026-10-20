@@ -2,9 +2,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { validateSliceRequest } from './api.js';
 import type { SliceRequest } from '../jobs.js';
+import { IDENTITY, translate } from '@webslicer/shared';
 
-const I = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
-const translate = (x: number): number[] => [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, x, 0, 0, 1];
+const I = IDENTITY;
 
 function request(overrides: Record<string, unknown> = {}): SliceRequest {
   return {
@@ -20,9 +20,9 @@ test('validateSliceRequest accepts an object without instances', () => {
 });
 
 test('validateSliceRequest accepts instances and syncs the legacy transform', () => {
-  const req = request({ instances: [translate(10), translate(30)] });
+  const req = request({ instances: [translate(10, 0, 0), translate(30, 0, 0)] });
   assert.doesNotThrow(() => validateSliceRequest(req));
-  assert.deepEqual(req.objects[0].transform, translate(10));
+  assert.deepEqual(req.objects[0].transform, translate(10, 0, 0));
 });
 
 test('validateSliceRequest rejects an empty instances array', () => {
@@ -34,7 +34,7 @@ test('validateSliceRequest rejects more than 1000 instances', () => {
 });
 
 test('validateSliceRequest accepts exactly 1000 instances', () => {
-  assert.doesNotThrow(() => validateSliceRequest(request({ instances: Array.from({ length: 1000 }, (_, i) => translate(i)) })));
+  assert.doesNotThrow(() => validateSliceRequest(request({ instances: Array.from({ length: 1000 }, (_, i) => translate(i, 0, 0)) })));
 });
 
 test('validateSliceRequest rejects an instance with 15 numbers', () => {

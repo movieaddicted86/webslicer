@@ -8,12 +8,10 @@ import assert from 'node:assert/strict';
 import JSZip from 'jszip';
 import { build3mf, parseStl, writeBinaryStl, type ThreeMfObject } from '../slicer/threemf.js';
 import { loadModelBuffer } from './meshes.js';
-import { IDENTITY } from './normalize.js';
+import { IDENTITY, translate } from '@webslicer/shared';
 
 /** A tetrahedron – the smallest mesh with a volume. */
 const TETRA = { vertices: Float32Array.from([0, 0, 0, 10, 0, 0, 0, 10, 0, 0, 0, 5]), indices: Uint32Array.from([0, 2, 1, 0, 1, 3, 1, 2, 3, 2, 0, 3]) };
-
-const translate = (x: number, y: number): number[] => [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, x, y, 0, 1];
 
 /** Minimal foreign 3MF: exactly what the spec requires, with a transform-less build item. */
 async function minimal3mf(model: string): Promise<Buffer> {
@@ -59,8 +57,8 @@ test('loadModelBuffer reads a binary STL as one model with the identity placemen
 
 test('loadModelBuffer reads every 3MF object with its build-item instances', async () => {
   const objects: ThreeMfObject[] = [
-    { name: 'cube', mesh: TETRA, transform: IDENTITY, instances: [IDENTITY, translate(40, 0)] },
-    { name: 'small', mesh: TETRA, transform: translate(0, 60) },
+    { name: 'cube', mesh: TETRA, transform: IDENTITY, instances: [IDENTITY, translate(40, 0, 0)] },
+    { name: 'small', mesh: TETRA, transform: translate(0, 60, 0) },
   ];
   const buf = await build3mf(objects);
   const models = await loadModelBuffer(buf, 'plate.3mf');
@@ -68,10 +66,10 @@ test('loadModelBuffer reads every 3MF object with its build-item instances', asy
   assert.equal(models[0].name, 'cube');
   assert.equal(models[1].name, 'small');
   assert.equal(models[0].instances.length, 2);
-  assert.deepEqual(models[0].instances[1], translate(40, 0));
+  assert.deepEqual(models[0].instances[1], translate(40, 0, 0));
   // an object with a single `<item>` keeps one instance
   assert.equal(models[1].instances.length, 1);
-  assert.deepEqual(models[1].instances[0], translate(0, 60));
+  assert.deepEqual(models[1].instances[0], translate(0, 60, 0));
   // the mesh comes back in object coordinates, so the raw vertex list survives the round trip
   assert.deepEqual([...models[0].mesh.vertices], [...TETRA.vertices]);
   assert.deepEqual([...models[0].mesh.indices], [...TETRA.indices]);
