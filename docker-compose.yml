@@ -22,6 +22,8 @@ services:
       - MAX_JOBS=2
       # Optional: restrict upload size (bytes)
       - MAX_UPLOAD_BYTES=524288000
+      # Optional: enable the MCP endpoint for agents (/mcp, bearer token – see README "MCP")
+      # - MCP_TOKEN=change-me
 
 volumes:
   webslicer-data:

@@ -479,7 +479,7 @@ export function apiRouter(): express.Router {
 
 let cachedVersion: string | undefined;
 /** WebSlicer version: environment (Docker) or the root package.json (native install) */
-function appVersion(): string {
+export function appVersion(): string {
   if (cachedVersion) return cachedVersion;
   cachedVersion = process.env.WEBSLICER_VERSION || process.env.npm_package_version;
   if (!cachedVersion) {
