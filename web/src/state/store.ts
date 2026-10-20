@@ -27,7 +27,8 @@ import { importFiles } from '../importFiles';
 import { decodeMmu, decodePaint, encodeMmu, encodePaint, remapPaint, subdivideForPainting, type PaintKind } from '../three/paint';
 import { decodeVector, resizeVector, toBool, unescapeStringsCstyle } from '../values';
 import { fillCount, packShelf, type PackItem } from '../plater/packing';
-import { mirrorPlacement } from '../plater/transform';
+import { apply as applyMatrix, instanceBounds as sharedInstanceBounds, mirrorPlacement, placementMatrix } from '@webslicer/shared';
+import { fromBox3, toBox3 } from '../three/matrix';
 import { shellPositions, splitShells } from '../plater/split';
 import { presetDiff, transferChanges } from '../plater/presetDiff';
 import type { MarkerKind, ParsedGcode } from '../gcode/types';
@@ -431,21 +432,6 @@ function saveSelection(s: State) {
   }
 }
 
-/** World matrix of one instance of an object. */
-export function instanceMatrix(inst: Pick<PlaterInstance, 'position' | 'rotation' | 'scale'>): THREE.Matrix4 {
-  const m = new THREE.Matrix4();
-  const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(inst.rotation[0], inst.rotation[1], inst.rotation[2], 'XYZ'));
-  m.compose(new THREE.Vector3(...inst.position), q, new THREE.Vector3(...inst.scale));
-  return m;
-}
-
-export function volumeMatrix(v: PlaterVolume): THREE.Matrix4 {
-  const m = new THREE.Matrix4();
-  const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(v.rotation[0], v.rotation[1], v.rotation[2], 'XYZ'));
-  m.compose(new THREE.Vector3(...v.position), q, new THREE.Vector3(...v.scale));
-  return m;
-}
-
 /** The instance a selection refers to: the selected one, or the object's first instance. */
 export function selectedInstance(state: { selectedIds: string[]; selectedInstanceId?: string }, o: PlaterObject): PlaterInstance {
   const id = state.selectedIds.length === 1 && state.selectedIds[0] === o.id ? state.selectedInstanceId : undefined;
@@ -465,17 +451,20 @@ export function pickedInstanceId(state: { selectedIds: string[]; selectedInstanc
 
 /** World-space bounds of one instance (its own scale applies to the object's volumes too). */
 export function instanceBounds(o: PlaterObject, inst: PlaterInstance): THREE.Box3 {
-  const box = new THREE.Box3();
   if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
-  const im = instanceMatrix(inst);
-  box.copy(o.geometry.boundingBox!).applyMatrix4(im);
+  const im = placementMatrix(inst);
+  let box = sharedInstanceBounds(fromBox3(o.geometry.boundingBox!), im);
   for (const v of o.volumes || []) {
     if (v.type !== 'ModelPart') continue;
     if (!v.geometry.boundingBox) v.geometry.computeBoundingBox();
-    const vb = new THREE.Box3().copy(v.geometry.boundingBox!).applyMatrix4(volumeMatrix(v)).applyMatrix4(im);
-    box.union(vb);
+    // the volume matrix first, then the instance's – Box3.applyMatrix4 chained did the same two hulls
+    const vb = sharedInstanceBounds(sharedInstanceBounds(fromBox3(v.geometry.boundingBox!), placementMatrix(v)), im);
+    box = {
+      min: [Math.min(box.min[0], vb.min[0]), Math.min(box.min[1], vb.min[1]), Math.min(box.min[2], vb.min[2])],
+      max: [Math.max(box.max[0], vb.max[0]), Math.max(box.max[1], vb.max[1]), Math.max(box.max[2], vb.max[2])],
+    };
   }
-  return box;
+  return toBox3(box);
 }
 
 /** World-space bounds of all instances (for whole-object checks). */
@@ -980,7 +969,7 @@ export const useStore = create<State>((set, get) => ({
         instances: (it.instances?.length ? it.instances : [IDENTITY_PLACEMENT]).map((t) => ({
           id: `inst-${++instanceId}`,
           position: opts.keepPositions
-            ? (new THREE.Vector3(...c).applyMatrix4(instanceMatrix(t)).toArray() as [number, number, number])
+            ? applyMatrix(placementMatrix(t), c[0], c[1], c[2])
             : ([(bed.min[0] + bed.max[0]) / 2, (bed.min[1] + bed.max[1]) / 2, 0] as [number, number, number]),
           rotation: [...t.rotation] as [number, number, number],
           scale: [...t.scale] as [number, number, number],
@@ -1603,8 +1592,8 @@ export const useStore = create<State>((set, get) => ({
       .map((o) => ({
         modelId: o.modelId!,
         name: o.name,
-        transform: instanceMatrix(o.instances[0]).elements.slice(),
-        instances: o.instances.length > 1 ? o.instances.map((i) => instanceMatrix(i).elements.slice()) : undefined,
+        transform: placementMatrix(o.instances[0]),
+        instances: o.instances.length > 1 ? o.instances.map((i) => placementMatrix(i)) : undefined,
         config: Object.keys(o.config).length ? o.config : undefined,
         extruder: o.extruder || undefined,
         supportPaint: o.paint?.supports && o.paint.supports.some((x) => x) ? encodePaint(o.paint.supports) : undefined,
@@ -1617,7 +1606,7 @@ export const useStore = create<State>((set, get) => ({
             modelId: v.modelId!,
             name: v.name,
             type: v.type,
-            transform: volumeMatrix(v).elements.slice(),
+            transform: placementMatrix(v),
             config: Object.keys(v.config).length ? v.config : undefined,
             extruder: v.extruder || undefined,
           })),
