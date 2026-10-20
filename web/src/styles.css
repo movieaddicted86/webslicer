@@ -330,6 +330,28 @@ kbd {
   right: 10px;
   top: 10px;
 }
+/* view toolbar at the top right of the 3D view, next to the "reset view" button */
+.viewer-toolbar {
+  position: absolute;
+  right: 52px;
+  top: 10px;
+  display: flex;
+  gap: 2px;
+  align-items: center;
+  background: rgba(27, 30, 36, 0.75);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px;
+}
+.viewer-toolbar button {
+  padding: 2px 7px;
+  font-size: 11px;
+  background: transparent;
+  border-color: transparent;
+}
+.viewer-toolbar button:hover:not(:disabled) {
+  background: var(--bg4);
+}
 
 /* ---- sidebar */
 .sidebar {

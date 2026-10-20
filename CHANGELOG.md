@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- Camera of the 3D view like PrusaSlicer: the number keys **0–6** put the camera on the standard
+  views (Iso, Top, Bottom, Front, Rear, Left, Right), **K** switches between the perspective and the
+  orthographic projection and **Z** zooms to the selection – the picked instance, the selected
+  objects, otherwise the whole bed, and in the preview the toolpaths of the visible layers. A small
+  view toolbar sits at the top right of the 3D view next to the reset-view button. Every camera
+  command frames a box through the same maths (`plater/camera.ts`, unit tested without WebGL), and
+  the two cameras are moved together: the orthographic frustum gets the area the perspective camera
+  shows at that distance, so switching the projection keeps the framing, and the choice is remembered
+  in `localStorage`. The platter no longer limits the polar angle, so the camera can go below the bed
+  for the bottom view; the print bed is drawn single sided for the same reason (it used to blend over
+  the model when looking from below). G-code thumbnails are unaffected – the preview keeps its own
+  camera
 - Preview like PrusaSlicer, part 2: the **feature legend** now shows the time, the share of the print
   time and the extruded length of every feature type, plus a Travel row with its time (travel is not
   extruded, so it has no share of its own and the shares of the other rows add up to 100 %). The times

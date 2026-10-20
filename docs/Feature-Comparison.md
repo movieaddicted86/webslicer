@@ -120,7 +120,7 @@ Priority: **P1** needed for version 1.0 · **P2** important afterwards · **P3**
 
 | Feature | WebSlicer | Prio | Note |
 |---|---|---|---|
-| Camera: perspective/ortho, views (iso, top, front …), zoom to selection | 🟡 | P2 | reset view only |
+| Camera: perspective/ortho, views (iso, top, front …), zoom to selection | ✅ | – | PrusaSlicer's keys: 0–6 for the views, K for the projection, Z for zoom to selection, plus a toolbar and a reset-view button in the 3D view; the projection is remembered across sessions |
 | Collapse sidebar | ❌ | P3 | |
 | Notifications / hints | 🟡 | P3 | toasts |
 | Multi-user, library on NAS, autosave | ✅ | – | WebSlicer specifics |
