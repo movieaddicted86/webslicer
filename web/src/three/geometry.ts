@@ -3,8 +3,8 @@
  * normalized object was built with, one shell as a geometry of its own and the binary STL export
  * the server receives as the uploaded mesh.
  *
- * Everything here works on a `BufferGeometry` alone; the store keeps the object and volume records
- * and calls in. three.js types stay inside `web/src/three/` (guideline §2).
+ * Everything here works on a `BufferGeometry` alone; the state layer keeps the object and volume
+ * records and calls in. three.js types stay inside `web/src/three/` (guideline §2).
  */
 import * as THREE from 'three';
 import { shellPositions } from '../plater/split';
@@ -16,6 +16,7 @@ export function geometrySize(g: THREE.BufferGeometry): [number, number, number] 
   return [bb.max.x - bb.min.x, bb.max.y - bb.min.y, bb.max.z - bb.min.z];
 }
 
+/** Triangles of a mesh, indexed or not (the index decides, not the position count). */
 export function triangleCount(g: THREE.BufferGeometry): number {
   return g.getIndex() ? g.getIndex()!.count / 3 : g.getAttribute('position').count / 3;
 }
