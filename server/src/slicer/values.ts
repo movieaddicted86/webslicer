@@ -122,8 +122,5 @@ export function serializePoints(points: Array<[number, number]>): string {
   return points.map(([x, y]) => `${x}x${y}`).join(',');
 }
 
-export function toBool(s: string | undefined): boolean {
-  if (s === undefined) return false;
-  const t = s.trim().toLowerCase();
-  return t === '1' || t === 'true' || t === 'yes' || t === 'on';
-}
+// `toBool` is `@webslicer/shared`'s now (R-4): the server's copy had no callers at all, which is
+// exactly how `arrangementSpacing` ended up with its own `=== '1'` check next to it.

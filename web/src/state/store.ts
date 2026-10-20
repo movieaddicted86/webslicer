@@ -26,8 +26,17 @@ import { parseThumbnailSpec, type ThumbnailSpec } from '../three/thumbnail';
 import { importFiles } from '../importFiles';
 import { decodeMmu, decodePaint, encodeMmu, encodePaint, remapPaint, subdivideForPainting, type PaintKind } from '../three/paint';
 import { decodeVector, resizeVector, toBool, unescapeStringsCstyle } from '../values';
-import { fillCount, packShelf, type PackItem } from '../plater/packing';
-import { apply as applyMatrix, instanceBounds as sharedInstanceBounds, mirrorPlacement, placementMatrix } from '@webslicer/shared';
+import {
+  apply as applyMatrix,
+  arrangementSpacing,
+  bedShapeOf,
+  fillCount,
+  instanceBounds as sharedInstanceBounds,
+  mirrorPlacement,
+  packShelf,
+  placementMatrix,
+  type PackItem,
+} from '@webslicer/shared';
 import { fromBox3, toBox3 } from '../three/matrix';
 import { shellPositions, splitShells } from '../plater/split';
 import { presetDiff, transferChanges } from '../plater/presetDiff';
@@ -479,15 +488,6 @@ function mintObjectId(): string {
   return `obj-${++objectId}`;
 }
 
-/**
- * Clearance kept between two arranged items. With sequential printing the extruder has to reach
- * around every object, so the extruder clearance radius applies; otherwise a small fixed gap.
- */
-function arrangementSpacing(printCfg: Config): number {
-  const radius = Number(printCfg.extruder_clearance_radius);
-  return radius > 0 && toBool(printCfg.complete_objects) ? radius : 6;
-}
-
 /** One shell of a non-indexed mesh as a geometry of its own, in the object's coordinate frame. */
 function shellGeometry(positions: Float32Array, tris: Uint32Array): THREE.BufferGeometry {
   const geometry = new THREE.BufferGeometry();
@@ -593,17 +593,6 @@ export function geometryToStl(geometry: THREE.BufferGeometry): ArrayBuffer {
     o += 2;
   }
   return buf;
-}
-
-export function bedShapeOf(printerCfg: Config): { min: [number, number]; max: [number, number]; points: Array<[number, number]> } {
-  const pts = (printerCfg.bed_shape || '0x0,200x0,200x200,0x200')
-    .split(',')
-    .map((p) => p.split('x').map(Number) as [number, number])
-    .filter((p) => p.length === 2 && !p.some((n) => Number.isNaN(n)));
-  if (!pts.length) pts.push([0, 0], [200, 0], [200, 200], [0, 200]);
-  const xs = pts.map((p) => p[0]);
-  const ys = pts.map((p) => p[1]);
-  return { min: [Math.min(...xs), Math.min(...ys)], max: [Math.max(...xs), Math.max(...ys)], points: pts };
 }
 
 export const useStore = create<State>((set, get) => ({

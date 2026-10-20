@@ -1,9 +1,14 @@
 /**
  * Shelf packing for the plater: fits rectangles (object/instance footprints) into the bed.
- * Pure and dependency-free so it can be unit tested; `arrange` and `fillBedWithInstances` use it.
- * Mirrors PrusaSlicer's simple arrangement: rows from the back of the bed, largest item first,
- * every row centred horizontally.
+ * Pure and dependency-free so it can be unit tested.
+ *
+ * This is PrusaSlicer's simple arrangement: rows from the back of the bed, largest item first,
+ * every row centred horizontally. The browser arranges with it before slicing and the server
+ * arranges a project headlessly, so both have to end up with the same layout – which is why the
+ * three copies this replaces (`web/src/plater/packing.ts`, `server/src/plater/packing.ts` and the
+ * `bedShapeOf`/`arrangementSpacing` pair in `web/src/state/store.ts`) live here now.
  */
+import { toBool } from '../values.js';
 
 export interface PackItem {
   /** unique key of the item */
@@ -20,9 +25,15 @@ export interface PackedItem {
   y: number;
 }
 
+/** Bed rectangle the items are packed into. */
 export interface BedRect {
   min: [number, number];
   max: [number, number];
+}
+
+/** Bed rectangle plus the polygon it came from, for the bed outline the viewer draws. */
+export interface BedShape extends BedRect {
+  points: Array<[number, number]>;
 }
 
 /**
@@ -79,4 +90,25 @@ export function fillCount(width: number, height: number, existing: PackItem[], b
     if (packShelf([...existing, ...copies], bed)) return n;
   }
   return 0;
+}
+
+/** Bed rectangle and polygon of a printer preset, from its `bed_shape` ("0x0,250x0,250x210,0x210"). */
+export function bedShapeOf(printerCfg: Record<string, string>): BedShape {
+  const pts = (printerCfg.bed_shape || '0x0,200x0,200x200,0x200')
+    .split(',')
+    .map((p) => p.split('x').map(Number) as [number, number])
+    .filter((p) => p.length === 2 && !p.some((n) => Number.isNaN(n)));
+  if (!pts.length) pts.push([0, 0], [200, 0], [200, 200], [0, 200]);
+  const xs = pts.map((p) => p[0]);
+  const ys = pts.map((p) => p[1]);
+  return { min: [Math.min(...xs), Math.min(...ys)], max: [Math.max(...xs), Math.max(...ys)], points: pts };
+}
+
+/**
+ * Clearance kept between two arranged items. With sequential printing the extruder has to reach
+ * around every object, so the extruder clearance radius applies; otherwise a small fixed gap.
+ */
+export function arrangementSpacing(printCfg: Record<string, string>): number {
+  const radius = Number(printCfg.extruder_clearance_radius);
+  return radius > 0 && toBool(printCfg.complete_objects) ? radius : 6;
 }

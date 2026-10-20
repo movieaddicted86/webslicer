@@ -139,10 +139,7 @@ export function serializePoints(points: Array<[number, number]>): string {
   return points.map(([x, y]) => `${x}x${y}`).join(',');
 }
 
-export function toBool(s: string | undefined): boolean {
-  if (s === undefined) return false;
-  const t = s.trim().toLowerCase();
-  return t === '1' || t === 'true' || t === 'yes' || t === 'on';
-}
+// the boolean reading lives in `shared` (R-4); the rest of the codecs follow in R-5
+export { toBool } from '@webslicer/shared';
 
 export const MODE_RANK: Record<string, number> = { simple: 0, advanced: 1, expert: 2 };
