@@ -1,26 +1,10 @@
 import * as THREE from 'three';
 import { encodeQoi, bytesToBase64 } from '../gcode/qoi';
-import type { ThumbnailInput } from '../api';
+import { parseThumbnailSpec, type ThumbnailInput, type ThumbnailSpec } from '@webslicer/shared';
 
-export interface ThumbnailSpec {
-  width: number;
-  height: number;
-  format: 'PNG' | 'JPG' | 'QOI';
-}
-
-/** Parse PrusaSlicer's "thumbnails" option ("16x16/QOI, 313x173/QOI" or legacy "16x16, 220x124"). */
-export function parseThumbnailSpec(spec: string | undefined, defaultFormat: string | undefined): ThumbnailSpec[] {
-  if (!spec) return [];
-  const def = (defaultFormat || 'PNG').toUpperCase();
-  const out: ThumbnailSpec[] = [];
-  for (const part of spec.split(',')) {
-    const m = /^\s*(\d+)\s*x\s*(\d+)\s*(?:\/\s*([A-Za-z]+))?\s*$/.exec(part);
-    if (!m) continue;
-    const f = (m[3] || def).toUpperCase();
-    out.push({ width: Number(m[1]), height: Number(m[2]), format: f === 'JPG' || f === 'JPEG' ? 'JPG' : f === 'QOI' ? 'QOI' : 'PNG' });
-  }
-  return out;
-}
+// the `thumbnails` option is read by `@webslicer/shared` (one parser for the browser and the CLI);
+// re-exported so the settings UI keeps its `../three/thumbnail` import path
+export { parseThumbnailSpec, type ThumbnailSpec };
 
 let snapshotRenderer: THREE.WebGLRenderer | undefined;
 
