@@ -15,7 +15,55 @@ export interface GcodeInfo {
   firstLayerHeight?: number;
   maxZ?: number;
   layers?: number;
+  /** warnings PrusaSlicer printed while the job still produced a G-code */
+  warnings?: string[];
   sizeBytes: number;
+}
+
+/** A job may warn many times (one block per object); the panel only keeps the first few. */
+export const MAX_WARNINGS = 20;
+
+/** `[2026-10-20 14:27:04.825715] [0x00007baeafad6f40] [info]    Slicing process finished…` */
+const LOG_PREFIX = /^(?:(?:\[[0-9]{4}-\d\d-\d\d[^\]]*\]|\[0x[0-9a-f]+\]|\[(?:fatal|error|warning|info|debug|trace)\])\s*)+/i;
+
+/** Lines that belong to the slicer's own progress/status output rather than to a warning. */
+function isLogNoise(line: string): boolean {
+  const t = line.trim();
+  return (
+    t === '' ||
+    LOG_PREFIX.test(t) ||
+    /^\d{1,3}\s*=>/.test(t) ||
+    /^=>/.test(t) ||
+    t.startsWith('$ ') ||
+    t.startsWith('WebSlicer:') ||
+    t.startsWith('Slicing result exported')
+  );
+}
+
+/**
+ * Warning lines of a slicer run. PrusaSlicer keeps slicing when an object is not printable and
+ * prints a block instead:
+ *   print warning: Empty layer between 8 and 12.2.
+ *   Object name: waist
+ *   Make sure the object is printable. …
+ * The block's lines after the `warning` line carry the object name and the fix hint, so they are
+ * joined into the same entry. Duplicates are dropped, the list is capped at `MAX_WARNINGS`.
+ */
+export function extractWarnings(lines: string[]): string[] {
+  const out: string[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    if (!/warning/i.test(lines[i])) continue;
+    const parts = [lines[i].trim().replace(LOG_PREFIX, '').replace(/^(print\s+)?warning\s*:\s*/i, '')];
+    // a following line that warns itself opens the next block instead of continuing this one
+    for (let j = i + 1; j < lines.length && parts.length < 3 && !isLogNoise(lines[j]) && !/warning/i.test(lines[j]); j++) {
+      parts.push(lines[j].trim());
+      i = j;
+    }
+    const entry = parts.join(' ').replace(/\s+/g, ' ').trim();
+    if (entry && !out.includes(entry)) out.push(entry);
+    if (out.length >= MAX_WARNINGS) break;
+  }
+  return out;
 }
 
 export function parseDuration(s: string): number {
