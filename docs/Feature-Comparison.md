@@ -99,13 +99,13 @@ Priority: **P1** needed for version 1.0 · **P2** important afterwards · **P3**
 | Preview colour schemes: height, width, speed, fan, temperature, volumetric flow, layer time, extruder, colour print | ✅ | **P1** | all views incl. layer time linear/logarithmic; layer times are feedrate based, scaled to the slicer's time estimate |
 | Horizontal slider (moves within a layer) | ✅ | – | plays the moves of the top visible layer with a tool position marker; reset to "end of layer" by the layer sliders |
 | View options: travel, retractions, seams, wipe, tool changes, colour changes, shells, tool marker | ✅ | – | each kind toggles on its own and is drawn as points (wipe moves as lines) in the PrusaSlicer colour; shells draw the objects translucent |
-| Legend with time/length per feature | 🟡 | P2 | length yes; time per feature missing |
+| Legend with time/length per feature | ✅ | – | time, share of the print time (without travel) and length per feature, plus a Travel row; the times are feedrate based and scaled to the slicer's estimate |
 | Colour change / pause / custom G-code at a layer (M600 via slider) | ✅ | – | buttons at the top slider position, markers on the slider, colour print view; stored as `Prusa_Slicer_custom_gcode_per_print_z.xml` |
 | Sliced info (time, filament, cost, layers) | ✅ | – | stealth time missing (P3) |
 | G-code text window at the current position | ❌ | P3 | |
 | Wipe tower visualization and purging volumes dialog | 🟡 | P3 | wipe tower is sliced; dialog missing |
 | Thumbnails in G-code | ✅ | – | |
-| Slicer warnings (validation, hints) | 🟡 | P2 | errors yes; warnings/hints are not shown |
+| Slicer warnings (validation, hints) | 🟡 | P2 | the warnings of a finished job (empty layer, stability issues, …) are shown in a collapsible box above the statistics; the model checks of the plater still only appear in the log |
 
 ## 5. Printers and print hosts
 
@@ -129,6 +129,6 @@ Priority: **P1** needed for version 1.0 · **P2** important afterwards · **P3**
 ## Summary
 
 Covered are the complete slicing core, profiles, per-object settings, volumes, painting, height
-ranges, library and print hosts. The largest remaining gaps are in the **preview** (time per feature,
-slicer warnings) and in **object tools** (cut, measure, emboss), followed by **STEP import**,
+ranges, library and print hosts. The largest remaining gaps are in **object tools** (cut, measure,
+emboss) and in the **preview** (model checks, G-code text window), followed by **STEP import**,
 **online profile updates** and the **G-code viewer**.
