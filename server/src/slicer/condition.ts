@@ -6,7 +6,7 @@
  * vendor bundles: and/or/not, comparisons, regex match (=~, !~), arithmetic,
  * indexing of vector options and a few builtin functions.
  */
-import { splitVector, unescapeStringsCstyle } from './values.js';
+import { splitVector, unescapeStringsCstyle } from '@webslicer/shared';
 
 type Value = number | string | boolean;
 

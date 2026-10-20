@@ -1,14 +1,15 @@
 /**
- * The PrusaSlicer value codecs, pinned before R-5 merges the browser's and the server's copies into
+ * The PrusaSlicer value codecs, pinned before R-5 merged the browser's and the server's copies into
  * `shared`: both sides write and read the same INI/preset strings, so the round trip, the vector
  * separators and the `bed_shape` point list are a contract, not an implementation detail.
  *
- * The corpus was run against the browser copy too (`web/src/values.ts`) before the move – the two
- * agreed on every input (see `.ai/reports/T-015.md`).
+ * The cases now assert the one implementation in `@webslicer/shared`, reached through this side's
+ * import – the same code the browser runs. The corpus was run against both copies before the move
+ * (`.claude/t15-diff.mts` found no input they disagreed on; see `.ai/reports/T-015.md`).
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { escapeStringCstyle, escapeStringsCstyle, parsePoints, serializePoints, unescapeStringCstyle, unescapeStringsCstyle } from './values.js';
+import { escapeStringCstyle, escapeStringsCstyle, parsePoints, serializePoints, unescapeStringCstyle, unescapeStringsCstyle } from '@webslicer/shared';
 
 const STRINGS = [
   '',

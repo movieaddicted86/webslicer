@@ -12,8 +12,8 @@ import { serializeIni, type IniSection } from './slicer/ini.js';
 import { build3mf, parseStl, transformMesh, writeBinaryStl, type Mesh, type ThreeMfObject, type ThreeMfVolume } from './slicer/threemf.js';
 import { extractWarnings, readGcodeInfo } from './slicer/gcodeInfo.js';
 import { injectThumbnails } from './slicer/thumbnails.js';
-import { escapeStringsCstyle, unescapeStringsCstyle, splitVector } from './slicer/values.js';
 import type { JobEvent, JobRecord, Schema, SliceRequest } from '@webslicer/shared';
+import { escapeStringsCstyle, unescapeStringsCstyle, splitVector } from '@webslicer/shared';
 
 const jobs = new Map<string, JobRecord>();
 const emitters = new Map<string, EventEmitter>();

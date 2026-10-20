@@ -9,11 +9,11 @@ import assert from 'node:assert/strict';
 import { parseHelp, buildSchema } from './schema.js';
 import { parseBundle } from './bundles.js';
 import { evaluateCondition } from './condition.js';
-import { escapeStringsCstyle, unescapeStringsCstyle } from './values.js';
+import { escapeStringsCstyle, unescapeStringsCstyle } from '@webslicer/shared';
 
 const fixtures = process.env.WEBSLICER_FIXTURES;
 
-test('cstyle string vectors roundtrip', () => {
+test('cstyle string vectors roundtrip (now from @webslicer/shared)', () => {
   const v = ['M900 K0.2 ; LA\n', 'plain', '', 'has "quote"'];
   assert.deepEqual(unescapeStringsCstyle(escapeStringsCstyle(v)), v);
   assert.deepEqual(unescapeStringsCstyle('#FF8000;#00FF00'), ['#FF8000', '#00FF00']);

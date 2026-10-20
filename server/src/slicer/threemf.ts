@@ -6,11 +6,12 @@
  */
 import JSZip from 'jszip';
 import type { IniSection } from './ini.js';
-import { escapeStringCstyle, unescapeStringCstyle } from './values.js';
 import { attributeToTriangleState, triangleStateToAttribute, PAINT_BLOCKER, PAINT_ENFORCER } from './paint.js';
 import {
+  escapeStringCstyle,
   transformFrom3mf,
   transformTo3mf,
+  unescapeStringCstyle,
   VOLUME_TYPES,
   type CustomGcode,
   type CustomGcodeType,
