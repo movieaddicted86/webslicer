@@ -2,10 +2,10 @@
  * Import model files and 3MF projects into the plater (used by Import, drag & drop, library and
  * autosave restore). Kept outside the components so the store can import it statically.
  */
-import * as THREE from 'three';
 import { useStore, VOLUME_LABELS, type NewVolumeInput } from './state/store';
 import { loadModelFile, load3mfBuildItems, splitGeometryByRanges, SUPPORTED_EXTENSIONS } from './three/loaders';
-import { placementFromMatrix } from './plater/transform';
+import { placementFromMatrix, IDENTITY } from '@webslicer/shared';
+import { toMatrix4 } from './three/matrix';
 import { api, type LayerRangeInput, type Placement } from './api';
 
 type ImportItem = {
@@ -61,7 +61,7 @@ export async function importFiles(files: FileList | File[]) {
               const k = buildOrder.indexOf(oi);
               if (k < 0) return;
               const g = itemGeoms[k];
-              const itemM = new THREE.Matrix4().fromArray(po.instances[0] || [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
+              const itemM = toMatrix4(po.instances[0] || IDENTITY);
               const geometry = g.clone().applyMatrix4(itemM.clone().invert());
               const item: ImportItem = {
                 name: po.name,
@@ -72,7 +72,7 @@ export async function importFiles(files: FileList | File[]) {
                 seamPaint: po.seamPaint,
                 mmuPaint: po.mmuPaint,
                 ranges: po.ranges,
-                instances: po.instances.map((m) => placementFromMatrix(new THREE.Matrix4().fromArray(m))),
+                instances: po.instances.map((m) => placementFromMatrix(m)),
               };
               // restore sub-volumes (parts, modifiers, support enforcers/blockers) from the triangle ranges
               if (po.volumes.length > 1) {

@@ -20,8 +20,7 @@ import { defaultPresetName, resolvePreset } from '../slicer/presets.js';
 import type { IniSection } from '../slicer/ini.js';
 import { loadModelFile } from './meshes.js';
 import { arrangementSpacing, bedShapeOf, packShelf } from './packing.js';
-import { instanceBounds, meshBounds, multiplyMatrix, normalize, translateMatrix, type Matrix4 } from './normalize.js';
-import type { Bounds, CustomGcode, PresetType, Schema, SliceRequest } from '@webslicer/shared';
+import { instanceBounds, meshBounds, multiply, normalize, translate, type Bounds, type CustomGcode, type Matrix4, type PresetType, type Schema, type SliceRequest } from '@webslicer/shared';
 
 /** hours a project stays alive after its last use */
 export const PROJECT_TTL_HOURS = Math.max(1, Number(process.env.PROJECT_TTL_HOURS || 24));
@@ -246,7 +245,7 @@ export function arrange(project: Project, schema: Schema): Project {
     const dx = p.x - (it.box.min[0] + it.box.max[0]) / 2;
     const dy = p.y - (it.box.min[1] + it.box.max[1]) / 2;
     const dz = -it.box.min[2];
-    it.o.instances[it.index] = multiplyMatrix(translateMatrix(dx, dy, dz), it.o.instances[it.index]);
+    it.o.instances[it.index] = multiply(translate(dx, dy, dz), it.o.instances[it.index]);
   }
   return touchProject(project);
 }
