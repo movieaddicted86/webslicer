@@ -168,3 +168,37 @@ test('a G-code without markers yields empty marker arrays', () => {
   assert.equal(g.wipeCount, 0);
   assert.equal(g.segmentCount, 1);
 });
+
+/** Feature times are accumulated as distance / feedrate, like the layer times. */
+test('feature times accumulate per feature type and add up to the layer times', () => {
+  const g = parseGcode(
+    [
+      'M83',
+      ';LAYER_CHANGE',
+      ';Z:0.2',
+      'G1 X0 Y0 Z0.2 F6000', // travel: 0.2 mm at 100 mm/s
+      ';TYPE:External perimeter',
+      'G1 X10 Y0 E0.5 F1200', // 10 mm at 20 mm/s = 0.5 s
+      'G1 X10 Y10 E1.0 F600', // 10 mm at 10 mm/s = 1.0 s
+      ';TYPE:Internal infill',
+      'G1 X0 Y10 E1.5 F1800', // 10 mm at 30 mm/s
+      'G1 X0 Y0 F9000', // travel: 10 mm at 150 mm/s
+      '',
+    ].join('\n'),
+  );
+  assert.ok(Math.abs(g.featureTime['External perimeter'] - 1.5) < 1e-5);
+  assert.ok(Math.abs(g.featureTime['Internal infill'] - 10 / 30) < 1e-5);
+  assert.ok(Math.abs(g.featureTime['Travel'] - (0.2 / 100 + 10 / 150)) < 1e-5);
+  const sum = (o: Record<string, number>) => Object.values(o).reduce((a, b) => a + b, 0);
+  const layerSeconds = Array.from(g.layerTime).reduce((a, b) => a + b, 0);
+  assert.ok(Math.abs(sum(g.featureTime) - layerSeconds) < 1e-5, `${sum(g.featureTime)} != ${layerSeconds}`);
+});
+
+test('a wipe counts towards its feature, not towards travel', () => {
+  const g = parseGcode(WIPE);
+  // the loop (10 mm) plus the two 0.5 mm wipe moves, all at 30 mm/s, belong to the perimeter
+  assert.ok(Math.abs(g.featureTime['External perimeter'] - (10 / 30 + 1 / 30)) < 1e-5);
+  // travel is only the lift, the move to the perimeter and the move back to the origin
+  const travel = 0.2 / 130 + Math.hypot(10, 10) / 130 + Math.hypot(21, 10) / 150;
+  assert.ok(Math.abs(g.featureTime['Travel'] - travel) < 1e-5, `${g.featureTime['Travel']} != ${travel}`);
+});

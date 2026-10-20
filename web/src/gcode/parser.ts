@@ -87,6 +87,9 @@ export function parseGcode(text: string): ParsedGcode {
   const featureTypes: string[] = [];
   const featureIndex = new Map<string, number>();
   const featureLength: Record<string, number> = {};
+  // per-feature time in seconds, same model as layerTime (distance / feedrate), so both sums agree;
+  // travel has a row of its own, a wipe counts towards the feature it belongs to
+  const featureTime: Record<string, number> = {};
   const typeIdx = (name: string) => {
     let i = featureIndex.get(name);
     if (i === undefined) {
@@ -221,6 +224,10 @@ export function parseGcode(text: string): ParsedGcode {
         const dist = Math.hypot(nx - x, ny - y, nz - z);
         if (layer < 0) newLayer(nz);
         if (feed > 0) layerTime[layer] += dist / feed;
+        if (feed > 0) {
+          const tname = de > 0 || wiping ? featureTypes[curType] : 'Travel';
+          featureTime[tname] = (featureTime[tname] || 0) + dist / feed;
+        }
         if (de > 0) {
           const atMove = move++;
           positions.push(x, y, z, nx, ny, nz);
@@ -347,6 +354,7 @@ export function parseGcode(text: string): ParsedGcode {
     bbox: { min: bmin as [number, number, number], max: bmax as [number, number, number] },
     segmentCount: segCount,
     featureLength,
+    featureTime,
     speed: speeds.trim(),
     fan: fans.trim(),
     temperature: temps.trim(),

@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- Preview like PrusaSlicer, part 2: the **feature legend** now shows the time, the share of the print
+  time and the extruded length of every feature type, plus a Travel row with its time (travel is not
+  extruded, so it has no share of its own and the shares of the other rows add up to 100 %). The times
+  come from the feedrates of the G-code and are scaled to the slicer's estimate, exactly like the
+  layer times in the range legends; the parser sums them per feature type while it walks the file, so
+  it adds no second pass. A finished job that sliced with **warnings** shows them in a collapsible
+  yellow box above the statistics instead of leaving them in the log – the server reads the warning
+  blocks out of the slicer log (`print warning: Empty layer between 8.15 and 12.35.` plus the object
+  name, the hint and the stability issues), deduplicates them and keeps at most 20; a clean job shows
+  no box
 - MCP endpoint for agents (phase 1): the server speaks the Model Context Protocol over Streamable HTTP
   at `/mcp`, so an assistant can look through printers, presets and the library, build a project and
   slice it. The endpoint exists only with a token – without `MCP_TOKEN` it answers 404, a missing or

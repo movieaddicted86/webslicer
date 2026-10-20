@@ -21,7 +21,7 @@ Priority by frequency of use in everyday printing and PrusaSlicer parity.
 
 ## P2 – important afterwards
 - [x] Preview: horizontal slider and view options (retractions, seams, wipe, tool/colour changes, shells) and tool marker
-- [ ] Preview: time per feature, slicer warnings
+- [x] Preview: time per feature, slicer warnings (T-007)
 - [ ] STEP import through the CLI (`--export-stl`)
 - [ ] Merge objects; object info (volume, manifold check), rename
 - [ ] Arrange with settings (spacing, rotation) and "arrange selection"

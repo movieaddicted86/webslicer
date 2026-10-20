@@ -117,6 +117,8 @@ export interface GcodeInfo {
   filamentCost?: number[];
   totalFilamentG?: number;
   totalFilamentCost?: number;
+  /** warnings PrusaSlicer printed while the job still produced a G-code */
+  warnings?: string[];
   sizeBytes: number;
 }
 

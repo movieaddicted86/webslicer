@@ -10,7 +10,7 @@ import { config } from './config.js';
 import { runSlicer } from './slicer/cli.js';
 import { serializeIni, type IniSection } from './slicer/ini.js';
 import { build3mf, parseStl, transformMesh, writeBinaryStl, type CustomGcode, type Mesh, type ThreeMfObject, type ThreeMfVolume, type VolumeType } from './slicer/threemf.js';
-import { readGcodeInfo, type GcodeInfo } from './slicer/gcodeInfo.js';
+import { extractWarnings, readGcodeInfo, type GcodeInfo } from './slicer/gcodeInfo.js';
 import { injectThumbnails, type ThumbnailInput } from './slicer/thumbnails.js';
 import { escapeStringsCstyle, unescapeStringsCstyle, splitVector } from './slicer/values.js';
 import type { Schema } from './slicer/schema.js';
@@ -483,14 +483,15 @@ async function runJob(job: JobRecord) {
   job.status = 'done';
   job.percent = 100;
   job.message = 'Done';
+  const warnings = extractWarnings(logLines);
   if (job.technology === 'FFF' && outFile.endsWith('.gcode')) {
     try {
-      job.info = readGcodeInfo(outFile);
+      job.info = { ...readGcodeInfo(outFile), warnings };
     } catch {
-      /* ignore */
+      job.info = { sizeBytes: fs.statSync(outFile).size, warnings };
     }
   } else {
-    job.info = { sizeBytes: fs.statSync(outFile).size };
+    job.info = { sizeBytes: fs.statSync(outFile).size, warnings };
   }
   persist(job);
   emit(job.id, { type: 'done', job });

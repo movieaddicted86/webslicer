@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { countLayers, parseDuration, readGcodeInfo } from './gcodeInfo.js';
+import { MAX_WARNINGS, countLayers, extractWarnings, parseDuration, readGcodeInfo } from './gcodeInfo.js';
 
 function tmpGcode(name: string, content: string): string {
   const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'webslicer-gcodeinfo-')), name);
@@ -47,6 +47,59 @@ test('readGcodeInfo reports time, filament and the layer count', () => {
   assert.equal(info.totalFilamentG, 9.85);
   assert.equal(info.totalFilamentCost, 24.99);
   assert.equal(info.layers, 42);
+});
+
+// A warning block as PrusaSlicer 2.9.6 writes it for an object with unusable layers
+const WAIST_LOG = [
+  '$ /opt/prusaslicer/AppRun --export-gcode --load /data/jobs/x/config.ini --dont-arrange --loglevel 3 --output /data/jobs/x/waist.gcode /data/jobs/x/model.3mf',
+  '[2026-10-20 14:27:04.825715] [0x00007baeafad6f40] [info]    Slicing process finished. Resident memory: 76MB',
+  '90 => Exporting G-code to /data/jobs/x/waist.gcode',
+  'print warning: Empty layer between 8 and 12.2.',
+  'Object name: waist',
+  'Make sure the object is printable. This is usually caused by negligibly small extrusions or by a faulty model.',
+  '[2026-10-20 14:27:04.896428] [0x00007baeafad6f40] [info]    === FEATURE STATS BEGIN ===',
+  'Slicing result exported to /data/jobs/x/waist.gcode',
+];
+
+test('extractWarnings joins a warning block with its object name and hint, ignoring log noise', () => {
+  const warnings = extractWarnings(WAIST_LOG);
+  assert.deepEqual(warnings, [
+    'Empty layer between 8 and 12.2. Object name: waist Make sure the object is printable. ' +
+      'This is usually caused by negligibly small extrusions or by a faulty model.',
+  ]);
+});
+
+test('extractWarnings keeps two blocks apart and reads every line of a four-line block', () => {
+  const warnings = extractWarnings([
+    '69 => Alert if supports needed',
+    'print warning: Detected print stability issues:',
+    'waist',
+    'Floating bridge anchors, Loose extrusions, Long bridging extrusions',
+    'Consider enabling supports.',
+    '89 => Calculating overhanging perimeters',
+    'print warning: Empty layer between 8.15 and 12.35.',
+    'Object name: waist',
+  ]);
+  assert.deepEqual(warnings, [
+    'Detected print stability issues: waist Floating bridge anchors, Loose extrusions, Long bridging extrusions Consider enabling supports.',
+    'Empty layer between 8.15 and 12.35. Object name: waist',
+  ]);
+});
+
+test('extractWarnings reads a severity-tagged warning line and reports none for a clean log', () => {
+  const tagged = extractWarnings(['[2026-10-20 14:27:04.9] [0x00007baeafad6f40] [warning] Skipping empty layer']);
+  assert.deepEqual(tagged, ['Skipping empty layer']);
+  assert.deepEqual(extractWarnings(WAIST_LOG.filter((l) => !/warning/i.test(l))), []);
+  assert.deepEqual(extractWarnings([]), []);
+});
+
+test('extractWarnings drops duplicates and keeps at most MAX_WARNINGS entries', () => {
+  const same = Array.from({ length: 5 }, () => 'print warning: same message');
+  assert.deepEqual(extractWarnings(same), ['same message']);
+  const many = Array.from({ length: MAX_WARNINGS + 10 }, (_, i) => `print warning: message ${i}`);
+  const warnings = extractWarnings(many);
+  assert.equal(warnings.length, MAX_WARNINGS);
+  assert.equal(warnings[0], 'message 0');
 });
 
 test('parseDuration reads days, hours, minutes and seconds', () => {
