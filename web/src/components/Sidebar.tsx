@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { useStore, isModified, bedShapeOf, instanceBounds, selectedInstance, pickedInstanceId, VOLUME_LABELS, type PlaterObject, type PlaterVolume } from '../state/store';
+import { useStore, isModified, instanceBounds, selectedInstance, pickedInstanceId, VOLUME_LABELS, type PlaterObject, type PlaterVolume } from '../state/store';
+import { bedShapeOf } from '@webslicer/shared';
 import { PresetSelect } from './PresetSelect';
 import { PreviewPanel } from './PreviewPanel';
 import { objectIsOutside } from '../three/Viewer';

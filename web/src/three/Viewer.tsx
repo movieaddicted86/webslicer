@@ -3,16 +3,8 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
-import {
-  useStore,
-  bedShapeOf,
-  instanceBounds,
-  selectedInstance,
-  pickedInstanceId,
-  type PlaterInstance,
-  type PlaterObject,
-  type PlaterVolume,
-} from '../state/store';
+import { useStore, instanceBounds, selectedInstance, pickedInstanceId, type PlaterInstance, type PlaterObject, type PlaterVolume } from '../state/store';
+import { bedShapeOf } from '@webslicer/shared';
 import {
   VIEWS,
   fitFrame,
