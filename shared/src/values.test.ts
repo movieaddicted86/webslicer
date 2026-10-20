@@ -257,4 +257,11 @@ test('parseThumbnailSpec reads the preset option both sides render and write', (
   ]);
   assert.deepEqual(parseThumbnailSpec('16x16/monochrome, garbage', 'QOI'), [{ width: 16, height: 16, format: 'PNG' }]);
   assert.deepEqual(parseThumbnailSpec('16x16/QOI,', 'PNG'), [{ width: 16, height: 16, format: 'QOI' }]);
+  // a malformed entry is skipped – the separator must be a lower-case `x` (an upper-case one has no
+  // match), and a bare word has no size at all; leading zeros parse, `0x0` is a degenerate size
+  assert.deepEqual(parseThumbnailSpec('16X16', 'png'), []);
+  assert.deepEqual(parseThumbnailSpec('016x016', 'PNG'), [{ width: 16, height: 16, format: 'PNG' }]);
+  assert.deepEqual(parseThumbnailSpec('garbage', 'QOI'), []);
+  assert.deepEqual(parseThumbnailSpec('0x0', 'PNG'), [{ width: 0, height: 0, format: 'PNG' }]);
+  assert.deepEqual(parseThumbnailSpec('  ', 'PNG'), []);
 });
