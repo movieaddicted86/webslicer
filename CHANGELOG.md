@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Server-side projects (MCP phase 0): the server can build and slice a plater without a browser.
+  `POST /api/projects` creates a project for a printer/print/filament preset (names plus overrides),
+  `POST /api/projects/:id/models` adds an STL or 3MF from the library (3MF: one object per `<object>`,
+  one instance per `<build><item>`, placed exactly where the file has them; `copies` repeats the
+  instances), `POST /api/projects/:id/arrange` packs the instances with the same shelf algorithm the
+  browser uses, `POST /api/projects/:id/slice` answers with a job record (no thumbnails headlessly) and
+  `GET /api/projects/:id` reads the state back. A project is a JSON file in `data/projects/`, expires
+  24 h after its last use and keeps its models alive; expired projects and their models are removed by
+  the cleanup that runs with the model pruning. The browser UI is unchanged
 - Preview like PrusaSlicer, part 1: a **horizontal slider** under the layer sliders plays the moves of
   the top visible layer one by one (at the end of its range it shows the whole layer again) and a small
   tool marker sits at the current position – moving a layer slider resets it to "end of layer". The

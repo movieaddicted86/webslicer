@@ -16,7 +16,7 @@ import {
   defaultPresetName,
   userPresetExists,
 } from '../slicer/presets.js';
-import { parseStl, writeBinaryStl, read3mfProject, VOLUME_TYPES, CUSTOM_GCODE_TYPES } from '../slicer/threemf.js';
+import { parseStl, read3mfProject, VOLUME_TYPES, CUSTOM_GCODE_TYPES } from '../slicer/threemf.js';
 import {
   createJob,
   getJob,
@@ -28,10 +28,12 @@ import {
   jobDir,
   build3mfForRequest,
   mergeConfigs,
+  saveModel,
   type SliceRequest,
 } from '../jobs.js';
 import { listPrinters, upsertPrinter, deletePrinter, getPrinter, testPrinter, uploadToPrinter } from '../printers.js';
 import { libraryRouter } from './library.js';
+import { projectsRouter } from './projects.js';
 import type { IniSection } from '../slicer/ini.js';
 
 const PRESET_TYPES: PresetType[] = ['print', 'filament', 'printer', 'sla_print', 'sla_material'];
@@ -216,14 +218,8 @@ export function apiRouter(): express.Router {
         return badRequest(res, `cannot parse STL: ${(e as Error).message}`);
       }
       if (!mesh.indices.length) return badRequest(res, 'mesh has no triangles');
-      const id = randomUUID();
-      const name = decodeURIComponent(String(req.header('x-filename') || 'model.stl'));
-      fs.writeFileSync(path.join(config.modelsDir, `${id}.stl`), writeBinaryStl(mesh));
-      fs.writeFileSync(
-        path.join(config.modelsDir, `${id}.json`),
-        JSON.stringify({ id, name, triangles: mesh.indices.length / 3, vertices: mesh.vertices.length / 3, createdAt: new Date().toISOString() }),
-      );
-      res.json({ id, name, triangles: mesh.indices.length / 3, vertices: mesh.vertices.length / 3 });
+      const { id, name, triangles, vertices } = saveModel(mesh, decodeURIComponent(String(req.header('x-filename') || 'model.stl')));
+      res.json({ id, name, triangles, vertices });
     }),
   );
 
@@ -427,6 +423,10 @@ export function apiRouter(): express.Router {
 
   // ---- file library (mounted directory) ------------------------------------
   r.use('/library', libraryRouter());
+
+  // ---- server-side projects (headless plater, MCP phase 0) ------------------
+  // Mounted after `/projects/parse` above, so that 3MF upload keeps its route.
+  r.use('/projects', projectsRouter());
 
   // ---- autosave of the plater (per browser client) -------------------------
   const clientId = (req: Request): string | undefined => {

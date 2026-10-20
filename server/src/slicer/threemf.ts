@@ -513,7 +513,7 @@ export function transformFrom3mf(s: string): number[] {
 }
 
 /** Build items of 3D/3dmodel.model in document order: the object id each one instantiates and its transform. */
-function parse3mfBuild(model: string): Array<{ objectId: string; transform: number[] }> {
+export function parse3mfBuild(model: string): Array<{ objectId: string; transform: number[] }> {
   const build = /<build\b[^>]*>([\s\S]*?)<\/build>/.exec(model)?.[1];
   if (!build) return [];
   const out: Array<{ objectId: string; transform: number[] }> = [];

@@ -13,7 +13,7 @@ Priority by frequency of use in everyday printing and PrusaSlicer parity.
 6. [x] **Unsaved-changes dialog** on preset switch: transfer / save / discard
 
 ## MCP (approved 2026-10-19, docs/MCP-Concept.md) – scheduled right after T-004
-- [ ] Phase 0 – headless model import, server-side plater/arrange, project store (T-005)
+- [x] Phase 0 – headless model import, server-side plater/arrange, project store (T-005)
 - [ ] Phase 1 – `/mcp` endpoint with per-user tokens, discover + slice tools (T-006)
 - [ ] Phase 2 – object tools, resources, prompts, audit log (within P2)
 - [ ] Phase 4 – stdio package `webslicer-mcp`, docs and client examples (within P2)
