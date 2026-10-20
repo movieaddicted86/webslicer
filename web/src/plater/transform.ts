@@ -4,13 +4,7 @@
  * instance (`instanceMatrix`).
  */
 import * as THREE from 'three';
-
-/** Position / Euler XYZ / scale triple of a plater instance (see `PlaterInstance`). */
-export interface Placement {
-  position: [number, number, number];
-  rotation: [number, number, number];
-  scale: [number, number, number];
-}
+import type { Placement } from '@webslicer/shared';
 
 /** World matrix of a placement, the same way `instanceMatrix` builds it. */
 export function placementMatrix(p: Pick<Placement, 'position' | 'rotation' | 'scale'>): THREE.Matrix4 {

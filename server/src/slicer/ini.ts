@@ -3,7 +3,10 @@
  * PrusaSlicer configs are flat "key = value" files; vendor bundles use [sections].
  * Newlines inside string values are stored as a literal backslash-n.
  */
-export type IniSection = Record<string, string>;
+import type { Config } from '@webslicer/shared';
+
+/** One INI section; the shared `Config` (same shape – the name keeps the INI reading local). */
+export type IniSection = Config;
 export type IniDocument = { global: IniSection; sections: Map<string, IniSection> };
 
 export function parseIni(text: string): IniDocument {

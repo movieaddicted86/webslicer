@@ -10,10 +10,7 @@
  * `v - c` gives `M_j · v`, i.e. exactly the position the file had.
  */
 
-export interface Bounds {
-  min: [number, number, number];
-  max: [number, number, number];
-}
+import type { Bounds } from '@webslicer/shared';
 
 /** 4x4 matrices are column-major (three.js `Matrix4.elements` order), as everywhere else in WebSlicer. */
 export type Matrix4 = number[];

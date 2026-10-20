@@ -9,80 +9,11 @@ import { randomUUID } from 'node:crypto';
 import { config } from './config.js';
 import { runSlicer } from './slicer/cli.js';
 import { serializeIni, type IniSection } from './slicer/ini.js';
-import { build3mf, parseStl, transformMesh, writeBinaryStl, type CustomGcode, type Mesh, type ThreeMfObject, type ThreeMfVolume, type VolumeType } from './slicer/threemf.js';
-import { extractWarnings, readGcodeInfo, type GcodeInfo } from './slicer/gcodeInfo.js';
-import { injectThumbnails, type ThumbnailInput } from './slicer/thumbnails.js';
+import { build3mf, parseStl, transformMesh, writeBinaryStl, type Mesh, type ThreeMfObject, type ThreeMfVolume } from './slicer/threemf.js';
+import { extractWarnings, readGcodeInfo } from './slicer/gcodeInfo.js';
+import { injectThumbnails } from './slicer/thumbnails.js';
 import { escapeStringsCstyle, unescapeStringsCstyle, splitVector } from './slicer/values.js';
-import type { Schema } from './slicer/schema.js';
-
-export type JobStatus = 'queued' | 'running' | 'done' | 'error' | 'cancelled';
-
-export interface SliceVolumeInput {
-  modelId: string;
-  name: string;
-  type: VolumeType;
-  /** transform relative to the object (column-major 4x4) */
-  transform: number[];
-  config?: IniSection;
-  extruder?: number;
-}
-
-export interface SliceObjectInput {
-  modelId: string;
-  name: string;
-  /** transform of instance 1 (kept for older clients) */
-  transform: number[];
-  /** all instance transforms (including the first) when the object has more than one instance */
-  instances?: number[][];
-  config?: IniSection;
-  extruder?: number;
-  volumes?: SliceVolumeInput[];
-  /** per-triangle paint of the main mesh: one char per triangle ('0' none, '4' enforcer, '8' blocker) */
-  supportPaint?: string;
-  seamPaint?: string;
-  /** MMU paint: one hex char per triangle = extruder index (0 = object default) */
-  mmuPaint?: string;
-  /** height range modifiers (object Z, mm) */
-  ranges?: Array<{ minZ: number; maxZ: number; config: IniSection }>;
-}
-
-export interface SliceRequest {
-  objects: SliceObjectInput[];
-  print: { name: string; config: IniSection };
-  filaments: Array<{ name: string; config: IniSection }>;
-  printer: { name: string; config: IniSection };
-  outputName?: string;
-  /** Emit binary G-code (.bgcode) when the printer supports it. Default: ASCII (previewable). */
-  binaryGcode?: boolean;
-  /** previews rendered by the browser; embedded into ASCII G-code after slicing */
-  thumbnails?: ThumbnailInput[];
-  /** colour changes, pauses and custom G-code at given layer heights */
-  customGcodes?: CustomGcode[];
-}
-
-export interface JobRecord {
-  id: string;
-  status: JobStatus;
-  createdAt: string;
-  startedAt?: string;
-  finishedAt?: string;
-  percent: number;
-  message: string;
-  error?: string;
-  outputName: string;
-  technology: 'FFF' | 'SLA';
-  info?: GcodeInfo;
-  presets: { print: string; filaments: string[]; printer: string };
-  objectNames: string[];
-}
-
-export interface JobEvent {
-  type: 'progress' | 'log' | 'done' | 'error' | 'status';
-  percent?: number;
-  message?: string;
-  line?: string;
-  job?: JobRecord;
-}
+import type { JobEvent, JobRecord, Schema, SliceRequest } from '@webslicer/shared';
 
 const jobs = new Map<string, JobRecord>();
 const emitters = new Map<string, EventEmitter>();

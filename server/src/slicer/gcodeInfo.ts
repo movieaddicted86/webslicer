@@ -1,24 +1,5 @@
 import fs from 'node:fs';
-
-export interface GcodeInfo {
-  generator?: string;
-  estimatedTime?: string;
-  estimatedTimeSeconds?: number;
-  estimatedFirstLayerTime?: string;
-  filamentUsedMm?: number[];
-  filamentUsedCm3?: number[];
-  filamentUsedG?: number[];
-  filamentCost?: number[];
-  totalFilamentG?: number;
-  totalFilamentCost?: number;
-  layerHeight?: number;
-  firstLayerHeight?: number;
-  maxZ?: number;
-  layers?: number;
-  /** warnings PrusaSlicer printed while the job still produced a G-code */
-  warnings?: string[];
-  sizeBytes: number;
-}
+import type { GcodeInfo } from '@webslicer/shared';
 
 /** A job may warn many times (one block per object); the panel only keeps the first few. */
 export const MAX_WARNINGS = 20;

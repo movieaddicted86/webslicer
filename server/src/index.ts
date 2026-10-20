@@ -1,7 +1,6 @@
 import express from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
-import { SHARED_PACKAGE_NAME } from '@webslicer/shared';
 import { config, ensureDirs } from './config.js';
 import { getSlicerVersion, slicerAvailable } from './slicer/cli.js';
 import { loadBundles } from './slicer/bundles.js';
@@ -15,7 +14,6 @@ import { seedSamples } from './samples.js';
 async function main() {
   ensureDirs();
   console.log(`[webslicer] data dir: ${config.dataDir}`);
-  console.log(`[webslicer] shared package: ${SHARED_PACKAGE_NAME}`);
   console.log(`[webslicer] slicer binary: ${config.slicerBin}`);
   console.log(`[webslicer] slicer resources: ${config.slicerResources || '(not found)'}`);
 

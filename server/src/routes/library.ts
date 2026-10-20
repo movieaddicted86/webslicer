@@ -7,21 +7,13 @@ import express, { type Request, type Response, type NextFunction } from 'express
 import fs from 'node:fs';
 import path from 'node:path';
 import { config } from '../config.js';
-import { getJob, jobOutputPath, build3mfForRequest, mergeConfigs, type SliceRequest } from '../jobs.js';
+import { getJob, jobOutputPath, build3mfForRequest, mergeConfigs } from '../jobs.js';
 import { getSchema } from '../slicer/schema.js';
 import { loadBundles } from '../slicer/bundles.js';
+import type { LibraryEntry, SliceRequest } from '@webslicer/shared';
 
 export const MODEL_EXT = new Set(['.stl', '.obj', '.3mf', '.amf']);
 export const GCODE_EXT = new Set(['.gcode', '.bgcode', '.gco', '.g']);
-
-export interface LibraryEntry {
-  name: string;
-  path: string;
-  dir: boolean;
-  size?: number;
-  mtime?: string;
-  kind?: 'model' | 'project' | 'gcode' | 'other';
-}
 
 /** Resolve a user supplied relative path inside the library; rejects escapes. */
 export function resolveLibraryPath(rel: string | undefined): string {

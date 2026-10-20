@@ -10,12 +10,13 @@
  *   POST /api/projects/:id/slice      slice it -> job record (like POST /api/slice)
  */
 import express, { type NextFunction, type Request, type Response } from 'express';
-import { createJob, type SliceRequest } from '../jobs.js';
+import { createJob } from '../jobs.js';
 import { loadBundles } from '../slicer/bundles.js';
-import { getSchema, type Schema } from '../slicer/schema.js';
+import { getSchema } from '../slicer/schema.js';
 import type { IniSection } from '../slicer/ini.js';
 import { addModelFromLibrary, arrange, createProject, toSliceRequest, touchProject, loadProject, type ProjectPresetRef } from '../plater/project.js';
 import { validateSliceRequest } from './api.js';
+import type { Schema, SliceRequest } from '@webslicer/shared';
 
 function asyncHandler(fn: (req: Request, res: Response, next: NextFunction) => Promise<unknown>) {
   return (req: Request, res: Response, next: NextFunction) => {

@@ -9,28 +9,7 @@ import { loadBundles, findSystemPreset, type SystemPreset } from './bundles.js';
 import { parseIni, serializeIni, type IniSection } from './ini.js';
 import { evaluateCondition } from './condition.js';
 import { splitVector, unescapeStringsCstyle } from './values.js';
-import type { PresetType, Schema } from './schema.js';
-
-export interface PresetSummary {
-  type: PresetType;
-  name: string;
-  system: boolean;
-  vendorId?: string;
-  vendorName?: string;
-  inherits?: string;
-  alias?: string;
-  printerModel?: string;
-  printerVariant?: string;
-  technology?: 'FFF' | 'SLA';
-  compatible?: boolean;
-}
-
-export interface ResolvedPreset extends PresetSummary {
-  /** full config: slicer defaults + preset values */
-  config: IniSection;
-  /** values that differ from the parent system preset / defaults */
-  overrides: IniSection;
-}
+import type { InstalledPrinter, PresetSummary, PresetType, ResolvedPreset, Schema } from '@webslicer/shared';
 
 function safeName(name: string): string {
   return name.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').trim();
@@ -172,12 +151,6 @@ export function userPresetExists(type: PresetType, name: string): boolean {
 // ---------------------------------------------------------------------------
 // Installed printers (vendor models + variants selected by the user)
 // ---------------------------------------------------------------------------
-
-export interface InstalledPrinter {
-  vendorId: string;
-  modelId: string;
-  variant: string;
-}
 
 function installedFile(): string {
   return path.join(config.dataDir, 'installed_printers.json');

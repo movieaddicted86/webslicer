@@ -6,21 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { config } from '../config.js';
 import { parseIni, type IniSection } from './ini.js';
-import type { PresetType } from './schema.js';
-
-export interface PrinterModel {
-  vendorId: string;
-  vendorName: string;
-  id: string;
-  name: string;
-  variants: string[];
-  technology: 'FFF' | 'SLA';
-  family: string;
-  bedModel?: string;
-  bedTexture?: string;
-  thumbnail?: string;
-  defaultMaterials: string[];
-}
+import type { PresetType, PrinterModel, Vendor } from '@webslicer/shared';
 
 export interface SystemPreset {
   type: PresetType;
@@ -34,14 +20,6 @@ export interface SystemPreset {
   /** For printer presets: model id and variant */
   printerModel?: string;
   printerVariant?: string;
-}
-
-export interface Vendor {
-  id: string;
-  name: string;
-  configVersion?: string;
-  models: PrinterModel[];
-  file: string;
 }
 
 export interface BundleData {
