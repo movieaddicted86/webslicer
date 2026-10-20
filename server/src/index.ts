@@ -6,6 +6,8 @@ import { getSlicerVersion, slicerAvailable } from './slicer/cli.js';
 import { loadBundles } from './slicer/bundles.js';
 import { getSchema } from './slicer/schema.js';
 import { apiRouter } from './routes/api.js';
+import { mcpRouter } from './mcp/server.js';
+import { bootstrapEnvToken } from './mcp/tokens.js';
 import { loadJobsFromDisk, setSchema } from './jobs.js';
 import { seedSamples } from './samples.js';
 
@@ -33,9 +35,13 @@ async function main() {
   loadJobsFromDisk();
   seedSamples();
 
+  const tokens = bootstrapEnvToken();
+  console.log(tokens ? `[webslicer] MCP: enabled (${tokens} token${tokens === 1 ? '' : 's'})` : '[webslicer] MCP: disabled (set MCP_TOKEN to enable /mcp)');
+
   const app = express();
   app.disable('x-powered-by');
   app.use('/api', apiRouter());
+  app.use('/mcp', mcpRouter());
 
   // Static frontend
   if (fs.existsSync(config.webDist)) {

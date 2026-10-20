@@ -53,6 +53,9 @@ export const config = {
   projectsDir: path.join(dataDir, 'projects'),
   cacheDir: path.join(dataDir, 'cache'),
   autosaveDir: path.join(dataDir, 'autosave'),
+  /** MCP bearer tokens (hashes) and the audit log of the MCP endpoint */
+  mcpTokensFile: path.join(dataDir, 'mcp-tokens.json'),
+  auditLog: path.join(dataDir, 'audit.log'),
   /** model / project / G-code library, meant to be mounted (NAS, SMB, …) */
   libraryDir: path.resolve(process.env.LIBRARY_DIR || path.join(dataDir, 'library')),
   slicerBin,
