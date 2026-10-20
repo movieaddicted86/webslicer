@@ -19,8 +19,22 @@ import { saveModel, setPlaterHooks } from '../jobs.js';
 import { defaultPresetName, resolvePreset } from '../slicer/presets.js';
 import type { IniSection } from '../slicer/ini.js';
 import { loadModelFile } from './meshes.js';
-import { arrangementSpacing, bedShapeOf, packShelf } from './packing.js';
-import { instanceBounds, meshBounds, multiply, normalize, translate, type Bounds, type CustomGcode, type Matrix4, type PresetType, type Schema, type SliceRequest } from '@webslicer/shared';
+import {
+  arrangementSpacing,
+  bedShapeOf,
+  instanceBounds,
+  meshBounds,
+  multiply,
+  normalize,
+  packShelf,
+  translate,
+  type Bounds,
+  type CustomGcode,
+  type Matrix4,
+  type PresetType,
+  type Schema,
+  type SliceRequest,
+} from '@webslicer/shared';
 
 /** hours a project stays alive after its last use */
 export const PROJECT_TTL_HOURS = Math.max(1, Number(process.env.PROJECT_TTL_HOURS || 24));
@@ -222,7 +236,8 @@ export async function addModelFromLibrary(project: Project, libraryPath: string,
 }
 
 /**
- * Arrange every instance with the browser's shelf packing (same algorithm, see `packing.ts`):
+ * Arrange every instance with the shared shelf packing (`@webslicer/shared`, the algorithm the
+ * browser uses as well):
  * footprints including the clearance, largest first, then each instance is moved so its centre
  * lands on the packed centre and its minimum Z on the bed.
  */
