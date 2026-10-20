@@ -1,6 +1,9 @@
 node_modules
 **/node_modules
 **/dist
+# local incremental build state must never reach the image: `tsc -b` would consider the project
+# up to date and emit nothing
+**/*.tsbuildinfo
 data
 .git
 proxmox

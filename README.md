@@ -268,9 +268,10 @@ If you prefer Docker inside the LXC: create the container with `nesting=1`, inst
 
 ```bash
 npm install
-npm run dev          # Vite (5173, proxy → API) + server (8080, tsx watch)
-npm run build        # web/dist + server/dist
-npm test             # server tests
+npm run dev          # shared/dist, then Vite (5173, proxy → API) + server (8080, tsx watch)
+npm run typecheck    # shared + web + server
+npm run build        # shared/dist + web/dist + server/dist
+npm test             # shared + server + web tests (builds shared first)
 ```
 
 For local development PrusaSlicer must be reachable (`PRUSASLICER_BIN`); on Windows the
@@ -279,6 +280,7 @@ For local development PrusaSlicer must be reachable (`PRUSASLICER_BIN`); on Wind
 ### Architecture
 
 ```
+shared/   @webslicer/shared – pure TypeScript used by web AND server (no React, no Express, no three.js)
 web/      React + Three.js + Zustand (Vite)      → plater, settings UI, G-code preview (web worker)
 server/   Node 22 + Express
   slicer/cli.ts        invoking prusa-slicer
