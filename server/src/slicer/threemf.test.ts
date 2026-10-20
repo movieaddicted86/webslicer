@@ -204,6 +204,31 @@ test('3MF transform parser handles arbitrary row-major strings', async () => {
   closeTo(transformFrom3mf('  '), I);
 });
 
+test('3MF transform round trip M -> string -> M is the identity for rotated, mirrored and scaled matrices', () => {
+  // The pair has to be an exact inverse of itself, or a project re-imported after an export silently
+  // moves every instance. The cases below are the ones the writer's row-major 4x3 form can get wrong:
+  // a 90 degree rotation (R versus R^T, the P1.3 bug), a mirror with a non-uniform scale (negative
+  // determinant, so the sign must survive the swap of rows and columns) and a plain scale + offset.
+  const cases: Array<[string, number[]]> = [
+    ['identity', I],
+    ['90 deg about Z', rotZ(90, 5, 0, 1)],
+    ['mirror + non-uniform scale', [0, 1.5, 0, 0, 1, 0, 0, 0, 0, 0, 2, 0, 10, 20, 0, 1]],
+    ['non-uniform scale + offset', [2, 0, 0, 0, 0, 0.5, 0, 0, 0, 0, 3, 0, -4, 7, 2, 1]],
+  ];
+  for (const [name, m] of cases) {
+    // the writer prints 6 decimals, so the round trip is exact to that precision and no further
+    closeTo(transformFrom3mf(transformTo3mf(m)), m, 1e-5);
+  }
+  // The round trip alone cannot see a writer and a reader that are transposed together, so pin the
+  // convention as well: row-major 4x3, translation last. R(90 deg about Z) has the rows (0,1,0),
+  // (-1,0,0), (0,0,1) – written as such, and read back as a matrix that maps +X to +Y.
+  assert.equal(transformTo3mf(rotZ(90, 5, 0, 1)), '0 1 0 -1 0 0 0 0 1 5 0 1');
+  const roundTrip = transformFrom3mf(transformTo3mf(rotZ(90, 5, 0, 1)));
+  closeTo([roundTrip[0], roundTrip[1], roundTrip[2]], [0, 1, 0], 1e-5);
+  closeTo(roundTrip.slice(12), [5, 0, 1, 1], 1e-5);
+  assert.equal(transformTo3mf([0, 1.5, 0, 0, 1, 0, 0, 0, 0, 0, 2, 0, 10, 20, 0, 1]), '0 1.5 0 1 0 0 0 0 2 10 20 0');
+});
+
 test('3MF writer emits one item per instance and instances_count', async () => {
   const instances = [translate(10, 0, 0), translate(0, 20, 0), translate(30, 30, 0)];
   const buf = await build3mf([{ name: 'cube', mesh: cube(20), transform: instances[0], instances }]);

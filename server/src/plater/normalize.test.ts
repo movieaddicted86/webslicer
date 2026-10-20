@@ -81,3 +81,33 @@ test('multiplyMatrix composes in column-major order', () => {
   closePoint(applyMatrix(multiplyMatrix(translateMatrix(10, 0, 0), rz), 1, 0, 0), [10, 1, 0]);
   closePoint(applyMatrix(multiplyMatrix(rz, translateMatrix(10, 0, 0)), 1, 0, 0), [0, 11, 0]);
 });
+
+test('an instance position is M_j · c – with a non-zero Z offset, not the offset added to it', () => {
+  // The normalisation offset is not always flat: a mesh sitting above the bed keeps its Z, so
+  // c = [10, 10, 5] here. The instance matrix is T_j · Translate(c), and its translation is
+  // therefore M_j · c: the offset is turned and scaled by the instance like any other point.
+  const RAISED = Float32Array.from(Array.from(CUBE).map((v, i) => (i % 3 === 2 ? v + 5 : v)));
+  const c = normalizationOffset(meshBounds(RAISED));
+  assert.deepEqual(c, [10, 10, 5]);
+  assert.ok(c[2] !== 0, 'this case is only interesting with c.z != 0');
+
+  const m = rotatedScaled(60, 40, 0, 30, 1.5);
+  const { vertices, instances } = normalize(RAISED, [m]);
+
+  // position of the instance = the translation of M_j · Translate(c)
+  closePoint(instances[0].slice(12, 15), applyMatrix(m, c[0], c[1], c[2]));
+  // and not `c + t` (the P1.3 mistake `cx + x`): the two differ by a visible distance
+  const naive = [c[0] + m[12], c[1] + m[13], c[2] + m[14]];
+  const cur = instances[0].slice(12, 15);
+  assert.ok(
+    Math.hypot(cur[0] - naive[0], cur[1] - naive[1], cur[2] - naive[2]) > 1,
+    `position ${cur.join(',')} is the naive offset sum ${naive.join(',')}`,
+  );
+  // the whole instance transform is T_j · Translate(c): every vertex stays where the file had it
+  for (let i = 0; i < RAISED.length; i += 3) {
+    closePoint(
+      applyMatrix(instances[0], vertices[i], vertices[i + 1], vertices[i + 2]),
+      applyMatrix(m, RAISED[i], RAISED[i + 1], RAISED[i + 2]),
+    );
+  }
+});
