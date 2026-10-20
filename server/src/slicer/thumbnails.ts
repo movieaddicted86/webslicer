@@ -13,6 +13,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { ThumbnailFormat, ThumbnailInput } from '@webslicer/shared';
 
+// the `thumbnails` option is read by `@webslicer/shared` (one parser for the browser and the CLI)
+export { parseThumbnailSpec } from '@webslicer/shared';
+
 const TAGS: Record<ThumbnailFormat, string> = { PNG: 'thumbnail', JPG: 'thumbnail_JPG', QOI: 'thumbnail_QOI' };
 
 export function thumbnailBlock(t: ThumbnailInput): string {
@@ -61,18 +64,4 @@ export async function injectThumbnails(file: string, thumbs: ThumbnailInput[]): 
     rest.pipe(out);
   });
   fs.renameSync(tmp, file);
-}
-
-/** Parse PrusaSlicer's "thumbnails" option ("16x16/QOI, 313x173/QOI" or legacy "16x16, 220x124"). */
-export function parseThumbnailSpec(spec: string | undefined, defaultFormat: string | undefined): Array<{ width: number; height: number; format: ThumbnailFormat }> {
-  if (!spec) return [];
-  const def = (defaultFormat || 'PNG').toUpperCase() as ThumbnailFormat;
-  const out: Array<{ width: number; height: number; format: ThumbnailFormat }> = [];
-  for (const part of spec.split(',')) {
-    const m = /^\s*(\d+)\s*x\s*(\d+)\s*(?:\/\s*([A-Za-z]+))?\s*$/.exec(part);
-    if (!m) continue;
-    const f = (m[3] || def).toUpperCase();
-    out.push({ width: Number(m[1]), height: Number(m[2]), format: f === 'JPG' || f === 'JPEG' ? 'JPG' : f === 'QOI' ? 'QOI' : 'PNG' });
-  }
-  return out;
 }

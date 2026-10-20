@@ -8,7 +8,7 @@ import { config } from '../config.js';
 import { loadBundles, findSystemPreset, type SystemPreset } from './bundles.js';
 import { parseIni, serializeIni, type IniSection } from './ini.js';
 import { evaluateCondition } from './condition.js';
-import { splitVector, unescapeStringsCstyle } from './values.js';
+import { splitVector, unescapeStringsCstyle } from '@webslicer/shared';
 import type { InstalledPrinter, PresetSummary, PresetType, ResolvedPreset, Schema } from '@webslicer/shared';
 
 function safeName(name: string): string {

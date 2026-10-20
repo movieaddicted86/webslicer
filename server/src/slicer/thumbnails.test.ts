@@ -1,22 +1,14 @@
+/**
+ * The `thumbnails` option parser itself is tested in `shared/src/values.test.ts` (R-5 moved it
+ * there); this file covers what only the server does with a thumbnail – the G-code block and the
+ * rewrite of the file.
+ */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { injectThumbnails, parseThumbnailSpec, thumbnailBlock } from './thumbnails.js';
-
-test('parseThumbnailSpec', () => {
-  assert.deepEqual(parseThumbnailSpec('16x16/QOI, 313x173/QOI, 380x285/PNG', 'PNG'), [
-    { width: 16, height: 16, format: 'QOI' },
-    { width: 313, height: 173, format: 'QOI' },
-    { width: 380, height: 285, format: 'PNG' },
-  ]);
-  assert.deepEqual(parseThumbnailSpec('16x16, 220x124', 'JPG'), [
-    { width: 16, height: 16, format: 'JPG' },
-    { width: 220, height: 124, format: 'JPG' },
-  ]);
-  assert.deepEqual(parseThumbnailSpec('', 'PNG'), []);
-});
+import { injectThumbnails, thumbnailBlock } from './thumbnails.js';
 
 test('thumbnail block format', () => {
   const b64 = 'A'.repeat(100);

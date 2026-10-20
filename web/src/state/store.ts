@@ -22,7 +22,6 @@ import {
   type Placement,
   type Vec3,
 } from '../api';
-import { parseThumbnailSpec, type ThumbnailSpec } from '../three/thumbnail';
 import { importFiles } from '../importFiles';
 import { decodeMmu, decodePaint, encodeMmu, encodePaint, remapPaint, subdivideForPainting, type PaintKind } from '../three/paint';
 import { decodeVector, resizeVector, toBool, unescapeStringsCstyle } from '../values';
@@ -34,8 +33,10 @@ import {
   instanceBounds as sharedInstanceBounds,
   mirrorPlacement,
   packShelf,
+  parseThumbnailSpec,
   placementMatrix,
   type PackItem,
+  type ThumbnailSpec,
 } from '@webslicer/shared';
 import { fromBox3, toBox3 } from '../three/matrix';
 import { shellPositions, splitShells } from '../plater/split';
