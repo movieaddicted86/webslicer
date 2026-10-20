@@ -54,6 +54,8 @@ export interface ParsedGcode {
   segmentCount: number;
   /** per-feature extrusion length (mm) */
   featureLength: Record<string, number>;
+  /** per-feature estimated time (s), from feedrates like `layerTime`; travel under `"Travel"` */
+  featureTime: Record<string, number>;
   /** per extrusion segment: feedrate (mm/s) */
   speed: Float32Array;
   /** per extrusion segment: part cooling fan (%) */
