@@ -30,7 +30,7 @@ Priority by frequency of use in everyday printing and PrusaSlicer parity.
 - [ ] Rename preset; config bundle import/export; import config from G-code
 - [ ] Update vendor profiles online (PrusaSlicer-settings)
 - [ ] Extend the configuration wizard (filaments per vendor, temperatures)
-- [ ] Camera: views (iso/top/front/…), orthographic, zoom to selection
+- [x] Camera: views (iso/top/front/…), orthographic, zoom to selection
 - [ ] Printer status / upload queue (needs hardware test)
 - [ ] Localized UI (German, …)
 - [ ] G-code viewer for files from the library; bgcode conversion and thumbnails in bgcode
