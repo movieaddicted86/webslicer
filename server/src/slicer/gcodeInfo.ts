@@ -49,6 +49,38 @@ function nums(s: string): number[] {
     .filter((x) => !Number.isNaN(x));
 }
 
+/** Chunk size of the layer scan (the tests use a small one to check chunk boundaries). */
+const LAYER_CHUNK = 1 << 20;
+
+/**
+ * Number of printed layers. PrusaSlicer writes exactly one `;LAYER_CHANGE` line per layer; the file
+ * is scanned in chunks because a G-code can be far too large to read into memory at once.
+ */
+export function countLayers(file: string, chunkSize = LAYER_CHUNK): number | undefined {
+  const size = fs.statSync(file).size;
+  const fd = fs.openSync(file, 'r');
+  try {
+    const buf = Buffer.alloc(Math.max(chunkSize, 1));
+    let carry = '';
+    let layers = 0;
+    let pos = 0;
+    while (pos < size) {
+      const read = fs.readSync(fd, buf, 0, buf.length, pos);
+      if (read <= 0) break;
+      pos += read;
+      const lines = (carry + buf.toString('utf8', 0, read)).split('\n');
+      carry = lines.pop() ?? '';
+      for (const line of lines) if (line.replace(/\r$/, '') === ';LAYER_CHANGE') layers++;
+    }
+    if (carry.replace(/\r$/, '') === ';LAYER_CHANGE') layers++;
+    return layers || undefined;
+  } catch {
+    return undefined;
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
 /** Extract summary information from a PrusaSlicer G-code file (reads head + tail). */
 export function readGcodeInfo(file: string): GcodeInfo {
   const stat = fs.statSync(file);
@@ -80,6 +112,7 @@ export function readGcodeInfo(file: string): GcodeInfo {
       else if ((m = /^; first_layer_height = (.*)$/.exec(line))) info.firstLayerHeight = parseFloat(m[1]);
     }
     if (info.totalFilamentG === undefined && info.filamentUsedG) info.totalFilamentG = info.filamentUsedG.reduce((a, b) => a + b, 0);
+    info.layers = countLayers(file, LAYER_CHUNK);
   } finally {
     fs.closeSync(fd);
   }
