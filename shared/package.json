@@ -1,0 +1,27 @@
+{
+  "name": "@webslicer/shared",
+  "version": "1.0.0-rc.2",
+  "private": true,
+  "type": "module",
+  "description": "Pure, dependency-free TypeScript shared by the WebSlicer web app and the server",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -p tsconfig.test.json",
+    "test": "tsx --test src/**/*.test.ts"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

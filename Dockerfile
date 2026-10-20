@@ -17,10 +17,12 @@ ARG PRUSASLICER_VERSION=2.9.6
 FROM ${NODE_IMAGE} AS build
 WORKDIR /app
 COPY package.json package-lock.json* ./
+COPY shared/package.json shared/
 COPY server/package.json server/
 COPY web/package.json web/
 RUN npm ci
 COPY . .
+# `npm run build` builds `shared` first (its `dist` is what the server and the runtime consume)
 RUN npm run build \
  && npm prune --omit=dev
 
@@ -66,6 +68,8 @@ COPY --from=slicer /opt/prusaslicer /opt/prusaslicer
 WORKDIR /app
 COPY --from=build /app/package.json ./
 COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/shared/package.json ./shared/
+COPY --from=build /app/shared/dist ./shared/dist
 COPY --from=build /app/server/package.json ./server/
 COPY --from=build /app/server/dist ./server/dist
 COPY --from=build /app/web/dist ./web/dist
