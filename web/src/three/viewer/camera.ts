@@ -5,7 +5,7 @@
  */
 import * as THREE from 'three';
 import { bedShapeOf } from '@webslicer/shared';
-import { fitFrame, orthoExtents, orthoFitDistance, orthoFrustumHeight, viewDirection } from '../../plater/camera';
+import { fitFrame, orthoExtents, orthoFitDistance, orthoFrustumHeight } from '../../plater/camera';
 import { useStore, pickedInstanceId } from '../../state/store';
 import type { ParsedGcode } from '../../gcode/types';
 import type { SceneRefs } from './types';
