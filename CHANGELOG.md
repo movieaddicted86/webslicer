@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+- **Safety (S1-a):** the MCP tools no longer let an agent prepare G-code outside the machine's
+  limits. `set_settings` used to accept every key in every scope – including printer options such as
+  `z_offset` or `bed_shape` – and only type-coerced the value. Now only process and material options
+  are accepted (no printer scope, no G-code or script text, no multiline keys, no free text or
+  coordinates), and a value has to stay near the resolved preset: temperatures ±25 °C, speeds
+  ×0.5–×1.5, extrusion multiplier ±0.1, retraction length ±1 mm, per extruder element by element
+  (`0` = off/auto stays allowed). A refused key rejects the whole call – nothing is partially
+  applied – and the tool error lists every issue as `key: value – reason (allowed …)`. The new
+  read-only tool `webslicer.check_settings` answers the same check as a dry run; rejected calls are
+  logged in the MCP audit log with their reasons. `quick_settings` writes through the same path.
+  The tool catalogue moved into one module per topic (`mcp/toolCatalog.ts`, `toolProjects.ts`,
+  `settings.ts`, `toolJobs.ts`), behaviour unchanged; `get_option_schema` and `set_settings` describe
+  the new limits. REST and the settings editor are untouched.
+
 - **Security:** two slicer options are no longer passed on to PrusaSlicer, because the slicer acts on
   them on the **server** rather than inside the G-code. `post_process` ("Post-processing scripts") is a
   list of shell commands PrusaSlicer runs after the G-code export, and `output_filename_format` names

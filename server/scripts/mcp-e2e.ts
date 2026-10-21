@@ -222,6 +222,47 @@ check(
   badType,
 );
 
+// ---- S1-a: the setting guardrails (T-025) -----------------------------------
+// The MK4S PLA preset carries 230 °C, so +40 °C (270) is outside the ±25 °C band and +20 °C (250) inside.
+const tooHot = await call(client, 'webslicer.set_settings', { project_id: projectId, scope: 'filament', values: { temperature: '270' } });
+check(
+  'S1-a a temperature 40 °C above the preset is rejected with its band',
+  !tooHot.ok && /outside the band/.test(tooHot.error || '') && /205–255 °C/.test(tooHot.error || ''),
+  tooHot,
+);
+const startGcode = await call(client, 'webslicer.set_settings', { project_id: projectId, scope: 'print', values: { start_gcode: 'G28' } });
+check(
+  'S1-a start_gcode is rejected by the allowlist',
+  !startGcode.ok && /G-code and script options cannot be set through MCP/.test(startGcode.error || ''),
+  startGcode,
+);
+const zOffset = await call(client, 'webslicer.set_settings', { project_id: projectId, scope: 'printer', values: { z_offset: '0.2' } });
+check('S1-a z_offset (printer scope) is rejected', !zOffset.ok && /Printer options cannot be set/.test(zOffset.error || ''), zOffset);
+const mixed = await call(client, 'webslicer.set_settings', {
+  project_id: projectId,
+  scope: 'filament',
+  values: { temperature: '290', start_gcode: 'G28' },
+});
+check(
+  'S1-a one failing key rejects the whole call and lists every issue',
+  !mixed.ok && /temperature: 290/.test(mixed.error || '') && /start_gcode: G28/.test(mixed.error || ''),
+  mixed,
+);
+const dryRun = await call(client, 'webslicer.check_settings', { project_id: projectId, scope: 'filament', values: { temperature: '250' } });
+check('S1-a check_settings: +20 °C is ok', dryRun.ok && dryRun.ok === true && JSON.stringify(dryRun.issues) === '[]', dryRun);
+const dryHot = await call(client, 'webslicer.check_settings', { project_id: projectId, scope: 'filament', values: { temperature: '270' } });
+check(
+  'S1-a check_settings reports the band without applying it',
+  dryHot.ok && dryHot.ok === false && /outside the band/.test(JSON.stringify(dryHot.issues)),
+  dryHot,
+);
+const accepted = await call(client, 'webslicer.set_settings', { project_id: projectId, scope: 'filament', values: { temperature: '250' } });
+check(
+  'S1-a a temperature 20 °C above the preset is accepted',
+  accepted.ok && (accepted.changed as Record<string, string>)?.temperature === '250',
+  accepted,
+);
+
 const sliced = await call(client, 'webslicer.slice', { project_id: projectId });
 const jobId = sliced.job_id as string;
 check('AC-2 slice answers a job id', sliced.ok && typeof jobId === 'string', sliced);

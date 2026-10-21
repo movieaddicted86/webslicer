@@ -93,10 +93,13 @@ exports the catalogue). The tools of phase 1 are implemented and marked ✔; the
   max. 20 live projects per owner)
 - ✔ `add_model(project_id, library_path, copies?)` – STL or 3MF (3MF keeps its objects and placements)
 - ✔ `arrange(project_id)` – the shelf algorithm of the browser
-- ✔ `set_settings(project_id, scope, values)` – validated against the schema, unknown keys and keys of
-  another preset type are rejected; `scope` is `print`, `printer`, `filament` or `filament[<index>]`
+- ✔ `set_settings(project_id, scope, values)` – validated against the schema and the safety rules of
+  §5.1 (allowlist, bands); unknown keys and keys of another preset type are rejected; `scope` is
+  `print`, `filament` or `filament[<index>]` (the printer scope is closed)
+- ✔ `check_settings(project_id, scope, values)` – the dry run of `set_settings`: same input, answers
+  `ok` or the issues (key, value, reason, allowed range) and writes nothing
 - ✔ `quick_settings(project_id, {supports, infill, brim})` – the three plater quick settings, mapped to
-  the same keys the browser writes
+  the same keys the browser writes (the same apply path, so the rules of §5.1 apply here too)
 - `transform_object(project_id, object_id, …)`, `place_on_face`, `set_object_settings`,
   `add_modifier(...)`, `add_height_range(...)` (phase 2)
 
@@ -133,15 +136,58 @@ The audit log planned for phase 2 is already in phase 1 (see §5).
   upload sizes as today; paths via `resolveLibraryPath` (no escaping the library).
 - **No secrets to the LLM**: printer API keys are never returned (as in the REST API).
 
+### 5.1 Setting guardrails (S1-a, T-025)
+
+A human who later sends a job does not read its G-code, so the MCP channel may not prepare whatever
+the slicer would accept. `set_settings` (and `quick_settings`, which writes through the same path)
+checks every value against two rules in `shared/src/safety/mcpPolicy.ts`:
+
+**Allowlist** – only process and material options. Never:
+
+- anything in the printer scope (`start_gcode` lives in the print preset, `z_offset`, `bed_shape`,
+  `max_print_height`, `nozzle_diameter`, `machine_*` and the rest of the printer scope are closed);
+- G-code and script text: `multiline` options, every `*_gcode` key, `post_process`;
+- free text and coordinates (`string`, `strings`, `point`, `point3`) – including `notes`,
+  `custom_parameters_*` and `gcode_substitutions`;
+- the server-only keys of SEC-1 and `output_filename_format`.
+
+The print list is derived from the option categories the installed slicer reports
+(Layers and Perimeters, Infill, Support material, Skirt and brim, Speed, Ironing, Fuzzy Skin,
+Extrusion Width, Wipe options) plus a reviewed list of harmless `Misc` keys (skirt, travel, vase,
+draft shield, seam gap, ooze prevention). The material list is explicit and short: temperatures, fan
+speeds and cooling, retraction, `extrusion_multiplier`, `filament_max_volumetric_speed` – no
+diameter, density, cost or purge tuning. Against PrusaSlicer 2.9.6 that is 121 print options and 29
+filament options; the printer scope has none.
+
+**Bands** – a bounded step away from the value the resolved preset already has:
+
+| Key(s)                                                                                     | Band                                                                 |
+| ------------------------------------------------------------------------------------------ | -------------------------------------------------------------------- |
+| `temperature`, `first_layer_temperature`, `bed_temperature`, `first_layer_bed_temperature` | ±25 °C                                                               |
+| motion and volumetric speeds (`*_speed`, except fan speeds)                                | ×0.5–×1.5 (an absolute value absolutely, a percent value as percent) |
+| `extrusion_multiplier`                                                                     | ±0.1                                                                 |
+| `filament_retract_length`                                                                  | ±1 mm                                                                |
+
+Per-extruder vectors are compared element by element, so `215,285` with a `215,215` preset fails on
+the second element. `0` – "off" or "auto" for the slicer – stays allowed where PrusaSlicer means
+that, and a preset value of `0` gives no band to measure against. A value the schema accepts but the
+band does not is refused; there is no automatic clamping, so the model learns the limits instead of
+silently printing something else.
+
+**Rejection** – the check runs against the would-be config, so one failing key rejects the whole
+call: nothing is applied, and the tool error lists every issue as
+`key: value – reason (allowed …)`. `check_settings` answers the same list without applying anything,
+so an agent can probe a value first. Both accepted and rejected calls go to the audit log (§5).
+
 ## 6. Phased implementation
 
-| Phase | Content                                                                                                                                                                                                             | Effort   |
-| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
-| 0     | Headless import (3MF mesh reader, normalization, server-side arrange), project store with TTL                                                                                                                       | 2–3 days |
-| 1     | MCP endpoint (`@modelcontextprotocol/sdk`, Streamable HTTP, token auth), "discover" + "slice" tools (list_*, create_project, add_model, set_settings, quick_settings, slice, get_job), audit log – **done (T-006)** | 2 days   |
-| 2     | Object tools (transform, modifiers, height ranges), resources, prompts                                                                                                                                              | 2 days   |
-| 3     | `send_to_printer` with confirmation, variant comparison, thumbnail rasterizer                                                                                                                                       | 2 days   |
-| 4     | stdio variant as npm package (`webslicer-mcp`), docs, examples for Claude Desktop / Claude Code / Home Assistant                                                                                                    | 1 day    |
+| Phase | Content                                                                                                                                                                                                                                                                                | Effort   |
+| ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| 0     | Headless import (3MF mesh reader, normalization, server-side arrange), project store with TTL                                                                                                                                                                                          | 2–3 days |
+| 1     | MCP endpoint (`@modelcontextprotocol/sdk`, Streamable HTTP, token auth), "discover" + "slice" tools (list_*, create_project, add_model, set_settings, quick_settings, slice, get_job), audit log – **done (T-006)**; setting guardrails (S1-a) and `check_settings` – **done (T-025)** | 2 days   |
+| 2     | Object tools (transform, modifiers, height ranges), resources, prompts                                                                                                                                                                                                                 | 2 days   |
+| 3     | `send_to_printer` with confirmation, variant comparison, thumbnail rasterizer                                                                                                                                                                                                          | 2 days   |
+| 4     | stdio variant as npm package (`webslicer-mcp`), docs, examples for Claude Desktop / Claude Code / Home Assistant                                                                                                                                                                       | 1 day    |
 
 Tests: unit tests of the tool handlers against the existing logic, integration test with the MCP
 Inspector (`npx @modelcontextprotocol/inspector`) and an E2E script that runs a complete agent workflow
