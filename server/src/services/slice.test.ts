@@ -254,3 +254,37 @@ test('unknown fields of the body survive the check', () => {
   assert.equal((body as unknown as Record<string, unknown>).unknownTopField, 'kept');
   assert.equal(body.outputName, 'x');
 });
+
+// ---------------------------------------------------------------------------
+// the cases the old hand-written checks crashed on
+// ---------------------------------------------------------------------------
+
+/**
+ * The old loop read `o.modelId` before it checked anything, so a non-object element threw a
+ * `TypeError` – a 500 on every route that maps validation. The schema reports the field rule instead:
+ * one more corrupted body that becomes a 400, which is what the routes were always meant to answer.
+ */
+test('an element that is not an object is reported as a field error, not a crash', () => {
+  assert.equal(messageOf(req({}, { objects: [null] })), 'invalid modelId');
+  assert.equal(messageOf(req({ volumes: [null] })), 'invalid volume modelId');
+  assert.equal(messageOf(req({ ranges: ['x'] })), 'invalid range');
+  assert.equal(messageOf(req({}, { customGcodes: [null] })), 'invalid custom G-code height');
+  assert.equal(messageOf(req({}, { thumbnails: [null] })), 'invalid thumbnail format');
+});
+
+test('a volumes value that is not an array is rejected', () => {
+  // `main` iterated the field directly, so a non-iterable threw a TypeError; the schema names it
+  for (const volumes of ['x', 1, true, {}]) {
+    assert.equal(messageOf(req({ volumes })), 'invalid volumes', JSON.stringify(volumes));
+  }
+  // falsy values stay "no volumes", as they were
+  for (const volumes of [undefined, null, 0]) {
+    assert.equal(messageOf(req({ volumes })), '<no error>', String(volumes));
+  }
+});
+
+test('an infinite range height stays accepted, as it was', () => {
+  // the old condition was `typeof minZ !== 'number' || typeof maxZ !== 'number' || !(maxZ > minZ) ||
+  // minZ < 0` – `Infinity` passes all four, and a refactoring must not turn that into a 400
+  assert.equal(messageOf(req({ ranges: [{ minZ: 0, maxZ: Number.POSITIVE_INFINITY, config: {} }] })), '<no error>');
+});
