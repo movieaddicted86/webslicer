@@ -3,6 +3,10 @@
  * change and read back when the browser asks for it again.
  *
  * The client id is checked here as well as in the route, because it becomes a file name.
+ *
+ * The read side answers *paths*, not bytes: the route serves the file with `sendFile`, which adds the
+ * conditional-request headers (`ETag`, `Last-Modified`, ranges) the browser uses to revalidate a
+ * large 3MF instead of downloading it again.
  */
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -14,7 +18,8 @@ export function isAutosaveClientId(value: unknown): string | undefined {
   return /^[A-Za-z0-9_-]{8,64}$/.test(id) ? id : undefined;
 }
 
-function autosaveFile(id: string): string {
+/** File of the autosave slot of a client (already validated by `isAutosaveClientId`). */
+export function autosaveFile(id: string): string {
   return path.join(config.autosaveDir, `${id}.3mf`);
 }
 
@@ -24,12 +29,13 @@ export async function writeAutosave(id: string, buf: Buffer): Promise<void> {
   await fs.writeFile(autosaveFile(id), buf);
 }
 
-/** The stored autosave and its modification time, or undefined when there is none. */
-export async function readAutosave(id: string): Promise<{ buffer: Buffer; savedAt: string } | undefined> {
+/** The stored autosave file and its modification time, or undefined when there is none. */
+export async function findAutosave(id: string): Promise<{ file: string; savedAt: string } | undefined> {
+  const file = autosaveFile(id);
   try {
-    const file = autosaveFile(id);
-    const [buffer, st] = await Promise.all([fs.readFile(file), fs.stat(file)]);
-    return { buffer, savedAt: st.mtime.toISOString() };
+    const st = await fs.stat(file);
+    if (!st.isFile()) return undefined;
+    return { file, savedAt: st.mtime.toISOString() };
   } catch {
     return undefined;
   }
@@ -37,8 +43,9 @@ export async function readAutosave(id: string): Promise<{ buffer: Buffer; savedA
 
 /** Just the metadata of a stored autosave (`GET /api/autosave/:client?info`). */
 export async function readAutosaveInfo(id: string): Promise<{ savedAt: string; size: number } | undefined> {
+  const file = autosaveFile(id);
   try {
-    const st = await fs.stat(autosaveFile(id));
+    const st = await fs.stat(file);
     return { savedAt: st.mtime.toISOString(), size: st.size };
   } catch {
     return undefined;

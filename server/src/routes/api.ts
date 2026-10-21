@@ -7,7 +7,7 @@ import { loadBundles, resolveModelAsset } from '../slicer/bundles.js';
 import { activeSchema } from '../services/schema.js';
 import { appVersion } from '../services/version.js';
 import { deleteModel, saveModel } from '../services/models.js';
-import { deleteAutosave, isAutosaveClientId, readAutosave, readAutosaveInfo, writeAutosave } from '../services/autosave.js';
+import { deleteAutosave, findAutosave, isAutosaveClientId, readAutosaveInfo, writeAutosave } from '../services/autosave.js';
 import { build3mfForRequest, validateSliceRequest } from '../services/slice.js';
 import { mergeConfigs } from '../services/configMerge.js';
 import {
@@ -454,10 +454,10 @@ export function apiRouter(): express.Router {
         if (!info) return res.status(404).json({ error: 'no autosave' });
         return res.json(info);
       }
-      const saved = await readAutosave(id);
+      const saved = await findAutosave(id);
       if (!saved) return res.status(404).json({ error: 'no autosave' });
       res.setHeader('X-Saved-At', saved.savedAt);
-      res.type('model/3mf').send(saved.buffer);
+      res.type('model/3mf').sendFile(saved.file);
     }),
   );
   r.delete(

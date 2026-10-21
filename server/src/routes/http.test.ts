@@ -422,6 +422,28 @@ test('PUT /api/autosave/:client validates the slice request and reports the save
   assert.equal(missing.status, 404);
 });
 
+test('GET /api/autosave/:client serves the file through sendFile, with its conditional-request headers', async () => {
+  // The read side of the autosave must answer with a *file*, not with the buffer: `sendFile` adds
+  // `Cache-Control`, `ETag`, `Last-Modified` and range support, which is what makes the browser
+  // revalidate a large 3MF instead of fetching it again on every plater load. Serving bytes with
+  // `res.send(buffer)` returns the same body and silently drops all of them.
+  const id = 'client-header-pin';
+  const file = path.join(config.autosaveDir, `${id}.3mf`);
+  fs.mkdirSync(config.autosaveDir, { recursive: true });
+  fs.writeFileSync(file, 'PK\u0003\u0004 not really a 3MF, but enough for the headers');
+
+  const res = await call('GET', `/api/autosave/${id}`);
+  assert.equal(res.status, 200);
+  assert.equal(res.headers.get('content-type'), 'model/3mf');
+  assert.equal(res.headers.get('cache-control'), 'public, max-age=0');
+  assert.ok(res.headers.get('etag'), 'a strong validator for revalidation');
+  assert.ok(res.headers.get('last-modified'), 'and a date validator');
+  assert.ok(res.headers.get('x-saved-at'), 'plus the save time the client shows');
+  assert.equal(res.body, 'PK\u0003\u0004 not really a 3MF, but enough for the headers');
+
+  fs.rmSync(config.autosaveDir, { recursive: true, force: true });
+});
+
 // ---------------------------------------------------------------------------
 // server-side projects (headless plater, MCP phase 0)
 // ---------------------------------------------------------------------------
