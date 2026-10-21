@@ -189,15 +189,18 @@ export async function createProject(opts: {
     resolveSlot(opts.schema, 'filament', f),
   );
   const now = new Date();
+  // The *stored* config keeps only the overrides, but they are the resolved ones: `resolveSlot`
+  // strips the server-only keys (SEC-1), and the project body is still copied verbatim here on
+  // purpose – a second filter over the same input would be a place for the two to drift apart.
   const project: Project = {
     id: randomUUID(),
     owner: String(opts.owner || 'admin').slice(0, 64) || 'admin',
     createdAt: now.toISOString(),
     updatedAt: now.toISOString(),
     expiresAt: new Date(now.getTime() + PROJECT_TTL_HOURS * 3600_000).toISOString(),
-    printer: { name: printer.name, config: opts.printer.config || {} },
-    print: { name: print.name, config: opts.print.config || {} },
-    filaments: filaments.map((f, i) => ({ name: f.name, config: opts.filaments?.[i]?.config || {} })),
+    printer: { name: printer.name, config: stripServerOnly(opts.printer.config) },
+    print: { name: print.name, config: stripServerOnly(opts.print.config) },
+    filaments: filaments.map((f, i) => ({ name: f.name, config: stripServerOnly(opts.filaments?.[i]?.config) })),
     objects: [],
   };
   return saveProject(project);
