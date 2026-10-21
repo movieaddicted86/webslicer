@@ -30,6 +30,7 @@ export function TextField({ value, onChange, apply, keepText, multiline, rows, t
         title={title}
         value={field.text}
         onChange={(e) => field.set(e.target.value)}
+        onFocus={field.reset}
         onBlur={field.commit}
       />
     );
@@ -43,6 +44,7 @@ export function TextField({ value, onChange, apply, keepText, multiline, rows, t
       title={title}
       value={field.text}
       onChange={(e) => field.set(e.target.value)}
+      onFocus={field.reset}
       onBlur={field.commit}
       onKeyDown={field.onKeyDown}
     />

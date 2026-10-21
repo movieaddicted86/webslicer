@@ -3,6 +3,7 @@ import { useStore, isModified, instanceBounds, selectedInstance, pickedInstanceI
 import { bedShapeOf } from '@webslicer/shared';
 import { PresetSelect } from './PresetSelect';
 import { PreviewPanel } from './PreviewPanel';
+import { NumericField } from './common/NumericField';
 import { objectIsOutside } from '../three/Viewer';
 import { toBool } from '../values';
 import { createPrimitive, type PrimitiveShape } from '../three/primitives';
@@ -50,14 +51,14 @@ function TransformInputs({
       <div className="manip-row">
         <span>Position</span>
         {AXES.map((a, i) => (
-          <input
+          <NumericField
             key={a}
-            type="number"
-            step="1"
-            value={fmt(t.position[i])}
-            onChange={(e) => {
+            text={fmt(t.position[i])}
+            step={1}
+            apply="input"
+            onText={(text) => {
               const p = [...t.position] as [number, number, number];
-              p[i] = num(e.target.value, p[i]);
+              p[i] = num(text, p[i]);
               onChange({ position: p });
             }}
           />
@@ -66,14 +67,14 @@ function TransformInputs({
       <div className="manip-row">
         <span>Rotation °</span>
         {AXES.map((a, i) => (
-          <input
+          <NumericField
             key={a}
-            type="number"
-            step="15"
-            value={fmt(deg(t.rotation[i]), 1)}
-            onChange={(e) => {
+            text={fmt(deg(t.rotation[i]), 1)}
+            step={15}
+            apply="input"
+            onText={(text) => {
               const r = [...t.rotation] as [number, number, number];
-              r[i] = rad(num(e.target.value, deg(r[i])));
+              r[i] = rad(num(text, deg(r[i])));
               onChange({ rotation: r });
             }}
           />
@@ -82,15 +83,15 @@ function TransformInputs({
       <div className="manip-row">
         <span>Scale %</span>
         {AXES.map((a, i) => (
-          <input
+          // AC-5: a mirrored instance has negative scale components internally; the panel shows
+          // magnitudes and editing keeps the sign, so the object stays mirrored
+          <NumericField
             key={a}
-            type="number"
-            step="5"
-            // AC-5: a mirrored instance has negative scale components internally; the panel shows
-            // magnitudes and editing keeps the sign, so the object stays mirrored
-            value={fmt(Math.abs(t.scale[i]) * 100, 1)}
-            onChange={(e) => {
-              const v = num(e.target.value, Math.abs(t.scale[i]) * 100) / 100;
+            text={fmt(Math.abs(t.scale[i]) * 100, 1)}
+            step={5}
+            apply="input"
+            onText={(text) => {
+              const v = num(text, Math.abs(t.scale[i]) * 100) / 100;
               if (v <= 0) return;
               const s = [...t.scale] as [number, number, number];
               s[i] = t.scale[i] < 0 ? -v : v;
@@ -102,13 +103,13 @@ function TransformInputs({
       <div className="manip-row">
         <span>Size mm</span>
         {AXES.map((a, i) => (
-          <input
+          <NumericField
             key={a}
-            type="number"
-            step="1"
-            value={fmt(Math.abs(size[i] * t.scale[i]))}
-            onChange={(e) => {
-              const v = num(e.target.value, Math.abs(size[i] * t.scale[i]));
+            text={fmt(Math.abs(size[i] * t.scale[i]))}
+            step={1}
+            apply="input"
+            onText={(text) => {
+              const v = num(text, Math.abs(size[i] * t.scale[i]));
               if (v <= 0 || size[i] <= 0) return;
               const s = [...t.scale] as [number, number, number];
               s[i] = (t.scale[i] < 0 ? -v : v) / size[i];
@@ -152,17 +153,17 @@ function RangePanel({ o }: { o: PlaterObject }) {
           </div>
           {o.ranges.map((r) => (
             <div key={r.id} className={`range-row ${r.maxZ > r.minZ ? '' : 'invalid'}`}>
-              <input type="number" step="0.5" value={r.minZ} onChange={(e) => updateRange(o.id, r.id, { minZ: num(e.target.value, r.minZ) })} />
-              <input type="number" step="0.5" value={r.maxZ} onChange={(e) => updateRange(o.id, r.id, { maxZ: num(e.target.value, r.maxZ) })} />
-              <input
-                type="number"
-                step="0.05"
-                value={r.config.layer_height ?? ''}
+              <NumericField text={String(r.minZ)} step={0.5} apply="input" onText={(t) => updateRange(o.id, r.id, { minZ: num(t, r.minZ) })} />
+              <NumericField text={String(r.maxZ)} step={0.5} apply="input" onText={(t) => updateRange(o.id, r.id, { maxZ: num(t, r.maxZ) })} />
+              <NumericField
+                text={r.config.layer_height ?? ''}
+                step={0.05}
+                apply="input"
                 placeholder="–"
-                onChange={(e) => {
+                onText={(t) => {
                   const c = { ...r.config };
-                  if (e.target.value === '') delete c.layer_height;
-                  else c.layer_height = e.target.value;
+                  if (t === '') delete c.layer_height;
+                  else c.layer_height = t;
                   updateRange(o.id, r.id, { config: c });
                 }}
               />
@@ -279,10 +280,6 @@ function ObjectManipulation({ o }: { o: PlaterObject }) {
   const splitToParts = useStore((s) => s.splitToParts);
   const setInstanceCount = useStore((s) => s.setInstanceCount);
   const fillBedWithInstances = useStore((s) => s.fillBedWithInstances);
-  // the instance count field keeps the typed text while it is edited, so a half-typed "1" of "12"
-  // does not immediately shrink the plater
-  const [countText, setCountText] = useState(() => String(o.instances.length));
-  const [editingCount, setEditingCount] = useState(false);
   // the manipulation fields edit the selected instance (instance 1 when none is selected)
   const selectedIds = useStore((s) => s.selectedIds);
   const selectedInstanceId = useStore((s) => s.selectedInstanceId);
@@ -314,23 +311,20 @@ function ObjectManipulation({ o }: { o: PlaterObject }) {
       />
       <div className="manip-row instances">
         <span>Instances</span>
-        <input
-          type="number"
+        {/* the typed count stays visible while it is edited, so a half-typed "1" of "12" does not
+            immediately shrink the plater; leaving the field puts the count of the store back */}
+        <NumericField
+          text={String(o.instances.length)}
+          keepText
+          apply="input"
           min={1}
           max={1000}
           step={1}
-          value={editingCount ? countText : String(o.instances.length)}
-          onChange={(e) => {
-            setCountText(e.target.value);
-            const n = Number(e.target.value);
+          onText={(text) => {
+            const n = Number(text);
             // AC-2.1: out-of-range or non-integer input is rejected without touching the plater
             if (Number.isInteger(n) && n >= 1 && n <= 1000) setInstanceCount(o.id, n);
           }}
-          onFocus={() => {
-            setCountText(String(o.instances.length));
-            setEditingCount(true);
-          }}
-          onBlur={() => setEditingCount(false)}
         />
         <button title="Add as many instances as fit on the bed" onClick={() => fillBedWithInstances(o.id)}>
           Fill bed

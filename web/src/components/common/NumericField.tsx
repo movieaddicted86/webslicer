@@ -10,13 +10,14 @@ export interface NumericFieldProps {
   step?: number | 'any';
   min?: number;
   max?: number;
+  placeholder?: string;
   disabled?: boolean;
   className?: string;
   title?: string;
 }
 
 /** A controlled number input (F-20) – a thin face over the one draft/commit skeleton. */
-export function NumericField({ text, onText, apply, keepText, step, min, max, disabled, className, title }: NumericFieldProps) {
+export function NumericField({ text, onText, apply, keepText, step, min, max, placeholder, disabled, className, title }: NumericFieldProps) {
   const field = useFieldDraft(text, onText, { apply, keepText });
   return (
     <input
@@ -25,10 +26,12 @@ export function NumericField({ text, onText, apply, keepText, step, min, max, di
       step={step}
       min={min}
       max={max}
+      placeholder={placeholder}
       disabled={disabled}
       title={title}
       value={field.text}
       onChange={(e) => field.set(e.target.value)}
+      onFocus={field.reset}
       onBlur={field.commit}
       onKeyDown={field.onKeyDown}
     />

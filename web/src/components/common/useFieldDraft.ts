@@ -10,6 +10,8 @@ export interface FieldDraft {
   set: (text: string) => void;
   /** Enter or blur – commits the draft and drops it */
   commit: () => void;
+  /** entering the field – drops a draft left over from the last visit */
+  reset: () => void;
   /** the Enter handler of a single-line field */
   onKeyDown: (e: KeyboardEvent) => void;
 }
@@ -21,7 +23,8 @@ export interface FieldDraft {
  * edit ends (`apply: 'commit'`, the settings fields wait for Enter or blur).
  *
  * `keepText` keeps the typed text visible even when the store ignored it – the instance count uses
- * it, so a half-typed "12" does not jump back to "1", and blur puts the store value back.
+ * it, so a half-typed "12" does not jump back to "1", and blur puts the store value back. Such a
+ * field also drops a stale draft when it is entered again, so it always starts from the store.
  */
 export function useFieldDraft(value: string, onApply: (text: string) => void, { apply = 'commit', keepText = false }: { apply?: FieldApply; keepText?: boolean } = {}): FieldDraft {
   // a draft is only shown for the fields that keep it – the plater fields stay plain controlled
@@ -39,6 +42,7 @@ export function useFieldDraft(value: string, onApply: (text: string) => void, { 
       if (apply === 'input') onApply(text);
     },
     commit,
+    reset: () => setDraft(null),
     onKeyDown: (e) => {
       if (e.key === 'Enter') commit();
     },
