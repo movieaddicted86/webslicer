@@ -126,8 +126,10 @@ export function mcpKeyVerdict(schema: Schema, type: PresetType, key: string): Mc
   const opt = schema.options[key];
   if (!opt) return deny(`Unknown option "${key}"`);
   if (SERVER_ONLY_KEYS.has(key)) return deny(`Option "${key}" cannot be set: ${serverOnlyReason(key)}`);
-  if (!opt.presetTypes.includes(type)) return deny(`Option "${key}" is not a ${type} preset option`);
+  // the G-code rule comes before the preset-type rule: `start_gcode` is a printer option, but the
+  // reason a client has to learn is that its text ends up in the G-code, not that the scope is odd
   if (opt.multiline || opt.gcode || /_gcode$/.test(key)) return deny('G-code and script options cannot be set through MCP');
+  if (!opt.presetTypes.includes(type)) return deny(`Option "${key}" is not a ${type} preset option`);
   if (!VALUE_TYPES.has(opt.type)) return deny('Text and coordinate options cannot be set through MCP');
   if (!isAllowlisted(type, opt.key, opt.category)) return deny('Not on the MCP allowlist');
   return { allowed: true };

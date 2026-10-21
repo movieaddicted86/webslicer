@@ -249,12 +249,18 @@ check(
   mixed,
 );
 const dryRun = await call(client, 'webslicer.check_settings', { project_id: projectId, scope: 'filament', values: { temperature: '250' } });
-check('S1-a check_settings: +20 °C is ok', dryRun.ok && dryRun.ok === true && JSON.stringify(dryRun.issues) === '[]', dryRun);
+// note: check_settings answers its own "ok" field, so the call's `ok` here is that verdict, not a transport error
+check('S1-a check_settings: +20 °C is ok', dryRun.ok === true && JSON.stringify(dryRun.issues) === '[]', dryRun);
 const dryHot = await call(client, 'webslicer.check_settings', { project_id: projectId, scope: 'filament', values: { temperature: '270' } });
 check(
   'S1-a check_settings reports the band without applying it',
-  dryHot.ok && dryHot.ok === false && /outside the band/.test(JSON.stringify(dryHot.issues)),
+  dryHot.ok === false && /outside the band/.test(JSON.stringify(dryHot.issues)),
   dryHot,
+);
+check(
+  'S1-a check_settings changed nothing (the preset still carries 230 °C, so +40 °C is still refused)',
+  dryHot.would_change !== undefined && JSON.stringify(dryHot.would_change) === '{}',
+  dryHot.would_change,
 );
 const accepted = await call(client, 'webslicer.set_settings', { project_id: projectId, scope: 'filament', values: { temperature: '250' } });
 check(
