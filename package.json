@@ -16,7 +16,9 @@
     "start": "node server/dist/index.js",
     "typecheck": "npm run build -w shared && npm run typecheck -w shared && npm run typecheck -w web && npm run typecheck -w server",
     "test": "npm run build -w shared && npm run test -w shared && npm run test -w server && npm run test -w web",
-    "lint": "eslint shared/src web/src server/src"
+    "lint": "eslint shared/src web/src server/src",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "devDependencies": {
     "concurrently": "^9.1.2",

@@ -51,6 +51,8 @@ docs/                         Feature-Comparison (parity matrix), UAT, UAT-Repor
 | Unit tests, one workspace          | `npm test -w shared` · `-w server` · `-w web`                          |
 | Build shared                       | `npm run build -w shared`                                              |
 | Full build                         | `npm run build`                                                        |
+| Lint (ESLint 9, all workspaces)    | `npm run lint`                                                         |
+| Format / check formatting          | `npm run format` · `npm run format:check` (Prettier)                   |
 | Run everything (incl. PrusaSlicer) | `docker compose up -d --build` → http://localhost:8080                 |
 | Web dev server                     | `npm run dev -w web` → http://localhost:5173 (proxies `/api` to :8080) |
 | Shell scripts                      | `shellcheck -S warning proxmox/*.sh`                                   |
@@ -60,6 +62,10 @@ docs/                         Feature-Comparison (parity matrix), UAT, UAT-Repor
 `src/**/*.test.ts`). **Quote such a glob** – `sh` has no globstar and would silently drop the
 top-level files (Docker and CI run the scripts with `/bin/sh`); Node expands the quoted pattern.
 
+CI (`.github/workflows/ci.yml`) runs on every push and pull request: `npm ci` → `npm run typecheck`
+→ `npm run lint` → `npm run format:check` → `npm test` → `npm run build`. Lint and formatting are
+part of the definition of done, so run both before you push.
+
 The server needs the PrusaSlicer binary, so for UI work run the server in Docker and the web app
 with Vite. The dev machine is Windows 11 with Git Bash/PowerShell: set `MSYS_NO_PATHCONV=1` for
 `docker run -v` paths and do not pass TypeScript through Bash heredocs (write files instead).
@@ -67,8 +73,14 @@ with Vite. The dev machine is Windows 11 with Git Bash/PowerShell: set `MSYS_NO_
 ## 4. Code style
 
 - TypeScript `strict`; no `any` (use `unknown` + narrowing). No `// @ts-ignore`.
-- Formatting like the existing code: 2 spaces, single quotes, semicolons, trailing commas, lines up
-  to ~140 characters. Do not reformat code you do not change.
+- Formatting is enforced by Prettier (`.prettierrc.json`): 2 spaces, single quotes, semicolons,
+  trailing commas, lines up to 140 characters. Run `npm run format` before you commit; do not
+  hand-format. `endOfLine` is `auto`, not `lf`: `.gitattributes` stores LF and `core.autocrlf=true`
+  checks out CRLF on Windows, so `lf` would make `format:check` fail on every Windows checkout.
+- ESLint 9 (`.eslint.config.mjs`) is the arbiter for code smells: `typescript-eslint` recommended,
+  `react-hooks` for `web/`, `no-explicit-any` as an error. `no-non-null-assertion` is a warning
+  until R-12 removes the remaining ones. A disable comment needs a `-- <reason>` and must sit on the
+  line the rule reports; prefer fixing the code.
 - Server imports use ESM with `.js` suffix (`from './slicer/threemf.js'`).
 - Comments: short JSDoc one-liners on exported functions/types and comments that explain _why_.
   No commented-out code, no TODO without an entry in `TODO.md`.

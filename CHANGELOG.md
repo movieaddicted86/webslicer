@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Code quality tooling: ESLint 9, Prettier and GitHub Actions CI. `npm run lint` checks all
+  three workspaces (typescript-eslint recommended, the React hook rules for `web/`, no `any`, no
+  non-null assertion as a warning until R-12), `npm run format`/`format:check` enforce the
+  repository style and `.editorconfig` carries it into editors. The whole repository is formatted
+  in one format-only commit. `.github/workflows/ci.yml` runs `npm ci` → type check → lint →
+  format check → tests → build on every push and pull request. Behaviour is unchanged; the fixes
+  were unused imports and one `useMemo` dependency.
 - Camera of the 3D view like PrusaSlicer: the number keys **0–6** put the camera on the standard
   views (Iso, Top, Bottom, Front, Rear, Left, Right), **K** switches between the perspective and the
   orthographic projection and **Z** zooms to the selection – the picked instance, the selected
