@@ -40,6 +40,16 @@ function asyncHandler(fn: (req: Request, res: Response, next: NextFunction) => P
   };
 }
 
+/**
+ * Express 5 types every `req.params` value as `string | string[]`, because a route can repeat a
+ * parameter. The handlers below wrap it inside the generic `Request` of `asyncHandler`, which loses
+ * the route path and with it the knowledge that a `:id` is a single string – so they read the value
+ * through `param()`, the same way they already read `req.params.type` and `req.params.name`.
+ */
+function param(req: Request, name: string): string {
+  return String(req.params[name] ?? '');
+}
+
 function badRequest(res: Response, msg: string) {
   res.status(400).json({ error: msg });
 }
@@ -150,7 +160,7 @@ export function apiRouter(): express.Router {
       const t = presetType(req, res);
       if (!t) return;
       const s = await schemaOf();
-      const p = resolvePreset(s, t, req.params.name);
+      const p = resolvePreset(s, t, param(req, 'name'));
       if (!p) return res.status(404).json({ error: 'preset not found' });
       res.json(p);
     }),
@@ -208,7 +218,7 @@ export function apiRouter(): express.Router {
     '/models/:id',
     asyncHandler(async (req, res) => {
       // the existence check is what turns a missing model into a 404 before `sendFile` runs
-      const f = await resolveExistingFile(path.join(config.modelsDir, `${path.basename(req.params.id)}.stl`));
+      const f = await resolveExistingFile(path.join(config.modelsDir, `${path.basename(param(req, 'id'))}.stl`));
       if (!f) return res.status(404).json({ error: 'model not found' });
       res.type('application/octet-stream').sendFile(f);
     }),
@@ -217,7 +227,7 @@ export function apiRouter(): express.Router {
   r.delete(
     '/models/:id',
     asyncHandler(async (req, res) => {
-      await deleteModel(path.basename(req.params.id));
+      await deleteModel(path.basename(param(req, 'id')));
       res.json({ ok: true });
     }),
   );
@@ -322,7 +332,7 @@ export function apiRouter(): express.Router {
   r.get(
     '/jobs/:id/gcode',
     asyncHandler(async (req, res) => {
-      const j = getJob(req.params.id);
+      const j = getJob(param(req, 'id'));
       if (!j || j.status !== 'done') return res.status(404).json({ error: 'output not available' });
       const f = await resolveExistingFile(jobOutputPath(j));
       if (!f) return res.status(404).json({ error: 'output missing' });
@@ -335,7 +345,7 @@ export function apiRouter(): express.Router {
   r.get(
     '/jobs/:id/log',
     asyncHandler(async (req, res) => {
-      const j = getJob(req.params.id);
+      const j = getJob(param(req, 'id'));
       if (!j) return res.status(404).json({ error: 'job not found' });
       res.type('text/plain').send(await readJobLog(j.id));
     }),
@@ -349,7 +359,7 @@ export function apiRouter(): express.Router {
   r.delete(
     '/jobs/:id',
     asyncHandler(async (req, res) => {
-      if (!(await deleteJob(req.params.id))) return res.status(404).json({ error: 'job not found' });
+      if (!(await deleteJob(param(req, 'id')))) return res.status(404).json({ error: 'job not found' });
       res.json({ ok: true });
     }),
   );
@@ -358,7 +368,7 @@ export function apiRouter(): express.Router {
     '/jobs/:id/send',
     json,
     asyncHandler(async (req, res) => {
-      const j = getJob(req.params.id);
+      const j = getJob(param(req, 'id'));
       if (!j || j.status !== 'done') return res.status(404).json({ error: 'output not available' });
       const body = jobSendSchema.parse(req.body ?? {});
       const p = body.printerId ? await getPrinter(body.printerId) : undefined;
@@ -389,7 +399,7 @@ export function apiRouter(): express.Router {
     '/printers/:id',
     json,
     asyncHandler(async (req, res) => {
-      const existing = await getPrinter(req.params.id);
+      const existing = await getPrinter(param(req, 'id'));
       if (!existing) return res.status(404).json({ error: 'printer not found' });
       const parsed = parsePrinter(req.body);
       if (!parsed.ok) throw new ValidationError(parsed.message);
@@ -402,14 +412,14 @@ export function apiRouter(): express.Router {
   r.delete(
     '/printers/:id',
     asyncHandler(async (req, res) => {
-      if (!(await deletePrinter(req.params.id))) return res.status(404).json({ error: 'printer not found' });
+      if (!(await deletePrinter(param(req, 'id')))) return res.status(404).json({ error: 'printer not found' });
       res.json({ ok: true });
     }),
   );
   r.post(
     '/printers/:id/test',
     asyncHandler(async (req, res) => {
-      const p = await getPrinter(req.params.id);
+      const p = await getPrinter(param(req, 'id'));
       if (!p) return res.status(404).json({ error: 'printer not found' });
       res.json(await testPrinter(p));
     }),
@@ -445,7 +455,7 @@ export function apiRouter(): express.Router {
     '/autosave/:client',
     json,
     asyncHandler(async (req, res) => {
-      const id = isAutosaveClientId(req.params.client);
+      const id = isAutosaveClientId(param(req, 'client'));
       if (!id) return badRequest(res, 'invalid client id');
       const body = req.body as SliceRequest;
       try {
@@ -463,7 +473,7 @@ export function apiRouter(): express.Router {
   r.get(
     '/autosave/:client',
     asyncHandler(async (req, res) => {
-      const id = isAutosaveClientId(req.params.client);
+      const id = isAutosaveClientId(param(req, 'client'));
       if (!id) return badRequest(res, 'invalid client id');
       if (req.query.info !== undefined) {
         const info = await readAutosaveInfo(id);
@@ -479,7 +489,7 @@ export function apiRouter(): express.Router {
   r.delete(
     '/autosave/:client',
     asyncHandler(async (req, res) => {
-      const id = isAutosaveClientId(req.params.client);
+      const id = isAutosaveClientId(param(req, 'client'));
       if (!id) return badRequest(res, 'invalid client id');
       await deleteAutosave(id);
       res.json({ ok: true });

@@ -24,6 +24,16 @@ function asyncHandler(fn: (req: Request, res: Response, next: NextFunction) => P
   };
 }
 
+/**
+ * Express 5 types every `req.params` value as `string | string[]`, because a route can repeat a
+ * parameter. The handlers below wrap it inside the generic `Request` of `asyncHandler`, which loses
+ * the route path and with it the knowledge that an `:id` is a single string – so they read the value
+ * through `param()`, exactly like the preset routes have always read `req.params.name`.
+ */
+function param(req: Request, name: string): string {
+  return String(req.params[name] ?? '');
+}
+
 export function projectsRouter(): express.Router {
   const r = express.Router();
   const json = express.json({ limit: '8mb' });
@@ -33,7 +43,7 @@ export function projectsRouter(): express.Router {
     req: Request,
     res: Response,
   ): Promise<{ project: Awaited<ReturnType<typeof loadProject>>; schema: Schema }> => {
-    const project = await loadProject(req.params.id);
+    const project = await loadProject(param(req, 'id'));
     if (!project) {
       res.status(404).json({ error: 'project not found' });
       return { project: undefined, schema: await activeSchema() };
@@ -62,7 +72,7 @@ export function projectsRouter(): express.Router {
   r.get(
     '/:id',
     asyncHandler(async (req, res) => {
-      const project = await loadProject(req.params.id);
+      const project = await loadProject(param(req, 'id'));
       if (!project) return res.status(404).json({ error: 'project not found' });
       res.json(project);
     }),

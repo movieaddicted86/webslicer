@@ -509,3 +509,28 @@ test('an unparsable JSON body is answered 400 by the error handler', async () =>
   assert.equal(res.status, 400);
   assert.ok((errorOf(res) ?? '').length > 0);
 });
+
+test('a rejected promise of an async handler reaches the error handler with its status and body (Express 5)', async () => {
+  // Express 4 dropped this rejection: without an `asyncHandler` wrapper the request hung until the
+  // client gave up. Express 5 forwards it to the error handler, which is what makes the four
+  // wrappers deletable – and this test is the pin that the forwarding really happens, with the
+  // status and the message the throwing call site decides.
+  //
+  // `PUT /api/printers/:id` validates only *after* awaiting `getPrinter`, so a stored printer plus a
+  // bad body is a rejection reached inside an async handler and nowhere else. The printer has to be
+  // created first because the route answers 404 for an unknown id before it looks at the body.
+  const created = await call('POST', '/api/printers', { name: 'async-pin', type: 'octoprint', host: 'printer.local' });
+  assert.equal(created.status, 200, created.body);
+  const { id } = created.json as { id: string };
+
+  const res = await call('PUT', `/api/printers/${id}`, { name: 42 });
+  assert.equal(res.status, 400);
+  assert.equal(errorOf(res), 'invalid printer name'); // `ValidationError(parsePrinter(…).message)`
+
+  // and the same route still answers its normal 200 with a valid body
+  const ok = await call('PUT', `/api/printers/${id}`, { name: 'renamed' });
+  assert.equal(ok.status, 200);
+  assert.equal((ok.json as { name?: string }).name, 'renamed');
+
+  await call('DELETE', `/api/printers/${id}`);
+});
