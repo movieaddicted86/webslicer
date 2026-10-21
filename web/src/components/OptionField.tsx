@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import type { OptionDef } from '../api';
 import { decodeVector, encodeVector, parsePoints, serializePoints, toBool } from '../values';
+import { NumericField } from './common/NumericField';
+import { TextField } from './common/TextField';
 
 interface Props {
   def: OptionDef;
@@ -27,11 +29,6 @@ function ScalarInput({
   disabled?: boolean;
 }) {
   const scalarType = def.type.replace(/s$/, '').replace('floats_or_percent', 'float_or_percent');
-  const [local, setLocal] = useState<string | null>(null);
-  const commit = () => {
-    if (local !== null && local !== value) onChange(local);
-    setLocal(null);
-  };
   switch (scalarType) {
     case 'bool':
       return <input type="checkbox" checked={toBool(value)} disabled={disabled} onChange={(e) => onChange(e.target.checked ? '1' : '0')} />;
@@ -48,45 +45,15 @@ function ScalarInput({
       );
     case 'int':
     case 'float':
-      return (
-        <input
-          type="number"
-          step={scalarType === 'int' ? 1 : 'any'}
-          value={local ?? value}
-          disabled={disabled}
-          onChange={(e) => setLocal(e.target.value)}
-          onBlur={commit}
-          onKeyDown={(e) => e.key === 'Enter' && commit()}
-        />
-      );
+      return <NumericField text={value} onText={onChange} step={scalarType === 'int' ? 1 : 'any'} disabled={disabled} />;
     case 'string':
       if (def.multiline || def.gcode) {
-        return (
-          <textarea
-            className={def.gcode ? 'gcode' : ''}
-            rows={def.gcode ? 8 : 3}
-            value={local ?? value}
-            disabled={disabled}
-            onChange={(e) => setLocal(e.target.value)}
-            onBlur={commit}
-            spellCheck={false}
-          />
-        );
+        return <TextField value={value} onChange={onChange} multiline rows={def.gcode ? 8 : 3} className={def.gcode ? 'gcode' : ''} spellCheck={false} disabled={disabled} />;
       }
-      return <input type="text" value={local ?? value} disabled={disabled} onChange={(e) => setLocal(e.target.value)} onBlur={commit} onKeyDown={(e) => e.key === 'Enter' && commit()} />;
+      return <TextField value={value} onChange={onChange} type="text" disabled={disabled} />;
     default:
       // percent, float_or_percent, point…
-      return (
-        <input
-          type="text"
-          className="short"
-          value={local ?? value}
-          disabled={disabled}
-          onChange={(e) => setLocal(e.target.value)}
-          onBlur={commit}
-          onKeyDown={(e) => e.key === 'Enter' && commit()}
-        />
-      );
+      return <TextField value={value} onChange={onChange} type="text" className="short" disabled={disabled} />;
   }
 }
 
