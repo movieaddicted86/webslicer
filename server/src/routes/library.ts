@@ -8,8 +8,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { config } from '../config.js';
 import { getJob, jobOutputPath, build3mfForRequest, mergeConfigs } from '../jobs.js';
-import { getSchema } from '../slicer/schema.js';
-import { loadBundles } from '../slicer/bundles.js';
+import { activeSchema } from '../services/schema.js';
 import type { LibraryEntry, SliceRequest } from '@webslicer/shared';
 
 export const MODEL_EXT = new Set(['.stl', '.obj', '.3mf', '.amf']);
@@ -140,7 +139,7 @@ export function libraryRouter(): express.Router {
       const name = safeName(String(req.query.name || 'project')).replace(/\.3mf$/i, '') + '.3mf';
       const body = req.body as SliceRequest;
       if (!body?.objects?.length) return res.status(400).json({ error: 'no objects' });
-      const schema = await getSchema(loadBundles().keys);
+      const schema = await activeSchema();
       const merged = mergeConfigs(schema, body, { forProject: true });
       const buf = await build3mfForRequest(body, merged);
       fs.mkdirSync(dir, { recursive: true });

@@ -11,8 +11,7 @@
  */
 import express, { type NextFunction, type Request, type Response } from 'express';
 import { createJob } from '../jobs.js';
-import { loadBundles } from '../slicer/bundles.js';
-import { getSchema } from '../slicer/schema.js';
+import { activeSchema } from '../services/schema.js';
 import type { IniSection } from '../slicer/ini.js';
 import {
   addModelFromLibrary,
@@ -55,11 +54,7 @@ function presetRef(value: unknown, label: string): ProjectPresetRef {
 export function projectsRouter(): express.Router {
   const r = express.Router();
   const json = express.json({ limit: '8mb' });
-  let schema: Schema | undefined;
-  const schemaOf = async () => {
-    if (!schema) schema = await getSchema(loadBundles().keys);
-    return schema;
-  };
+  const schemaOf = activeSchema;
 
   /** Load a project or answer 404. */
   const withProject = async (

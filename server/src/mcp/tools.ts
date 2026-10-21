@@ -10,8 +10,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { z } from 'zod';
 import { createJob, getJob, jobDir } from '../jobs.js';
-import { loadBundles } from '../slicer/bundles.js';
-import { getSchema } from '../slicer/schema.js';
+import { activeSchema } from '../services/schema.js';
 import type { OptionDef, PresetType, Schema } from '@webslicer/shared';
 import { defaultPresetName, getInstalledPrinters, listPresets, resolvePreset } from '../slicer/presets.js';
 import { listLibrary } from '../routes/library.js';
@@ -81,12 +80,7 @@ function defineTool<S extends z.ZodObject<z.ZodRawShape>>(def: {
   };
 }
 
-let cachedSchema: Schema | undefined;
-async function schemaOf(): Promise<Schema> {
-  if (!cachedSchema) cachedSchema = await getSchema(loadBundles().keys);
-  return cachedSchema;
-}
-
+const schemaOf = activeSchema;
 // ---------------------------------------------------------------------------
 // projects
 // ---------------------------------------------------------------------------

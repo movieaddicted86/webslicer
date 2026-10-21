@@ -4,7 +4,7 @@ import path from 'node:path';
 import { config } from '../config.js';
 import { getSlicerVersion } from '../slicer/cli.js';
 import { loadBundles, resolveModelAsset } from '../slicer/bundles.js';
-import { getSchema } from '../slicer/schema.js';
+import { activeSchema } from '../services/schema.js';
 import {
   listPresets,
   resolvePreset,
@@ -29,7 +29,7 @@ import {
   mergeConfigs,
   saveModel,
 } from '../jobs.js';
-import type { PresetType, Schema, SliceRequest } from '@webslicer/shared';
+import type { PresetType, SliceRequest } from '@webslicer/shared';
 import { CUSTOM_GCODE_TYPES, VOLUME_TYPES } from '@webslicer/shared';
 import { listPrinters, upsertPrinter, deletePrinter, getPrinter, testPrinter, uploadToPrinter } from '../printers.js';
 import { libraryRouter } from './library.js';
@@ -60,11 +60,7 @@ function presetType(req: Request, res: Response): PresetType | undefined {
 export function apiRouter(): express.Router {
   const r = express.Router();
   const json = express.json({ limit: '64mb' });
-  let schema: Schema | undefined;
-  const schemaOf = async () => {
-    if (!schema) schema = await getSchema(loadBundles().keys);
-    return schema;
-  };
+  const schemaOf = activeSchema;
 
   r.get('/health', (_req, res) => res.json({ ok: true }));
 
