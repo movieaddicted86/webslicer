@@ -1,210 +1,24 @@
 import { useMemo } from 'react';
 import { useStore } from '../state/store';
-import { api, type CustomGcodeType } from '../api';
-import { FEATURE_COLORS, MARKER_COLORS, MARKER_KINDS, type MarkerKind, type ParsedGcode } from '../gcode/types';
-import { layerMoves, moveWindow, toolPosition } from '../gcode/moves';
-import { COLOR_MODES, RANGE_SCHEMES, legendSteps, schemeRange, type PreviewColorMode } from '../gcode/colorschemes';
-import { colorAtZ, colorPrintSegments, normalizeColor, suggestColor } from '../gcode/colorprint';
-
-const CODE_LABEL: Record<CustomGcodeType, string> = {
-  color_change: 'Color change',
-  pause: 'Pause',
-  custom: 'Custom G-code',
-  template: 'Template',
-  tool_change: 'Tool change',
-};
-
-const MARKER_LABEL: Record<MarkerKind, string> = {
-  retract: 'Retractions',
-  deretract: 'Deretractions',
-  seam: 'Seams',
-  wipe: 'Wipe',
-  tool_change: 'Tool changes',
-  color_change: 'Color changes',
-};
-
-/** Index of the layer printed at height z (layer heights come from the G-code ;Z: markers). */
-function layerIndexOfZ(layerZ: Float32Array, z: number): number {
-  for (let i = 0; i < layerZ.length; i++) if (Math.abs(layerZ[i] - z) < 1e-3) return i;
-  return -1;
-}
+import { SectionHeader } from './common/SectionHeader';
+import { LayerCodes } from './preview/LayerCodes';
+import { LayerSlider } from './preview/LayerSlider';
+import { MoveSlider } from './preview/MoveSlider';
+import { ViewOptions } from './preview/ViewOptions';
+import { PreviewLegend } from './preview/Legend';
+import { SlicedInfo } from './preview/SlicedInfo';
+import { sumTimes } from './preview/formats';
 
 /**
- * Colour changes, pauses and custom G-code at layers – PrusaSlicer's "+" on the vertical slider.
- * The code is inserted before the layer at the top slider position is printed.
+ * The preview of the sidebar (F-14): the state of the job, the sliced info and the layer view. The
+ * layer slider, the code list, the move slider, the view options and the legend live in
+ * `components/preview/`.
  */
-function LayerCodes({ printZ, firstLayer, maxZ }: { printZ: number | undefined; firstLayer: boolean; maxZ: number }) {
-  const codes = useStore((s) => s.customGcodes);
-  const add = useStore((s) => s.addCustomGcode);
-  const update = useStore((s) => s.updateCustomGcode);
-  const remove = useStore((s) => s.removeCustomGcode);
-  const extruders = useStore((s) => s.extruderCount());
-  const tech = useStore((s) => s.presets.printer.current.printer_technology);
-  const baseColor = useStore((s) => normalizeColor(s.presets.filament[0]?.current.filament_colour));
-  const job = useStore((s) => s.job);
-  const running = job && (job.status === 'running' || job.status === 'queued');
-  if (tech === 'SLA' || printZ === undefined) return null;
-  const z = Math.round(printZ * 1000) / 1000;
-  const existing = codes.find((c) => Math.abs(c.printZ - z) < 1e-4);
-  // a change on the first layer has no effect – PrusaSlicer does not allow it either
-  const disabled = firstLayer || z >= maxZ + 1e-6;
-  return (
-    <div className="layer-codes">
-      <div className="layer-codes-add">
-        <span className="small muted">At Z {z.toFixed(2)} mm:</span>
-        <button
-          disabled={disabled}
-          title="Insert a filament change (M600) before this layer"
-          onClick={() => add({ printZ: z, type: 'color_change', extruder: 1, color: suggestColor(colorAtZ(z - 1e-3, baseColor, codes)) })}
-        >
-          ＋ Color
-        </button>
-        <button disabled={disabled} title="Pause the print before this layer (e.g. to insert magnets or nuts)" onClick={() => add({ printZ: z, type: 'pause', extra: 'Insert item' })}>
-          ⏸ Pause
-        </button>
-        <button disabled={disabled} title="Insert custom G-code before this layer" onClick={() => add({ printZ: z, type: 'custom', extra: 'M117 Layer change' })}>
-          ✎ Custom
-        </button>
-      </div>
-      {disabled && <div className="muted small">Move the top slider above the first layer to add a change.</div>}
-      {existing && <div className="muted small">Adding again replaces the {CODE_LABEL[existing.type].toLowerCase()} at this height.</div>}
-      {codes.length > 0 && (
-        <ul className="code-list">
-          {codes.map((c) => (
-            <li key={c.printZ} className={Math.abs(c.printZ - z) < 1e-4 ? 'current' : ''}>
-              <span className="code-z">{c.printZ.toFixed(2)}</span>
-              <span className="code-type">{CODE_LABEL[c.type]}</span>
-              {c.type === 'color_change' && (
-                <>
-                  <input type="color" value={normalizeColor(c.color, '#ffffff')} onChange={(e) => update(c.printZ, { color: e.target.value })} title="Color after the change" />
-                  {extruders > 1 && (
-                    <select value={c.extruder ?? 1} onChange={(e) => update(c.printZ, { extruder: Number(e.target.value) })} title="Extruder">
-                      {Array.from({ length: extruders }, (_, i) => (
-                        <option key={i} value={i + 1}>
-                          E{i + 1}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                </>
-              )}
-              {c.type === 'pause' && (
-                <input className="code-text" value={c.extra ?? ''} onChange={(e) => update(c.printZ, { extra: e.target.value })} title="Message shown on the printer (M117)" />
-              )}
-              {c.type === 'custom' && (
-                <textarea className="code-text" rows={2} value={c.extra ?? ''} onChange={(e) => update(c.printZ, { extra: e.target.value })} spellCheck={false} />
-              )}
-              <button className="icon" title="Remove" onClick={() => remove(c.printZ)}>
-                ✕
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-      {codes.length > 0 && running && <div className="muted small">Updating G-code…</div>}
-    </div>
-  );
-}
-
-/** Gradient legend of a range colour scheme (speed, fan, temperature, …), maximum on top like PrusaSlicer. */
-function RangeLegend({ gcode, mode, estimatedSeconds }: { gcode: ParsedGcode; mode: PreviewColorMode; estimatedSeconds?: number }) {
-  const scheme = RANGE_SCHEMES[mode]!;
-  const range = useMemo(() => schemeRange(gcode, mode), [gcode, mode]);
-  // layer times come from feedrates only; scale them to the slicer's estimate (which includes acceleration)
-  const timeScale = useMemo(() => {
-    if (!scheme.perLayer || !estimatedSeconds) return 1;
-    const sum = gcode.layerTime.reduce((a, b) => a + b, 0);
-    return sum > 0 ? estimatedSeconds / sum : 1;
-  }, [gcode, scheme.perLayer, estimatedSeconds]);
-  const label = (v: number) => (scheme.perLayer ? fmtLayerTime(v * timeScale) : v.toFixed(scheme.decimals));
-  if (range[1] <= 0 && range[0] <= 0) return <div className="muted small">No data for this view in the G-code.</div>;
-  return (
-    <ul className="legend range">
-      {legendSteps(range, scheme.log).map((st, i) => (
-        <li key={i}>
-          <span className="swatch" style={{ background: st.color }} />
-          <span className="name">{label(st.value)}</span>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-function fmtLayerTime(s: number) {
-  if (s < 60) return `${s.toFixed(1)} s`;
-  return `${Math.floor(s / 60)}m ${String(Math.round(s % 60)).padStart(2, '0')}s`;
-}
-
-/** PrusaSlicer's feature legend: `1h 02m`, `3m 10s`, `8.4 s`. */
-function fmtFeatureTime(s: number) {
-  if (s >= 3600) return `${Math.floor(s / 3600)}h ${String(Math.floor((s % 3600) / 60)).padStart(2, '0')}m`;
-  if (s >= 60) return `${Math.floor(s / 60)}m ${String(Math.round(s % 60)).padStart(2, '0')}s`;
-  return `${s.toFixed(1)}s`;
-}
-
-const sumTimes = (t: Record<string, number>) => Object.values(t).reduce((a, b) => a + b, 0);
-
-/**
- * PrusaSlicer's horizontal slider: plays the moves of the top visible layer one by one. The range is
- * the moves of that layer, "end of layer" (no cut) shows the whole layer.
- */
-function MoveSlider({ gcode }: { gcode: ParsedGcode }) {
-  const range = useStore((s) => s.previewLayerRange);
-  const moveCut = useStore((s) => s.previewMoveCut);
-  const setMoveCut = useStore((s) => s.setPreviewMoveCut);
-  const moves = useMemo(() => layerMoves(gcode, range[1]), [gcode, range[1]]);
-  if (moves.length === 0) return null;
-  const first = moves[0];
-  const last = moves[moves.length - 1];
-  const value = moveCut ?? last;
-  const pos = toolPosition(gcode, value);
-  const done = value - first + 1;
-  return (
-    <div className="move-slider">
-      <label className="small">Move</label>
-      <input
-        type="range"
-        min={first}
-        max={last}
-        value={value}
-        title="Print the top layer move by move"
-        onChange={(e) => {
-          const v = Number(e.target.value);
-          setMoveCut(v >= last ? undefined : v);
-        }}
-      />
-      <div className="muted small">
-        {done} / {moves.length} moves
-        {pos ? ` · X ${pos[0].toFixed(1)} Y ${pos[1].toFixed(1)} Z ${pos[2].toFixed(2)}` : ''}
-      </div>
-    </div>
-  );
-}
-
-function fmtTime(s?: number) {
-  if (!s) return '–';
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  const sec = Math.floor(s % 60);
-  return h ? `${h}h ${m}m ${sec}s` : m ? `${m}m ${sec}s` : `${sec}s`;
-}
-
 export function PreviewPanel() {
   const job = useStore((s) => s.job);
   const jobLog = useStore((s) => s.jobLog);
   const gcode = useStore((s) => s.gcode);
   const range = useStore((s) => s.previewLayerRange);
-  const setRange = useStore((s) => s.setPreviewLayerRange);
-  const showTravel = useStore((s) => s.previewShowTravel);
-  const setShowTravel = useStore((s) => s.setPreviewShowTravel);
-  const vis = useStore((s) => s.previewFeatureVisibility);
-  const toggle = useStore((s) => s.togglePreviewFeature);
-  const markerVis = useStore((s) => s.previewMarkers);
-  const toggleMarker = useStore((s) => s.togglePreviewMarker);
-  const showShells = useStore((s) => s.previewShowShells);
-  const setShowShells = useStore((s) => s.setPreviewShowShells);
-  const openDialog = useStore((s) => s.openDialog);
-  const physical = useStore((s) => s.physicalPrinters);
   const setView = useStore((s) => s.setView);
   const sliceDirty = useStore((s) => s.sliceDirty);
   const slice = useStore((s) => s.slice);
@@ -212,11 +26,6 @@ export function PreviewPanel() {
   const gcodeLoading = useStore((s) => s.gcodeLoading);
   const loadGcodePreview = useStore((s) => s.loadGcodePreview);
   const toast = useStore((s) => s.toast);
-  const customGcodes = useStore((s) => s.customGcodes);
-  const colorMode = useStore((s) => s.previewColorMode);
-  const setColorMode = useStore((s) => s.setPreviewColorMode);
-  const baseColor = useStore((s) => normalizeColor(s.presets.filament[0]?.current.filament_colour));
-  const toolColors = useStore((s) => s.presets.filament.map((f) => normalizeColor(f.current.filament_colour)).join(','));
   const usedTools = useMemo(() => (gcode ? [...new Set(gcode.tools)].sort((a, b) => a - b) : []), [gcode]);
 
   const running = job && (job.status === 'running' || job.status === 'queued');
@@ -285,163 +94,22 @@ export function PreviewPanel() {
               </ul>
             </details>
           ) : null}
-          <section className="stats">
-            <div className="section-head">
-              <span>Sliced info</span>
-            </div>
-            <table>
-              <tbody>
-                <tr>
-                  <td>File</td>
-                  <td title={job.outputName}>{job.outputName}</td>
-                </tr>
-                <tr>
-                  <td>Estimated time</td>
-                  <td>{info?.estimatedTime || fmtTime(info?.estimatedTimeSeconds)}</td>
-                </tr>
-                <tr>
-                  <td>Filament</td>
-                  <td>
-                    {info?.filamentUsedMm ? `${(info.filamentUsedMm.reduce((a, b) => a + b, 0) / 1000).toFixed(2)} m` : '–'}
-                    {info?.totalFilamentG ? ` · ${info.totalFilamentG.toFixed(1)} g` : ''}
-                    {info?.filamentUsedCm3 ? ` · ${info.filamentUsedCm3.reduce((a, b) => a + b, 0).toFixed(1)} cm³` : ''}
-                  </td>
-                </tr>
-                {info?.totalFilamentCost ? (
-                  <tr>
-                    <td>Cost</td>
-                    <td>{info.totalFilamentCost.toFixed(2)}</td>
-                  </tr>
-                ) : null}
-                <tr>
-                  <td>Layers</td>
-                  <td>{gcode?.layerCount ?? '–'}</td>
-                </tr>
-                <tr>
-                  <td>Size</td>
-                  <td>{info ? `${(info.sizeBytes / 1048576).toFixed(1)} MB` : '–'}</td>
-                </tr>
-              </tbody>
-            </table>
-            <div className="actions">
-              <a className="button primary" href={api.gcodeUrl(job.id, true)} download>
-                ⤓ Export G-code
-              </a>
-              <button className="secondary" onClick={() => openDialog('library', 'saveGcode')} title="Copy the G-code into the server library (mounted folder)">
-                🗂 Save to library
-              </button>
-              <button className="secondary" onClick={() => openDialog('sendToPrinter')} disabled={!physical.length} title={physical.length ? '' : 'Add a physical printer first'}>
-                ➤ Send to printer
-              </button>
-            </div>
-          </section>
+          <SlicedInfo />
           {gcode && (
             <section className="layers">
-              <div className="section-head">
-                <span>
-                  Layers {range[0] + 1} – {range[1] + 1} / {gcode.layerCount}
-                  <span className="muted"> (Z {gcode.layerZ[range[1]]?.toFixed(2)} mm)</span>
-                </span>
-              </div>
-              <label className="small">Top</label>
-              <div className="slider-with-markers">
-                <input type="range" min={0} max={gcode.layerCount - 1} value={range[1]} onChange={(e) => setRange([Math.min(range[0], Number(e.target.value)), Number(e.target.value)])} />
-                <div className="slider-markers">
-                  {customGcodes.map((c) => {
-                    const idx = layerIndexOfZ(gcode.layerZ, c.printZ);
-                    if (idx < 0) return null;
-                    const pct = gcode.layerCount > 1 ? (idx / (gcode.layerCount - 1)) * 100 : 0;
-                    return (
-                      <button
-                        key={c.printZ}
-                        className={`marker ${c.type}`}
-                        style={{ left: `${pct}%`, background: c.type === 'color_change' ? c.color : undefined }}
-                        title={`${CODE_LABEL[c.type]} at Z ${c.printZ.toFixed(2)} mm – click to jump`}
-                        onClick={() => setRange([Math.min(range[0], idx), idx])}
-                      />
-                    );
-                  })}
-                </div>
-              </div>
-              <label className="small">Bottom</label>
-              <input type="range" min={0} max={gcode.layerCount - 1} value={range[0]} onChange={(e) => setRange([Number(e.target.value), Math.max(range[1], Number(e.target.value))])} />
-              <LayerCodes
-                printZ={gcode.layerZ[range[1]]}
-                firstLayer={range[1] === 0}
-                maxZ={gcode.layerZ[gcode.layerCount - 1] ?? 0}
+              <SectionHeader
+                title={
+                  <>
+                    Layers {range[0] + 1} – {range[1] + 1} / {gcode.layerCount}
+                    <span className="muted"> (Z {gcode.layerZ[range[1]]?.toFixed(2)} mm)</span>
+                  </>
+                }
               />
+              <LayerSlider gcode={gcode} />
+              <LayerCodes printZ={gcode.layerZ[range[1]]} firstLayer={range[1] === 0} maxZ={gcode.layerZ[gcode.layerCount - 1] ?? 0} />
               <MoveSlider gcode={gcode} />
-              <label className="checkbox small">
-                <input type="checkbox" checked={showTravel} onChange={(e) => setShowTravel(e.target.checked)} /> Show travel moves
-              </label>
-              <div className="view-options">
-                <div className="small muted">Show</div>
-                {MARKER_KINDS.map((k) => (
-                  <label key={k} className="checkbox small" title={`Mark ${MARKER_LABEL[k].toLowerCase()} in the preview`}>
-                    <input type="checkbox" checked={markerVis[k]} onChange={() => toggleMarker(k)} />
-                    <span className="swatch" style={{ background: MARKER_COLORS[k] }} />
-                    {MARKER_LABEL[k]}
-                  </label>
-                ))}
-                <label className="checkbox small" title="Draw the plater objects translucent over the toolpaths">
-                  <input type="checkbox" checked={showShells} onChange={(e) => setShowShells(e.target.checked)} /> Shells
-                </label>
-              </div>
-              <label className="view-mode small">
-                <span>View</span>
-                <select value={colorMode} onChange={(e) => setColorMode(e.target.value as PreviewColorMode)}>
-                  {COLOR_MODES.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              {RANGE_SCHEMES[colorMode] ? (
-                <RangeLegend gcode={gcode} mode={colorMode} estimatedSeconds={info?.estimatedTimeSeconds} />
-              ) : colorMode === 'tool' ? (
-                <ul className="legend">
-                  {usedTools.map((t) => (
-                    <li key={t}>
-                      <span className="swatch" style={{ background: toolColors.split(',')[t] ?? baseColor }} />
-                      <span className="name">Extruder {t + 1}</span>
-                    </li>
-                  ))}
-                </ul>
-              ) : colorMode === 'colorprint' ? (
-                <ul className="legend">
-                  {colorPrintSegments(baseColor, customGcodes, gcode.layerZ[gcode.layerCount - 1] ?? 0).map((s, i) => (
-                    <li key={i}>
-                      <span className="swatch" style={{ background: s.color }} />
-                      <span className="name">{i === 0 ? 'Default color' : `Color ${i}`}</span>
-                      <span className="muted">
-                        {s.fromZ.toFixed(2)} – {s.toZ.toFixed(2)} mm
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <ul className="legend features" title="Time, share of the print time (without travel) and extruded length">
-                  {gcode.featureTypes.map((f) => (
-                    <li key={f} className={vis[f] === false ? 'off' : ''} onClick={() => toggle(f)}>
-                      <span className="swatch" style={{ background: FEATURE_COLORS[f] || FEATURE_COLORS.Unknown }} />
-                      <span className="name">{f}</span>
-                      <span className="muted time">{fmtFeatureTime((gcode.featureTime[f] || 0) * featureTimeScale)}</span>
-                      <span className="muted pct">{(featureShare[f] ?? 0).toFixed(1)}%</span>
-                      <span className="muted len">{((gcode.featureLength[f] || 0) / 1000).toFixed(1)} m</span>
-                    </li>
-                  ))}
-                  {gcode.featureTime.Travel ? (
-                    <li className="static" title="Travel is not extruded and has no share of its own">
-                      <span className="swatch" style={{ background: FEATURE_COLORS.Unknown, opacity: 0.35 }} />
-                      <span className="name">Travel</span>
-                      <span className="muted time">{fmtFeatureTime(gcode.featureTime.Travel * featureTimeScale)}</span>
-                      <span className="pct" />
-                      <span className="len" />
-                    </li>
-                  ) : null}
-                </ul>
-              )}
+              <ViewOptions />
+              <PreviewLegend gcode={gcode} usedTools={usedTools} featureTimeScale={featureTimeScale} featureShare={featureShare} estimatedSeconds={info?.estimatedTimeSeconds} />
             </section>
           )}
           {!gcode && gcodeLoading && <div className="muted small">Loading preview…</div>}
