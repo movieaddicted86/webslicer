@@ -1,10 +1,15 @@
 import express, { type Request, type Response, type NextFunction } from 'express';
-import fs from 'node:fs';
+import fs from 'node:fs/promises';
 import path from 'node:path';
 import { config } from '../config.js';
 import { getSlicerVersion } from '../slicer/cli.js';
 import { loadBundles, resolveModelAsset } from '../slicer/bundles.js';
-import { getSchema } from '../slicer/schema.js';
+import { activeSchema } from '../services/schema.js';
+import { appVersion } from '../services/version.js';
+import { deleteModel, saveModel } from '../services/models.js';
+import { deleteAutosave, findAutosave, isAutosaveClientId, readAutosaveInfo, writeAutosave } from '../services/autosave.js';
+import { build3mfForRequest, validateSliceRequest } from '../services/slice.js';
+import { mergeConfigs } from '../services/configMerge.js';
 import {
   listPresets,
   resolvePreset,
@@ -16,22 +21,9 @@ import {
   userPresetExists,
 } from '../slicer/presets.js';
 import { parseStl, read3mfProject } from '../slicer/threemf.js';
-import {
-  createJob,
-  getJob,
-  listJobs,
-  subscribe,
-  cancelJob,
-  deleteJob,
-  jobOutputPath,
-  jobDir,
-  build3mfForRequest,
-  mergeConfigs,
-  saveModel,
-} from '../jobs.js';
-import type { PresetType, Schema, SliceRequest } from '@webslicer/shared';
-import { CUSTOM_GCODE_TYPES, VOLUME_TYPES } from '@webslicer/shared';
-import { listPrinters, upsertPrinter, deletePrinter, getPrinter, testPrinter, uploadToPrinter } from '../printers.js';
+import { createJob, getJob, listJobs, subscribe, cancelJob, deleteJob, jobOutputPath, readJobLog } from '../jobs.js';
+import type { PhysicalPrinter, PresetType, SliceRequest } from '@webslicer/shared';
+import { listPrinters, upsertPrinter, deletePrinter, getPrinter, testPrinter, uploadToPrinter } from '../services/printers.js';
 import { libraryRouter } from './library.js';
 import { projectsRouter } from './projects.js';
 import type { IniSection } from '../slicer/ini.js';
@@ -60,11 +52,7 @@ function presetType(req: Request, res: Response): PresetType | undefined {
 export function apiRouter(): express.Router {
   const r = express.Router();
   const json = express.json({ limit: '64mb' });
-  let schema: Schema | undefined;
-  const schemaOf = async () => {
-    if (!schema) schema = await getSchema(loadBundles().keys);
-    return schema;
-  };
+  const schemaOf = activeSchema;
 
   r.get('/health', (_req, res) => res.json({ ok: true }));
 
@@ -73,7 +61,7 @@ export function apiRouter(): express.Router {
     asyncHandler(async (_req, res) => {
       const bundles = loadBundles();
       res.json({
-        version: appVersion(),
+        version: await appVersion(),
         slicerVersion: await getSlicerVersion(),
         slicerBin: config.slicerBin,
         resourcesDir: bundles.resourcesDir,
@@ -218,29 +206,28 @@ export function apiRouter(): express.Router {
         return badRequest(res, `cannot parse STL: ${(e as Error).message}`);
       }
       if (!mesh.indices.length) return badRequest(res, 'mesh has no triangles');
-      const { id, name, triangles, vertices } = saveModel(mesh, decodeURIComponent(String(req.header('x-filename') || 'model.stl')));
+      const { id, name, triangles, vertices } = await saveModel(mesh, decodeURIComponent(String(req.header('x-filename') || 'model.stl')));
       res.json({ id, name, triangles, vertices });
     }),
   );
 
-  r.get('/models/:id', (req, res) => {
-    const id = path.basename(req.params.id);
-    const f = path.join(config.modelsDir, `${id}.stl`);
-    if (!fs.existsSync(f)) return res.status(404).json({ error: 'model not found' });
-    res.type('application/octet-stream').sendFile(f);
-  });
+  r.get(
+    '/models/:id',
+    asyncHandler(async (req, res) => {
+      // the existence check is what turns a missing model into a 404 before `sendFile` runs
+      const f = await resolveExistingFile(path.join(config.modelsDir, `${path.basename(req.params.id)}.stl`));
+      if (!f) return res.status(404).json({ error: 'model not found' });
+      res.type('application/octet-stream').sendFile(f);
+    }),
+  );
 
-  r.delete('/models/:id', (req, res) => {
-    const id = path.basename(req.params.id);
-    for (const ext of ['.stl', '.json']) {
-      try {
-        fs.unlinkSync(path.join(config.modelsDir, `${id}${ext}`));
-      } catch {
-        /* ignore */
-      }
-    }
-    res.json({ ok: true });
-  });
+  r.delete(
+    '/models/:id',
+    asyncHandler(async (req, res) => {
+      await deleteModel(path.basename(req.params.id));
+      res.json({ ok: true });
+    }),
+  );
 
   // ---- projects (3MF) ----------------------------------------------------
   r.post(
@@ -297,7 +284,7 @@ export function apiRouter(): express.Router {
         return badRequest(res, (e as Error).message);
       }
       const s = await schemaOf();
-      const job = createJob(body, s);
+      const job = await createJob(body, s);
       res.status(202).json(job);
     }),
   );
@@ -339,32 +326,40 @@ export function apiRouter(): express.Router {
     });
   });
 
-  r.get('/jobs/:id/gcode', (req, res) => {
-    const j = getJob(req.params.id);
-    if (!j || j.status !== 'done') return res.status(404).json({ error: 'output not available' });
-    const f = jobOutputPath(j);
-    if (!fs.existsSync(f)) return res.status(404).json({ error: 'output missing' });
-    if (req.query.download !== undefined)
-      res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(j.outputName)}"`);
-    res.type(j.outputName.endsWith('.gcode') ? 'text/plain' : 'application/octet-stream').sendFile(f);
-  });
+  r.get(
+    '/jobs/:id/gcode',
+    asyncHandler(async (req, res) => {
+      const j = getJob(req.params.id);
+      if (!j || j.status !== 'done') return res.status(404).json({ error: 'output not available' });
+      const f = await resolveExistingFile(jobOutputPath(j));
+      if (!f) return res.status(404).json({ error: 'output missing' });
+      if (req.query.download !== undefined)
+        res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(j.outputName)}"`);
+      res.type(j.outputName.endsWith('.gcode') ? 'text/plain' : 'application/octet-stream').sendFile(f);
+    }),
+  );
 
-  r.get('/jobs/:id/log', (req, res) => {
-    const j = getJob(req.params.id);
-    if (!j) return res.status(404).json({ error: 'job not found' });
-    const f = path.join(jobDir(j.id), 'log.txt');
-    res.type('text/plain').send(fs.existsSync(f) ? fs.readFileSync(f, 'utf8') : '');
-  });
+  r.get(
+    '/jobs/:id/log',
+    asyncHandler(async (req, res) => {
+      const j = getJob(req.params.id);
+      if (!j) return res.status(404).json({ error: 'job not found' });
+      res.type('text/plain').send(await readJobLog(j.id));
+    }),
+  );
 
   r.post('/jobs/:id/cancel', (req, res) => {
     if (!cancelJob(req.params.id)) return res.status(404).json({ error: 'job not cancellable' });
     res.json({ ok: true });
   });
 
-  r.delete('/jobs/:id', (req, res) => {
-    if (!deleteJob(req.params.id)) return res.status(404).json({ error: 'job not found' });
-    res.json({ ok: true });
-  });
+  r.delete(
+    '/jobs/:id',
+    asyncHandler(async (req, res) => {
+      if (!(await deleteJob(req.params.id))) return res.status(404).json({ error: 'job not found' });
+      res.json({ ok: true });
+    }),
+  );
 
   r.post(
     '/jobs/:id/send',
@@ -373,7 +368,7 @@ export function apiRouter(): express.Router {
       const j = getJob(req.params.id);
       if (!j || j.status !== 'done') return res.status(404).json({ error: 'output not available' });
       const body = (req.body || {}) as { printerId?: string; filename?: string; startPrint?: boolean };
-      const p = body.printerId ? getPrinter(body.printerId) : undefined;
+      const p = body.printerId ? await getPrinter(body.printerId) : undefined;
       if (!p) return badRequest(res, 'printerId required');
       const filename = (body.filename || j.outputName).replace(/[\\/]/g, '_');
       const result = await uploadToPrinter(p, jobOutputPath(j), filename, !!body.startPrint);
@@ -382,23 +377,38 @@ export function apiRouter(): express.Router {
   );
 
   // ---- physical printers ---------------------------------------------------
-  r.get('/printers', (_req, res) => res.json(listPrinters().map(maskPrinter)));
-  r.post('/printers', json, (req, res) => res.json(maskPrinter(upsertPrinter(req.body || {}))));
-  r.put('/printers/:id', json, (req, res) => {
-    const existing = getPrinter(req.params.id);
-    if (!existing) return res.status(404).json({ error: 'printer not found' });
-    const body = req.body || {};
-    if (body.apiKey === '••••••••' || body.apiKey === undefined) body.apiKey = existing.apiKey;
-    res.json(maskPrinter(upsertPrinter({ ...existing, ...body, id: existing.id })));
-  });
-  r.delete('/printers/:id', (req, res) => {
-    if (!deletePrinter(req.params.id)) return res.status(404).json({ error: 'printer not found' });
-    res.json({ ok: true });
-  });
+  // The printer store reads its JSON with `fs/promises` (N-7), so these handlers are async now.
+  r.get(
+    '/printers',
+    asyncHandler(async (_req, res) => res.json((await listPrinters()).map(maskPrinter))),
+  );
+  r.post(
+    '/printers',
+    json,
+    asyncHandler(async (req, res) => res.json(maskPrinter(await upsertPrinter(req.body || {})))),
+  );
+  r.put(
+    '/printers/:id',
+    json,
+    asyncHandler(async (req, res) => {
+      const existing = await getPrinter(req.params.id);
+      if (!existing) return res.status(404).json({ error: 'printer not found' });
+      const body = req.body || {};
+      if (body.apiKey === '••••••••' || body.apiKey === undefined) body.apiKey = existing.apiKey;
+      res.json(maskPrinter(await upsertPrinter({ ...existing, ...body, id: existing.id })));
+    }),
+  );
+  r.delete(
+    '/printers/:id',
+    asyncHandler(async (req, res) => {
+      if (!(await deletePrinter(req.params.id))) return res.status(404).json({ error: 'printer not found' });
+      res.json({ ok: true });
+    }),
+  );
   r.post(
     '/printers/:id/test',
     asyncHandler(async (req, res) => {
-      const p = getPrinter(req.params.id);
+      const p = await getPrinter(req.params.id);
       if (!p) return res.status(404).json({ error: 'printer not found' });
       res.json(await testPrinter(p));
     }),
@@ -430,15 +440,11 @@ export function apiRouter(): express.Router {
   r.use('/projects', projectsRouter());
 
   // ---- autosave of the plater (per browser client) -------------------------
-  const clientId = (req: Request): string | undefined => {
-    const id = String(req.params.client || '');
-    return /^[A-Za-z0-9_-]{8,64}$/.test(id) ? id : undefined;
-  };
   r.put(
     '/autosave/:client',
     json,
     asyncHandler(async (req, res) => {
-      const id = clientId(req);
+      const id = isAutosaveClientId(req.params.client);
       if (!id) return badRequest(res, 'invalid client id');
       const body = req.body as SliceRequest;
       try {
@@ -446,127 +452,54 @@ export function apiRouter(): express.Router {
       } catch (e) {
         return badRequest(res, (e as Error).message);
       }
-      const s = await schemaOf();
+      const s = await activeSchema();
       const merged = mergeConfigs(s, body, { forProject: true });
       const buf = await build3mfForRequest(body, merged);
-      fs.mkdirSync(config.autosaveDir, { recursive: true });
-      fs.writeFileSync(path.join(config.autosaveDir, `${id}.3mf`), buf);
+      await writeAutosave(id, buf);
       res.json({ ok: true, savedAt: new Date().toISOString(), size: buf.length });
     }),
   );
-  r.get('/autosave/:client', (req, res) => {
-    const id = clientId(req);
-    if (!id) return badRequest(res, 'invalid client id');
-    const f = path.join(config.autosaveDir, `${id}.3mf`);
-    if (!fs.existsSync(f)) return res.status(404).json({ error: 'no autosave' });
-    const st = fs.statSync(f);
-    if (req.query.info !== undefined) return res.json({ savedAt: st.mtime.toISOString(), size: st.size });
-    res.setHeader('X-Saved-At', st.mtime.toISOString());
-    res.type('model/3mf').sendFile(f);
-  });
-  r.delete('/autosave/:client', (req, res) => {
-    const id = clientId(req);
-    if (!id) return badRequest(res, 'invalid client id');
-    try {
-      fs.unlinkSync(path.join(config.autosaveDir, `${id}.3mf`));
-    } catch {
-      /* ignore */
-    }
-    res.json({ ok: true });
-  });
+  r.get(
+    '/autosave/:client',
+    asyncHandler(async (req, res) => {
+      const id = isAutosaveClientId(req.params.client);
+      if (!id) return badRequest(res, 'invalid client id');
+      if (req.query.info !== undefined) {
+        const info = await readAutosaveInfo(id);
+        if (!info) return res.status(404).json({ error: 'no autosave' });
+        return res.json(info);
+      }
+      const saved = await findAutosave(id);
+      if (!saved) return res.status(404).json({ error: 'no autosave' });
+      res.setHeader('X-Saved-At', saved.savedAt);
+      res.type('model/3mf').sendFile(saved.file);
+    }),
+  );
+  r.delete(
+    '/autosave/:client',
+    asyncHandler(async (req, res) => {
+      const id = isAutosaveClientId(req.params.client);
+      if (!id) return badRequest(res, 'invalid client id');
+      await deleteAutosave(id);
+      res.json({ ok: true });
+    }),
+  );
 
   return r;
 }
 
-let cachedVersion: string | undefined;
-/** WebSlicer version: environment (Docker) or the root package.json (native install) */
-export function appVersion(): string {
-  if (cachedVersion) return cachedVersion;
-  cachedVersion = process.env.WEBSLICER_VERSION || process.env.npm_package_version;
-  if (!cachedVersion) {
-    for (const p of [path.resolve(process.cwd(), 'package.json'), path.resolve(process.cwd(), '..', 'package.json')]) {
-      try {
-        const pkg = JSON.parse(fs.readFileSync(p, 'utf8')) as { name?: string; version?: string };
-        if (pkg.name === 'webslicer' && pkg.version) {
-          cachedVersion = pkg.version;
-          break;
-        }
-      } catch {
-        /* try next */
-      }
-    }
+/**
+ * The path, if it exists as a file – `sendFile` would throw ENOENT otherwise, and the routes need to
+ * answer 404 with their own message first.
+ */
+async function resolveExistingFile(file: string): Promise<string | undefined> {
+  try {
+    return (await fs.stat(file)).isFile() ? file : undefined;
+  } catch {
+    return undefined;
   }
-  return (cachedVersion ||= 'unknown');
 }
 
-function maskPrinter(p: ReturnType<typeof listPrinters>[number]) {
+function maskPrinter(p: PhysicalPrinter) {
   return { ...p, apiKey: p.apiKey ? '••••••••' : undefined, hasApiKey: !!p.apiKey };
-}
-
-/** Validate a 4x4 transform: exactly 16 finite numbers. */
-function isTransform(t: unknown): t is number[] {
-  return Array.isArray(t) && t.length === 16 && t.every((v) => typeof v === 'number' && Number.isFinite(v));
-}
-
-export function validateSliceRequest(body: SliceRequest) {
-  if (!body || typeof body !== 'object') throw new Error('body required');
-  if (!Array.isArray(body.objects) || !body.objects.length) throw new Error('at least one object required');
-  const isId = (id: unknown) => typeof id === 'string' && /^[0-9a-f-]{36}$/i.test(id);
-  for (const o of body.objects) {
-    if (!isId(o.modelId)) throw new Error('invalid modelId');
-    if (!Array.isArray(o.transform) || o.transform.length !== 16) throw new Error('transform must have 16 entries');
-    if (o.instances !== undefined) {
-      if (!Array.isArray(o.instances) || !o.instances.length || o.instances.length > 1000)
-        throw new Error('instances must have 1-1000 entries');
-      for (const t of o.instances) {
-        if (!isTransform(t)) throw new Error('every instance must be a transform with 16 finite numbers');
-      }
-      // keep the first instance in sync with the legacy field
-      o.transform = o.instances[0];
-    } else {
-      for (const v of o.transform)
-        if (typeof v !== 'number' || !Number.isFinite(v)) throw new Error('transform must contain 16 finite numbers');
-    }
-    for (const key of ['supportPaint', 'seamPaint'] as const) {
-      const p = o[key];
-      if (p !== undefined && (typeof p !== 'string' || p.length > 2_000_000 || !/^[048]*$/.test(p))) throw new Error(`invalid ${key}`);
-    }
-    if (o.mmuPaint !== undefined && (typeof o.mmuPaint !== 'string' || o.mmuPaint.length > 2_000_000 || !/^[0-9a-f]*$/i.test(o.mmuPaint)))
-      throw new Error('invalid mmuPaint');
-    if (o.ranges !== undefined) {
-      if (!Array.isArray(o.ranges) || o.ranges.length > 64) throw new Error('invalid ranges');
-      for (const r of o.ranges) {
-        if (typeof r.minZ !== 'number' || typeof r.maxZ !== 'number' || !(r.maxZ > r.minZ) || r.minZ < 0) throw new Error('invalid range');
-        if (!r.config || typeof r.config !== 'object') throw new Error('range config required');
-      }
-    }
-    for (const v of o.volumes || []) {
-      if (!isId(v.modelId)) throw new Error('invalid volume modelId');
-      if (!isTransform(v.transform)) throw new Error('volume transform must have 16 entries');
-      if (!VOLUME_TYPES.includes(v.type)) throw new Error(`invalid volume type ${v.type}`);
-    }
-  }
-  if (!body.print?.config || !body.printer?.config) throw new Error('print and printer config required');
-  if (!Array.isArray(body.filaments)) body.filaments = [];
-  if (body.customGcodes !== undefined) {
-    if (!Array.isArray(body.customGcodes) || body.customGcodes.length > 500) throw new Error('at most 500 custom G-codes');
-    for (const c of body.customGcodes) {
-      if (typeof c.printZ !== 'number' || !Number.isFinite(c.printZ) || c.printZ <= 0) throw new Error('invalid custom G-code height');
-      if (!CUSTOM_GCODE_TYPES.includes(c.type)) throw new Error(`invalid custom G-code type ${c.type}`);
-      if (c.color !== undefined && !/^#[0-9a-f]{6}$/i.test(c.color)) throw new Error('invalid custom G-code colour');
-      if (c.extra !== undefined && (typeof c.extra !== 'string' || c.extra.length > 20000)) throw new Error('invalid custom G-code text');
-      if (c.extruder !== undefined && (!Number.isInteger(c.extruder) || c.extruder < 1 || c.extruder > 16))
-        throw new Error('invalid custom G-code extruder');
-    }
-  }
-  if (body.thumbnails !== undefined) {
-    if (!Array.isArray(body.thumbnails) || body.thumbnails.length > 8) throw new Error('at most 8 thumbnails');
-    for (const t of body.thumbnails) {
-      if (!['PNG', 'JPG', 'QOI'].includes(t.format)) throw new Error('invalid thumbnail format');
-      if (!Number.isInteger(t.width) || !Number.isInteger(t.height) || t.width <= 0 || t.height <= 0 || t.width > 2000 || t.height > 2000)
-        throw new Error('invalid thumbnail size');
-      if (typeof t.data !== 'string' || t.data.length > 4_000_000 || !/^[A-Za-z0-9+/=\s]*$/.test(t.data))
-        throw new Error('invalid thumbnail data');
-    }
-  }
 }

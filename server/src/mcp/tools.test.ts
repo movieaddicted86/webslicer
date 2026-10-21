@@ -15,7 +15,7 @@ process.env.DATA_DIR = DATA_DIR;
 
 const { ensureDirs } = await import('../config.js');
 const { applySettings, coerceOptionValue, loadOwnedProject, scopeOf } = await import('./tools.js');
-const { createProject, loadProject } = await import('../plater/project.js');
+const { createProject, loadProject } = await import('../services/projects.js');
 
 before(() => ensureDirs());
 after(() => fs.rmSync(DATA_DIR, { recursive: true, force: true }));
@@ -81,8 +81,8 @@ test('set_settings rejects unknown keys, wrong preset types and invalid values',
   assert.equal(coerceOptionValue(schema, 'print', 'print_notes', 'hello'), 'hello');
 });
 
-test('applySettings writes the overrides into the right slot', () => {
-  const project = newProject();
+test('applySettings writes the overrides into the right slot', async () => {
+  const project = await newProject();
   assert.deepEqual(applySettings(schema, project, 'print', { fill_density: '30%', infill_pattern: 'gyroid' }), {
     fill_density: '30%',
     infill_pattern: 'gyroid',
@@ -107,24 +107,20 @@ test('applySettings writes the overrides into the right slot', () => {
   assert.throws(() => applySettings(schema, project, 'print', {}), /must not be empty/);
 });
 
-test('a project is only visible to the owner of the token', () => {
-  const mine = newProject('robert');
-  const other = newProject('haus');
+test('a project is only visible to the owner of the token', async () => {
+  const mine = await newProject('robert');
+  const other = await newProject('haus');
 
-  assert.equal(loadOwnedProject(mine.id, 'robert').id, mine.id);
-  const err = (() => {
-    try {
-      loadOwnedProject(mine.id, 'haus');
-    } catch (e) {
-      return e as Error & { status?: number };
-    }
-    return undefined;
-  })();
+  assert.equal((await loadOwnedProject(mine.id, 'robert')).id, mine.id);
+  const err = await loadOwnedProject(mine.id, 'haus').then(
+    () => undefined,
+    (e: Error & { status?: number }) => e,
+  );
   assert.equal(err?.message, `Project "${mine.id}" not found`);
   assert.equal(err?.status, 404, 'a foreign project is not even admitted to exist');
 
-  assert.throws(() => loadOwnedProject(other.id, 'robert'), /not found/);
-  assert.throws(() => loadOwnedProject('not-a-uuid', 'robert'), /not found/);
-  assert.throws(() => loadOwnedProject(undefined, 'robert'), /not found/);
-  assert.ok(loadProject(mine.id), 'the projects are still on disk');
+  await assert.rejects(() => loadOwnedProject(other.id, 'robert'), /not found/);
+  await assert.rejects(() => loadOwnedProject('not-a-uuid', 'robert'), /not found/);
+  await assert.rejects(() => loadOwnedProject(undefined, 'robert'), /not found/);
+  assert.ok(await loadProject(mine.id), 'the projects are still on disk');
 });

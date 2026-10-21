@@ -2,59 +2,78 @@
  * Physical printers (print hosts) and G-code upload: OctoPrint, Moonraker (Klipper),
  * PrusaLink.
  */
-import fs from 'node:fs';
+import fs from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { Agent, fetch as undiciFetch, FormData as UndiciFormData } from 'undici';
-import { config } from './config.js';
+import { config } from '../config.js';
 import type { HostType, PhysicalPrinter } from '@webslicer/shared';
 
 function file(): string {
   return path.join(config.dataDir, 'physical_printers.json');
 }
 
-export function listPrinters(): PhysicalPrinter[] {
+export async function listPrinters(): Promise<PhysicalPrinter[]> {
   try {
-    return JSON.parse(fs.readFileSync(file(), 'utf8')) as PhysicalPrinter[];
+    return JSON.parse(await fs.readFile(file(), 'utf8')) as PhysicalPrinter[];
   } catch {
     return [];
   }
 }
 
-function save(list: PhysicalPrinter[]) {
-  fs.mkdirSync(config.dataDir, { recursive: true });
-  fs.writeFileSync(file(), JSON.stringify(list, null, 2));
+async function save(list: PhysicalPrinter[]): Promise<void> {
+  await fs.mkdir(config.dataDir, { recursive: true });
+  await fs.writeFile(file(), JSON.stringify(list, null, 2));
 }
 
-export function upsertPrinter(p: Partial<PhysicalPrinter>): PhysicalPrinter {
-  const list = listPrinters();
-  const host = (p.host || '').trim().replace(/\/+$/, '');
-  const full: PhysicalPrinter = {
-    id: p.id || randomUUID(),
-    name: (p.name || host || 'Printer').trim(),
-    type: (p.type || 'octoprint') as HostType,
-    host: /^https?:\/\//i.test(host) ? host : `http://${host}`,
-    apiKey: p.apiKey || undefined,
-    presetName: p.presetName || undefined,
-    ignoreTls: !!p.ignoreTls,
-  };
-  const i = list.findIndex((x) => x.id === full.id);
-  if (i >= 0) list[i] = full;
-  else list.push(full);
-  save(list);
-  return full;
+/**
+ * Serializes the read-modify-write of the printer list.
+ *
+ * The synchronous store was atomic for free: `readFileSync`…`writeFileSync` never yields, so two
+ * requests could not interleave and lose one of the printers. With `await` in between they can, so
+ * every change goes through this chain – same behaviour, still no blocking of the event loop.
+ */
+let writes: Promise<unknown> = Promise.resolve();
+
+function update<T>(fn: () => Promise<T>): Promise<T> {
+  const next = writes.then(fn, fn);
+  writes = next.catch(() => undefined);
+  return next;
 }
 
-export function deletePrinter(id: string): boolean {
-  const list = listPrinters();
-  const next = list.filter((p) => p.id !== id);
-  if (next.length === list.length) return false;
-  save(next);
-  return true;
+export async function upsertPrinter(p: Partial<PhysicalPrinter>): Promise<PhysicalPrinter> {
+  return update(async () => {
+    const list = await listPrinters();
+    const host = (p.host || '').trim().replace(/\/+$/, '');
+    const full: PhysicalPrinter = {
+      id: p.id || randomUUID(),
+      name: (p.name || host || 'Printer').trim(),
+      type: (p.type || 'octoprint') as HostType,
+      host: /^https?:\/\//i.test(host) ? host : `http://${host}`,
+      apiKey: p.apiKey || undefined,
+      presetName: p.presetName || undefined,
+      ignoreTls: !!p.ignoreTls,
+    };
+    const i = list.findIndex((x) => x.id === full.id);
+    if (i >= 0) list[i] = full;
+    else list.push(full);
+    await save(list);
+    return full;
+  });
 }
 
-export function getPrinter(id: string): PhysicalPrinter | undefined {
-  return listPrinters().find((p) => p.id === id);
+export async function deletePrinter(id: string): Promise<boolean> {
+  return update(async () => {
+    const list = await listPrinters();
+    const next = list.filter((p) => p.id !== id);
+    if (next.length === list.length) return false;
+    await save(next);
+    return true;
+  });
+}
+
+export async function getPrinter(id: string): Promise<PhysicalPrinter | undefined> {
+  return (await listPrinters()).find((p) => p.id === id);
 }
 
 function headers(p: PhysicalPrinter, extra: Record<string, string> = {}): Record<string, string> {
@@ -107,7 +126,7 @@ export async function uploadToPrinter(
   filename: string,
   startPrint: boolean,
 ): Promise<{ ok: boolean; message: string }> {
-  const data = fs.readFileSync(gcodePath);
+  const data = await fs.readFile(gcodePath);
   const blob = new Blob([data], { type: 'application/octet-stream' });
   try {
     switch (p.type) {

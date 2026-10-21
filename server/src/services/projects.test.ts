@@ -14,7 +14,7 @@ const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'webslicer-plater-'));
 process.env.DATA_DIR = DATA_DIR;
 
 const { config, ensureDirs } = await import('../config.js');
-const { validateSliceRequest } = await import('../routes/api.js');
+const { validateSliceRequest } = await import('../services/slice.js');
 const {
   keepModelIds,
   addModelFromLibrary,
@@ -26,9 +26,10 @@ const {
   pruneProjects,
   toSliceRequest,
   touchProject,
-} = await import('./project.js');
+} = await import('./projects.js');
 const { writeBinaryStl } = await import('../slicer/threemf.js');
-const { saveModel } = await import('../jobs.js');
+const { saveModel } = await import('../services/models.js');
+const { setActiveSchema } = await import('../services/schema.js');
 const { IDENTITY, instanceBounds } = await import('@webslicer/shared');
 
 const DEFAULT_PRINTER = '- default FFF -';
@@ -57,29 +58,32 @@ function libraryFile(name: string, mesh = CUBE): string {
   return `models/${name}`;
 }
 
-before(() => ensureDirs());
+before(() => {
+  ensureDirs();
+  setActiveSchema(schema);
+});
 after(() => fs.rmSync(DATA_DIR, { recursive: true, force: true }));
 
 const newProject = (overrides: Record<string, unknown> = {}) =>
   createProject({ schema, printer: { name: DEFAULT_PRINTER, config: {} }, print: { name: DEFAULT_PRINT, config: {} }, ...overrides });
 
-test('createProject stores the presets and rejects unknown ones', () => {
-  const project = newProject();
+test('createProject stores the presets and rejects unknown ones', async () => {
+  const project = await newProject();
   assert.equal(project.printer.name, DEFAULT_PRINTER);
   assert.equal(project.objectCount, undefined); // no derived fields leak into the file
   assert.deepEqual(project.objects, []);
   assert.equal(project.owner, 'admin');
   assert.ok(Date.parse(project.expiresAt) > Date.now(), 'a fresh project is alive');
-  assert.ok(loadProject(project.id), 'the project is on disk');
+  assert.ok(await loadProject(project.id), 'the project is on disk');
 
-  assert.throws(() => newProject({ printer: { name: 'No Such Printer', config: {} } }), /Unknown printer preset/);
-  assert.throws(() => newProject({ print: { name: 'No Such Print', config: {} } }), /Unknown print preset/);
-  assert.throws(() => newProject({ filaments: [{ name: 'No Such Filament', config: {} }] }), /Unknown filament preset/);
-  assert.throws(() => newProject({ printer: { name: '  ', config: {} } }), /preset name required/);
+  await assert.rejects(() => newProject({ printer: { name: 'No Such Printer', config: {} } }), /Unknown printer preset/);
+  await assert.rejects(() => newProject({ print: { name: 'No Such Print', config: {} } }), /Unknown print preset/);
+  await assert.rejects(() => newProject({ filaments: [{ name: 'No Such Filament', config: {} }] }), /Unknown filament preset/);
+  await assert.rejects(() => newProject({ printer: { name: '  ', config: {} } }), /preset name required/);
 });
 
 test('addModelFromLibrary stores the mesh, normalises it and applies the copies', async () => {
-  const project = newProject();
+  const project = await newProject();
   const file = libraryFile('cube20.stl');
   await addModelFromLibrary(project, file, 3);
   assert.equal(project.objects.length, 1);
@@ -94,13 +98,13 @@ test('addModelFromLibrary stores the mesh, normalises it and applies the copies'
   assert.ok(fs.existsSync(path.join(config.modelsDir, `${o.modelId}.stl`)), 'the mesh is in the model directory');
   assert.ok(fs.existsSync(path.join(config.modelsDir, `${o.modelId}.json`)), 'with its metadata');
 
-  const reloaded = loadProject(project.id)!;
+  const reloaded = (await loadProject(project.id))!;
   assert.equal(reloaded.objects.length, 1);
   assert.deepEqual(reloaded.objects[0].bounds, o.bounds);
 });
 
 test('addModelFromLibrary rejects escapes, missing files, bad copies and unknown formats', async () => {
-  const project = newProject();
+  const project = await newProject();
   await assert.rejects(() => addModelFromLibrary(project, '../secrets.stl'), /invalid path/);
   await assert.rejects(() => addModelFromLibrary(project, 'models/nope.stl'), /library file not found/);
   await assert.rejects(() => addModelFromLibrary(project, 'models/nope.stl', 0), /copies must be an integer/);
@@ -110,9 +114,9 @@ test('addModelFromLibrary rejects escapes, missing files, bad copies and unknown
 });
 
 test('toSliceRequest produces a request the slicer accepts', async () => {
-  const project = newProject();
+  const project = await newProject();
   await addModelFromLibrary(project, libraryFile('cube20.stl'), 2);
-  arrange(project, schema);
+  await arrange(project, schema);
   const request = toSliceRequest(project, schema);
   assert.doesNotThrow(() => validateSliceRequest(request));
   assert.equal(request.objects.length, 1);
@@ -130,17 +134,17 @@ test('toSliceRequest produces a request the slicer accepts', async () => {
   assert.equal(toSliceRequest(project, schema).outputName, 'cube20_and_1_more');
 });
 
-test('an empty project cannot be sliced or arranged', () => {
-  const project = newProject();
+test('an empty project cannot be sliced or arranged', async () => {
+  const project = await newProject();
   assert.throws(() => toSliceRequest(project, schema), /no objects/);
-  assert.throws(() => arrange(project, schema), /no objects/);
+  await assert.rejects(() => arrange(project, schema), /no objects/);
 });
 
 test('arrange packs the instances into the bed, on the bed and apart', async () => {
-  const project = newProject();
+  const project = await newProject();
   await addModelFromLibrary(project, libraryFile('cube20.stl'), 4);
   const before = project.objects[0].instances.map((m) => [...m]);
-  arrange(project, schema);
+  await arrange(project, schema);
   const placed = project.objects[0].instances;
   assert.equal(placed.length, 4);
   assert.notDeepEqual(placed[0], before[0], 'the instances moved');
@@ -156,98 +160,99 @@ test('arrange packs the instances into the bed, on the bed and apart', async () 
   for (let i = 1; i < xs.length; i++) assert.ok(xs[i] - xs[i - 1] >= 26 - 1e-9, `apart: ${xs[i - 1]} -> ${xs[i]}`);
   // arranging is not cumulative: a second run gives the same layout
   const once = placed.map((m) => [...m]);
-  arrange(project, schema);
+  await arrange(project, schema);
   assert.deepEqual(project.objects[0].instances, once);
 });
 
 test('arrange reports objects that do not fit on the bed', async () => {
   const tall = { vertices: Float32Array.from([0, 0, 0, 400, 0, 0, 0, 20, 0]), indices: Uint32Array.from([0, 1, 2]) };
-  const project = newProject();
+  const project = await newProject();
   await addModelFromLibrary(project, libraryFile('wide.stl', tall as never), 1);
-  assert.throws(() => arrange(project, schema), /Not all objects fit on the bed/);
+  await assert.rejects(() => arrange(project, schema), /Not all objects fit on the bed/);
 });
 
 test('the TTL cleanup drops expired projects and keeps the models of live ones', async () => {
-  const live = newProject();
+  const live = await newProject();
   await addModelFromLibrary(live, libraryFile('cube20.stl'), 1);
   const liveModel = live.objects[0].modelId;
 
-  const expired = newProject();
+  const expired = await newProject();
   await addModelFromLibrary(expired, libraryFile('cube20.stl'), 1);
   const expiredModel = expired.objects[0].modelId;
   // age the project on disk, the way a stale file carries it
-  const stale = loadProject(expired.id)!;
+  const stale = (await loadProject(expired.id))!;
   stale.expiresAt = new Date(Date.now() - 1000).toISOString();
   fs.writeFileSync(path.join(config.projectsDir, `${stale.id}.json`), JSON.stringify(stale));
 
-  const before = listProjects().length;
-  assert.ok(keepModelIds().has(liveModel) && keepModelIds().has(expiredModel), 'both are referenced before the cleanup');
+  const before = (await listProjects()).length;
+  assert.ok((await keepModelIds()).has(liveModel), 'both are referenced before the cleanup');
+  assert.ok((await keepModelIds()).has(expiredModel));
 
-  pruneProjects();
-  assert.equal(listProjects().length, before - 1, 'exactly the expired project is gone');
-  assert.ok(loadProject(live.id), 'the live one stays');
-  assert.ok(!loadProject(expired.id));
+  await pruneProjects();
+  assert.equal((await listProjects()).length, before - 1, 'exactly the expired project is gone');
+  assert.ok(await loadProject(live.id), 'the live one stays');
+  assert.ok(!(await loadProject(expired.id)));
   assert.ok(!fs.existsSync(path.join(config.modelsDir, `${expiredModel}.stl`)), 'the expired project took its model with it');
   assert.ok(fs.existsSync(path.join(config.modelsDir, `${liveModel}.stl`)), 'the live project keeps its model');
   // the garbage collection only ever protects models a live project references
-  assert.ok(keepModelIds().has(liveModel));
-  assert.ok(!keepModelIds().has(expiredModel));
+  assert.ok((await keepModelIds()).has(liveModel));
+  assert.ok(!(await keepModelIds()).has(expiredModel));
 });
 
 test('touchProject pushes the expiry out and deleteProject removes the models', async () => {
-  const project = newProject();
+  const project = await newProject();
   await addModelFromLibrary(project, libraryFile('cube20.stl'), 1);
   const modelId = project.objects[0].modelId;
   project.expiresAt = new Date(Date.now() - 60_000).toISOString();
-  touchProject(project);
+  await touchProject(project);
   assert.ok(Date.parse(project.expiresAt) > Date.now());
-  assert.equal(loadProject(project.id)!.expiresAt, project.expiresAt);
+  assert.equal((await loadProject(project.id))!.expiresAt, project.expiresAt);
 
-  assert.equal(deleteProject(project.id), true);
-  assert.equal(loadProject(project.id), undefined);
+  assert.equal(await deleteProject(project.id), true);
+  assert.equal(await loadProject(project.id), undefined);
   assert.ok(!fs.existsSync(path.join(config.modelsDir, `${modelId}.stl`)), 'the model went with the project');
-  assert.equal(deleteProject(project.id), false);
+  assert.equal(await deleteProject(project.id), false);
 });
 
 test('a second project keeps a shared model alive when the first one is deleted', async () => {
-  const a = newProject();
+  const a = await newProject();
   await addModelFromLibrary(a, libraryFile('cube20.stl'), 1);
   const modelId = a.objects[0].modelId;
-  const b = newProject();
+  const b = await newProject();
   b.objects.push({ ...a.objects[0], id: 'obj-1' });
-  const { saveProject } = await import('./project.js');
-  saveProject(b);
+  const { saveProject } = await import('./projects.js');
+  await saveProject(b);
 
-  deleteProject(a.id);
+  await deleteProject(a.id);
   assert.ok(fs.existsSync(path.join(config.modelsDir, `${modelId}.stl`)), 'b still uses the model');
-  deleteProject(b.id);
+  await deleteProject(b.id);
   assert.ok(!fs.existsSync(path.join(config.modelsDir, `${modelId}.stl`)));
 });
 
-test('loadProject only accepts project ids', () => {
-  assert.equal(loadProject(''), undefined);
-  assert.equal(loadProject('../../etc/passwd'), undefined);
-  assert.equal(loadProject('11111111-1111-1111-1111-111111111111'), undefined);
+test('loadProject only accepts project ids', async () => {
+  assert.equal(await loadProject(''), undefined);
+  assert.equal(await loadProject('../../etc/passwd'), undefined);
+  assert.equal(await loadProject('11111111-1111-1111-1111-111111111111'), undefined);
 });
 
 test('a project keeps its model through a pruneModels run', async () => {
-  const { pruneModels } = await import('../jobs.js');
-  const project = newProject();
+  const { pruneModels } = await import('../services/models.js');
+  const project = await newProject();
   await addModelFromLibrary(project, libraryFile('cube20.stl'), 1);
   const modelId = project.objects[0].modelId;
   // make both the project and the model old enough to be pruned
   const old = Date.now() - 30 * 86400_000;
   fs.utimesSync(path.join(config.modelsDir, `${modelId}.stl`), old / 1000, old / 1000);
-  pruneModels();
+  await pruneModels();
   assert.ok(fs.existsSync(path.join(config.modelsDir, `${modelId}.stl`)), 'a live project protects its model');
-  assert.equal(saveModel(CUBE as never, 'scratch').triangles, CUBE.indices.length / 3, 'the model store itself still works');
+  assert.equal((await saveModel(CUBE as never, 'scratch')).triangles, CUBE.indices.length / 3, 'the model store itself still works');
 });
 
 test('IDENTITY is untouched by a project round trip', async () => {
-  const project = newProject();
+  const project = await newProject();
   project.objects.push({
     id: 'obj-1',
-    modelId: saveModel(CUBE as never, 'cube').id,
+    modelId: (await saveModel(CUBE as never, 'cube')).id,
     name: 'cube',
     bounds: { min: [-10, -10, 0], max: [10, 10, 20] },
     instances: [IDENTITY],

@@ -1,19 +1,35 @@
 /**
- * Slicing job queue. Each job gets a directory under DATA_DIR/jobs/<id> with
- * the generated config.ini, model.3mf, the output G-code and a log.
+ * Slicing job queue: in-memory jobs with their progress events (SSE) and the runner that drives
+ * PrusaSlicer. The files of a job live in `DATA_DIR/jobs/<id>/` – that side is
+ * `jobs/persistence.ts`, the config merge is `services/configMerge.ts` and the 3MF comes from
+ * `services/slice.ts`.
  */
-import fs from 'node:fs';
 import path from 'node:path';
 import { EventEmitter } from 'node:events';
 import { randomUUID } from 'node:crypto';
 import { config } from './config.js';
 import { runSlicer } from './slicer/cli.js';
-import { serializeIni, type IniSection } from './slicer/ini.js';
-import { build3mf, parseStl, transformMesh, writeBinaryStl, type Mesh, type ThreeMfObject, type ThreeMfVolume } from './slicer/threemf.js';
+import { serializeIni } from './slicer/ini.js';
 import { extractWarnings, readGcodeInfo } from './slicer/gcodeInfo.js';
 import { injectThumbnails } from './slicer/thumbnails.js';
+import { mergeConfigs } from './services/configMerge.js';
+import { build3mfForRequest } from './services/slice.js';
+import { pruneModels } from './services/models.js';
+import {
+  fileSize,
+  initJobDir,
+  jobDir,
+  jobFile,
+  loadJobRecords,
+  outputExists,
+  removeJobDir,
+  readJobRequest,
+  saveJobRecord,
+  writeJobConfig,
+  writeJobLog,
+  writeJobModel,
+} from './jobs/persistence.js';
 import type { JobEvent, JobRecord, Schema, SliceRequest } from '@webslicer/shared';
-import { escapeStringsCstyle, unescapeStringsCstyle, splitVector } from '@webslicer/shared';
 
 const jobs = new Map<string, JobRecord>();
 const emitters = new Map<string, EventEmitter>();
@@ -26,9 +42,8 @@ export function setSchema(s: Schema) {
   schemaRef = s;
 }
 
-export function jobDir(id: string): string {
-  return path.join(config.jobsDir, id);
-}
+/** Directory of a job (re-exported for the routes that stream from it). */
+export { jobDir };
 
 export function getJob(id: string): JobRecord | undefined {
   return jobs.get(id);
@@ -53,116 +68,28 @@ function emit(id: string, ev: JobEvent) {
   emitters.get(id)?.emit('event', ev);
 }
 
-function persist(job: JobRecord) {
-  try {
-    fs.writeFileSync(path.join(jobDir(job.id), 'job.json'), JSON.stringify(job, null, 2));
-  } catch {
-    /* ignore */
-  }
-}
-
 /** Load job records left over from previous runs */
-export function loadJobsFromDisk() {
-  try {
-    for (const id of fs.readdirSync(config.jobsDir)) {
-      const f = path.join(config.jobsDir, id, 'job.json');
-      if (!fs.existsSync(f)) continue;
-      try {
-        const j = JSON.parse(fs.readFileSync(f, 'utf8')) as JobRecord;
-        if (j.status === 'running' || j.status === 'queued') {
-          j.status = 'error';
-          j.error = 'Interrupted by server restart';
-        }
-        jobs.set(j.id, j);
-      } catch {
-        /* skip */
-      }
-    }
-  } catch {
-    /* ignore */
-  }
-  pruneJobs();
-  pruneModels();
-  setInterval(pruneModels, 6 * 3600_000).unref();
+export async function loadJobsFromDisk(): Promise<void> {
+  for (const job of await loadJobRecords()) jobs.set(job.id, job);
+  await pruneJobs();
+  await pruneModels();
+  setInterval(() => void pruneModels(), 6 * 3600_000).unref();
 }
 
-/**
- * Store a mesh in the model directory (the same code path the browser upload uses:
- * `<id>.stl` plus a small `<id>.json` with the counts). Used by `POST /api/models` and by the
- * headless plater when a project adds a model from the library.
- */
-export function saveModel(mesh: Mesh, name: string): { id: string; name: string; triangles: number; vertices: number; createdAt: string } {
-  const id = randomUUID();
-  const info = {
-    id,
-    name,
-    triangles: mesh.indices.length / 3,
-    vertices: mesh.vertices.length / 3,
-    createdAt: new Date().toISOString(),
-  };
-  fs.writeFileSync(path.join(config.modelsDir, `${id}.stl`), writeBinaryStl(mesh));
-  fs.writeFileSync(path.join(config.modelsDir, `${id}.json`), JSON.stringify(info));
-  return info;
-}
-
-export interface PlaterHooks {
-  /** model ids live projects still reference – those files are never pruned */
-  keepModelIds: () => Set<string>;
-  /** remove projects whose TTL ran out, together with their models */
-  pruneProjects: () => void;
-}
-
-let platerHooks: PlaterHooks | undefined;
-
-/**
- * The server-side plater (see `plater/project.ts`) owns server-side projects and their models; it
- * registers here so the model life cycle stays in one place and `jobs.ts` does not have to know it.
- */
-export function setPlaterHooks(hooks: PlaterHooks) {
-  platerHooks = hooks;
-}
-
-/** Remove uploaded model files that are older than MODEL_RETENTION_DAYS (default 7). */
-export function pruneModels() {
-  platerHooks?.pruneProjects();
-  const days = Number(process.env.MODEL_RETENTION_DAYS || 7);
-  const cutoff = Date.now() - days * 86400_000;
-  const keep = platerHooks?.keepModelIds() ?? new Set<string>();
-  try {
-    for (const f of fs.readdirSync(config.modelsDir)) {
-      const id = f.replace(/\.(stl|json)$/, '');
-      if (keep.has(id)) continue; // a live project still needs this model, whatever its age
-      const p = path.join(config.modelsDir, f);
-      try {
-        if (fs.statSync(p).mtimeMs < cutoff) fs.unlinkSync(p);
-      } catch {
-        /* ignore */
-      }
-    }
-  } catch {
-    /* ignore */
-  }
-}
-
-function pruneJobs() {
-  const all = listJobs();
-  for (const j of all.slice(config.jobRetention)) {
+async function pruneJobs(): Promise<void> {
+  for (const j of listJobs().slice(config.jobRetention)) {
     if (j.status === 'running' || j.status === 'queued') continue;
-    deleteJob(j.id);
+    await deleteJob(j.id);
   }
 }
 
-export function deleteJob(id: string): boolean {
+export async function deleteJob(id: string): Promise<boolean> {
   const j = jobs.get(id);
   if (!j) return false;
   if (j.status === 'running' || j.status === 'queued') cancelJob(id);
   jobs.delete(id);
   emitters.delete(id);
-  try {
-    fs.rmSync(jobDir(id), { recursive: true, force: true });
-  } catch {
-    /* ignore */
-  }
+  await removeJobDir(id);
   return true;
 }
 
@@ -174,7 +101,7 @@ export function cancelJob(id: string): boolean {
     if (i >= 0) queue.splice(i, 1);
     j.status = 'cancelled';
     j.finishedAt = new Date().toISOString();
-    persist(j);
+    void saveJobRecord(j);
     emit(id, { type: 'status', job: j });
     return true;
   }
@@ -183,97 +110,6 @@ export function cancelJob(id: string): boolean {
     return true;
   }
   return false;
-}
-
-/**
- * Merge print + printer + filament presets into one flat PrusaSlicer config.
- * Filament options are per-extruder vectors; one filament preset per extruder.
- */
-export function mergeConfigs(schema: Schema, req: SliceRequest, opts: { forProject?: boolean } = {}): IniSection {
-  const merged: IniSection = {};
-  const skip = new Set([
-    'inherits',
-    'compatible_printers',
-    'compatible_printers_condition',
-    'compatible_prints',
-    'compatible_prints_condition',
-  ]);
-  // Printer first, then print: a few keys occur in both preset types in vendor bundles
-  // (e.g. elefant_foot_compensation on SLA printers) and the print preset owns them.
-  for (const [k, v] of Object.entries(req.printer.config)) if (!skip.has(k)) merged[k] = v;
-  for (const [k, v] of Object.entries(req.print.config)) if (!skip.has(k)) merged[k] = v;
-
-  const nExtruders = Math.max(1, splitVector(req.printer.config.nozzle_diameter || '0.4').length);
-  const filaments = req.filaments.length ? req.filaments : [{ name: '- default FFF -', config: {} }];
-  while (filaments.length < nExtruders) filaments.push(filaments[filaments.length - 1]);
-  const filamentKeys = new Set<string>();
-  for (const f of filaments) for (const k of Object.keys(f.config)) filamentKeys.add(k);
-  for (const k of filamentKeys) {
-    if (skip.has(k)) continue;
-    const opt = schema.options[k];
-    const isStrings = opt?.type === 'strings' || k === 'filament_settings_id';
-    const vector = opt ? ['floats', 'ints', 'bools', 'strings', 'percents', 'floats_or_percents', 'points'].includes(opt.type) : true;
-    if (!vector) {
-      merged[k] = filaments[0].config[k] ?? '';
-      continue;
-    }
-    const values = filaments.slice(0, nExtruders).map((f) => {
-      const raw = f.config[k] ?? opt?.default ?? '';
-      if (isStrings) return unescapeStringsCstyle(raw)[0] ?? '';
-      return splitVector(raw)[0] ?? '';
-    });
-    merged[k] = isStrings ? escapeStringsCstyle(values) : values.join(',');
-  }
-  merged.print_settings_id = req.print.name;
-  merged.printer_settings_id = req.printer.name;
-  merged.filament_settings_id = escapeStringsCstyle(filaments.slice(0, nExtruders).map((f) => f.name));
-  if (!merged.printer_technology) merged.printer_technology = 'FFF';
-  // Slicing honours the UI choice (ASCII by default for the preview); a project keeps the preset value.
-  if (merged.binary_gcode !== undefined && !opts.forProject) merged.binary_gcode = req.binaryGcode ? '1' : '0';
-  return merged;
-}
-
-export async function build3mfForRequest(req: SliceRequest, projectConfig?: IniSection): Promise<Buffer> {
-  const objects: ThreeMfObject[] = [];
-  for (const o of req.objects) {
-    // old clients send only `transform`; newer ones list every instance (including the first)
-    const transforms = o.instances?.length ? o.instances : [o.transform];
-    const file = path.join(config.modelsDir, `${o.modelId}.stl`);
-    if (!fs.existsSync(file)) throw new Error(`Model ${o.modelId} not found on server; please re-upload`);
-    const mesh = parseStl(fs.readFileSync(file));
-    const volumes: ThreeMfVolume[] = [];
-    for (const v of o.volumes || []) {
-      const vf = path.join(config.modelsDir, `${v.modelId}.stl`);
-      if (!fs.existsSync(vf)) throw new Error(`Volume model ${v.modelId} not found on server; please re-add the volume`);
-      volumes.push({
-        name: v.name || v.type,
-        mesh: transformMesh(parseStl(fs.readFileSync(vf)), v.transform),
-        type: v.type,
-        config: v.config,
-        extruder: v.extruder,
-      });
-    }
-    objects.push({
-      name: o.name || 'object',
-      mesh,
-      transform: transforms[0],
-      instances: transforms.length > 1 ? transforms : undefined,
-      config: o.config,
-      extruder: o.extruder,
-      volumes,
-      supportPaint: o.supportPaint,
-      seamPaint: o.seamPaint,
-      mmuPaint: o.mmuPaint,
-      ranges: o.ranges,
-    });
-  }
-  const extruders = Math.max(1, splitVector(req.printer.config.nozzle_diameter || '0.4').length);
-  return build3mf(objects, {
-    projectConfig,
-    title: req.outputName,
-    customGcodes: req.customGcodes,
-    extruders,
-  });
 }
 
 function sanitizeFilename(name: string, ext: string): string {
@@ -287,7 +123,8 @@ function sanitizeFilename(name: string, ext: string): string {
   return `${base}${ext}`;
 }
 
-export function createJob(req: SliceRequest, schema: Schema): JobRecord {
+/** Queue a job for a validated request; the caller has already checked the request. */
+export async function createJob(req: SliceRequest, schema: Schema): Promise<JobRecord> {
   const id = randomUUID();
   const tech = req.printer.config.printer_technology === 'SLA' ? 'SLA' : 'FFF';
   const binary =
@@ -304,14 +141,13 @@ export function createJob(req: SliceRequest, schema: Schema): JobRecord {
     presets: { print: req.print.name, filaments: req.filaments.map((f) => f.name), printer: req.printer.name },
     objectNames: req.objects.map((o) => o.name),
   };
-  fs.mkdirSync(jobDir(id), { recursive: true });
-  fs.writeFileSync(path.join(jobDir(id), 'request.json'), JSON.stringify(req));
+  await initJobDir(id, req);
   jobs.set(id, job);
-  persist(job);
+  await saveJobRecord(job);
   queue.push(id);
   schemaRef = schema;
   setImmediate(pump);
-  pruneJobs();
+  await pruneJobs();
   return job;
 }
 
@@ -326,7 +162,7 @@ function pump() {
         job.status = 'error';
         job.error = (e as Error).message;
         job.finishedAt = new Date().toISOString();
-        persist(job);
+        void saveJobRecord(job);
         emit(job.id, { type: 'error', message: job.error, job });
       })
       .finally(() => {
@@ -336,24 +172,78 @@ function pump() {
   }
 }
 
+/** Progress of one job as it runs: the slicer's own percentage lines drive the messages. */
+function progressReporter(job: JobRecord, logLines: string[]) {
+  return (line: string) => {
+    logLines.push(line);
+    emit(job.id, { type: 'log', line });
+    const m = /^\s*(\d{1,3})\s*=>\s*(.*)$/.exec(line);
+    if (m) {
+      job.percent = Math.min(99, Number(m[1]));
+      job.message = m[2].trim();
+      emit(job.id, { type: 'progress', percent: job.percent, message: job.message });
+    } else if (/^\s*=>\s*/.test(line)) {
+      job.message = line.replace(/^\s*=>\s*/, '').trim();
+      emit(job.id, { type: 'progress', percent: job.percent, message: job.message });
+    }
+  };
+}
+
+/** Last few meaningful log lines, as the error message of a failed job. */
+function failureMessage(logLines: string[], stderr: string, code: number | null): string {
+  return (
+    logLines
+      .filter((l) => /error|exception|failed|invalid/i.test(l))
+      .slice(-3)
+      .join(' | ') ||
+    stderr.trim().split(/\r?\n/).slice(-3).join(' | ') ||
+    `Slicer exited with code ${code}`
+  );
+}
+
+/** Embed the requested thumbnails into a finished FFF G-code, if any were asked for. */
+async function embedThumbnails(job: JobRecord, req: SliceRequest, outFile: string, logLines: string[]): Promise<void> {
+  if (!outFile.endsWith('.gcode') || !req.thumbnails?.length) return;
+  try {
+    await injectThumbnails(outFile, req.thumbnails);
+    logLines.push(
+      `WebSlicer: embedded ${req.thumbnails.length} thumbnail(s): ${req.thumbnails.map((t) => `${t.width}x${t.height}/${t.format}`).join(', ')}`,
+    );
+  } catch (e) {
+    logLines.push(`WebSlicer: thumbnail embedding failed: ${(e as Error).message}`);
+  }
+  await writeJobLog(job.id, logLines.join('\n') + '\n');
+}
+
+/** Read size, and for FFF G-code the estimated time / filament / layers, into the job record. */
+async function collectJobInfo(job: JobRecord, outFile: string, warnings: string[]): Promise<void> {
+  if (job.technology === 'FFF' && outFile.endsWith('.gcode')) {
+    try {
+      job.info = { ...readGcodeInfo(outFile), warnings };
+      return;
+    } catch {
+      /* fall through to the size-only record */
+    }
+  }
+  job.info = { sizeBytes: await fileSize(outFile), warnings };
+}
+
 async function runJob(job: JobRecord) {
   const dir = jobDir(job.id);
-  const req = JSON.parse(fs.readFileSync(path.join(dir, 'request.json'), 'utf8')) as SliceRequest;
+  const req = await readJobRequest(job.id);
   const schema = schemaRef!;
   job.status = 'running';
   job.startedAt = new Date().toISOString();
   job.message = 'Preparing model';
-  persist(job);
+  await saveJobRecord(job);
   emit(job.id, { type: 'status', job });
 
   const merged = mergeConfigs(schema, req);
-  const cfgFile = path.join(dir, 'config.ini');
-  fs.writeFileSync(cfgFile, serializeIni(merged, `WebSlicer job ${job.id}`));
-  const modelFile = path.join(dir, 'model.3mf');
-  fs.writeFileSync(modelFile, await build3mfForRequest(req));
+  const cfgFile = jobFile(job.id, 'config.ini');
+  await writeJobConfig(job.id, serializeIni(merged, `WebSlicer job ${job.id}`));
+  await writeJobModel(job.id, await build3mfForRequest(req));
   const outFile = path.join(dir, job.outputName);
   const logLines: string[] = [];
-  const logFile = path.join(dir, 'log.txt');
 
   const args = [
     job.technology === 'SLA' ? '--export-sla' : '--export-gcode',
@@ -364,7 +254,7 @@ async function runJob(job: JobRecord) {
     '3',
     '--output',
     outFile,
-    modelFile,
+    jobFile(job.id, 'model.3mf'),
   ];
   logLines.push(`$ ${config.slicerBin} ${args.join(' ')}`);
   const controller = new AbortController();
@@ -376,72 +266,39 @@ async function runJob(job: JobRecord) {
     cwd: dir,
     signal: controller.signal,
     timeoutMs: Number(process.env.SLICE_TIMEOUT_MS || 60 * 60 * 1000),
-    onLine: (line) => {
-      logLines.push(line);
-      emit(job.id, { type: 'log', line });
-      const m = /^\s*(\d{1,3})\s*=>\s*(.*)$/.exec(line);
-      if (m) {
-        job.percent = Math.min(99, Number(m[1]));
-        job.message = m[2].trim();
-        emit(job.id, { type: 'progress', percent: job.percent, message: job.message });
-      } else if (/^\s*=>\s*/.test(line)) {
-        job.message = line.replace(/^\s*=>\s*/, '').trim();
-        emit(job.id, { type: 'progress', percent: job.percent, message: job.message });
-      }
-    },
+    onLine: progressReporter(job, logLines),
   });
   controllers.delete(job.id);
-  fs.writeFileSync(logFile, logLines.join('\n') + '\n');
+  await writeJobLog(job.id, logLines.join('\n') + '\n');
   job.finishedAt = new Date().toISOString();
 
   if (controller.signal.aborted) {
     job.status = 'cancelled';
     job.message = 'Cancelled';
-    persist(job);
+    await saveJobRecord(job);
     emit(job.id, { type: 'status', job });
     return;
   }
-  if (res.code !== 0 || !fs.existsSync(outFile)) {
-    const errLine =
-      logLines
-        .filter((l) => /error|exception|failed|invalid/i.test(l))
-        .slice(-3)
-        .join(' | ') || res.stderr.trim().split(/\r?\n/).slice(-3).join(' | ');
+  if (res.code !== 0 || !(await outputExists(outFile))) {
     job.status = 'error';
-    job.error = errLine || `Slicer exited with code ${res.code}`;
+    job.error = failureMessage(logLines, res.stderr, res.code);
     job.message = 'Failed';
-    persist(job);
+    await saveJobRecord(job);
     emit(job.id, { type: 'error', message: job.error, job });
     return;
   }
-  if (outFile.endsWith('.gcode') && req.thumbnails?.length) {
-    try {
-      await injectThumbnails(outFile, req.thumbnails);
-      logLines.push(
-        `WebSlicer: embedded ${req.thumbnails.length} thumbnail(s): ${req.thumbnails.map((t) => `${t.width}x${t.height}/${t.format}`).join(', ')}`,
-      );
-    } catch (e) {
-      logLines.push(`WebSlicer: thumbnail embedding failed: ${(e as Error).message}`);
-    }
-    fs.writeFileSync(logFile, logLines.join('\n') + '\n');
-  }
+  await embedThumbnails(job, req, outFile, logLines);
   job.status = 'done';
   job.percent = 100;
   job.message = 'Done';
-  const warnings = extractWarnings(logLines);
-  if (job.technology === 'FFF' && outFile.endsWith('.gcode')) {
-    try {
-      job.info = { ...readGcodeInfo(outFile), warnings };
-    } catch {
-      job.info = { sizeBytes: fs.statSync(outFile).size, warnings };
-    }
-  } else {
-    job.info = { sizeBytes: fs.statSync(outFile).size, warnings };
-  }
-  persist(job);
+  await collectJobInfo(job, outFile, extractWarnings(logLines));
+  await saveJobRecord(job);
   emit(job.id, { type: 'done', job });
 }
 
 export function jobOutputPath(job: JobRecord): string {
-  return path.join(jobDir(job.id), job.outputName);
+  return jobFile(job.id, job.outputName);
 }
+
+/** Read the log of a job (the routes and the MCP tools show it). */
+export { readJobLog } from './jobs/persistence.js';

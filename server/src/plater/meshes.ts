@@ -13,6 +13,7 @@ import path from 'node:path';
 import JSZip from 'jszip';
 import { parse3mfBuild, parseStl, type Mesh } from '../slicer/threemf.js';
 import { IDENTITY, type Matrix4 } from '@webslicer/shared';
+import { ValidationError } from '../errors.js';
 
 export interface LoadedModel {
   name: string;
@@ -34,7 +35,7 @@ export async function loadModelBuffer(buf: Buffer, filename: string): Promise<Lo
   const name = path.basename(filename, path.extname(filename)) || 'model';
   if (ext === '.stl') return [{ name, mesh: parseStl(buf), instances: [IDENTITY] }];
   if (ext === '.3mf') return read3mfMeshes(buf);
-  throw Object.assign(new Error(`Unsupported model format "${ext || filename}" (STL and 3MF only)`), { status: 400 });
+  throw new ValidationError(`Unsupported model format "${ext || filename}" (STL and 3MF only)`);
 }
 
 /** Value of an XML attribute inside a captured tag string. */
@@ -51,10 +52,10 @@ async function read3mfMeshes(buf: Buffer): Promise<LoadedModel[]> {
   try {
     zip = await JSZip.loadAsync(buf);
   } catch (e) {
-    throw Object.assign(new Error(`Cannot read 3MF: ${(e as Error).message}`), { status: 400 });
+    throw new ValidationError(`Cannot read 3MF: ${(e as Error).message}`);
   }
   const modelFile = zip.file('3D/3dmodel.model');
-  if (!modelFile) throw Object.assign(new Error('3MF has no 3D/3dmodel.model'), { status: 400 });
+  if (!modelFile) throw new ValidationError('3MF has no 3D/3dmodel.model');
   const model = await modelFile.async('string');
   const items = parse3mfBuild(model);
   const out: LoadedModel[] = [];
@@ -72,7 +73,7 @@ async function read3mfMeshes(buf: Buffer): Promise<LoadedModel[]> {
     const instances = items.filter((b) => b.objectId === id).map((b) => b.transform);
     out.push({ name: attr(open[1], 'name') || `Object ${id}`, mesh, instances: instances.length ? instances : [IDENTITY] });
   }
-  if (!out.length) throw Object.assign(new Error('3MF contains no mesh'), { status: 400 });
+  if (!out.length) throw new ValidationError('3MF contains no mesh');
   return out;
 }
 

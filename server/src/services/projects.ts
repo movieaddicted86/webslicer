@@ -1,5 +1,5 @@
 /**
- * Server-side projects: a plater without a browser.
+ * Server-side projects: a plater without a browser (moved here from `plater/project.ts`, R-9).
  *
  * A project is a small JSON file in `data/projects/<uuid>.json` holding the preset names plus the
  * overrides the caller changed, and the objects with their instance matrices. The meshes live in the
@@ -10,15 +10,16 @@
  * Deliberately stored instead of in memory: an MCP client may slice minutes after it built the
  * project, and the server may have restarted in between.
  */
-import fs from 'node:fs';
+import fs from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { config } from '../config.js';
-import { resolveLibraryPath } from '../routes/library.js';
-import { saveModel, setPlaterHooks } from '../jobs.js';
+import { NotFoundError, ValidationError } from '../errors.js';
+import { resolveLibraryPath } from './library.js';
+import { deleteModel, saveModel, setModelLifecycleHooks } from './models.js';
 import { defaultPresetName, resolvePreset } from '../slicer/presets.js';
 import type { IniSection } from '../slicer/ini.js';
-import { loadModelFile } from './meshes.js';
+import { loadModelFile } from '../plater/meshes.js';
 import {
   arrangementSpacing,
   bedShapeOf,
@@ -71,15 +72,11 @@ export interface Project {
   customGcodes?: CustomGcode[];
 }
 
-function fail(message: string, status: number): Error {
-  return Object.assign(new Error(message), { status });
-}
-
 /** Absolute path of a preset slot; the name is validated against the schema by `resolveSlot`. */
 function resolveSlot(schema: Schema, type: PresetType, slot: ProjectPresetRef): ProjectPresetRef {
-  if (!slot || typeof slot.name !== 'string' || !slot.name.trim()) throw fail(`${type} preset name required`, 400);
+  if (!slot || typeof slot.name !== 'string' || !slot.name.trim()) throw new ValidationError(`${type} preset name required`);
   const preset = resolvePreset(schema, type, slot.name);
-  if (!preset) throw fail(`Unknown ${type} preset "${slot.name}"`, 400);
+  if (!preset) throw new ValidationError(`Unknown ${type} preset "${slot.name}"`);
   return { name: preset.name, config: { ...preset.config, ...(slot.config || {}) } };
 }
 
@@ -96,7 +93,7 @@ export function resolvedConfigs(
 
 /** A `SliceRequest` the existing slicing path accepts (`validateSliceRequest`, `createJob`). */
 export function toSliceRequest(project: Project, schema: Schema): SliceRequest {
-  if (!project.objects.length) throw fail('Project has no objects', 400);
+  if (!project.objects.length) throw new ValidationError('Project has no objects');
   const cfg = resolvedConfigs(project, schema);
   const first = project.objects[0].name.replace(/\.[^.]+$/, '');
   return {
@@ -122,78 +119,65 @@ export function projectFile(id: string): string {
   return path.join(config.projectsDir, `${path.basename(id)}.json`);
 }
 
-export function saveProject(project: Project): Project {
-  fs.mkdirSync(config.projectsDir, { recursive: true });
-  fs.writeFileSync(projectFile(project.id), JSON.stringify(project, null, 2));
+export async function saveProject(project: Project): Promise<Project> {
+  await fs.mkdir(config.projectsDir, { recursive: true });
+  await fs.writeFile(projectFile(project.id), JSON.stringify(project, null, 2));
   return project;
 }
 
 /** Mark a project as used and push its expiry out by the TTL. */
-export function touchProject(project: Project): Project {
+export async function touchProject(project: Project): Promise<Project> {
   const now = new Date();
   project.updatedAt = now.toISOString();
   project.expiresAt = new Date(now.getTime() + PROJECT_TTL_HOURS * 3600_000).toISOString();
   return saveProject(project);
 }
 
-export function loadProject(id: string): Project | undefined {
+export async function loadProject(id: string): Promise<Project | undefined> {
   if (!/^[0-9a-f-]{36}$/i.test(String(id || ''))) return undefined;
-  const f = projectFile(id);
-  if (!fs.existsSync(f)) return undefined;
   try {
-    const p = JSON.parse(fs.readFileSync(f, 'utf8')) as Project;
+    const p = JSON.parse(await fs.readFile(projectFile(id), 'utf8')) as Project;
     return p?.id ? p : undefined;
   } catch {
     return undefined;
   }
 }
 
-export function listProjects(): Project[] {
+export async function listProjects(): Promise<Project[]> {
   let names: string[] = [];
   try {
-    names = fs.readdirSync(config.projectsDir);
+    names = await fs.readdir(config.projectsDir);
   } catch {
     return [];
   }
-  const out: Project[] = [];
-  for (const f of names) {
-    if (!f.endsWith('.json')) continue;
-    const p = loadProject(f.slice(0, -5));
-    if (p) out.push(p);
-  }
-  return out;
+  const loaded = await Promise.all(names.filter((f) => f.endsWith('.json')).map((f) => loadProject(f.slice(0, -5))));
+  return loaded.filter((p): p is Project => p !== undefined);
 }
 
 /** Delete a project and the models only it referenced. */
-export function deleteProject(id: string): boolean {
-  const project = loadProject(id);
+export async function deleteProject(id: string): Promise<boolean> {
+  const project = await loadProject(id);
   if (!project) return false;
   try {
-    fs.unlinkSync(projectFile(project.id));
+    await fs.unlink(projectFile(project.id));
   } catch {
     /* ignore */
   }
-  const stillUsed = keepModelIds();
+  const stillUsed = await keepModelIds();
   for (const o of project.objects) {
     if (stillUsed.has(o.modelId)) continue;
-    for (const ext of ['.stl', '.json']) {
-      try {
-        fs.unlinkSync(path.join(config.modelsDir, `${o.modelId}${ext}`));
-      } catch {
-        /* ignore */
-      }
-    }
+    await deleteModel(o.modelId);
   }
   return true;
 }
 
-export function createProject(opts: {
+export async function createProject(opts: {
   schema: Schema;
   printer: ProjectPresetRef;
   print: ProjectPresetRef;
   filaments?: ProjectPresetRef[];
   owner?: string;
-}): Project {
+}): Promise<Project> {
   // resolve here already: a project that cannot be sliced should not be created (fail fast)
   const printer = resolveSlot(opts.schema, 'printer', opts.printer);
   const print = resolveSlot(opts.schema, 'print', opts.print);
@@ -222,16 +206,22 @@ export function createProject(opts: {
  */
 export async function addModelFromLibrary(project: Project, libraryPath: string, copies = 1): Promise<Project> {
   const n = Math.floor(Number(copies));
-  if (!Number.isInteger(n) || n < 1 || n > 1000) throw fail('copies must be an integer between 1 and 1000', 400);
-  const abs = resolveLibraryPath(libraryPath); // rejects escapes with status 400
-  if (!fs.existsSync(abs) || !fs.statSync(abs).isFile()) throw fail('library file not found', 404);
+  if (!Number.isInteger(n) || n < 1 || n > 1000) throw new ValidationError('copies must be an integer between 1 and 1000');
+  const abs = resolveLibraryPath(libraryPath); // rejects escapes with a ValidationError
+  let isFile = false;
+  try {
+    isFile = (await fs.stat(abs)).isFile();
+  } catch {
+    isFile = false;
+  }
+  if (!isFile) throw new NotFoundError('library file not found');
   const models = await loadModelFile(abs);
   for (const m of models) {
     const norm = normalize(m.mesh.vertices, m.instances);
-    const stored = saveModel({ vertices: norm.vertices, indices: m.mesh.indices }, m.name);
+    const stored = await saveModel({ vertices: norm.vertices, indices: m.mesh.indices }, m.name);
     const instances: Matrix4[] = [];
     for (let c = 0; c < n; c++) instances.push(...norm.instances);
-    if (instances.length > 1000) throw fail('more than 1000 instances', 400);
+    if (instances.length > 1000) throw new ValidationError('more than 1000 instances');
     // keep the mesh bounds in the project: arranging needs them and must not re-read every model
     project.objects.push({
       id: `obj-${project.objects.length + 1}`,
@@ -250,8 +240,8 @@ export async function addModelFromLibrary(project: Project, libraryPath: string,
  * footprints including the clearance, largest first, then each instance is moved so its centre
  * lands on the packed centre and its minimum Z on the bed.
  */
-export function arrange(project: Project, schema: Schema): Project {
-  if (!project.objects.length) throw fail('Project has no objects', 400);
+export async function arrange(project: Project, schema: Schema): Promise<Project> {
+  if (!project.objects.length) throw new ValidationError('Project has no objects');
   const cfg = resolvedConfigs(project, schema);
   const bed = bedShapeOf(cfg.printer.config);
   const spacing = arrangementSpacing(cfg.print.config);
@@ -262,7 +252,7 @@ export function arrange(project: Project, schema: Schema): Project {
     items.map((it) => ({ id: it.key, width: it.box.max[0] - it.box.min[0] + spacing, height: it.box.max[1] - it.box.min[1] + spacing })),
     bed,
   );
-  if (!packed) throw fail('Not all objects fit on the bed', 400);
+  if (!packed) throw new ValidationError('Not all objects fit on the bed');
   const byKey = new Map(items.map((it) => [it.key, it]));
   for (const p of packed) {
     const it = byKey.get(p.id)!;
@@ -279,20 +269,28 @@ export function arrange(project: Project, schema: Schema): Project {
 // ---------------------------------------------------------------------------
 
 /** Model ids that live projects still reference. */
-export function keepModelIds(): Set<string> {
+export async function keepModelIds(): Promise<Set<string>> {
   const keep = new Set<string>();
-  for (const p of listProjects()) for (const o of p.objects) keep.add(o.modelId);
+  for (const p of await listProjects()) for (const o of p.objects) keep.add(o.modelId);
   return keep;
 }
 
 /** Remove projects whose TTL ran out, together with the models only they used. */
-export function pruneProjects(): void {
+export async function pruneProjects(): Promise<void> {
   const now = Date.now();
-  for (const p of listProjects()) {
+  for (const p of await listProjects()) {
     const expires = Date.parse(p.expiresAt || '');
     if (Number.isFinite(expires) && expires > now) continue;
-    deleteProject(p.id);
+    await deleteProject(p.id);
   }
 }
 
-setPlaterHooks({ keepModelIds, pruneProjects });
+/**
+ * Register the project store as the model life cycle of `services/models.ts`: the pruning there has
+ * to know which models a live project still needs, and an expired project has to take its models with
+ * it. Both directions are async, so the whole pass stays on `fs/promises` (N-7).
+ */
+setModelLifecycleHooks({
+  keepModelIds,
+  pruneProjects,
+});
