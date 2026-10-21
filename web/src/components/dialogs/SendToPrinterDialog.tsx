@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { checkSend, presetEquivalents, sendMatches, type PresetLink } from '@webslicer/shared';
+import { checkSend, sendMatch, type PresetLink } from '@webslicer/shared';
 import { Modal } from './Modal';
 import { useStore } from '../../state/store';
 import { api, type SendIssue, type SendResult } from '../../api';
@@ -10,21 +10,30 @@ function issuesOf(error: unknown): SendIssue[] {
   return Array.isArray(issues) ? (issues as SendIssue[]) : [];
 }
 
-/** The first host set up for the job's printer preset, or the first host when none is. */
-function preselect(printers: ReturnType<typeof useStore.getState>['physicalPrinters'], jobPrinterPreset: string): string {
-  const job = { presets: { printer: jobPrinterPreset } };
-  const match = printers.find((p) => sendMatches(job, p));
-  return (match ?? printers[0])?.id || '';
+/**
+ * The host to preselect: one set up for exactly the job's preset, else one set up for a preset derived
+ * from it (in either direction), else the first host. Never a sibling – that is a mismatch.
+ */
+function preselect(
+  printers: ReturnType<typeof useStore.getState>['physicalPrinters'],
+  jobPrinterPreset: string,
+  presets: readonly PresetLink[],
+): string {
+  const kind = (p: (typeof printers)[number]): string => (p.presetName ? sendMatch(jobPrinterPreset, p.presetName, { presets }) : 'none');
+  const exact = printers.find((p) => kind(p) === 'exact');
+  const derived = printers.find((p) => kind(p) === 'derived');
+  return (exact ?? derived ?? printers[0])?.id || '';
 }
 
 /**
  * Upload the finished G-code to one of the configured printers (S1-b).
  *
  * The dialog takes the job's printer preset seriously: it preselects the host that is set up for the
- * same preset, runs the same pure check the server enforces and shows its issues. A **block** (the
- * G-code was sliced for another printer) needs an override – the checkbox and a written reason, which
- * the server audits. A **warn** (the host is not linked to a preset) needs a confirmation when the
- * print should start right away.
+ * same preset (a derived one only when there is no exact one), runs the same pure check the server
+ * enforces and shows its issues. A **block** (the G-code was sliced for another printer) needs an
+ * override – the checkbox and a written reason, which the server audits. A **warn** (a derived
+ * preset, or a host not linked to a preset) needs a confirmation when the print should start right
+ * away.
  */
 export function SendToPrinterDialog({ onClose }: { onClose: () => void }) {
   const printers = useStore((s) => s.physicalPrinters);
@@ -32,7 +41,11 @@ export function SendToPrinterDialog({ onClose }: { onClose: () => void }) {
   const printerPresets = useStore((s) => s.presetLists.printer);
   const toast = useStore((s) => s.toast);
   const jobPreset = job?.presets.printer || '';
-  const [printerId, setPrinterId] = useState(() => preselect(printers, jobPreset));
+  const links = useMemo(
+    () => printerPresets.map((p): PresetLink => ({ name: p.name, alias: p.alias, inherits: p.inherits })),
+    [printerPresets],
+  );
+  const [printerId, setPrinterId] = useState(() => preselect(printers, jobPreset, links));
   const [filename, setFilename] = useState(job?.outputName || 'print.gcode');
   const [start, setStart] = useState(false);
   const [override, setOverride] = useState(false);
@@ -40,18 +53,10 @@ export function SendToPrinterDialog({ onClose }: { onClose: () => void }) {
   const [warnConfirmed, setWarnConfirmed] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  const links = useMemo(
-    () => printerPresets.map((p): PresetLink => ({ name: p.name, alias: p.alias, inherits: p.inherits })),
-    [printerPresets],
-  );
-
   const printer = printers.find((p) => p.id === printerId);
   const issues: SendIssue[] = useMemo(() => {
     if (!printer || !job) return [];
-    return checkSend({ presets: { printer: jobPreset } }, printer, {
-      jobPresetNames: presetEquivalents(jobPreset, links),
-      printerPresetNames: presetEquivalents(printer.presetName ?? '', links),
-    });
+    return checkSend({ presets: { printer: jobPreset } }, printer, { presets: links });
   }, [printer, job, jobPreset, links]);
 
   const blocking = issues.filter((i) => i.severity === 'block');

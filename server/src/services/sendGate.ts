@@ -3,15 +3,15 @@
  *
  * The decision itself is the pure `checkSend` of `@webslicer/shared` – the same function the send
  * dialog runs in the browser, so what the dialog shows is what the server enforces. This module adds
- * the two server-only parts: the preset names of the installed printers (needed to compare a user
- * preset with the system preset it inherits) and the audit entry of an accepted override.
+ * the two server-only parts: the printer presets with their aliases and inheritance (needed to tell a
+ * derived preset from an unrelated one) and the audit entry of an accepted override.
  *
  * A **block** issue refuses the send with a 409 that carries the issues; the client repeats the call
  * with `override: true` and a written reason, which lands in `data/audit.log` – the MCP audit writer,
  * so there is no second log format. A **warn** issue does not stop the send: the dialog asks for a
  * confirmation, the server records the accepted issue in its answer.
  */
-import { blockingIssues, checkSend, presetEquivalents, type PresetLink } from '@webslicer/shared';
+import { blockingIssues, checkSend, type PresetLink } from '@webslicer/shared';
 import type { JobRecord, PhysicalPrinter, SendIssue, SendResult } from '@webslicer/shared';
 import { loadBundles } from '../slicer/bundles.js';
 import { listUserPresets } from '../slicer/presets.js';
@@ -20,8 +20,8 @@ import { ConflictError } from '../errors.js';
 import { uploadToPrinter } from './printers.js';
 
 /**
- * The printer presets whose names may stand for each other: bundled system presets carry their alias,
- * user presets the preset they inherit from – the same data the preset list is built from.
+ * The printer presets as the check reads them: bundled system presets carry their alias, user presets
+ * the preset they inherit from – the same data the preset list is built from.
  */
 export function printerPresetLinks(): PresetLink[] {
   const system = loadBundles().presets.printer.map((p): PresetLink => ({ name: p.name, alias: p.alias }));
@@ -31,10 +31,7 @@ export function printerPresetLinks(): PresetLink[] {
 
 /** The send issues of a job and a print host, preset equivalence included. */
 export function sendIssues(job: JobRecord, printer: PhysicalPrinter, presets: readonly PresetLink[] = printerPresetLinks()): SendIssue[] {
-  return checkSend(job, printer, {
-    jobPresetNames: presetEquivalents(job.presets.printer, presets),
-    printerPresetNames: presetEquivalents(printer.presetName ?? '', presets),
-  });
+  return checkSend(job, printer, { presets });
 }
 
 /** An accepted override as it goes into the audit log: job, host, the issues, the reason. */
