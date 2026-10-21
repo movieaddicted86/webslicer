@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- Express 5, no behaviour change: the server runs on `express` 5 (`@types/express` 5). Express 5
+  forwards the rejected promise of an async handler to the error handler, so the `asyncHandler`
+  wrapper that every route of `routes/api.ts`, `routes/projects.ts`, `routes/library.ts` and the MCP
+  endpoint was passed through is deleted instead of moved – the handlers are plain `async` functions
+  now, and the error handler still answers the status and the JSON body of the thrown error (pinned
+  by a test). Every endpoint, status code, body, header and file download is unchanged, checked by
+  the HTTP contract tests and a `curl`-level smoke comparison of all 154 exchanges against the
+  previous build, plus an MCP `tools/list` comparison and a browser pass over the deep link, the
+  import, a slice with its SSE progress stream and the G-code download. One visible difference comes
+  from the newer mime database: the vendor bed model is served as `model/stl` (the registered type)
+  instead of Express 4's `application/vnd.ms-pki.stl`; browsers decide on the file extension, so the
+  bed loads exactly as before.
 - Refactoring of the request validation (R-10), no behaviour change: every payload the server accepts
   is described by one zod schema in `server/src/validation/` – the slice request (transforms,
   instances, ranges, volumes, paints, custom G-codes, thumbnails), the project create/models/arrange
