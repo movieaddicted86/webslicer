@@ -9,7 +9,7 @@
  *   POST /api/projects/:id/arrange    arrange the instances on the bed
  *   POST /api/projects/:id/slice      slice it -> job record (like POST /api/slice)
  */
-import express, { type NextFunction, type Request, type Response } from 'express';
+import express, { type Request, type Response } from 'express';
 import { createJob } from '../jobs.js';
 import { validateSliceRequest } from '../services/slice.js';
 import { activeSchema } from '../services/schema.js';
@@ -18,32 +18,17 @@ import { copiesOf, parseProjectCreate, projectModelsSchema, projectSliceSchema }
 import { addModelFromLibrary, arrange, createProject, toSliceRequest, touchProject, loadProject } from '../services/projects.js';
 import type { Schema, SliceRequest } from '@webslicer/shared';
 
-function asyncHandler(fn: (req: Request, res: Response, next: NextFunction) => Promise<unknown>) {
-  return (req: Request, res: Response, next: NextFunction) => {
-    fn(req, res, next).catch(next);
-  };
-}
-
-/**
- * Express 5 types every `req.params` value as `string | string[]`, because a route can repeat a
- * parameter. The handlers below wrap it inside the generic `Request` of `asyncHandler`, which loses
- * the route path and with it the knowledge that an `:id` is a single string – so they read the value
- * through `param()`, exactly like the preset routes have always read `req.params.name`.
- */
-function param(req: Request, name: string): string {
-  return String(req.params[name] ?? '');
-}
-
+/** The routes of this router are `async` throughout: Express 5 answers a rejected promise itself. */
 export function projectsRouter(): express.Router {
   const r = express.Router();
   const json = express.json({ limit: '8mb' });
 
-  /** Load a project or answer 404. */
+  /** Load a project or answer 404. Every route here is `/…:id…`, so the param is a single string. */
   const withProject = async (
-    req: Request,
+    req: Request<{ id: string }>,
     res: Response,
   ): Promise<{ project: Awaited<ReturnType<typeof loadProject>>; schema: Schema }> => {
-    const project = await loadProject(param(req, 'id'));
+    const project = await loadProject(req.params.id);
     if (!project) {
       res.status(404).json({ error: 'project not found' });
       return { project: undefined, schema: await activeSchema() };
@@ -51,72 +36,53 @@ export function projectsRouter(): express.Router {
     return { project, schema: await activeSchema() };
   };
 
-  r.post(
-    '/',
-    json,
-    asyncHandler(async (req, res) => {
-      const body = parseProjectCreate(req.body);
-      if (!body.ok) throw new ValidationError(body.message);
-      const s = await activeSchema();
-      const project = await createProject({
-        schema: s,
-        printer: body.printer,
-        print: body.print,
-        filaments: body.filaments,
-        owner: body.owner,
-      });
-      res.status(201).json(project);
-    }),
-  );
+  r.post('/', json, async (req, res) => {
+    const body = parseProjectCreate(req.body);
+    if (!body.ok) throw new ValidationError(body.message);
+    const s = await activeSchema();
+    const project = await createProject({
+      schema: s,
+      printer: body.printer,
+      print: body.print,
+      filaments: body.filaments,
+      owner: body.owner,
+    });
+    res.status(201).json(project);
+  });
 
-  r.get(
-    '/:id',
-    asyncHandler(async (req, res) => {
-      const project = await loadProject(param(req, 'id'));
-      if (!project) return res.status(404).json({ error: 'project not found' });
-      res.json(project);
-    }),
-  );
+  r.get('/:id', async (req, res) => {
+    const project = await loadProject(req.params.id);
+    if (!project) return res.status(404).json({ error: 'project not found' });
+    res.json(project);
+  });
 
-  r.post(
-    '/:id/models',
-    json,
-    asyncHandler(async (req, res) => {
-      const found = await withProject(req, res);
-      if (!found.project) return;
-      const body = projectModelsSchema.safeParse(req.body || {});
-      if (!body.success) throw new ValidationError(body.error.issues[0]?.message || 'libraryPath required');
-      res.json(await addModelFromLibrary(found.project, body.data.libraryPath, copiesOf(body.data.copies)));
-    }),
-  );
+  r.post('/:id/models', json, async (req, res) => {
+    const found = await withProject(req, res);
+    if (!found.project) return;
+    const body = projectModelsSchema.safeParse(req.body || {});
+    if (!body.success) throw new ValidationError(body.error.issues[0]?.message || 'libraryPath required');
+    res.json(await addModelFromLibrary(found.project, body.data.libraryPath, copiesOf(body.data.copies)));
+  });
 
-  r.post(
-    '/:id/arrange',
-    json,
-    asyncHandler(async (req, res) => {
-      const found = await withProject(req, res);
-      if (!found.project) return;
-      res.json(await arrange(found.project, found.schema));
-    }),
-  );
+  r.post('/:id/arrange', json, async (req, res) => {
+    const found = await withProject(req, res);
+    if (!found.project) return;
+    res.json(await arrange(found.project, found.schema));
+  });
 
-  r.post(
-    '/:id/slice',
-    json,
-    asyncHandler(async (req, res) => {
-      const found = await withProject(req, res);
-      if (!found.project) return;
-      const body = projectSliceSchema.parse(req.body || {});
-      const request: SliceRequest = toSliceRequest(found.project, found.schema);
-      if (body.binaryGcode !== undefined) request.binaryGcode = body.binaryGcode;
-      if (body.outputName !== undefined) request.outputName = body.outputName;
-      // no thumbnails here: rendering them needs a browser (concept §3.5, rasterizer comes in phase 3)
-      validateSliceRequest(request);
-      const job = await createJob(request, found.schema);
-      await touchProject(found.project);
-      res.status(202).json(job);
-    }),
-  );
+  r.post('/:id/slice', json, async (req, res) => {
+    const found = await withProject(req, res);
+    if (!found.project) return;
+    const body = projectSliceSchema.parse(req.body || {});
+    const request: SliceRequest = toSliceRequest(found.project, found.schema);
+    if (body.binaryGcode !== undefined) request.binaryGcode = body.binaryGcode;
+    if (body.outputName !== undefined) request.outputName = body.outputName;
+    // no thumbnails here: rendering them needs a browser (concept §3.5, rasterizer comes in phase 3)
+    validateSliceRequest(request);
+    const job = await createJob(request, found.schema);
+    await touchProject(found.project);
+    res.status(202).json(job);
+  });
 
   return r;
 }
