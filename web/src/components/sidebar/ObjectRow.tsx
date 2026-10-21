@@ -37,6 +37,9 @@ export function ObjectRow({
   const update = useStore((s) => s.updateObject);
   const recordHistory = useStore((s) => s.recordHistory);
   const isSel = selectedIds.includes(o.id);
+  // the row's buttons show a symbol only, so each tooltip is also its accessible name
+  const instancesLabel = `${o.instances.length} instances – click to show them`;
+  const splitLabel = o.volumes.length ? 'Remove modifiers and parts first' : 'Split to objects';
   return (
     <li className="object-item">
       <div
@@ -59,13 +62,14 @@ export function ObjectRow({
         {o.extruder > 0 && <span className="badge">E{o.extruder}</span>}
         {Object.keys(o.config).length > 0 && <span className="badge">⚙</span>}
         {o.instances.length > 1 && (
-          <button className="badge inst" title={`${o.instances.length} instances – click to show them`} onClick={(e) => { e.stopPropagation(); onToggleInstances(); }}>
+          <button className="badge inst" title={instancesLabel} aria-label={instancesLabel} onClick={(e) => { e.stopPropagation(); onToggleInstances(); }}>
             ×{o.instances.length}
           </button>
         )}
         <button
           className="icon add"
           title="Add modifier / support enforcer / blocker / part"
+          aria-label="Add modifier / support enforcer / blocker / part"
           onClick={(e) => {
             e.stopPropagation();
             onMenu(!menuOpen);
@@ -75,7 +79,8 @@ export function ObjectRow({
         </button>
         <button
           className="icon split"
-          title={o.volumes.length ? 'Remove modifiers and parts first' : 'Split to objects'}
+          title={splitLabel}
+          aria-label={splitLabel}
           disabled={o.volumes.length > 0}
           onClick={(e) => {
             e.stopPropagation();
@@ -88,6 +93,7 @@ export function ObjectRow({
         <button
           className="icon split"
           title="Split to parts"
+          aria-label="Split to parts"
           onClick={(e) => {
             e.stopPropagation();
             select([o.id]);
@@ -115,6 +121,7 @@ export function ObjectRow({
               <button
                 className="icon"
                 title="Set as separate object"
+                aria-label="Set as separate object"
                 onClick={(e) => {
                   e.stopPropagation();
                   instanceToObject(o.id, inst.id);
@@ -125,6 +132,7 @@ export function ObjectRow({
               <button
                 className="icon"
                 title="Split to objects"
+                aria-label="Split to objects"
                 onClick={(e) => {
                   e.stopPropagation();
                   selectInstance(o.id, inst.id);
@@ -136,6 +144,7 @@ export function ObjectRow({
               <button
                 className="icon"
                 title="Delete instance"
+                aria-label="Delete instance"
                 disabled={o.instances.length <= 1}
                 onClick={(e) => {
                   e.stopPropagation();

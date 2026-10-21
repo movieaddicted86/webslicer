@@ -68,7 +68,7 @@ export function LayerCodes({ printZ, firstLayer, maxZ }: { printZ: number | unde
               {c.type === 'custom' && (
                 <TextField className="code-text" apply="input" multiline rows={2} spellCheck={false} value={c.extra ?? ''} onChange={(text) => update(c.printZ, { extra: text })} />
               )}
-              <button className="icon" title="Remove" onClick={() => remove(c.printZ)}>
+              <button className="icon" title="Remove" aria-label="Remove" onClick={() => remove(c.printZ)}>
                 ✕
               </button>
             </li>

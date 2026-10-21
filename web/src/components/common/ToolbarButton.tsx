@@ -18,8 +18,9 @@ export function ToolbarButton({
   children: ReactNode;
 }) {
   const cls = [active && 'active', className].filter(Boolean).join(' ');
+  // The buttons show a symbol only, so the tooltip is also the accessible name.
   return (
-    <button className={cls || undefined} title={title} onClick={onClick} disabled={disabled}>
+    <button className={cls || undefined} title={title} aria-label={title} onClick={onClick} disabled={disabled}>
       {children}
     </button>
   );

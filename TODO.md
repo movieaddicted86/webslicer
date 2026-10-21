@@ -57,6 +57,13 @@ Priority by frequency of use in everyday printing and PrusaSlicer parity.
       migration of existing data to the first admin); C) OIDC single sign-on on top of B
 - Netfabb/Microsoft repair, firmware flasher, Printables integration, toolpaths as OBJ, gantry visualization, configuration snapshots
 
+## Deferred – waiting for beta testers with the hardware (do not schedule)
+- PrusaLink / OctoPrint upload test (Moonraker is done, see "Needs you")
+- MCP phase 3 `send_to_printer` with confirmation, variants, thumbnails
+- Printer status / upload queue (P2)
+These three stay open until a beta with testers who own the printers runs them; no other task waits on
+them (`.ai/ROADMAP.md`, "Deferred").
+
 ## Done
 - [x] Slicing core, profiles, settings tabs (modes), quick settings, preview by feature type, thumbnails
 - [x] Volumes (modifiers, support enforcers/blockers, negative, parts), height ranges, support/seam/MMU painting

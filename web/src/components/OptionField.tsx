@@ -158,7 +158,7 @@ export function OptionField({ def, value, savedValue, onChange, onReset, extrude
         {body}
         {def.sidetext && <span className="sidetext">{def.sidetext}</span>}
         {modified && (
-          <button className="icon reset" title="Reset to preset value" onClick={onReset}>
+          <button className="icon reset" title="Reset to preset value" aria-label="Reset to preset value" onClick={onReset}>
             ↶
           </button>
         )}

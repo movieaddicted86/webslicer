@@ -49,7 +49,8 @@ web/src/
 ## 3. Types and interfaces
 
 - **MUST:** a type is declared once (in `shared/src/types` if it crosses the API, otherwise next to
-  its owner) and imported everywhere else. `web/src/api.ts` stops mirroring server types.
+  its owner) and imported everywhere else. `web/src/api.ts` holds no declarations of its own – it
+  imports the contract types from `shared/src/types` and re-exports them.
 - Build hierarchies with `extends` and utility types instead of repeating fields:
   ```ts
   export type Vec3 = [number, number, number];

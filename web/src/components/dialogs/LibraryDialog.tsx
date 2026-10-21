@@ -161,13 +161,13 @@ export function LibraryDialog({ onClose, mode }: { onClose: () => void; mode: Li
             ))}
           </div>
           <div className="tools">
-            <button onClick={mkdir} title="New folder">
+            <button onClick={mkdir} title="New folder" aria-label="New folder">
               📁+
             </button>
             <button onClick={() => fileRef.current?.click()} title="Upload files into this folder">
               ⤒ Upload
             </button>
-            <button onClick={() => load(path)} title="Refresh">
+            <button onClick={() => load(path)} title="Refresh" aria-label="Refresh">
               ⟳
             </button>
             <input ref={fileRef} type="file" multiple style={{ display: 'none' }} onChange={(e) => e.target.files && upload(e.target.files)} />
@@ -193,7 +193,7 @@ export function LibraryDialog({ onClose, mode }: { onClose: () => void; mode: Li
                   ⤓
                 </a>
               )}
-              <button className="icon" title="Delete" onClick={() => remove(e)}>
+              <button className="icon" title="Delete" aria-label="Delete" onClick={() => remove(e)}>
                 🗑
               </button>
             </li>
