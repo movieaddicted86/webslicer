@@ -63,6 +63,14 @@ test('the printer scope is closed, whatever the key', () => {
 
 test('G-code, script, text and coordinate options are refused', () => {
   assert.match(refusal('print', 'start_gcode'), /G-code and script/);
+  // the real key is a printer option; the G-code rule still answers first, whatever scope asked
+  schema.options.real_start_gcode = { ...opt('start_gcode', 'string', ['printer'], 'Misc'), multiline: true, gcode: true };
+  try {
+    assert.match(refusal('print', 'real_start_gcode'), /G-code and script/);
+    assert.match(refusal('filament', 'real_start_gcode'), /G-code and script/);
+  } finally {
+    delete schema.options.real_start_gcode;
+  }
   assert.match(refusal('print', 'layer_gcode'), /G-code and script/, 'any *_gcode key, not only the schema flag');
   assert.match(refusal('print', 'notes'), /Text and coordinate/);
   assert.match(refusal('print', 'custom_parameters_print'), /Text and coordinate/, 'free text the slicer would pass on');
