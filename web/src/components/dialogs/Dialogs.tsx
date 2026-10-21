@@ -6,6 +6,7 @@ import { api, type InstalledPrinter, type PhysicalPrinter, type PresetType, type
 import { OptionField } from '../OptionField';
 import { MODE_RANK } from '../../values';
 import { presetDiff, shortValue } from '../../plater/presetDiff';
+import { aboutShortcuts } from '../../three/viewer/shortcuts';
 
 // ---------------------------------------------------------------------------
 function AddPrinterDialog({ onClose }: { onClose: () => void }) {
@@ -592,9 +593,26 @@ function AboutDialog({ onClose }: { onClose: () => void }) {
         PrusaSlicer is © Prusa Research, licensed under AGPL-3.0. WebSlicer is an independent project and is not affiliated with Prusa Research.
       </p>
       <p className="small">
-        Shortcuts: <kbd>M</kbd> move · <kbd>R</kbd> rotate · <kbd>S</kbd> scale · <kbd>A</kbd> arrange · <kbd>+</kbd> add instance ·{' '}
-        <kbd>−</kbd> remove instance · <kbd>Del</kbd> delete · <kbd>Ctrl+A</kbd> select all · <kbd>0</kbd>…<kbd>6</kbd> views ·{' '}
-        <kbd>K</kbd> perspective/ortho · <kbd>Z</kbd> zoom to selection
+        {/* the one shortcut table the key handler reads as well – the two cannot drift apart */}
+        Shortcuts:{' '}
+        {aboutShortcuts().map((s, i) => (
+          <span key={`${s.id}-${i}`}>
+            {i > 0 && ' · '}
+            {s.range ? (
+              <>
+                <kbd>{s.keys[0]}</kbd>…<kbd>{s.keys[1]}</kbd>
+              </>
+            ) : (
+              s.keys.map((k, ki) => (
+                <span key={k}>
+                  {ki > 0 && '+'}
+                  <kbd>{k}</kbd>
+                </span>
+              ))
+            )}{' '}
+            {s.label}
+          </span>
+        ))}
       </p>
     </Modal>
   );

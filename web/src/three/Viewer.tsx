@@ -21,6 +21,7 @@ import { RANGE_SCHEMES, rangeColor, rangePosition, schemeRange, type PreviewColo
 import type { CustomGcode, VolumeType } from '../api';
 import { colorAtZ, normalizeColor } from '../gcode/colorprint';
 import { renderThumbnails } from './thumbnail';
+import { matchesShortcut } from './viewer/shortcuts';
 import { computeCentroids, paintToColors, trianglesInSphere, type PaintKind } from './paint';
 
 const OBJECT_COLOR = 0xe6b84a;
@@ -1256,58 +1257,54 @@ export function Viewer() {
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
       const st = useStore.getState();
       // the camera keys work in the plater and in the preview
-      if (!e.ctrlKey && !e.metaKey) {
-        const view_ = viewByKey(e.key);
-        if (view_) {
-          e.preventDefault();
-          requestCamera({ mode: 'view', view: view_ });
-          return;
-        }
-        if (e.key === 'k' || e.key === 'K') {
-          e.preventDefault();
-          setOrtho((o) => !o);
-          return;
-        }
-        if (e.key === 'z' || e.key === 'Z') {
-          e.preventDefault();
-          requestCamera({ mode: 'fit' });
-          return;
-        }
+      if (matchesShortcut(e, 'views')) {
+        e.preventDefault();
+        requestCamera({ mode: 'view', view: viewByKey(e.key)! });
+        return;
+      }
+      if (matchesShortcut(e, 'projection')) {
+        e.preventDefault();
+        setOrtho((o) => !o);
+        return;
+      }
+      if (matchesShortcut(e, 'zoom')) {
+        e.preventDefault();
+        requestCamera({ mode: 'fit' });
+        return;
       }
       if (st.view !== 'plater') return;
-      if (e.key === 'Delete' || e.key === 'Backspace') {
+      if (matchesShortcut(e, 'delete')) {
         const o = st.objects.find((x) => x.id === st.selectedIds[0]);
         if (st.selectedVolumeId && st.selectedIds.length === 1) st.removeVolume(st.selectedIds[0], st.selectedVolumeId);
         // AC-4.4: Del removes the instance that was picked; without one the whole object goes
         else if (st.selectedIds.length === 1 && o && pickedInstanceId(st, o) && o.instances.length > 1) st.removeInstance(o.id, st.selectedInstanceId);
         else if (st.selectedIds.length) st.removeObjects(st.selectedIds);
-      } else if (e.key === '+' || e.key === '=' || e.code === 'NumpadAdd') {
+      } else if (matchesShortcut(e, 'addInstance')) {
         if (st.selectedIds.length === 1) st.addInstances(st.selectedIds[0]);
-      } else if (e.key === '-' || e.key === '_' || e.code === 'NumpadSubtract') {
+      } else if (matchesShortcut(e, 'removeInstance')) {
         // AC-1.2: "−" always drops the last copy
         if (st.selectedIds.length === 1) st.removeInstance(st.selectedIds[0]);
-      } else if ((e.key === 'l' || e.key === 'L') && st.selectedIds.length === 1) {
+      } else if (matchesShortcut(e, 'paintSupports') && st.selectedIds.length === 1) {
         if (st.paintMode === 'supports') st.stopPaint();
         else st.startPaint(st.selectedIds[0], 'supports');
-      } else if ((e.key === 'p' || e.key === 'P') && st.selectedIds.length === 1) {
+      } else if (matchesShortcut(e, 'paintSeam') && st.selectedIds.length === 1) {
         if (st.paintMode === 'seam') st.stopPaint();
         else st.startPaint(st.selectedIds[0], 'seam');
-      } else if (e.key === 'f' || e.key === 'F') st.setPlaceOnFace(!st.placeOnFace);
-      else if (e.key === 'm' || e.key === 'M') st.setTransformMode('translate');
-      else if (e.key === 'r' || e.key === 'R') st.setTransformMode('rotate');
-      else if (e.key === 's' || e.key === 'S') st.setTransformMode('scale');
-      else if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) {
+      } else if (matchesShortcut(e, 'placeOnFace')) st.setPlaceOnFace(!st.placeOnFace);
+      else if (matchesShortcut(e, 'move')) st.setTransformMode('translate');
+      else if (matchesShortcut(e, 'rotate')) st.setTransformMode('rotate');
+      else if (matchesShortcut(e, 'scale')) st.setTransformMode('scale');
+      else if (matchesShortcut(e, 'undo')) {
         e.preventDefault();
-        if (e.shiftKey) st.redo();
-        else st.undo();
-      } else if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || e.key === 'Y')) {
+        st.undo();
+      } else if (matchesShortcut(e, 'redo')) {
         e.preventDefault();
         st.redo();
-      } else if (e.key === 'a' && e.ctrlKey) {
+      } else if (matchesShortcut(e, 'selectAll')) {
         e.preventDefault();
         st.select(st.objects.map((o) => o.id));
-      } else if (e.key === 'a' || e.key === 'A') st.arrange();
-      else if (e.key === 'Escape') {
+      } else if (matchesShortcut(e, 'arrange')) st.arrange();
+      else if (matchesShortcut(e, 'escape')) {
         if (st.paintMode) st.stopPaint();
         else if (st.placeOnFace) st.setPlaceOnFace(false);
         else st.select([]);
