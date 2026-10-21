@@ -9,7 +9,8 @@
 import express, { type Request } from 'express';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
-import { TOOLS, type ToolContext } from './tools.js';
+import { TOOLS } from './tools.js';
+import type { ToolContext } from './toolTypes.js';
 import { authenticateHeader, mcpEnabled, type McpToken } from './tokens.js';
 import { appendAudit, sanitizeParams } from './audit.js';
 import { appVersion } from '../services/version.js';

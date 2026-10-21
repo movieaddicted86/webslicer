@@ -43,6 +43,8 @@ browser and screenshot.
 
 | UAT-22 | Server-only slicer options (SEC-1) | Print Settings → Output options → Post-processing scripts, and the same for "Output filename format": both are shown read-only with a note instead of an editor. Then `curl -X POST -H 'content-type: application/json' -d '{"objects":[…],"print":{"name":"…","config":{"post_process":"touch /tmp/sec1-marker"}},…}' http://localhost:8080/api/export/config` | The settings editor offers no field for either option, only the note "Not passed to the slicer: …". The exported config.ini contains no `post_process` line, and slicing the same request leaves no `/tmp/sec1-marker` in the container |
 
+| UAT-27 | MCP setting guardrails (S1-a) | With `MCP_TOKEN` set, run `npx tsx server/scripts/mcp-e2e.ts` against the server; or by hand in an MCP client: create a project, then `set_settings` filament `temperature` 270 (preset is 230 °C), `set_settings` print `start_gcode` `G28`, `set_settings` printer `z_offset` `0.2`, then `check_settings` filament `temperature` 250 and finally `set_settings` the same 250. | The 270 °C call is refused ("outside the band … 205–255 °C"), the `start_gcode` call with "G-code and script options cannot be set through MCP", the `z_offset` call with "Printer options cannot be set through MCP"; in each case the project is unchanged and the error lists all issues of the call. `check_settings` answers `ok: true` with `would_change` and changes nothing; the 250 °C call is accepted. `data/audit.log` holds the rejected calls with their reasons. |
+
 ## Known limitations (rc.2)
 
 - No cut tool, no text embossing, no continuous layer-height profile (height ranges only).

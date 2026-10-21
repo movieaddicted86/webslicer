@@ -213,6 +213,12 @@ check(
     (quick.changed as Record<string, string>)?.brim_width === '5',
   quick,
 );
+const offered = await call(client, 'webslicer.get_option_schema', { query: 'start_gcode' });
+check(
+  'S1-a get_option_schema does not offer a key set_settings refuses',
+  offered.ok && (offered.options as unknown[])?.length === 0,
+  offered,
+);
 const badSetting = await call(client, 'webslicer.set_settings', { project_id: projectId, scope: 'print', values: { no_such_option: '1' } });
 check('AC-2 an unknown option is rejected', !badSetting.ok && /Unknown option/.test(badSetting.error || ''), badSetting);
 const badType = await call(client, 'webslicer.set_settings', { project_id: projectId, scope: 'filament', values: { layer_height: '0.2' } });
@@ -220,6 +226,53 @@ check(
   'AC-2 an option of another preset type is rejected',
   !badType.ok && /not a filament preset option/.test(badType.error || ''),
   badType,
+);
+
+// ---- S1-a: the setting guardrails (T-025) -----------------------------------
+// The MK4S PLA preset carries 230 °C, so +40 °C (270) is outside the ±25 °C band and +20 °C (250) inside.
+const tooHot = await call(client, 'webslicer.set_settings', { project_id: projectId, scope: 'filament', values: { temperature: '270' } });
+check(
+  'S1-a a temperature 40 °C above the preset is rejected with its band',
+  !tooHot.ok && /outside the band/.test(tooHot.error || '') && /205–255 °C/.test(tooHot.error || ''),
+  tooHot,
+);
+const startGcode = await call(client, 'webslicer.set_settings', { project_id: projectId, scope: 'print', values: { start_gcode: 'G28' } });
+check(
+  'S1-a start_gcode is rejected by the allowlist',
+  !startGcode.ok && /G-code and script options cannot be set through MCP/.test(startGcode.error || ''),
+  startGcode,
+);
+const zOffset = await call(client, 'webslicer.set_settings', { project_id: projectId, scope: 'printer', values: { z_offset: '0.2' } });
+check('S1-a z_offset (printer scope) is rejected', !zOffset.ok && /Printer options cannot be set/.test(zOffset.error || ''), zOffset);
+const mixed = await call(client, 'webslicer.set_settings', {
+  project_id: projectId,
+  scope: 'filament',
+  values: { temperature: '290', start_gcode: 'G28' },
+});
+check(
+  'S1-a one failing key rejects the whole call and lists every issue',
+  !mixed.ok && /temperature: 290/.test(mixed.error || '') && /start_gcode: G28/.test(mixed.error || ''),
+  mixed,
+);
+const dryRun = await call(client, 'webslicer.check_settings', { project_id: projectId, scope: 'filament', values: { temperature: '250' } });
+// note: check_settings answers its own "ok" field, so the call's `ok` here is that verdict, not a transport error
+check('S1-a check_settings: +20 °C is ok', dryRun.ok === true && JSON.stringify(dryRun.issues) === '[]', dryRun);
+const dryHot = await call(client, 'webslicer.check_settings', { project_id: projectId, scope: 'filament', values: { temperature: '270' } });
+check(
+  'S1-a check_settings reports the band without applying it',
+  dryHot.ok === false && /outside the band/.test(JSON.stringify(dryHot.issues)),
+  dryHot,
+);
+check(
+  'S1-a check_settings changed nothing (the preset still carries 230 °C, so +40 °C is still refused)',
+  dryHot.would_change !== undefined && JSON.stringify(dryHot.would_change) === '{}',
+  dryHot.would_change,
+);
+const accepted = await call(client, 'webslicer.set_settings', { project_id: projectId, scope: 'filament', values: { temperature: '250' } });
+check(
+  'S1-a a temperature 20 °C above the preset is accepted',
+  accepted.ok && (accepted.changed as Record<string, string>)?.temperature === '250',
+  accepted,
 );
 
 const sliced = await call(client, 'webslicer.slice', { project_id: projectId });
