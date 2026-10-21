@@ -6,10 +6,12 @@
   was sliced for. A physical printer can be linked to a printer preset (Printers → Edit → "Printer
   preset"); `POST /api/jobs/:id/send` compares that preset with the job's own printer preset and
   refuses a mismatch with **409** `{ error, issues }` – the G-code's start/end G-code, axis limits and
-  nozzle belong to another machine. Names are compared like the preset list compares them, so a user
-  preset that inherits a system preset (and a preset's alias) is the same machine. A host without a
-  preset only warns, because there is nothing to compare. A refused send is still possible with an
-  override: `override: true` plus a reasoned text (trimmed, at most 500 characters, required) is
+  nozzle belong to another machine. Presets are compared by lineage: the same name or a system preset's
+  alias is the same machine; a preset that inherits the other (directly or through a chain) warns with
+  `send.preset_derived`, because a derived preset can change the nozzle, axis limits or start/end
+  G-code; two presets that only share an ancestor (siblings) are a mismatch and are blocked. A host
+  without a preset only warns, because there is nothing to compare. A refused send is still possible
+  with an override: `override: true` plus a reasoned text (trimmed, at most 500 characters, required) is
   accepted and written to `data/audit.log` (job, host, issues, reason, time) in the MCP audit format.
   The send dialog preselects the host that fits, lists the issues, asks for the override with its
   reason and, when "Start printing after upload" is ticked although a warning is shown, for an extra
