@@ -1,5 +1,4 @@
-import { useEffect, useRef } from 'react';
-import * as THREE from 'three';
+import { useRef } from 'react';
 import { useStore, instanceBounds, type PlaterObject } from '../state/store';
 import { bedShapeOf } from '@webslicer/shared';
 import { VIEWS } from '../plater/camera';
@@ -11,6 +10,7 @@ import { useBed } from './viewer/useBed';
 import { useCamera, useCameraState } from './viewer/useCamera';
 import { useGcodePreview } from './viewer/useGcodePreview';
 import { useScene } from './viewer/useScene';
+import { useShells } from './viewer/useShells';
 import { normalizeColor } from '../gcode/colorprint';
 
 export { VOLUME_COLORS } from './viewer/colors';
@@ -64,35 +64,7 @@ export function Viewer() {
   usePlaterObjects(refsRef, { objects, selectedIds, selectedVolumeId, selectedInstanceId, view, bedShape, maxHeight, gcode, paintMode, shells });
   useGizmo(refsRef, { objects, selectedIds, selectedVolumeId, selectedInstanceId, transformMode, view, paintMode });
 
-  // --- shells: the plater meshes translucent over the toolpaths, so the print stays visible
-  useEffect(() => {
-    const refs = refsRef.current;
-    if (!refs) return;
-    if (!shells) {
-      if (!refs.shellsOn) return;
-      refs.shellsOn = false;
-      for (const node of refs.nodes.values()) {
-        for (const inode of node.instances.values()) {
-          const mat = inode.mesh.material as THREE.MeshStandardMaterial;
-          mat.transparent = false;
-          mat.opacity = 1;
-          mat.depthWrite = true;
-          mat.needsUpdate = true;
-        }
-      }
-      return;
-    }
-    refs.shellsOn = true;
-    for (const node of refs.nodes.values()) {
-      for (const inode of node.instances.values()) {
-        const mat = inode.mesh.material as THREE.MeshStandardMaterial;
-        mat.transparent = true;
-        mat.opacity = 0.25;
-        mat.depthWrite = false;
-        mat.needsUpdate = true;
-      }
-    }
-  }, [shells, objects]);
+  useShells(refsRef, shells, objects);
 
   // --- gcode
   useGcodePreview(refsRef, { gcode, view, range, moveCut, showTravel, markerVis, featureVis, colorMode, customGcodes, filamentColour, toolColorKey });
