@@ -145,6 +145,11 @@ function isAllowlisted(type: PresetType, key: string, category: string): boolean
   return MATERIAL_KEYS.has(key);
 }
 
+/** The preset types in which a client may set this key; empty when the key is closed for MCP. */
+export function mcpSettableScopes(schema: Schema, key: string): PresetType[] {
+  return [...MCP_TYPES].filter((type) => mcpKeyVerdict(schema, type, key).allowed);
+}
+
 /** Every key an MCP client may set in a preset type, sorted – the lists of the docs and the tests. */
 export function mcpAllowlistOf(schema: Schema, type: PresetType): string[] {
   return Object.keys(schema.options)

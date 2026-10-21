@@ -3,12 +3,11 @@
  * `docs/MCP-Concept.md` §4, phase 1). Nothing here changes state.
  */
 import { z } from 'zod';
-import type { OptionDef } from '@webslicer/shared';
+import { mcpKeyVerdict, mcpSettableScopes, type OptionDef } from '@webslicer/shared';
 import { NotFoundError } from '../errors.js';
 import { defaultPresetName, getInstalledPrinters, listPresets, resolvePreset } from '../slicer/presets.js';
 import { listLibrary } from '../services/library.js';
 import { activeSchema } from '../services/schema.js';
-import { SERVER_ONLY_KEYS } from '../services/serverOnly.js';
 import { defineTool, type AnyTool } from './toolTypes.js';
 
 const schemaOf = activeSchema;
@@ -83,7 +82,7 @@ export const catalogTools: AnyTool[] = [
     readOnly: true,
     input: z.object({
       query: z.string().optional().describe('substring of the key, label, category or tooltip'),
-      type: z.enum(['print', 'filament', 'printer']).optional().describe('only options of this preset type'),
+      type: z.enum(['print', 'filament']).optional().describe('only options of this preset type'),
       limit: z.number().int().min(1).max(200).optional().describe('maximum number of options (default 50)'),
     }),
     handler: async (args) => {
@@ -103,10 +102,14 @@ export const catalogTools: AnyTool[] = [
           return 2;
         return 3;
       };
+      // the same rule set_settings enforces (S1-a): what cannot be set is not offered either, so a
+      // model does not find a key here that the next call refuses
+      const settable = (o: OptionDef): boolean =>
+        args.type
+          ? mcpKeyVerdict(schema, args.type, o.key).allowed
+          : mcpSettableScopes(schema, o.key).some((type) => o.presetTypes.includes(type));
       const all = Object.values(schema.options).filter((o) => {
-        // the server-only keys are not settable through set_settings, so not offered here either
-        if (SERVER_ONLY_KEYS.has(o.key)) return false;
-        if (args.type && !o.presetTypes.includes(args.type)) return false;
+        if (!settable(o)) return false;
         if (!needle) return true;
         return [o.key, o.label, o.category, o.tooltip].some((f) =>
           String(f || '')

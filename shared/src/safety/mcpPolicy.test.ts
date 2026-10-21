@@ -4,7 +4,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { MCP_ALLOWLIST, mcpAllowlistOf, mcpBandIssue, mcpBandOf, mcpKeyVerdict } from './mcpPolicy.js';
+import { MCP_ALLOWLIST, mcpAllowlistOf, mcpBandIssue, mcpBandOf, mcpKeyVerdict, mcpSettableScopes } from './mcpPolicy.js';
 import type { OptionDef, OptionType, PresetType, Schema } from '../types/index.js';
 
 function opt(key: string, type: OptionType, presetTypes: PresetType[], category = 'Test'): OptionDef {
@@ -100,6 +100,14 @@ test('the explicit allowlist and the derived list agree', () => {
   assert.ok(!print.includes('start_gcode'));
   assert.ok(!print.includes('nozzle_diameter'));
   assert.deepEqual(mcpAllowlistOf(schema, 'printer'), []);
+});
+
+test('a key reports the scopes it may be set in, for the option listing', () => {
+  assert.deepEqual(mcpSettableScopes(schema, 'layer_height'), ['print']);
+  assert.deepEqual(mcpSettableScopes(schema, 'temperature'), ['filament']);
+  assert.deepEqual(mcpSettableScopes(schema, 'start_gcode'), []);
+  assert.deepEqual(mcpSettableScopes(schema, 'z_offset'), []);
+  assert.deepEqual(mcpSettableScopes(schema, 'no_such_option'), []);
 });
 
 test('the bands: temperature, speed, extrusion multiplier, retraction', () => {
