@@ -6,7 +6,7 @@
  * happens before the MCP layer sees anything: without a configured token the endpoint answers 404,
  * with a wrong or missing token 401, and a browser origin that is not the app's own 403.
  */
-import express, { type NextFunction, type Request, type Response } from 'express';
+import express, { type Request } from 'express';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { TOOLS, type ToolContext } from './tools.js';
@@ -16,12 +16,6 @@ import { appVersion } from '../services/version.js';
 
 interface AuthedRequest extends Request {
   mcpToken?: McpToken;
-}
-
-function asyncHandler(fn: (req: Request, res: Response, next: NextFunction) => Promise<unknown>) {
-  return (req: Request, res: Response, next: NextFunction) => {
-    fn(req, res, next).catch(next);
-  };
 }
 
 /**
@@ -102,21 +96,18 @@ export function mcpRouter(): express.Router {
     next();
   });
 
-  r.post(
-    '/',
-    json,
-    asyncHandler(async (req, res) => {
-      const token = (req as AuthedRequest).mcpToken!;
-      const server = await createServer({ owner: token.owner, tokenId: token.id });
-      const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
-      res.on('close', () => {
-        void transport.close();
-        void server.close();
-      });
-      await server.connect(transport);
-      await transport.handleRequest(req, res, req.body);
-    }),
-  );
+  // Express 5 answers a rejected promise of this handler itself, so it is a plain `async` function.
+  r.post('/', json, async (req, res) => {
+    const token = (req as AuthedRequest).mcpToken!;
+    const server = await createServer({ owner: token.owner, tokenId: token.id });
+    const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
+    res.on('close', () => {
+      void transport.close();
+      void server.close();
+    });
+    await server.connect(transport);
+    await transport.handleRequest(req, res, req.body);
+  });
 
   // no server-initiated messages and no sessions in stateless mode
   r.get('/', (_req, res) => res.status(405).json({ error: 'this MCP endpoint does not stream (use POST)' }));
