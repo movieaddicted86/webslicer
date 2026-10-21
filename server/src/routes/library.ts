@@ -9,6 +9,7 @@ import path from 'node:path';
 import { config } from '../config.js';
 import { getJob, jobOutputPath, build3mfForRequest, mergeConfigs } from '../jobs.js';
 import { activeSchema } from '../services/schema.js';
+import { NotFoundError, ValidationError } from '../errors.js';
 import type { LibraryEntry, SliceRequest } from '@webslicer/shared';
 
 export const MODEL_EXT = new Set(['.stl', '.obj', '.3mf', '.amf']);
@@ -19,10 +20,10 @@ export function resolveLibraryPath(rel: string | undefined): string {
   const clean = String(rel || '')
     .replace(/\\/g, '/')
     .replace(/^\/+/, '');
-  if (clean.split('/').some((p) => p === '..')) throw Object.assign(new Error('invalid path'), { status: 400 });
+  if (clean.split('/').some((p) => p === '..')) throw new ValidationError('invalid path');
   const abs = path.resolve(config.libraryDir, clean);
   const root = path.resolve(config.libraryDir);
-  if (abs !== root && !abs.startsWith(root + path.sep)) throw Object.assign(new Error('invalid path'), { status: 400 });
+  if (abs !== root && !abs.startsWith(root + path.sep)) throw new ValidationError('invalid path');
   return abs;
 }
 
@@ -43,7 +44,7 @@ export function listLibrary(rel: string): { path: string; entries: LibraryEntry[
   try {
     names = fs.readdirSync(abs, { withFileTypes: true });
   } catch {
-    throw Object.assign(new Error('directory not found'), { status: 404 });
+    throw new NotFoundError('directory not found');
   }
   for (const d of names) {
     if (d.name.startsWith('.')) continue;
@@ -80,7 +81,7 @@ function safeName(name: string): string {
       '_',
     )
     .trim();
-  if (!n || n === '.' || n === '..') throw Object.assign(new Error('invalid name'), { status: 400 });
+  if (!n || n === '.' || n === '..') throw new ValidationError('invalid name');
   return n;
 }
 

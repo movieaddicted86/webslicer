@@ -14,6 +14,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { config } from '../config.js';
+import { NotFoundError, ValidationError } from '../errors.js';
 import { resolveLibraryPath } from '../routes/library.js';
 import { saveModel, setPlaterHooks } from '../jobs.js';
 import { defaultPresetName, resolvePreset } from '../slicer/presets.js';
@@ -71,15 +72,11 @@ export interface Project {
   customGcodes?: CustomGcode[];
 }
 
-function fail(message: string, status: number): Error {
-  return Object.assign(new Error(message), { status });
-}
-
 /** Absolute path of a preset slot; the name is validated against the schema by `resolveSlot`. */
 function resolveSlot(schema: Schema, type: PresetType, slot: ProjectPresetRef): ProjectPresetRef {
-  if (!slot || typeof slot.name !== 'string' || !slot.name.trim()) throw fail(`${type} preset name required`, 400);
+  if (!slot || typeof slot.name !== 'string' || !slot.name.trim()) throw new ValidationError(`${type} preset name required`);
   const preset = resolvePreset(schema, type, slot.name);
-  if (!preset) throw fail(`Unknown ${type} preset "${slot.name}"`, 400);
+  if (!preset) throw new ValidationError(`Unknown ${type} preset "${slot.name}"`);
   return { name: preset.name, config: { ...preset.config, ...(slot.config || {}) } };
 }
 
@@ -96,7 +93,7 @@ export function resolvedConfigs(
 
 /** A `SliceRequest` the existing slicing path accepts (`validateSliceRequest`, `createJob`). */
 export function toSliceRequest(project: Project, schema: Schema): SliceRequest {
-  if (!project.objects.length) throw fail('Project has no objects', 400);
+  if (!project.objects.length) throw new ValidationError('Project has no objects');
   const cfg = resolvedConfigs(project, schema);
   const first = project.objects[0].name.replace(/\.[^.]+$/, '');
   return {
@@ -222,16 +219,16 @@ export function createProject(opts: {
  */
 export async function addModelFromLibrary(project: Project, libraryPath: string, copies = 1): Promise<Project> {
   const n = Math.floor(Number(copies));
-  if (!Number.isInteger(n) || n < 1 || n > 1000) throw fail('copies must be an integer between 1 and 1000', 400);
+  if (!Number.isInteger(n) || n < 1 || n > 1000) throw new ValidationError('copies must be an integer between 1 and 1000');
   const abs = resolveLibraryPath(libraryPath); // rejects escapes with status 400
-  if (!fs.existsSync(abs) || !fs.statSync(abs).isFile()) throw fail('library file not found', 404);
+  if (!fs.existsSync(abs) || !fs.statSync(abs).isFile()) throw new NotFoundError('library file not found');
   const models = await loadModelFile(abs);
   for (const m of models) {
     const norm = normalize(m.mesh.vertices, m.instances);
     const stored = saveModel({ vertices: norm.vertices, indices: m.mesh.indices }, m.name);
     const instances: Matrix4[] = [];
     for (let c = 0; c < n; c++) instances.push(...norm.instances);
-    if (instances.length > 1000) throw fail('more than 1000 instances', 400);
+    if (instances.length > 1000) throw new ValidationError('more than 1000 instances');
     // keep the mesh bounds in the project: arranging needs them and must not re-read every model
     project.objects.push({
       id: `obj-${project.objects.length + 1}`,
@@ -251,7 +248,7 @@ export async function addModelFromLibrary(project: Project, libraryPath: string,
  * lands on the packed centre and its minimum Z on the bed.
  */
 export function arrange(project: Project, schema: Schema): Project {
-  if (!project.objects.length) throw fail('Project has no objects', 400);
+  if (!project.objects.length) throw new ValidationError('Project has no objects');
   const cfg = resolvedConfigs(project, schema);
   const bed = bedShapeOf(cfg.printer.config);
   const spacing = arrangementSpacing(cfg.print.config);
@@ -262,7 +259,7 @@ export function arrange(project: Project, schema: Schema): Project {
     items.map((it) => ({ id: it.key, width: it.box.max[0] - it.box.min[0] + spacing, height: it.box.max[1] - it.box.min[1] + spacing })),
     bed,
   );
-  if (!packed) throw fail('Not all objects fit on the bed', 400);
+  if (!packed) throw new ValidationError('Not all objects fit on the bed');
   const byKey = new Map(items.map((it) => [it.key, it]));
   for (const p of packed) {
     const it = byKey.get(p.id)!;

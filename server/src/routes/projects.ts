@@ -12,6 +12,7 @@
 import express, { type NextFunction, type Request, type Response } from 'express';
 import { createJob } from '../jobs.js';
 import { activeSchema } from '../services/schema.js';
+import { ValidationError } from '../errors.js';
 import type { IniSection } from '../slicer/ini.js';
 import {
   addModelFromLibrary,
@@ -31,11 +32,6 @@ function asyncHandler(fn: (req: Request, res: Response, next: NextFunction) => P
   };
 }
 
-/** Input errors carry a status; anything else is a bug and stays a 500. */
-function fail(message: string, status: number): Error {
-  return Object.assign(new Error(message), { status });
-}
-
 /**
  * A preset slot is either a bare name ("MK4S") or `{ name, config }` – agents usually send names and
  * only the overrides they changed.
@@ -45,10 +41,10 @@ function presetRef(value: unknown, label: string): ProjectPresetRef {
   if (value && typeof value === 'object') {
     const v = value as { name?: unknown; config?: unknown };
     if (v.config !== undefined && (typeof v.config !== 'object' || v.config === null || Array.isArray(v.config)))
-      throw fail(`${label}.config must be an object`, 400);
+      throw new ValidationError(`${label}.config must be an object`);
     return { name: String(v.name ?? '').trim(), config: (v.config as IniSection) || {} };
   }
-  throw fail(`${label} must be a preset name or { name, config }`, 400);
+  throw new ValidationError(`${label} must be a preset name or { name, config }`);
 }
 
 export function projectsRouter(): express.Router {
@@ -76,7 +72,7 @@ export function projectsRouter(): express.Router {
       const body = (req.body || {}) as Record<string, unknown>;
       const s = await schemaOf();
       const filaments = body.filaments === undefined ? undefined : Array.isArray(body.filaments) ? body.filaments : null;
-      if (filaments === null) throw fail('filaments must be an array', 400);
+      if (filaments === null) throw new ValidationError('filaments must be an array');
       const project = createProject({
         schema: s,
         printer: presetRef(body.printer, 'printer'),
@@ -101,7 +97,7 @@ export function projectsRouter(): express.Router {
       const found = await withProject(req, res);
       if (!found) return;
       const body = (req.body || {}) as { libraryPath?: unknown; copies?: unknown };
-      if (typeof body.libraryPath !== 'string' || !body.libraryPath.trim()) throw fail('libraryPath required', 400);
+      if (typeof body.libraryPath !== 'string' || !body.libraryPath.trim()) throw new ValidationError('libraryPath required');
       const copies = body.copies === undefined ? 1 : Number(body.copies);
       res.json(await addModelFromLibrary(found.project, body.libraryPath, copies));
     }),

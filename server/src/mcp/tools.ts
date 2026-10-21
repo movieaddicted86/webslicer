@@ -11,6 +11,7 @@ import path from 'node:path';
 import { z } from 'zod';
 import { createJob, getJob, jobDir } from '../jobs.js';
 import { activeSchema } from '../services/schema.js';
+import { NotFoundError, ValidationError } from '../errors.js';
 import type { OptionDef, PresetType, Schema } from '@webslicer/shared';
 import { defaultPresetName, getInstalledPrinters, listPresets, resolvePreset } from '../slicer/presets.js';
 import { listLibrary } from '../routes/library.js';
@@ -49,10 +50,6 @@ export interface AnyTool {
   handler: (raw: unknown, ctx: ToolContext) => Promise<unknown>;
 }
 
-function toolError(message: string, status = 400): Error {
-  return Object.assign(new Error(message), { status });
-}
-
 function defineTool<S extends z.ZodObject<z.ZodRawShape>>(def: {
   name: string;
   title: string;
@@ -71,7 +68,7 @@ function defineTool<S extends z.ZodObject<z.ZodRawShape>>(def: {
       // the SDK has validated the call already; this is the typed view of the same arguments
       const parsed = def.input.safeParse(raw ?? {});
       if (!parsed.success) {
-        throw toolError(
+        throw new ValidationError(
           `Invalid arguments: ${parsed.error.issues.map((i) => `${i.path.join('.') || 'arguments'}: ${i.message}`).join('; ')}`,
         );
       }
@@ -88,7 +85,7 @@ const schemaOf = activeSchema;
 /** Load a project of this owner; everything else looks like it does not exist. */
 export function loadOwnedProject(id: unknown, owner: string): Project {
   const project = loadProject(String(id ?? ''));
-  if (!project || project.owner !== owner) throw toolError(`Project "${String(id)}" not found`, 404);
+  if (!project || project.owner !== owner) throw new NotFoundError(`Project "${String(id)}" not found`);
   return project;
 }
 
@@ -125,7 +122,7 @@ export function scopeOf(scope: string): { type: PresetType; index: number } {
   const s = String(scope || '').trim();
   if (s === 'print' || s === 'printer') return { type: s, index: 0 };
   const m = /^filament(?:\[(\d+)\])?$/.exec(s);
-  if (!m) throw toolError(`scope must be "print", "printer", "filament" or "filament[<index>]" (got "${scope}")`);
+  if (!m) throw new ValidationError(`scope must be "print", "printer", "filament" or "filament[<index>]" (got "${scope}")`);
   return { type: 'filament', index: m[1] ? Number(m[1]) : 0 };
 }
 
@@ -145,42 +142,42 @@ function everyPart(text: string, part: RegExp): boolean {
  */
 export function coerceOptionValue(schema: Schema, type: PresetType, key: string, value: string | number | boolean): string {
   const opt = schema.options[key];
-  if (!opt) throw toolError(`Unknown option "${key}"`);
-  if (!opt.presetTypes.includes(type)) throw toolError(`Option "${key}" is not a ${type} preset option`);
+  if (!opt) throw new ValidationError(`Unknown option "${key}"`);
+  if (!opt.presetTypes.includes(type)) throw new ValidationError(`Option "${key}" is not a ${type} preset option`);
   if (typeof value === 'boolean') return value ? '1' : '0';
   const text = String(value).trim();
-  if (text === '') throw toolError(`Option "${key}" needs a value`);
+  if (text === '') throw new ValidationError(`Option "${key}" needs a value`);
   switch (opt.type) {
     case 'bool':
-      if (!BOOL.test(text)) throw toolError(`Option "${key}" expects 0/1`);
+      if (!BOOL.test(text)) throw new ValidationError(`Option "${key}" expects 0/1`);
       return /^(1|true|yes|on)$/i.test(text) ? '1' : '0';
     case 'bools':
-      if (!everyPart(text, BOOL)) throw toolError(`Option "${key}" expects 0/1 values`);
+      if (!everyPart(text, BOOL)) throw new ValidationError(`Option "${key}" expects 0/1 values`);
       return text;
     case 'enum':
       if (opt.enumValues?.length && !opt.enumValues.includes(text))
-        throw toolError(`Option "${key}" must be one of: ${opt.enumValues.join(', ')}`);
+        throw new ValidationError(`Option "${key}" must be one of: ${opt.enumValues.join(', ')}`);
       return text;
     case 'int':
-      if (!INT.test(text)) throw toolError(`Option "${key}" expects an integer`);
+      if (!INT.test(text)) throw new ValidationError(`Option "${key}" expects an integer`);
       return text;
     case 'ints':
-      if (!everyPart(text, INT)) throw toolError(`Option "${key}" expects integers (one per extruder, comma separated)`);
+      if (!everyPart(text, INT)) throw new ValidationError(`Option "${key}" expects integers (one per extruder, comma separated)`);
       return text;
     case 'float':
-      if (!FLOAT.test(text)) throw toolError(`Option "${key}" expects a number`);
+      if (!FLOAT.test(text)) throw new ValidationError(`Option "${key}" expects a number`);
       return text;
     case 'floats':
-      if (!everyPart(text, FLOAT)) throw toolError(`Option "${key}" expects numbers (one per extruder, comma separated)`);
+      if (!everyPart(text, FLOAT)) throw new ValidationError(`Option "${key}" expects numbers (one per extruder, comma separated)`);
       return text;
     case 'percent':
     case 'float_or_percent':
-      if (!PERCENT.test(text)) throw toolError(`Option "${key}" expects a number, percents may end with "%"`);
+      if (!PERCENT.test(text)) throw new ValidationError(`Option "${key}" expects a number, percents may end with "%"`);
       return text;
     case 'percents':
     case 'floats_or_percents':
       if (!everyPart(text, PERCENT))
-        throw toolError(`Option "${key}" expects numbers (one per extruder, comma separated, percents may end with "%")`);
+        throw new ValidationError(`Option "${key}" expects numbers (one per extruder, comma separated, percents may end with "%")`);
       return text;
     default:
       return text; // strings, points, points3
@@ -196,7 +193,7 @@ export function applySettings(
 ): Record<string, string> {
   const { type, index } = scopeOf(scope);
   const keys = Object.keys(values);
-  if (!keys.length) throw toolError('values must not be empty');
+  if (!keys.length) throw new ValidationError('values must not be empty');
   const applied: Record<string, string> = {};
   for (const key of keys) applied[key] = coerceOptionValue(schema, type, key, values[key]);
   if (type === 'print') Object.assign(project.print.config, applied);
@@ -270,9 +267,9 @@ export const TOOLS: AnyTool[] = [
     handler: async (args) => {
       const schema = await schemaOf();
       const printerCfg = args.printer === undefined ? undefined : resolvePreset(schema, 'printer', args.printer)?.config;
-      if (args.printer !== undefined && !printerCfg) throw toolError(`Unknown printer preset "${args.printer}"`, 404);
+      if (args.printer !== undefined && !printerCfg) throw new NotFoundError(`Unknown printer preset "${args.printer}"`);
       const printCfg = args.print === undefined ? undefined : resolvePreset(schema, 'print', args.print)?.config;
-      if (args.print !== undefined && !printCfg) throw toolError(`Unknown print preset "${args.print}"`, 404);
+      if (args.print !== undefined && !printCfg) throw new NotFoundError(`Unknown print preset "${args.print}"`);
       const list = listPresets(schema, args.type, {
         printerName: args.printer,
         printerConfig: printerCfg,
@@ -386,7 +383,7 @@ export const TOOLS: AnyTool[] = [
       const schema = await schemaOf();
       const live = listProjects().filter((p) => p.owner === ctx.owner);
       if (live.length >= MAX_PROJECTS_PER_OWNER) {
-        throw toolError(
+        throw new ValidationError(
           `Too many live projects (${MAX_PROJECTS_PER_OWNER}); one of them expires ${PROJECT_TTL_HOURS} h after its last use`,
         );
       }
@@ -462,7 +459,7 @@ export const TOOLS: AnyTool[] = [
     }),
     handler: async (args, ctx) => {
       if (args.supports === undefined && args.infill === undefined && args.brim === undefined) {
-        throw toolError('Give at least one of supports, infill, brim');
+        throw new ValidationError('Give at least one of supports, infill, brim');
       }
       const project = loadOwnedProject(args.project_id, ctx.owner);
       const schema = await schemaOf();
@@ -524,7 +521,7 @@ export const TOOLS: AnyTool[] = [
     input: z.object({ job_id: z.string() }),
     handler: async (args) => {
       const job = getJob(args.job_id);
-      if (!job) throw toolError(`Job "${args.job_id}" not found`, 404);
+      if (!job) throw new NotFoundError(`Job "${args.job_id}" not found`);
       const info = job.info;
       return {
         job_id: job.id,

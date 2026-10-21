@@ -11,6 +11,7 @@ import path from 'node:path';
 import { config } from './config.js';
 import { apiRouter } from './routes/api.js';
 import { mcpRouter } from './mcp/server.js';
+import { statusOf } from './errors.js';
 
 function serveFrontend(app: express.Express): void {
   if (fs.existsSync(config.webDist)) {
@@ -42,8 +43,10 @@ export function createApp(): express.Express {
   app.use('/mcp', mcpRouter());
   serveFrontend(app);
 
+  // The one place where a thrown error becomes an HTTP response: typed errors carry their status,
+  // Express' body-parser reports oversize payloads as `entity.too.large`, everything else is a 500.
   app.use((err: Error & { status?: number; type?: string }, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-    const status = err.status || (err.type === 'entity.too.large' ? 413 : 500);
+    const status = statusOf(err) ?? err.status ?? (err.type === 'entity.too.large' ? 413 : 500);
     if (status >= 500) console.error(err);
     res.status(status).json({ error: err.message || 'Internal error' });
   });
