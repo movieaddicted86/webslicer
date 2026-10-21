@@ -17,6 +17,8 @@ import type {
   ResolvedPreset,
   Schema,
   ServerInfo,
+  SendIssue,
+  SendResult,
   SliceRequest,
   Vendor,
 } from '@webslicer/shared';
@@ -35,6 +37,24 @@ async function handle<T>(res: Response): Promise<T> {
     throw new Error(msg);
   }
   return (await res.json()) as T;
+}
+
+/**
+ * The send route answers a refused send with 409 and the issues of the gate. They are worth more to
+ * the dialog than the message alone, so the error carries them.
+ */
+async function handleSend(res: Response): Promise<SendResult> {
+  if (res.ok) return (await res.json()) as SendResult;
+  let error = `${res.status} ${res.statusText}`;
+  let issues: SendIssue[] = [];
+  try {
+    const j = (await res.json()) as { error?: string; issues?: SendIssue[] };
+    if (j.error) error = j.error;
+    issues = Array.isArray(j.issues) ? j.issues : [];
+  } catch {
+    /* no JSON body */
+  }
+  throw Object.assign(new Error(error), { issues });
 }
 
 const jsonInit = (method: string, body: unknown): RequestInit => ({
@@ -81,10 +101,11 @@ export const api = {
       if (!r.ok) throw new Error(`cannot load G-code (${r.status})`);
       return r.text();
     }),
-  sendToPrinter: (jobId: string, printerId: string, filename: string, startPrint: boolean) =>
-    fetch(`/api/jobs/${jobId}/send`, jsonInit('POST', { printerId, filename, startPrint })).then((r) =>
-      handle<{ ok: boolean; message: string }>(r),
-    ),
+  sendToPrinter: (jobId: string, printerId: string, filename: string, startPrint: boolean, override?: { reason: string }) =>
+    fetch(
+      `/api/jobs/${jobId}/send`,
+      jsonInit('POST', { printerId, filename, startPrint, ...(override ? { override: true, reason: override.reason.trim() } : {}) }),
+    ).then((r) => handleSend(r)),
   printers: () => fetch('/api/printers').then((r) => handle<PhysicalPrinter[]>(r)),
   addPrinter: (p: Partial<PhysicalPrinter>) => fetch('/api/printers', jsonInit('POST', p)).then((r) => handle<PhysicalPrinter>(r)),
   updatePrinter: (id: string, p: Partial<PhysicalPrinter>) =>

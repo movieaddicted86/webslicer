@@ -1,0 +1,99 @@
+/**
+ * The send gate (S1-b, T-026): may the finished G-code of a job go to this print host?
+ *
+ * The decision itself is the pure `checkSend` of `@webslicer/shared` – the same function the send
+ * dialog runs in the browser, so what the dialog shows is what the server enforces. This module adds
+ * the two server-only parts: the preset names of the installed printers (needed to compare a user
+ * preset with the system preset it inherits) and the audit entry of an accepted override.
+ *
+ * A **block** issue refuses the send with a 409 that carries the issues; the client repeats the call
+ * with `override: true` and a written reason, which lands in `data/audit.log` – the MCP audit writer,
+ * so there is no second log format. A **warn** issue does not stop the send: the dialog asks for a
+ * confirmation, the server records the accepted issue in its answer.
+ */
+import { blockingIssues, checkSend, presetEquivalents, type PresetLink } from '@webslicer/shared';
+import type { JobRecord, PhysicalPrinter, SendIssue, SendResult } from '@webslicer/shared';
+import { loadBundles } from '../slicer/bundles.js';
+import { listUserPresets } from '../slicer/presets.js';
+import { appendAudit } from '../mcp/audit.js';
+import { ConflictError } from '../errors.js';
+import { uploadToPrinter } from './printers.js';
+
+/**
+ * The printer presets whose names may stand for each other: bundled system presets carry their alias,
+ * user presets the preset they inherit from – the same data the preset list is built from.
+ */
+export function printerPresetLinks(): PresetLink[] {
+  const system = loadBundles().presets.printer.map((p): PresetLink => ({ name: p.name, alias: p.alias }));
+  const user = listUserPresets('printer').map((p): PresetLink => ({ name: p.name, inherits: p.config.inherits }));
+  return [...system, ...user];
+}
+
+/** The send issues of a job and a print host, preset equivalence included. */
+export function sendIssues(job: JobRecord, printer: PhysicalPrinter, presets: readonly PresetLink[] = printerPresetLinks()): SendIssue[] {
+  return checkSend(job, printer, {
+    jobPresetNames: presetEquivalents(job.presets.printer, presets),
+    printerPresetNames: presetEquivalents(printer.presetName ?? '', presets),
+  });
+}
+
+/** An accepted override as it goes into the audit log: job, host, the issues, the reason. */
+export function auditOverride(
+  job: JobRecord,
+  printer: PhysicalPrinter,
+  issues: readonly SendIssue[],
+  reason: string,
+  started = Date.now(),
+): void {
+  appendAudit({
+    time: new Date().toISOString(),
+    // no MCP token is involved in a send from the web app; the empty strings mark such an entry
+    token: '',
+    owner: '',
+    tool: 'send_to_printer',
+    params: {
+      jobId: job.id,
+      printerId: printer.id,
+      printerName: printer.name,
+      issues: issues.map((i) => ({ rule: i.rule, severity: i.severity, message: i.message })),
+      reason,
+    },
+    ok: true,
+    durationMs: Date.now() - started,
+  });
+}
+
+/** What the send route knows about one upload. */
+export interface SendRequest {
+  job: JobRecord;
+  printer: PhysicalPrinter;
+  /** path of the finished G-code on the server */
+  gcodePath: string;
+  filename: string;
+  startPrint: boolean;
+  /** send despite a blocking issue */
+  override?: boolean;
+  /** why the override was given; the schema requires it with `override` */
+  reason?: string;
+}
+
+/** The outcome of an accepted send. */
+export type { SendResult };
+
+/**
+ * Gate and upload: refuses a blocked send, audits an override, uploads otherwise.
+ *
+ * The 409 body is `{ error, issues }` – `ConflictError.details` is what the app's error handler adds
+ * to the message, so the client shows the same list the dialog computed.
+ */
+export async function sendJobOutput({ job, printer, gcodePath, filename, startPrint, override, reason }: SendRequest): Promise<SendResult> {
+  const started = Date.now();
+  const issues = sendIssues(job, printer);
+  const blocking = blockingIssues(issues);
+  if (blocking.length && !override) {
+    throw new ConflictError(blocking[0].message, { issues });
+  }
+  if (override && blocking.length && reason) auditOverride(job, printer, blocking, reason, started);
+  const result = await uploadToPrinter(printer, gcodePath, filename, startPrint);
+  return { ...result, issues };
+}

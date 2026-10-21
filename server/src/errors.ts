@@ -10,11 +10,14 @@
 /** An error with an HTTP status; `ValidationError` and `NotFoundError` are the usual cases. */
 export class HttpError extends Error {
   readonly status: number;
+  /** Extra JSON fields the error handler adds to the `{ error }` body (e.g. the issues of a block). */
+  readonly details?: Record<string, unknown>;
 
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, details?: Record<string, unknown>) {
     super(message);
     this.name = new.target.name;
     this.status = status;
+    this.details = details;
   }
 }
 
@@ -34,8 +37,8 @@ export class NotFoundError extends HttpError {
 
 /** The addressed resource exists but cannot be used in its current state (409). */
 export class ConflictError extends HttpError {
-  constructor(message: string) {
-    super(409, message);
+  constructor(message: string, details?: Record<string, unknown>) {
+    super(409, message, details);
   }
 }
 

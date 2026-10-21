@@ -93,27 +93,46 @@ export function printerHost(value: string | undefined): string {
 
 /**
  * The body of `POST /api/jobs/:id/send`: which printer the output goes to, under which name, whether
- * the print starts right away.
+ * the print starts right away, and – when the send gate blocked the upload – the override.
  *
  * `printerId` is only usable when it is a string – anything else means "no printer", which the route
  * answers with its 400. A `filename` that is not a string falls back to the output name of the job
  * (the old code called `.replace` on it and crashed with a 500). A field of the wrong type is *dropped*
  * rather than kept as `undefined`, so the parsed body only carries what the route can use.
+ *
+ * The override (S1-b) is `override: true` plus a written `reason` – a string, non-empty after
+ * trimming, at most 500 characters. The reason is required as soon as `override` is set: an override
+ * nobody had to explain is not an audit entry.
  */
+export const OVERRIDE_REASON_MAX = 500;
+
 export const jobSendSchema = z.preprocess(
   (v) => {
     const body = (v && typeof v === 'object' ? { ...(v as Record<string, unknown>) } : {}) as Record<string, unknown>;
-    for (const key of ['printerId', 'filename'] as const) if (key in body && typeof body[key] !== 'string') delete body[key];
+    for (const key of ['printerId', 'filename', 'reason'] as const) if (key in body && typeof body[key] !== 'string') delete body[key];
+    // `override` is a flag: the booleans and the forms a form or a script sends; anything else drops
+    if ('override' in body) {
+      const flag = body.override;
+      if (flag === true || flag === 'true' || flag === 1 || flag === '1') body.override = true;
+      else delete body.override;
+    }
     return body;
   },
-  z.looseObject({
-    printerId: z.string().optional(),
-    filename: z.string().optional(),
-    startPrint: z
-      .unknown()
-      .optional()
-      .transform((v) => !!v),
-  }),
+  z
+    .looseObject({
+      printerId: z.string().optional(),
+      filename: z.string().optional(),
+      startPrint: z
+        .unknown()
+        .optional()
+        .transform((v) => !!v),
+      override: z.boolean().optional(),
+      reason: z.string().max(OVERRIDE_REASON_MAX, `invalid override reason (at most ${OVERRIDE_REASON_MAX} characters)`).optional(),
+    })
+    .superRefine((body, ctx) => {
+      if (!body.override) return;
+      if (!body.reason?.trim()) ctx.addIssue({ code: 'custom', path: ['reason'], message: 'an override needs a reason' });
+    }),
 );
 
 /** One entry of the installed-printer list (`PUT /api/installed-printers`). */
