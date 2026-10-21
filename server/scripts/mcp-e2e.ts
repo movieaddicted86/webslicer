@@ -213,8 +213,12 @@ check(
     (quick.changed as Record<string, string>)?.brim_width === '5',
   quick,
 );
-const listed = await call(client, 'webslicer.get_option_schema', { query: 'start_gcode' });
-check('S1-a get_option_schema does not offer a key set_settings refuses', listed.ok && (listed.options as unknown[]).length === 0, listed);
+const offered = await call(client, 'webslicer.get_option_schema', { query: 'start_gcode' });
+check(
+  'S1-a get_option_schema does not offer a key set_settings refuses',
+  offered.ok && (offered.options as unknown[])?.length === 0,
+  offered,
+);
 const badSetting = await call(client, 'webslicer.set_settings', { project_id: projectId, scope: 'print', values: { no_such_option: '1' } });
 check('AC-2 an unknown option is rejected', !badSetting.ok && /Unknown option/.test(badSetting.error || ''), badSetting);
 const badType = await call(client, 'webslicer.set_settings', { project_id: projectId, scope: 'filament', values: { layer_height: '0.2' } });

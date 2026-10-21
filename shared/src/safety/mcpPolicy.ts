@@ -113,9 +113,6 @@ const MATERIAL_KEYS: ReadonlySet<string> = new Set([
 /** The explicit part of the allowlist (everything the category rule does not cover). */
 export const MCP_ALLOWLIST: ReadonlySet<string> = new Set<string>([...PRINT_MISC_KEYS, ...MATERIAL_KEYS]);
 
-/** What a refused key could be replaced by, for the message a client reads. */
-export const MCP_ALLOWED_HINT = 'process and material options only, see get_option_schema';
-
 /** The verdict for one key; `reason` is written for a model to read and correct itself. */
 export type McpKeyVerdict = { allowed: true } | { allowed: false; reason: string };
 
