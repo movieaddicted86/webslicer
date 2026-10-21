@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- Refactoring of the server internals (R-9), no behaviour change: the server logic lives behind
+  `server/src/services/` (slicing, projects, library, printers, models, config merge, autosave,
+  schema, version) and no longer knows Express; the routes only validate, call a service and answer,
+  and the MCP endpoint calls the same services instead of the routes. `jobs.ts` keeps the queue and
+  the SSE stream, the job directory moved to `jobs/persistence.ts`. Errors carry their status as a
+  type (`HttpError`/`ValidationError`/`NotFoundError`/`ConflictError` in `server/src/errors.ts`) and
+  the request paths read and write with `fs/promises`, so a large file no longer blocks the event
+  loop. Every endpoint keeps its method, path, status codes, headers and bodies – checked by the
+  HTTP contract tests and a `curl`-level smoke comparison of all 154 exchanges against the previous
+  build.
 - Code quality tooling: ESLint 9, Prettier and GitHub Actions CI. `npm run lint` checks all
   three workspaces (typescript-eslint recommended, the React hook rules for `web/`, no `any`, no
   non-null assertion as a warning until R-12), `npm run format`/`format:check` enforce the
