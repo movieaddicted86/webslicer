@@ -713,6 +713,16 @@ pre.log {
 .option.block .control textarea {
   flex: 1;
 }
+/* An option the server drops before slicing (SEC-1): read-only, with the reason. */
+.option.server-only > label {
+  color: var(--muted);
+  cursor: help;
+}
+.option.server-only .note {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
 .sidetext {
   color: var(--muted);
 }

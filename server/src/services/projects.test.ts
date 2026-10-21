@@ -82,6 +82,26 @@ test('createProject stores the presets and rejects unknown ones', async () => {
   await assert.rejects(() => newProject({ printer: { name: '  ', config: {} } }), /preset name required/);
 });
 
+test('a project does not keep the server-only slicer options (SEC-1)', async () => {
+  // the schema stub has no options, so the keys are unknown to `resolvePreset` – the point here is
+  // that the stored config is the *filtered* caller config, not a copy of the body
+  const project = await newProject({
+    print: { name: DEFAULT_PRINT, config: { post_process: 'touch /tmp/sec1-marker', layer_height: '0.25' } },
+    printer: { name: DEFAULT_PRINTER, config: { output_filename_format: '../escape.gcode', retract_length: '1' } },
+    filaments: [{ name: '- default FFF -', config: { post_process: 'touch /tmp/sec1-marker' } }],
+  });
+  assert.deepEqual(project.print.config, { layer_height: '0.25' });
+  assert.deepEqual(project.printer.config, { retract_length: '1' });
+  assert.deepEqual(project.filaments[0].config, {});
+  // and the config the slicer would see carries no trace of either key either
+  await addModelFromLibrary(project, libraryFile('cube-sec1.stl'), 1);
+  const request = toSliceRequest(project, schema);
+  for (const slot of [request.print, request.printer, ...request.filaments]) {
+    assert.ok(!('post_process' in slot.config), 'post_process survived into the slice request');
+    assert.ok(!('output_filename_format' in slot.config), 'output_filename_format survived into the slice request');
+  }
+});
+
 test('addModelFromLibrary stores the mesh, normalises it and applies the copies', async () => {
   const project = await newProject();
   const file = libraryFile('cube20.stl');

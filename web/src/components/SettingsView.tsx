@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react';
+import { SERVER_ONLY_KEYS } from '@webslicer/shared';
 import { useStore } from '../state/store';
 import { PresetSelect } from './PresetSelect';
 import { OptionField } from './OptionField';
+import { ServerOnlyOption } from './ServerOnlyOption';
 import { MODE_RANK } from '../values';
 import type { PresetType } from '../api';
 
@@ -30,6 +32,9 @@ export function SettingsView() {
   const visibleKey = (k: string) => {
     const d = schema.options[k];
     if (!d) return false;
+    // options the server drops before slicing (SEC-1) are not editable – a preset may still carry
+    // them, so they are listed read-only with the reason instead of silently doing nothing
+    if (SERVER_ONLY_KEYS.has(k)) return false;
     // hide options of the other printer technology (e.g. SLA display settings on an FFF printer)
     if (d.technology && d.technology !== 'any' && d.technology !== tech) return false;
     const r = MODE_RANK[d.mode || 'expert'];
@@ -93,7 +98,10 @@ export function SettingsView() {
             {search && <h2>{p.title}</h2>}
             {p.groups.map((g) => {
               const keys = g.keys.filter(visibleKey);
-              if (!keys.length) return null;
+              // a group may hold nothing but server-only keys (SEC-1), e.g. "Post-processing scripts":
+              // it still has to show the read-only rows, so the emptiness test counts them too
+              const serverOnly = g.keys.filter((k) => SERVER_ONLY_KEYS.has(k));
+              if (!keys.length && !serverOnly.length) return null;
               return (
                 <div key={g.title} className="group">
                   <h3>{g.title}</h3>
@@ -126,6 +134,9 @@ export function SettingsView() {
                       />
                     );
                   })}
+                  {serverOnly.map((k) => (
+                    <ServerOnlyOption key={k} def={schema.options[k]} />
+                  ))}
                 </div>
               );
             })}

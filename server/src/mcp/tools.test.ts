@@ -81,6 +81,25 @@ test('set_settings rejects unknown keys, wrong preset types and invalid values',
   assert.equal(coerceOptionValue(schema, 'print', 'print_notes', 'hello'), 'hello');
 });
 
+test('set_settings refuses the server-only keys instead of dropping them quietly (SEC-1)', () => {
+  schema.options.post_process = opt('post_process', 'strings', ['print']);
+  schema.options.output_filename_format = opt('output_filename_format', 'string', ['print']);
+  try {
+    // the refusal names the key and the reason, so a model learns the rule from the answer
+    assert.throws(
+      () => coerceOptionValue(schema, 'print', 'post_process', 'touch /tmp/x'),
+      /"post_process" cannot be set: .*command on the server/,
+    );
+    assert.throws(
+      () => coerceOptionValue(schema, 'print', 'output_filename_format', 'x.gcode'),
+      /"output_filename_format" cannot be set: .*job directory/,
+    );
+  } finally {
+    delete schema.options.post_process;
+    delete schema.options.output_filename_format;
+  }
+});
+
 test('applySettings writes the overrides into the right slot', async () => {
   const project = await newProject();
   assert.deepEqual(applySettings(schema, project, 'print', { fill_density: '30%', infill_pattern: 'gyroid' }), {

@@ -17,6 +17,7 @@ import { config } from '../config.js';
 import { NotFoundError, ValidationError } from '../errors.js';
 import { resolveLibraryPath } from './library.js';
 import { deleteModel, saveModel, setModelLifecycleHooks } from './models.js';
+import { stripServerOnly } from './serverOnly.js';
 import { defaultPresetName, resolvePreset } from '../slicer/presets.js';
 import type { IniSection } from '../slicer/ini.js';
 import { loadModelFile } from '../plater/meshes.js';
@@ -78,7 +79,9 @@ function resolveSlot(schema: Schema, type: PresetType, slot: ProjectPresetRef): 
   if (!slot || typeof slot.name !== 'string' || !slot.name.trim()) throw new ValidationError(`${type} preset name required`);
   const preset = resolvePreset(schema, type, slot.name);
   if (!preset) throw new ValidationError(`Unknown ${type} preset "${slot.name}"`);
-  return { name: preset.name, config: { ...preset.config, ...(slot.config || {}) } };
+  // the server-only keys are stripped here as well as in `mergeConfigs` (SEC-1): a project that never
+  // stores them cannot hand them to any other reader of its config either
+  return { name: preset.name, config: stripServerOnly({ ...preset.config, ...(slot.config || {}) }) };
 }
 
 /** Printer, print and filament configs of a project, with its overrides applied. */
@@ -186,15 +189,18 @@ export async function createProject(opts: {
     resolveSlot(opts.schema, 'filament', f),
   );
   const now = new Date();
+  // The *stored* config keeps only the overrides, but they are the resolved ones: `resolveSlot`
+  // strips the server-only keys (SEC-1), and the project body is still copied verbatim here on
+  // purpose – a second filter over the same input would be a place for the two to drift apart.
   const project: Project = {
     id: randomUUID(),
     owner: String(opts.owner || 'admin').slice(0, 64) || 'admin',
     createdAt: now.toISOString(),
     updatedAt: now.toISOString(),
     expiresAt: new Date(now.getTime() + PROJECT_TTL_HOURS * 3600_000).toISOString(),
-    printer: { name: printer.name, config: opts.printer.config || {} },
-    print: { name: print.name, config: opts.print.config || {} },
-    filaments: filaments.map((f, i) => ({ name: f.name, config: opts.filaments?.[i]?.config || {} })),
+    printer: { name: printer.name, config: stripServerOnly(opts.printer.config) },
+    print: { name: print.name, config: stripServerOnly(opts.print.config) },
+    filaments: filaments.map((f, i) => ({ name: f.name, config: stripServerOnly(opts.filaments?.[i]?.config) })),
     objects: [],
   };
   return saveProject(project);

@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+- **Security:** two slicer options are no longer passed on to PrusaSlicer, because the slicer acts on
+  them on the **server** rather than inside the G-code. `post_process` ("Post-processing scripts") is a
+  list of shell commands PrusaSlicer runs after the G-code export, and `output_filename_format` names
+  the output file and accepts `..`, so it could write outside the job directory; anyone able to call
+  `/api/slice`, `/api/projects/:id/slice` or the MCP `set_settings` tool could therefore run commands
+  as the service user. Both keys are now dropped from every merged config – the REST slice route, the
+  project slice, the MCP tools, the 3MF/config export and the autosave all go through the same merge –
+  and a project no longer keeps them in its stored preset config. They are _not_ rejected as input:
+  the browser's own presets, vendor bundles and 3MF projects may carry them legitimately. The MCP
+  `set_settings` tool refuses them with a message that names the reason (an agent learns the rule),
+  `get_option_schema` no longer lists them, and the settings editor shows them read-only with a note
+  instead of an editor that would have no effect. Slicing output is unchanged for every request that
+  does not set the two keys.
 - Express 5, no behaviour change: the server runs on `express` 5 (`@types/express` 5). Express 5
   forwards the rejected promise of an async handler to the error handler, so the `asyncHandler`
   wrapper that every route of `routes/api.ts`, `routes/projects.ts`, `routes/library.ts` and the MCP
