@@ -57,7 +57,11 @@ const check = (name: string, ok: boolean, detail?: unknown) => {
 async function post(body: unknown, token?: string): Promise<{ status: number; text: string }> {
   const res = await fetch(URL_MCP, {
     method: 'POST',
-    headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream', ...(token ? { authorization: `Bearer ${token}` } : {}) },
+    headers: {
+      'content-type': 'application/json',
+      accept: 'application/json, text/event-stream',
+      ...(token ? { authorization: `Bearer ${token}` } : {}),
+    },
     body: JSON.stringify(body),
   });
   return { status: res.status, text: await res.text() };
@@ -66,12 +70,18 @@ async function post(body: unknown, token?: string): Promise<{ status: number; te
 /** A connected MCP client for one token. */
 async function connect(token: string): Promise<Client> {
   const client = new Client({ name: 'webslicer-e2e', version: '1.0.0' });
-  await client.connect(new StreamableHTTPClientTransport(new URL(URL_MCP), { requestInit: { headers: { authorization: `Bearer ${token}` } } }));
+  await client.connect(
+    new StreamableHTTPClientTransport(new URL(URL_MCP), { requestInit: { headers: { authorization: `Bearer ${token}` } } }),
+  );
   return client;
 }
 
 /** Call a tool and return its JSON payload, or the error text. */
-async function call(client: Client, name: string, args: Record<string, unknown> = {}): Promise<Record<string, unknown> & { ok: boolean; error?: string }> {
+async function call(
+  client: Client,
+  name: string,
+  args: Record<string, unknown> = {},
+): Promise<Record<string, unknown> & { ok: boolean; error?: string }> {
   try {
     const res = await client.callTool({ name, arguments: args });
     const block = (res.content as Array<{ type: string; text?: string }>)[0];
@@ -118,7 +128,10 @@ if (!TOKEN) {
 console.log(`\n== ${URL_MCP} ==`);
 if (EXPECT_DISABLED) {
   const noAuth = await post({ jsonrpc: '2.0', id: 1, method: 'initialize', params: {} });
-  check('AC-1 without a configured token /mcp answers 404', noAuth.status === 404, { status: noAuth.status, body: noAuth.text.slice(0, 200) });
+  check('AC-1 without a configured token /mcp answers 404', noAuth.status === 404, {
+    status: noAuth.status,
+    body: noAuth.text.slice(0, 200),
+  });
   const withAuth = await post({ jsonrpc: '2.0', id: 1, method: 'initialize', params: {} }, TOKEN);
   check('AC-1 also with a token, when none is configured', withAuth.status === 404, { status: withAuth.status });
   report();
@@ -133,7 +146,10 @@ check('AC-1 a wrong token answers 401', wrong.status === 401, { status: wrong.st
 const client = await connect(TOKEN);
 const listed = await client.listTools();
 const names = listed.tools.map((t) => t.name);
-check('AC-5 all tools are listed', TOOL_NAMES.every((n) => names.includes(n)) && names.length === TOOL_NAMES.length, { expected: TOOL_NAMES, got: names });
+check('AC-5 all tools are listed', TOOL_NAMES.every((n) => names.includes(n)) && names.length === TOOL_NAMES.length, {
+  expected: TOOL_NAMES,
+  got: names,
+});
 check(
   'AC-5 every tool brings a JSON Schema',
   listed.tools.every((t) => !!t.inputSchema && t.inputSchema.type === 'object'),
@@ -145,7 +161,8 @@ check(
     (n) => listed.tools.find((t) => t.name === n)?.annotations?.readOnlyHint === true,
   ),
 );
-for (const t of listed.tools) console.log(`     ${t.name} (${Object.keys((t.inputSchema as { properties?: object }).properties || {}).join(', ') || 'no arguments'})`);
+for (const t of listed.tools)
+  console.log(`     ${t.name} (${Object.keys((t.inputSchema as { properties?: object }).properties || {}).join(', ') || 'no arguments'})`);
 
 // ---- the workflow of AC-2 ---------------------------------------------------
 await installPrinter();
@@ -155,13 +172,25 @@ const printerEntry = (printers.printers as Array<{ presets: string[] }> | undefi
 check('AC-2 the MK4S printer preset name is offered', !!printerEntry, { printer: PRINTER, printers: printers.printers });
 
 const prints = await call(client, 'webslicer.list_presets', { type: 'print', printer: PRINTER });
-check('AC-2 list_presets offers the print preset', prints.ok && (prints.presets as Array<{ name: string }> | undefined)?.some((p) => p.name === PRINT) === true, { print: PRINT, type: prints.type });
+check(
+  'AC-2 list_presets offers the print preset',
+  prints.ok && (prints.presets as Array<{ name: string }> | undefined)?.some((p) => p.name === PRINT) === true,
+  { print: PRINT, type: prints.type },
+);
 
 const library = await call(client, 'webslicer.list_library', { path: 'samples' });
-check('AC-2 list_library shows the calibration cube', library.ok && (library.entries as Array<{ path: string }> | undefined)?.some((e) => e.path === SAMPLES) === true, { samples: SAMPLES, entries: library.entries });
+check(
+  'AC-2 list_library shows the calibration cube',
+  library.ok && (library.entries as Array<{ path: string }> | undefined)?.some((e) => e.path === SAMPLES) === true,
+  { samples: SAMPLES, entries: library.entries },
+);
 
 const options = await call(client, 'webslicer.get_option_schema', { query: 'fill_density' });
-check('AC-2 get_option_schema knows fill_density', options.ok && (options.options as Array<{ key: string }> | undefined)?.[0]?.key === 'fill_density', options);
+check(
+  'AC-2 get_option_schema knows fill_density',
+  options.ok && (options.options as Array<{ key: string }> | undefined)?.[0]?.key === 'fill_density',
+  options,
+);
 
 const project = await call(client, 'webslicer.create_project', { printer: PRINTER, print: PRINT, filaments: [FILAMENT] });
 const projectId = project.project_id as string;
@@ -177,11 +206,21 @@ check('AC-2 arrange packs them on the bed', arranged.ok && (arranged.objects as 
 const setting = await call(client, 'webslicer.set_settings', { project_id: projectId, scope: 'print', values: { fill_density: '30%' } });
 check('AC-2 set_settings applies the infill', setting.ok && (setting.changed as Record<string, string>)?.fill_density === '30%', setting);
 const quick = await call(client, 'webslicer.quick_settings', { project_id: projectId, supports: 'everywhere', brim: true });
-check('AC-2 quick_settings sets supports and brim', quick.ok && (quick.changed as Record<string, string>)?.support_material === '1' && (quick.changed as Record<string, string>)?.brim_width === '5', quick);
+check(
+  'AC-2 quick_settings sets supports and brim',
+  quick.ok &&
+    (quick.changed as Record<string, string>)?.support_material === '1' &&
+    (quick.changed as Record<string, string>)?.brim_width === '5',
+  quick,
+);
 const badSetting = await call(client, 'webslicer.set_settings', { project_id: projectId, scope: 'print', values: { no_such_option: '1' } });
 check('AC-2 an unknown option is rejected', !badSetting.ok && /Unknown option/.test(badSetting.error || ''), badSetting);
 const badType = await call(client, 'webslicer.set_settings', { project_id: projectId, scope: 'filament', values: { layer_height: '0.2' } });
-check('AC-2 an option of another preset type is rejected', !badType.ok && /not a filament preset option/.test(badType.error || ''), badType);
+check(
+  'AC-2 an option of another preset type is rejected',
+  !badType.ok && /not a filament preset option/.test(badType.error || ''),
+  badType,
+);
 
 const sliced = await call(client, 'webslicer.slice', { project_id: projectId });
 const jobId = sliced.job_id as string;
@@ -206,13 +245,24 @@ check('AC-2 the result weighs the filament', Number(result.filament_g) > 0 && Nu
   filament_cost: result.filament_cost,
 });
 const gcode = await fetch(`${API}/api/jobs/${jobId}/gcode`);
-check('AC-2 the G-code exists in the job', gcode.status === 200 && Number(gcode.headers.get('content-length') ?? 0) > 0, { status: gcode.status, size: gcode.headers.get('content-length') });
-console.log(`     time ${result.time}, filament ${result.filament_mm} mm / ${result.filament_g} g, ${result.layers} layers, ${result.size_bytes} bytes`);
+check('AC-2 the G-code exists in the job', gcode.status === 200 && Number(gcode.headers.get('content-length') ?? 0) > 0, {
+  status: gcode.status,
+  size: gcode.headers.get('content-length'),
+});
+console.log(
+  `     time ${result.time}, filament ${result.filament_mm} mm / ${result.filament_g} g, ${result.layers} layers, ${result.size_bytes} bytes`,
+);
 
 // ---- AC-3: another owner sees nothing of that project -----------------------
 if (TOKEN_B) {
   if (TOKENS_FILE && fs.existsSync(TOKENS_FILE)) {
-    const list = JSON.parse(fs.readFileSync(TOKENS_FILE, 'utf8')) as Array<{ id: string; name: string; owner: string; hash: string; createdAt: string }>;
+    const list = JSON.parse(fs.readFileSync(TOKENS_FILE, 'utf8')) as Array<{
+      id: string;
+      name: string;
+      owner: string;
+      hash: string;
+      createdAt: string;
+    }>;
     if (!list.some((t) => t.id === 'e2e-token-b')) {
       list.push({ id: 'e2e-token-b', name: 'E2E token B', owner: 'e2e-b', hash: hashToken(TOKEN_B), createdAt: new Date().toISOString() });
       fs.writeFileSync(TOKENS_FILE, JSON.stringify(list, null, 2));
@@ -221,9 +271,9 @@ if (TOKEN_B) {
   }
   const other = await connect(TOKEN_B);
   const peek = await call(other, 'webslicer.add_model', { project_id: projectId, library_path: SAMPLES });
-  check('AC-3 token B cannot add to token A\'s project', !peek.ok && /not found/.test(peek.error || ''), peek);
+  check("AC-3 token B cannot add to token A's project", !peek.ok && /not found/.test(peek.error || ''), peek);
   const sliceB = await call(other, 'webslicer.slice', { project_id: projectId });
-  check('AC-3 token B cannot slice token A\'s project', !sliceB.ok && /not found/.test(sliceB.error || ''), sliceB);
+  check("AC-3 token B cannot slice token A's project", !sliceB.ok && /not found/.test(sliceB.error || ''), sliceB);
   const own = await call(other, 'webslicer.create_project', { printer: PRINTER, print: PRINT });
   check('AC-3 token B gets a project of its own owner', own.ok && own.owner === 'e2e-b', own);
   await other.close();
@@ -233,12 +283,39 @@ if (TOKEN_B) {
 const audit = fs.existsSync(AUDIT_LOG) ? fs.readFileSync(AUDIT_LOG, 'utf8') : '';
 const lines = audit.split('\n').filter(Boolean);
 const entries = lines.map((l) => JSON.parse(l) as { tool: string; ok: boolean; owner: string; params?: unknown; error?: string });
-const called = ['webslicer.list_printers', 'webslicer.create_project', 'webslicer.add_model', 'webslicer.arrange', 'webslicer.set_settings', 'webslicer.quick_settings', 'webslicer.slice', 'webslicer.get_job'];
-check('AC-4 every tool call is in the audit log', called.every((t) => entries.some((e) => e.tool === t)), { missing: called.filter((t) => !entries.some((e) => e.tool === t)), entries: entries.length });
-check('AC-4 a failed call is logged as failed', entries.some((e) => !e.ok && /Unknown option/.test(e.error || '')), entries.filter((e) => !e.ok).slice(-3));
+const called = [
+  'webslicer.list_printers',
+  'webslicer.create_project',
+  'webslicer.add_model',
+  'webslicer.arrange',
+  'webslicer.set_settings',
+  'webslicer.quick_settings',
+  'webslicer.slice',
+  'webslicer.get_job',
+];
+check(
+  'AC-4 every tool call is in the audit log',
+  called.every((t) => entries.some((e) => e.tool === t)),
+  { missing: called.filter((t) => !entries.some((e) => e.tool === t)), entries: entries.length },
+);
+check(
+  'AC-4 a failed call is logged as failed',
+  entries.some((e) => !e.ok && /Unknown option/.test(e.error || '')),
+  entries.filter((e) => !e.ok).slice(-3),
+);
 check('AC-4 no token in the audit log', !!TOKEN && !audit.includes(TOKEN) && (!TOKEN_B || !audit.includes(TOKEN_B)));
-check('AC-4 the log carries the owner, not the token', entries.every((e) => typeof e.owner === 'string' && e.owner.length > 0));
-check('AC-4 no API key or Authorization header in the log', !/bearer\s|api[-_]?key["':]\s*"[^"]/i.test(audit), audit.split('\n').filter((l) => /bearer|api[-_]?key/i.test(l)).slice(0, 3));
+check(
+  'AC-4 the log carries the owner, not the token',
+  entries.every((e) => typeof e.owner === 'string' && e.owner.length > 0),
+);
+check(
+  'AC-4 no API key or Authorization header in the log',
+  !/bearer\s|api[-_]?key["':]\s*"[^"]/i.test(audit),
+  audit
+    .split('\n')
+    .filter((l) => /bearer|api[-_]?key/i.test(l))
+    .slice(0, 3),
+);
 console.log(`     ${entries.length} audit entries in ${AUDIT_LOG}`);
 console.log(`     last: ${JSON.stringify(entries[entries.length - 1])}`);
 

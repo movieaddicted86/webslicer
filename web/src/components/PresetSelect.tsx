@@ -12,7 +12,11 @@ interface Props {
  * Like PrusaSlicer, system presets that share an alias ("Prusament PLA @MK4S HF0.4" and
  * "Prusament PLA @HF0.4" → "Prusament PLA") are shown once; the first compatible one is used.
  */
-function collapseAliases(list: PresetSummary[], currentName: string, showIncompatible: boolean): Array<{ value: string; label: string; p: PresetSummary }> {
+function collapseAliases(
+  list: PresetSummary[],
+  currentName: string,
+  showIncompatible: boolean,
+): Array<{ value: string; label: string; p: PresetSummary }> {
   const out: Array<{ value: string; label: string; p: PresetSummary }> = [];
   const seenAlias = new Set<string>();
   for (const p of list) {
@@ -104,7 +108,9 @@ export function PresetSelect({ type, slot, extruderIdx = 0, label }: Props) {
             className="icon"
             title="Delete user preset"
             aria-label="Delete user preset"
-            onClick={() => confirm(`Delete preset "${slot.name}"?`) && deletePreset(type, slot.name).catch((e) => toast('error', e.message))}
+            onClick={() =>
+              confirm(`Delete preset "${slot.name}"?`) && deletePreset(type, slot.name).catch((e) => toast('error', e.message))
+            }
           >
             🗑
           </button>

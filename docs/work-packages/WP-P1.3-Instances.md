@@ -1,12 +1,12 @@
 # Work package P1.3 – Instances
 
-| | |
-|---|---|
-| Package id | `p1.3-instances` (branch `feature/p1.3-instances`) |
-| Roadmap | `TODO.md` → P1 item 3 |
-| Base | `main` at commit `b6dce81` or later |
+|            |                                                                  |
+| ---------- | ---------------------------------------------------------------- |
+| Package id | `p1.3-instances` (branch `feature/p1.3-instances`)               |
+| Roadmap    | `TODO.md` → P1 item 3                                            |
+| Base       | `main` at commit `b6dce81` or later                              |
 | Read first | [CONVENTIONS.md](CONVENTIONS.md) (binding), this file completely |
-| Estimate | 6 phases, one commit each |
+| Estimate   | 6 phases, one commit each                                        |
 
 Line numbers below refer to `b6dce81`; search for the named symbol if they moved.
 
@@ -21,21 +21,25 @@ one. "Duplicate" (⧉, independent copies) keeps working as today.
 
 **US-1 Add / remove instances.** As a user I press `+` (or the toolbar button) to add an instance of
 the selected object and `-` to remove the last one.
+
 - AC-1.1 `+` adds one instance, placed on free bed space (arrange), the new instance is selected.
 - AC-1.2 `-` removes the last instance; with one instance left, `-` does nothing.
 - AC-1.3 Both are undoable with Ctrl+Z / Ctrl+Y and mark the plater as changed (`sliceDirty`).
 
 **US-2 Set number of instances.** In the object manipulation panel I type a number of instances.
+
 - AC-2.1 Field "Instances" accepts 1–1000; more instances are added and arranged, surplus ones are
   removed from the end. Invalid input is rejected without changing the plater.
 
 **US-3 Fill bed.** "Fill bed with instances" adds as many instances as fit on the bed.
+
 - AC-3.1 After the action all instances of all objects lie inside the bed (no red "outside" state)
   and adding one more instance would not fit (within the packing algorithm of `arrange`).
 
 **US-4 Per-instance transform.** In the object list I expand an object with ≥2 instances and select
 "Instance 2"; moving/rotating/scaling (gizmo or numeric fields) changes only that instance.
-- AC-4.1 Clicking an instance in the 3D view selects the object *and* that instance.
+
+- AC-4.1 Clicking an instance in the 3D view selects the object _and_ that instance.
 - AC-4.2 Selecting the object row edits instance 1. The numeric fields show the selected instance.
 - AC-4.3 Place on face (F) and "drop to bed" act on the selected instance.
 - AC-4.4 `Del` on a selected instance removes that instance (if more than one), otherwise the object.
@@ -46,6 +50,7 @@ the selected object and `-` to remove the last one.
 visible on all instances immediately.
 
 **US-6 Slicing.** Slicing an object with n instances prints n copies.
+
 - AC-6.1 The G-code has n copies: preview shows them; filament use ≈ n × single copy (±5 %).
 - AC-6.2 The job 3MF (and "Save project") contains **one** `<object>` with n `<item>`s in
   `<build>` and `instances_count="n"` in `Metadata/Slic3r_PE_model.config`, so desktop
@@ -65,14 +70,14 @@ mirror (P1.4 builds on per-instance scale), cut/split.
 ```ts
 // web/src/state/store.ts
 export interface PlaterInstance {
-  id: string;                          // 'inst-N', module counter like obj-/vol-/rng-
+  id: string; // 'inst-N', module counter like obj-/vol-/rng-
   position: [number, number, number];
-  rotation: [number, number, number];  // Euler XYZ, radians
+  rotation: [number, number, number]; // Euler XYZ, radians
   scale: [number, number, number];
 }
 export interface PlaterObject {
   // … as today, but WITHOUT position/rotation/scale …
-  instances: PlaterInstance[];         // always ≥ 1
+  instances: PlaterInstance[]; // always ≥ 1
 }
 ```
 
@@ -119,15 +124,16 @@ instances?: number[][];     // NEW: all instance transforms incl. the first, col
 
 ### 3.4 Import (web/src/importFiles.ts)
 
-Current code maps `loadModelFile()` result *i* to project object *i* (importFiles.ts:39). That is
+Current code maps `loadModelFile()` result _i_ to project object _i_ (importFiles.ts:39). That is
 already wrong for files with instances: three's `ThreeMFLoader` returns **one mesh per build item**
 (in build order) with the item transform baked into the geometry (loaders.ts:72, collectMeshes).
 
 New behaviour for 3MF projects:
-1. Use `buildOrder` to find, for each project object, the first build item *k* and its loaded mesh.
-2. Un-bake: apply the inverse of the item-*k* transform to that geometry → object coordinates.
-3. `addObjects` normalises geometry by an offset *c* (centre XY, min Z = 0, store.ts:742). The
-   world matrix of instance *j* is therefore `T_item_j · Translate(c)`. Decompose it into
+
+1. Use `buildOrder` to find, for each project object, the first build item _k_ and its loaded mesh.
+2. Un-bake: apply the inverse of the item-_k_ transform to that geometry → object coordinates.
+3. `addObjects` normalises geometry by an offset _c_ (centre XY, min Z = 0, store.ts:742). The
+   world matrix of instance _j_ is therefore `T_item_j · Translate(c)`. Decompose it into
    position / quaternion→Euler XYZ / scale. Pass the instances to `addObjects` (extend
    `ImportItem` with `instances?: Array<{position, rotation, scale}>` or matrices) and keep
    `keepPositions` behaviour.
@@ -145,7 +151,7 @@ Autosave restore uses the same path (`restoreAutosave` → `importFiles`), so it
   selects both. The TransformControls gizmo attaches to the selected instance node and writes via
   `updateInstance`.
 - Paint strokes (≈ Viewer.tsx:460–495) raycast against the hit instance and convert the hit
-  point with *that* instance's matrix; the painted triangle indices are the same for all instances.
+  point with _that_ instance's matrix; the painted triangle indices are the same for all instances.
 - Outside-bed highlight per instance (`objectIsOutside` → check per instance).
 - Thumbnails need no change (they render the objects group).
 
@@ -178,10 +184,12 @@ Commit after each phase; every phase must leave the app working (definition of d
 CONVENTIONS §5 applies per phase, docs only in phase 6).
 
 ### Phase 0 – Baseline
+
 - Create the branch. Run both type checks, `npm test`, `npm run build`, start Docker + Vite.
 - Note the baseline test results in your report. No commit.
 
 ### Phase 1 – Data model refactor, behaviour unchanged
+
 - Introduce `PlaterInstance`, `instances[]`, the helpers and `updateInstance`; every object has
   exactly one instance. Replace all uses of `o.position/rotation/scale`, `objectMatrix`,
   `objectBounds` (store.ts ≈ 28 places, Sidebar.tsx ≈ 18, Viewer.tsx ≈ 12 – grep for them).
@@ -190,6 +198,7 @@ CONVENTIONS §5 applies per phase, docs only in phase 6).
 - Commit: `Plater: move object transforms into instances (p1.3-instances)`
 
 ### Phase 2 – Server: request, 3MF writer and reader
+
 - Implement 3.2 and 3.3 incl. validation and the mirrored web types (`web/src/api.ts`).
 - Unit tests in `threemf.test.ts`:
   - writer: object with 3 instances → 1 `<object>`, 3 `<item objectid="1">` with the 3 transforms,
@@ -202,6 +211,7 @@ CONVENTIONS §5 applies per phase, docs only in phase 6).
 - Commit: `Server: write and read 3MF instances (p1.3-instances)`
 
 ### Phase 3 – Store actions, viewer, arrange
+
 - Implement the actions of 3.1, viewer per-instance nodes (3.5), arrange per instance and fill bed
   (3.6). `buildSliceRequest` sends `instances`.
 - Move the shelf packing out of `arrange` into a pure, dependency-free module
@@ -218,12 +228,14 @@ CONVENTIONS §5 applies per phase, docs only in phase 6).
 - Commit: `Plater: instances in store, viewer and arrange (p1.3-instances)`
 
 ### Phase 4 – UI
+
 - Toolbar buttons, object list sub-rows, manipulation fields, keyboard, shortcut help (3.7),
   "Set as separate object".
 - Browser checks for AC-1.x, 2.1, 3.1, 4.1–4.5, 5. Paint support on instance 2 → visible on all.
 - Commit: `UI: instance controls in object list, manipulation panel and keys (p1.3-instances)`
 
 ### Phase 5 – Projects, autosave, PrusaSlicer files
+
 - Implement 3.4. Checks:
   - Save project with 2 objects (3 + 1 instances) to the library, delete all, open → same layout.
   - Autosave: reload the tab → restore → same layout.
@@ -234,6 +246,7 @@ CONVENTIONS §5 applies per phase, docs only in phase 6).
 - Commit: `Import: restore instances from 3MF projects and autosave (p1.3-instances)`
 
 ### Phase 6 – Docs and handover
+
 - `CHANGELOG.md` Unreleased bullet; `TODO.md` P1 item 3 `[x]`; `docs/Feature-Comparison.md`
   instances row → ✅ with a short note; new `docs/UAT.md` case **UAT-20 Instances** (steps from
   AC-1 to AC-7 in one table row, same style as UAT-19).
@@ -243,7 +256,7 @@ CONVENTIONS §5 applies per phase, docs only in phase 6).
 ## 5. Pitfalls (read before coding)
 
 - `objectBounds` is used for drop-to-bed, arrange and the outside check – decide per call site
-  whether it means *one instance* or *the whole object*.
+  whether it means _one instance_ or _the whole object_.
 - Euler angles: keep `'XYZ'` order everywhere (store.ts:326); decomposing an imported matrix with
   non-uniform scale and rotation can produce shear – accept the decomposition, do not try to fix
   the mesh.

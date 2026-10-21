@@ -46,7 +46,8 @@ export function useKeyboardShortcuts(onCamera: (req: CamRequest) => void, toggle
         const o = st.objects.find((x) => x.id === st.selectedIds[0]);
         if (st.selectedVolumeId && st.selectedIds.length === 1) st.removeVolume(st.selectedIds[0], st.selectedVolumeId);
         // AC-4.4: Del removes the instance that was picked; without one the whole object goes
-        else if (st.selectedIds.length === 1 && o && pickedInstanceId(st, o) && o.instances.length > 1) st.removeInstance(o.id, st.selectedInstanceId);
+        else if (st.selectedIds.length === 1 && o && pickedInstanceId(st, o) && o.instances.length > 1)
+          st.removeInstance(o.id, st.selectedInstanceId);
         else if (st.selectedIds.length) st.removeObjects(st.selectedIds);
       } else if (matchesShortcut(e, 'addInstance')) {
         if (st.selectedIds.length === 1) st.addInstances(st.selectedIds[0]);

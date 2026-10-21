@@ -26,7 +26,11 @@ export interface FieldDraft {
  * it, so a half-typed "12" does not jump back to "1", and blur puts the store value back. Such a
  * field also drops a stale draft when it is entered again, so it always starts from the store.
  */
-export function useFieldDraft(value: string, onApply: (text: string) => void, { apply = 'commit', keepText = false }: { apply?: FieldApply; keepText?: boolean } = {}): FieldDraft {
+export function useFieldDraft(
+  value: string,
+  onApply: (text: string) => void,
+  { apply = 'commit', keepText = false }: { apply?: FieldApply; keepText?: boolean } = {},
+): FieldDraft {
   // a draft is only shown for the fields that keep it – the plater fields stay plain controlled
   const showsDraft = keepText || apply === 'commit';
   const [draft, setDraft] = useState<string | null>(null);

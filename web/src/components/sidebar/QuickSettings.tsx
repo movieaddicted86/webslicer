@@ -51,7 +51,11 @@ export function QuickSettings() {
             </option>
           ))}
         </select>
-        <select value={c.fill_pattern || 'grid'} onChange={(e) => setOption('print', 'fill_pattern', e.target.value)} title="Infill pattern">
+        <select
+          value={c.fill_pattern || 'grid'}
+          onChange={(e) => setOption('print', 'fill_pattern', e.target.value)}
+          title="Infill pattern"
+        >
           {(useStore.getState().schema?.options.fill_pattern?.enumValues || ['grid']).map((p) => (
             <option key={p} value={p}>
               {p}

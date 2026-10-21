@@ -30,8 +30,18 @@ export function RangePanel({ o }: { o: PlaterObject }) {
           </div>
           {o.ranges.map((r) => (
             <div key={r.id} className={`range-row ${r.maxZ > r.minZ ? '' : 'invalid'}`}>
-              <NumericField text={String(r.minZ)} step={0.5} apply="input" onText={(t) => updateRange(o.id, r.id, { minZ: num(t, r.minZ) })} />
-              <NumericField text={String(r.maxZ)} step={0.5} apply="input" onText={(t) => updateRange(o.id, r.id, { maxZ: num(t, r.maxZ) })} />
+              <NumericField
+                text={String(r.minZ)}
+                step={0.5}
+                apply="input"
+                onText={(t) => updateRange(o.id, r.id, { minZ: num(t, r.minZ) })}
+              />
+              <NumericField
+                text={String(r.maxZ)}
+                step={0.5}
+                apply="input"
+                onText={(t) => updateRange(o.id, r.id, { maxZ: num(t, r.maxZ) })}
+              />
               <NumericField
                 text={r.config.layer_height ?? ''}
                 step={0.05}
@@ -44,7 +54,12 @@ export function RangePanel({ o }: { o: PlaterObject }) {
                   updateRange(o.id, r.id, { config: c });
                 }}
               />
-              <button className="icon" title="Settings for this range" aria-label="Settings for this range" onClick={() => openDialog('objectSettings', { objectId: o.id, rangeId: r.id })}>
+              <button
+                className="icon"
+                title="Settings for this range"
+                aria-label="Settings for this range"
+                onClick={() => openDialog('objectSettings', { objectId: o.id, rangeId: r.id })}
+              >
                 ⚙{Object.keys(r.config).filter((k) => k !== 'layer_height').length ? '•' : ''}
               </button>
               <button className="icon" title="Remove range" aria-label="Remove range" onClick={() => removeRange(o.id, r.id)}>

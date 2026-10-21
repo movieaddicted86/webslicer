@@ -11,7 +11,10 @@ import { loadModelBuffer } from './meshes.js';
 import { IDENTITY, translate } from '@webslicer/shared';
 
 /** A tetrahedron – the smallest mesh with a volume. */
-const TETRA = { vertices: Float32Array.from([0, 0, 0, 10, 0, 0, 0, 10, 0, 0, 0, 5]), indices: Uint32Array.from([0, 2, 1, 0, 1, 3, 1, 2, 3, 2, 0, 3]) };
+const TETRA = {
+  vertices: Float32Array.from([0, 0, 0, 10, 0, 0, 0, 10, 0, 0, 0, 5]),
+  indices: Uint32Array.from([0, 2, 1, 0, 1, 3, 1, 2, 3, 2, 0, 3]),
+};
 
 /** Minimal foreign 3MF: exactly what the spec requires, with a transform-less build item. */
 async function minimal3mf(model: string): Promise<Buffer> {

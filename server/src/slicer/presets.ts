@@ -216,7 +216,7 @@ export function listPresets(schema: Schema, type: PresetType, opts: ListOptions 
   };
 
   const compat = (cfg: IniSection): boolean | undefined => {
-    if (type === 'printer' || type === 'sla_material' && !opts.printerConfig) return undefined;
+    if (type === 'printer' || (type === 'sla_material' && !opts.printerConfig)) return undefined;
     if (!opts.printerConfig || !opts.printerName) return undefined;
     if (!isCompatibleWithPrinter(cfg, opts.printerName, opts.printerConfig)) return false;
     if (type === 'filament' && opts.printName && opts.printConfig) {

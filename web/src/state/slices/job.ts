@@ -92,7 +92,9 @@ export const createJobSlice: StateCreator<State, [], [], JobSlice> = (set, get) 
       if (specs.length) {
         try {
           const colDef = s.schema?.options.filament_colour;
-          const colors = s.presets.filament.map((f) => (colDef ? decodeVector(colDef, f.current.filament_colour)[0] : f.current.filament_colour) || '');
+          const colors = s.presets.filament.map(
+            (f) => (colDef ? decodeVector(colDef, f.current.filament_colour)[0] : f.current.filament_colour) || '',
+          );
           req.thumbnails = s.renderThumbnails(specs, colors);
         } catch (e) {
           console.warn('thumbnail rendering failed', e);
@@ -104,11 +106,15 @@ export const createJobSlice: StateCreator<State, [], [], JobSlice> = (set, get) 
       set({ job, jobLog: [], sliceDirty: false, view: 'preview' });
       api.jobEvents(job.id, (ev) => {
         if (ev.type === 'log' && ev.line) set((st) => ({ jobLog: [...st.jobLog.slice(-400), ev.line!] }));
-        if (ev.type === 'progress') set((st) => (st.job ? { job: { ...st.job, percent: ev.percent ?? st.job.percent, message: ev.message ?? st.job.message } } : {}));
+        if (ev.type === 'progress')
+          set((st) => (st.job ? { job: { ...st.job, percent: ev.percent ?? st.job.percent, message: ev.message ?? st.job.message } } : {}));
         if (ev.job) set({ job: ev.job });
         if (ev.type === 'done' && ev.job) {
           get().toast('success', `Slicing finished: ${ev.job.outputName}`);
-          if (ev.job.outputName.endsWith('.gcode')) get().loadGcodePreview(ev.job.id).catch((e) => get().toast('error', e.message));
+          if (ev.job.outputName.endsWith('.gcode'))
+            get()
+              .loadGcodePreview(ev.job.id)
+              .catch((e) => get().toast('error', e.message));
         }
         if (ev.type === 'error') get().toast('error', `Slicing failed: ${ev.message || 'unknown error'}`);
       });
@@ -139,11 +145,22 @@ export const createJobSlice: StateCreator<State, [], [], JobSlice> = (set, get) 
       return out;
     };
     const printerName = cfg.printer_settings_id;
-    if (printerName) await get().selectPreset('printer', printerName).catch(() => undefined);
+    if (printerName)
+      await get()
+        .selectPreset('printer', printerName)
+        .catch(() => undefined);
     const printName = cfg.print_settings_id;
-    if (printName) await get().selectPreset('print', printName).catch(() => undefined);
-    const filNames = cfg.filament_settings_id ? decodeVector((schema.options.filament_settings_id || { type: 'strings' }) as never, cfg.filament_settings_id) : [];
-    for (let i = 0; i < filNames.length; i++) await get().selectPreset('filament', filNames[i], i).catch(() => undefined);
+    if (printName)
+      await get()
+        .selectPreset('print', printName)
+        .catch(() => undefined);
+    const filNames = cfg.filament_settings_id
+      ? decodeVector((schema.options.filament_settings_id || { type: 'strings' }) as never, cfg.filament_settings_id)
+      : [];
+    for (let i = 0; i < filNames.length; i++)
+      await get()
+        .selectPreset('filament', filNames[i], i)
+        .catch(() => undefined);
     const printerCfg = pick('printer');
     const printCfg = pick('print');
     const filCfg = pick('filament');
@@ -158,7 +175,13 @@ export const createJobSlice: StateCreator<State, [], [], JobSlice> = (set, get) 
             if (!def) continue;
             const vals = decodeVector(def, v);
             const mine = vals[Math.min(i, vals.length - 1)];
-            if (mine !== undefined) c[k] = def.type === 'strings' ? (mine.match(/[ ;\t\\"\r\n]/) || mine === '' ? `"${mine.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n')}"` : mine) : mine;
+            if (mine !== undefined)
+              c[k] =
+                def.type === 'strings'
+                  ? mine.match(/[ ;\t\\"\r\n]/) || mine === ''
+                    ? `"${mine.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n')}"`
+                    : mine
+                  : mine;
           }
           return { ...f, current: c };
         }),

@@ -16,7 +16,17 @@ import type { OptionDef, PresetType, Schema } from '@webslicer/shared';
 import { defaultPresetName, getInstalledPrinters, listPresets, resolvePreset } from '../slicer/presets.js';
 import { listLibrary } from '../routes/library.js';
 import { validateSliceRequest } from '../routes/api.js';
-import { PROJECT_TTL_HOURS, addModelFromLibrary, arrange, createProject, listProjects, loadProject, toSliceRequest, touchProject, type Project } from '../plater/project.js';
+import {
+  PROJECT_TTL_HOURS,
+  addModelFromLibrary,
+  arrange,
+  createProject,
+  listProjects,
+  loadProject,
+  toSliceRequest,
+  touchProject,
+  type Project,
+} from '../plater/project.js';
 
 /** live projects a single token may own */
 export const MAX_PROJECTS_PER_OWNER = 20;
@@ -62,7 +72,9 @@ function defineTool<S extends z.ZodObject<z.ZodRawShape>>(def: {
       // the SDK has validated the call already; this is the typed view of the same arguments
       const parsed = def.input.safeParse(raw ?? {});
       if (!parsed.success) {
-        throw toolError(`Invalid arguments: ${parsed.error.issues.map((i) => `${i.path.join('.') || 'arguments'}: ${i.message}`).join('; ')}`);
+        throw toolError(
+          `Invalid arguments: ${parsed.error.issues.map((i) => `${i.path.join('.') || 'arguments'}: ${i.message}`).join('; ')}`,
+        );
       }
       return def.handler(parsed.data, ctx);
     },
@@ -152,7 +164,8 @@ export function coerceOptionValue(schema: Schema, type: PresetType, key: string,
       if (!everyPart(text, BOOL)) throw toolError(`Option "${key}" expects 0/1 values`);
       return text;
     case 'enum':
-      if (opt.enumValues?.length && !opt.enumValues.includes(text)) throw toolError(`Option "${key}" must be one of: ${opt.enumValues.join(', ')}`);
+      if (opt.enumValues?.length && !opt.enumValues.includes(text))
+        throw toolError(`Option "${key}" must be one of: ${opt.enumValues.join(', ')}`);
       return text;
     case 'int':
       if (!INT.test(text)) throw toolError(`Option "${key}" expects an integer`);
@@ -172,7 +185,8 @@ export function coerceOptionValue(schema: Schema, type: PresetType, key: string,
       return text;
     case 'percents':
     case 'floats_or_percents':
-      if (!everyPart(text, PERCENT)) throw toolError(`Option "${key}" expects numbers (one per extruder, comma separated, percents may end with "%")`);
+      if (!everyPart(text, PERCENT))
+        throw toolError(`Option "${key}" expects numbers (one per extruder, comma separated, percents may end with "%")`);
       return text;
     default:
       return text; // strings, points, points3
@@ -180,7 +194,12 @@ export function coerceOptionValue(schema: Schema, type: PresetType, key: string,
 }
 
 /** Apply validated values to a preset slot of the project (they become the project's overrides). */
-export function applySettings(schema: Schema, project: Project, scope: string, values: Record<string, string | number | boolean>): Record<string, string> {
+export function applySettings(
+  schema: Schema,
+  project: Project,
+  scope: string,
+  values: Record<string, string | number | boolean>,
+): Record<string, string> {
   const { type, index } = scopeOf(scope);
   const keys = Object.keys(values);
   if (!keys.length) throw toolError('values must not be empty');
@@ -260,7 +279,12 @@ export const TOOLS: AnyTool[] = [
       if (args.printer !== undefined && !printerCfg) throw toolError(`Unknown printer preset "${args.printer}"`, 404);
       const printCfg = args.print === undefined ? undefined : resolvePreset(schema, 'print', args.print)?.config;
       if (args.print !== undefined && !printCfg) throw toolError(`Unknown print preset "${args.print}"`, 404);
-      const list = listPresets(schema, args.type, { printerName: args.printer, printerConfig: printerCfg, printName: args.print, printConfig: printCfg });
+      const list = listPresets(schema, args.type, {
+        printerName: args.printer,
+        printerConfig: printerCfg,
+        printName: args.print,
+        printConfig: printCfg,
+      });
       return {
         type: args.type,
         count: list.length,
@@ -296,13 +320,22 @@ export const TOOLS: AnyTool[] = [
         const key = o.key.toLowerCase();
         if (key === needle) return 0;
         if (key.includes(needle)) return 1;
-        if (String(o.label || '').toLowerCase().includes(needle)) return 2;
+        if (
+          String(o.label || '')
+            .toLowerCase()
+            .includes(needle)
+        )
+          return 2;
         return 3;
       };
       const all = Object.values(schema.options).filter((o) => {
         if (args.type && !o.presetTypes.includes(args.type)) return false;
         if (!needle) return true;
-        return [o.key, o.label, o.category, o.tooltip].some((f) => String(f || '').toLowerCase().includes(needle));
+        return [o.key, o.label, o.category, o.tooltip].some((f) =>
+          String(f || '')
+            .toLowerCase()
+            .includes(needle),
+        );
       });
       if (needle) all.sort((a, b) => rank(a) - rank(b));
       return {
@@ -333,7 +366,14 @@ export const TOOLS: AnyTool[] = [
       const listing = listLibrary(args.path || '');
       return {
         path: listing.path,
-        entries: listing.entries.map((e) => ({ name: e.name, path: e.path, dir: e.dir, kind: e.kind ?? null, size_bytes: e.size ?? null, modified: e.mtime ?? null })),
+        entries: listing.entries.map((e) => ({
+          name: e.name,
+          path: e.path,
+          dir: e.dir,
+          kind: e.kind ?? null,
+          size_bytes: e.size ?? null,
+          modified: e.mtime ?? null,
+        })),
       };
     },
   }),
@@ -352,7 +392,9 @@ export const TOOLS: AnyTool[] = [
       const schema = await schemaOf();
       const live = listProjects().filter((p) => p.owner === ctx.owner);
       if (live.length >= MAX_PROJECTS_PER_OWNER) {
-        throw toolError(`Too many live projects (${MAX_PROJECTS_PER_OWNER}); one of them expires ${PROJECT_TTL_HOURS} h after its last use`);
+        throw toolError(
+          `Too many live projects (${MAX_PROJECTS_PER_OWNER}); one of them expires ${PROJECT_TTL_HOURS} h after its last use`,
+        );
       }
       const project = createProject({
         schema,
@@ -368,7 +410,8 @@ export const TOOLS: AnyTool[] = [
   defineTool({
     name: 'webslicer.add_model',
     title: 'Add model',
-    description: 'Add a model from the library to the project (STL or 3MF; a 3MF keeps its objects and their places). `copies` repeats each model.',
+    description:
+      'Add a model from the library to the project (STL or 3MF; a 3MF keeps its objects and their places). `copies` repeats each model.',
     readOnly: false,
     input: z.object({
       project_id: z.string(),
@@ -394,7 +437,8 @@ export const TOOLS: AnyTool[] = [
   defineTool({
     name: 'webslicer.set_settings',
     title: 'Set settings',
-    description: 'Change slicer settings of a project: scope "print", "printer", "filament" or "filament[<index>]". Keys and values are validated against the slicer schema (see get_option_schema).',
+    description:
+      'Change slicer settings of a project: scope "print", "printer", "filament" or "filament[<index>]". Keys and values are validated against the slicer schema (see get_option_schema).',
     readOnly: false,
     input: z.object({
       project_id: z.string(),

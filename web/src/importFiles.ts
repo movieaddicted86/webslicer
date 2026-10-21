@@ -52,7 +52,10 @@ export async function importFiles(files: FileList | File[]) {
           const itemGeoms = buildOrder.length ? load3mfBuildItems(await f.arrayBuffer()) : [];
           // every build item must point at a known project object (a file without the model config
           // reports buildOrder [-1], which must fall through to the plain mesh import below)
-          const mapped = itemGeoms.length === buildOrder.length && proj.objects.length > 0 && buildOrder.every((oi) => oi >= 0 && oi < proj.objects.length);
+          const mapped =
+            itemGeoms.length === buildOrder.length &&
+            proj.objects.length > 0 &&
+            buildOrder.every((oi) => oi >= 0 && oi < proj.objects.length);
           if (mapped) {
             const imported: ImportItem[] = [];
             // one plater object per project object, from its FIRST build item (the later items of the
@@ -76,7 +79,10 @@ export async function importFiles(files: FileList | File[]) {
               };
               // restore sub-volumes (parts, modifiers, support enforcers/blockers) from the triangle ranges
               if (po.volumes.length > 1) {
-                const parts = splitGeometryByRanges(geometry, po.volumes.map((v) => [v.first, v.last] as [number, number]));
+                const parts = splitGeometryByRanges(
+                  geometry,
+                  po.volumes.map((v) => [v.first, v.last] as [number, number]),
+                );
                 const mainIdx = Math.max(
                   0,
                   po.volumes.findIndex((v) => v.type === 'ModelPart'),
@@ -90,7 +96,13 @@ export async function importFiles(files: FileList | File[]) {
                   item.mmuPaint = po.mmuPaint?.slice(mv.first, mv.last + 1);
                 }
                 item.volumes = po.volumes
-                  .map((v, vi) => ({ name: v.name || VOLUME_LABELS[v.type], type: v.type, geometry: parts[vi], config: v.config, extruder: v.extruder }))
+                  .map((v, vi) => ({
+                    name: v.name || VOLUME_LABELS[v.type],
+                    type: v.type,
+                    geometry: parts[vi],
+                    config: v.config,
+                    extruder: v.extruder,
+                  }))
                   .filter((_, vi) => vi !== mainIdx);
                 const mainVol = po.volumes[mainIdx];
                 if (mainVol?.extruder && !item.extruder) item.extruder = mainVol.extruder;

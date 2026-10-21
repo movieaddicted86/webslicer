@@ -79,7 +79,10 @@ test('an instance position is M_j · c – with a non-zero Z offset, not the off
   // and not `c + t` (the P1.3 mistake `cx + x`): the two differ by a visible distance
   const naive = [c[0] + m[12], c[1] + m[13], c[2] + m[14]];
   const cur = instances[0].slice(12, 15);
-  assert.ok(Math.hypot(cur[0] - naive[0], cur[1] - naive[1], cur[2] - naive[2]) > 1, `position ${cur.join(',')} is the naive offset sum ${naive.join(',')}`);
+  assert.ok(
+    Math.hypot(cur[0] - naive[0], cur[1] - naive[1], cur[2] - naive[2]) > 1,
+    `position ${cur.join(',')} is the naive offset sum ${naive.join(',')}`,
+  );
   // the whole instance transform is T_j · Translate(c): every vertex stays where the file had it
   for (let i = 0; i < RAISED.length; i += 3) {
     closePoint(apply(instances[0], vertices[i], vertices[i + 1], vertices[i + 2]), apply(m, RAISED[i], RAISED[i + 1], RAISED[i + 2]));

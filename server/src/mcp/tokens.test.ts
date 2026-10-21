@@ -14,7 +14,17 @@ process.env.DATA_DIR = DATA_DIR;
 delete process.env.MCP_TOKEN;
 
 const { config, ensureDirs } = await import('../config.js');
-const { ENV_TOKEN_ID, authenticate, authenticateHeader, bootstrapEnvToken, hashToken, loadTokens, mcpEnabled, saveTokens, verifyTokenHash } = await import('./tokens.js');
+const {
+  ENV_TOKEN_ID,
+  authenticate,
+  authenticateHeader,
+  bootstrapEnvToken,
+  hashToken,
+  loadTokens,
+  mcpEnabled,
+  saveTokens,
+  verifyTokenHash,
+} = await import('./tokens.js');
 const { appendAudit, readAudit, sanitizeParams } = await import('./audit.js');
 
 before(() => ensureDirs());
@@ -123,8 +133,25 @@ test('the audit log records a call without secrets', () => {
   fs.rmSync(config.auditLog, { force: true });
   assert.deepEqual(readAudit(), []);
 
-  appendAudit({ time: 'now', token: ENV_TOKEN_ID, owner: 'admin', tool: 'webslicer.slice', params: { project_id: 'p1' }, ok: true, durationMs: 3 });
-  appendAudit({ time: 'now', token: ENV_TOKEN_ID, owner: 'admin', tool: 'webslicer.add_model', params: { library_path: 'x.stl' }, ok: false, error: 'not found', durationMs: 1 });
+  appendAudit({
+    time: 'now',
+    token: ENV_TOKEN_ID,
+    owner: 'admin',
+    tool: 'webslicer.slice',
+    params: { project_id: 'p1' },
+    ok: true,
+    durationMs: 3,
+  });
+  appendAudit({
+    time: 'now',
+    token: ENV_TOKEN_ID,
+    owner: 'admin',
+    tool: 'webslicer.add_model',
+    params: { library_path: 'x.stl' },
+    ok: false,
+    error: 'not found',
+    durationMs: 1,
+  });
   const entries = readAudit();
   assert.equal(entries.length, 2);
   assert.equal(entries[0].tool, 'webslicer.slice');

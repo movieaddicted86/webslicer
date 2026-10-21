@@ -25,7 +25,13 @@ export function SavePresetDialog({ onClose, payload }: { onClose: () => void; pa
     <Modal title={`Save ${payload.type} preset`} onClose={onClose}>
       <div className="form">
         <label>
-          Preset name <input autoFocus value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && name.trim() && !(exists?.system) && save()} />
+          Preset name{' '}
+          <input
+            autoFocus
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && name.trim() && !exists?.system && save()}
+          />
         </label>
         {exists?.system && <div className="error small">A system preset with this name exists; choose a different name.</div>}
         {exists && !exists.system && <div className="warn small">User preset will be overwritten.</div>}

@@ -3,9 +3,9 @@
 Self-contained implementation packages for contributors (human or LLM). The lead developer writes
 them, reviews the result on the package branch and merges it.
 
-| Id | Package | Status |
-|---|---|---|
-| p1.3-instances | [Instances](WP-P1.3-Instances.md) | open |
+| Id             | Package                           | Status |
+| -------------- | --------------------------------- | ------ |
+| p1.3-instances | [Instances](WP-P1.3-Instances.md) | open   |
 
 Every package follows [CONVENTIONS.md](CONVENTIONS.md).
 

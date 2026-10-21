@@ -103,9 +103,25 @@ export function createPainting(refs: SceneRefs): Painting {
       brushCursor.visible = true;
       brushCursor.position.copy(p.hit.point);
       brushCursor.scale.setScalar(st.brushRadius);
-      const c = paintStroke ? paintStroke.value : st.paintMode === 'mmu' ? st.paintExtruder : st.paintTool === 'enforcer' ? 1 : st.paintTool === 'blocker' ? 2 : 0;
+      const c = paintStroke
+        ? paintStroke.value
+        : st.paintMode === 'mmu'
+          ? st.paintExtruder
+          : st.paintTool === 'enforcer'
+            ? 1
+            : st.paintTool === 'blocker'
+              ? 2
+              : 0;
       const col =
-        st.paintMode === 'mmu' ? (c ? EXTRUDER_COLORS[(c - 1) % EXTRUDER_COLORS.length] : 0xffffff) : c === 1 ? 0x4d6bff : c === 2 ? 0xff4d4d : 0xffffff;
+        st.paintMode === 'mmu'
+          ? c
+            ? EXTRUDER_COLORS[(c - 1) % EXTRUDER_COLORS.length]
+            : 0xffffff
+          : c === 1
+            ? 0x4d6bff
+            : c === 2
+              ? 0xff4d4d
+              : 0xffffff;
       (brushCursor.material as THREE.MeshBasicMaterial).color.set(col);
     } else brushCursor.visible = false;
   };

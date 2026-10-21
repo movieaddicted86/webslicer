@@ -78,15 +78,9 @@ export function fitFrame(box: THREE.Box3, dir: THREE.Vector3, up: THREE.Vector3,
   const corner = new THREE.Vector3();
   let distance = 0;
   for (let i = 0; i < 8; i++) {
-    corner
-      .set(i & 1 ? box.max.x : box.min.x, i & 2 ? box.max.y : box.min.y, i & 4 ? box.max.z : box.min.z)
-      .sub(target);
+    corner.set(i & 1 ? box.max.x : box.min.x, i & 2 ? box.max.y : box.min.y, i & 4 ? box.max.z : box.min.z).sub(target);
     const depth = corner.dot(b.dir);
-    distance = Math.max(
-      distance,
-      depth + Math.abs(corner.dot(b.up)) / tanY,
-      depth + Math.abs(corner.dot(b.right)) / tanX,
-    );
+    distance = Math.max(distance, depth + Math.abs(corner.dot(b.up)) / tanY, depth + Math.abs(corner.dot(b.right)) / tanX);
   }
   distance = Math.max(distance, 1e-3);
   return { target, position: target.clone().addScaledVector(b.dir, distance), up: b.up, distance };

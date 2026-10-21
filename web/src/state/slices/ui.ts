@@ -64,12 +64,20 @@ export const createUiSlice: StateCreator<State, [], [], UiSlice> = (set, get) =>
       set({ info, schema, vendors, installed, physicalPrinters, mode: sel.mode || 'advanced' });
       // restore selection
       const printerName = sel.printer || '- default FFF -';
-      await get().selectPreset('printer', printerName).catch(() => get().selectPreset('printer', '- default FFF -'));
+      await get()
+        .selectPreset('printer', printerName)
+        .catch(() => get().selectPreset('printer', '- default FFF -'));
       // Restore explicit choices; a stored "- default -" entry is replaced by the printer's vendor default picked above.
-      if (sel.print && !sel.print.startsWith('- default')) await get().selectPreset('print', sel.print).catch(() => undefined);
+      if (sel.print && !sel.print.startsWith('- default'))
+        await get()
+          .selectPreset('print', sel.print)
+          .catch(() => undefined);
       if (sel.filament?.length) {
         for (let i = 0; i < sel.filament.length; i++) {
-          if (!sel.filament[i].startsWith('- default')) await get().selectPreset('filament', sel.filament[i], i).catch(() => undefined);
+          if (!sel.filament[i].startsWith('- default'))
+            await get()
+              .selectPreset('filament', sel.filament[i], i)
+              .catch(() => undefined);
         }
       }
       await get().ensureCompatiblePresets();

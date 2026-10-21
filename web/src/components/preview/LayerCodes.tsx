@@ -33,10 +33,18 @@ export function LayerCodes({ printZ, firstLayer, maxZ }: { printZ: number | unde
         >
           ＋ Color
         </button>
-        <button disabled={disabled} title="Pause the print before this layer (e.g. to insert magnets or nuts)" onClick={() => add({ printZ: z, type: 'pause', extra: 'Insert item' })}>
+        <button
+          disabled={disabled}
+          title="Pause the print before this layer (e.g. to insert magnets or nuts)"
+          onClick={() => add({ printZ: z, type: 'pause', extra: 'Insert item' })}
+        >
           ⏸ Pause
         </button>
-        <button disabled={disabled} title="Insert custom G-code before this layer" onClick={() => add({ printZ: z, type: 'custom', extra: 'M117 Layer change' })}>
+        <button
+          disabled={disabled}
+          title="Insert custom G-code before this layer"
+          onClick={() => add({ printZ: z, type: 'custom', extra: 'M117 Layer change' })}
+        >
           ✎ Custom
         </button>
       </div>
@@ -50,9 +58,18 @@ export function LayerCodes({ printZ, firstLayer, maxZ }: { printZ: number | unde
               <span className="code-type">{CODE_LABEL[c.type]}</span>
               {c.type === 'color_change' && (
                 <>
-                  <input type="color" value={normalizeColor(c.color, '#ffffff')} onChange={(e) => update(c.printZ, { color: e.target.value })} title="Color after the change" />
+                  <input
+                    type="color"
+                    value={normalizeColor(c.color, '#ffffff')}
+                    onChange={(e) => update(c.printZ, { color: e.target.value })}
+                    title="Color after the change"
+                  />
                   {extruders > 1 && (
-                    <select value={c.extruder ?? 1} onChange={(e) => update(c.printZ, { extruder: Number(e.target.value) })} title="Extruder">
+                    <select
+                      value={c.extruder ?? 1}
+                      onChange={(e) => update(c.printZ, { extruder: Number(e.target.value) })}
+                      title="Extruder"
+                    >
                       {Array.from({ length: extruders }, (_, i) => (
                         <option key={i} value={i + 1}>
                           E{i + 1}
@@ -63,10 +80,24 @@ export function LayerCodes({ printZ, firstLayer, maxZ }: { printZ: number | unde
                 </>
               )}
               {c.type === 'pause' && (
-                <TextField className="code-text" apply="input" value={c.extra ?? ''} onChange={(text) => update(c.printZ, { extra: text })} title="Message shown on the printer (M117)" />
+                <TextField
+                  className="code-text"
+                  apply="input"
+                  value={c.extra ?? ''}
+                  onChange={(text) => update(c.printZ, { extra: text })}
+                  title="Message shown on the printer (M117)"
+                />
               )}
               {c.type === 'custom' && (
-                <TextField className="code-text" apply="input" multiline rows={2} spellCheck={false} value={c.extra ?? ''} onChange={(text) => update(c.printZ, { extra: text })} />
+                <TextField
+                  className="code-text"
+                  apply="input"
+                  multiline
+                  rows={2}
+                  spellCheck={false}
+                  value={c.extra ?? ''}
+                  onChange={(text) => update(c.printZ, { extra: text })}
+                />
               )}
               <button className="icon" title="Remove" aria-label="Remove" onClick={() => remove(c.printZ)}>
                 ✕

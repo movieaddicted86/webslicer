@@ -88,13 +88,27 @@ test('the About dialog lists the shortcuts in one line, without duplicates', () 
   // the line in Dialogs.tsx: M · R · S · A · + · − · Del · Ctrl+A · 0…6 · K · Z
   assert.deepEqual(
     about.map((s) => s.label),
-    ['move', 'rotate', 'scale', 'arrange', 'add instance', 'remove instance', 'delete', 'select all', 'views', 'perspective/ortho', 'zoom to selection'],
+    [
+      'move',
+      'rotate',
+      'scale',
+      'arrange',
+      'add instance',
+      'remove instance',
+      'delete',
+      'select all',
+      'views',
+      'perspective/ortho',
+      'zoom to selection',
+    ],
   );
   // every entry the dialog prints has keys to print
   assert.ok(about.every((s) => s.keys.length > 0 && (s.range || s.keys.length <= 3)));
   // the entries the dialog does not print are the mode keys and the paint keys
   assert.deepEqual(
-    SHORTCUTS.filter((s) => s.aboutAt === undefined).map((s) => s.id).sort(),
+    SHORTCUTS.filter((s) => s.aboutAt === undefined)
+      .map((s) => s.id)
+      .sort(),
     ['escape', 'paintSeam', 'paintSupports', 'placeOnFace', 'redo', 'redo', 'undo'],
   );
 });

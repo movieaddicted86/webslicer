@@ -73,10 +73,7 @@ export function gcodeBox(g: ParsedGcode, range: [number, number]): THREE.Box3 | 
   const hi = Math.max(lo, Math.min(range[1], g.layerCount - 1));
   const from = g.layerStart[lo] * 6;
   const to = g.layerStart[hi + 1] * 6;
-  const box = new THREE.Box3(
-    new THREE.Vector3(Infinity, Infinity, Infinity),
-    new THREE.Vector3(-Infinity, -Infinity, -Infinity),
-  );
+  const box = new THREE.Box3(new THREE.Vector3(Infinity, Infinity, Infinity), new THREE.Vector3(-Infinity, -Infinity, -Infinity));
   for (let i = from; i < to; i += 3) {
     box.min.x = Math.min(box.min.x, g.positions[i]);
     box.min.y = Math.min(box.min.y, g.positions[i + 1]);

@@ -106,6 +106,7 @@
 ## 1.0.0-rc.2 – 2026-10-17
 
 UAT run (docs/UAT-Report.md): UAT-01 to 14, 16 and 17 passed. Fixed findings:
+
 - custom printer: falls back to "- default FFF -" instead of keeping an incompatible vendor print profile
 - camera follows the bed size when switching printers
 - model names containing "&&" are shown as "&"
@@ -117,6 +118,7 @@ UAT run (docs/UAT-Report.md): UAT-01 to 14, 16 and 17 passed. Fixed findings:
 First release candidate for the user acceptance test.
 
 ### Slicing
+
 - PrusaSlicer engine 2.9.6 (CLI) in the container, all print/filament/printer options of the installed version
 - vendor profiles of all bundled vendors with inheritance, compatibility conditions and alias resolution
 - user presets as PrusaSlicer-compatible INI, the printer's default profiles are selected automatically
@@ -125,6 +127,7 @@ First release candidate for the user acceptance test.
 - G-code with thumbnails (PNG/JPG/QOI) in filament colour
 
 ### User interface
+
 - 3D plater with gizmo, numeric input, place on face, arrange, undo/redo, vendor bed
 - settings tabs like PrusaSlicer (Simple/Advanced/Expert, search, modified markers)
 - quick settings supports/infill/brim, G-code preview with layer slider and legend
@@ -132,6 +135,7 @@ First release candidate for the user acceptance test.
 - upload to PrusaLink, OctoPrint, Klipper/Moonraker, optionally with self-signed certificate
 
 ### Operations
+
 - Docker image (≈ 1.2 GB) with Compose file, volumes `/data` and `/library`
 - Proxmox LXC helper and Debian installer with systemd service
 - sample models are copied into the library on first start

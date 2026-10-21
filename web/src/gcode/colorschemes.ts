@@ -2,17 +2,7 @@ import type { ParsedGcode } from './types';
 
 /** Preview colour schemes ("View" in PrusaSlicer's G-code preview). */
 export type PreviewColorMode =
-  | 'feature'
-  | 'height'
-  | 'width'
-  | 'speed'
-  | 'fan'
-  | 'temperature'
-  | 'flow'
-  | 'layertime'
-  | 'layertimelog'
-  | 'tool'
-  | 'colorprint';
+  'feature' | 'height' | 'width' | 'speed' | 'fan' | 'temperature' | 'flow' | 'layertime' | 'layertimelog' | 'tool' | 'colorprint';
 
 export const COLOR_MODES: { id: PreviewColorMode; label: string }[] = [
   { id: 'feature', label: 'Feature type' },

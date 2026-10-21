@@ -108,7 +108,18 @@ test('the seam sits at the first point of every external perimeter loop', () => 
 });
 
 test('a tool change is marked once per change', () => {
-  const text = ['M83', ';Z:0.2', 'T0', 'G1 Z.2', 'G1 X10 Y10', ';TYPE:External perimeter', 'G1 X20 Y10 E1.0', 'T1', 'G1 X20 Y20 E1.0', ''].join('\n');
+  const text = [
+    'M83',
+    ';Z:0.2',
+    'T0',
+    'G1 Z.2',
+    'G1 X10 Y10',
+    ';TYPE:External perimeter',
+    'G1 X20 Y10 E1.0',
+    'T1',
+    'G1 X20 Y20 E1.0',
+    '',
+  ].join('\n');
   const g = parseGcode(text);
   close(markersOf(text, 'tool_change'), [20, 10, 0.2]); // T0 is no change, T1 is
   assert.deepEqual(Array.from(g.tools), [0, 1]); // the segment before T1 keeps tool 0

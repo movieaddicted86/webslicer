@@ -15,7 +15,18 @@ process.env.DATA_DIR = DATA_DIR;
 
 const { config, ensureDirs } = await import('../config.js');
 const { validateSliceRequest } = await import('../routes/api.js');
-const { keepModelIds, addModelFromLibrary, arrange, createProject, deleteProject, listProjects, loadProject, pruneProjects, toSliceRequest, touchProject } = await import('./project.js');
+const {
+  keepModelIds,
+  addModelFromLibrary,
+  arrange,
+  createProject,
+  deleteProject,
+  listProjects,
+  loadProject,
+  pruneProjects,
+  toSliceRequest,
+  touchProject,
+} = await import('./project.js');
 const { writeBinaryStl } = await import('../slicer/threemf.js');
 const { saveModel } = await import('../jobs.js');
 const { IDENTITY, instanceBounds } = await import('@webslicer/shared');
@@ -30,7 +41,13 @@ const schema = {
   presetKeys: { print: [], filament: [], printer: [], sla_print: [], sla_material: [] },
 } as never as import('../slicer/schema.js').Schema;
 
-const CUBE = { vertices: Float32Array.from([0, 0, 0, 20, 0, 0, 20, 20, 0, 0, 20, 0, 0, 0, 20, 20, 0, 20, 20, 20, 20, 0, 20, 20]), indices: Uint32Array.from([0, 2, 1, 0, 1, 3, 1, 2, 3, 2, 0, 3, 4, 6, 5, 4, 5, 7, 5, 6, 7, 6, 4, 7, 0, 4, 5, 0, 5, 1, 1, 5, 6, 1, 6, 2, 2, 6, 7, 2, 7, 3, 3, 7, 4, 3, 4, 0]) };
+const CUBE = {
+  vertices: Float32Array.from([0, 0, 0, 20, 0, 0, 20, 20, 0, 0, 20, 0, 0, 0, 20, 20, 0, 20, 20, 20, 20, 0, 20, 20]),
+  indices: Uint32Array.from([
+    0, 2, 1, 0, 1, 3, 1, 2, 3, 2, 0, 3, 4, 6, 5, 4, 5, 7, 5, 6, 7, 6, 4, 7, 0, 4, 5, 0, 5, 1, 1, 5, 6, 1, 6, 2, 2, 6, 7, 2, 7, 3, 3, 7, 4,
+    3, 4, 0,
+  ]),
+};
 
 /** A library file with a cube, and the folder tree around it. */
 function libraryFile(name: string, mesh = CUBE): string {
@@ -228,7 +245,13 @@ test('a project keeps its model through a pruneModels run', async () => {
 
 test('IDENTITY is untouched by a project round trip', async () => {
   const project = newProject();
-  project.objects.push({ id: 'obj-1', modelId: saveModel(CUBE as never, 'cube').id, name: 'cube', bounds: { min: [-10, -10, 0], max: [10, 10, 20] }, instances: [IDENTITY] });
+  project.objects.push({
+    id: 'obj-1',
+    modelId: saveModel(CUBE as never, 'cube').id,
+    name: 'cube',
+    bounds: { min: [-10, -10, 0], max: [10, 10, 20] },
+    instances: [IDENTITY],
+  });
   const request = toSliceRequest(project, schema);
   assert.doesNotThrow(() => validateSliceRequest(request));
   assert.equal(request.objects[0].instances, undefined, 'one instance stays the legacy field');

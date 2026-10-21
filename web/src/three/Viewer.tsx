@@ -60,13 +60,36 @@ export function Viewer() {
   useCamera(refsRef, ortho, camRequest);
 
   // --- objects and the transform gizmo
-  usePlaterObjects(refsRef, { objects, selectedIds, selectedVolumeId, selectedInstanceId, view, bedShape, maxHeight, gcode, paintMode, shells });
+  usePlaterObjects(refsRef, {
+    objects,
+    selectedIds,
+    selectedVolumeId,
+    selectedInstanceId,
+    view,
+    bedShape,
+    maxHeight,
+    gcode,
+    paintMode,
+    shells,
+  });
   useGizmo(refsRef, { objects, selectedIds, selectedVolumeId, selectedInstanceId, transformMode, view, paintMode });
 
   useShells(refsRef, shells, objects);
 
   // --- gcode
-  useGcodePreview(refsRef, { gcode, view, range, moveCut, showTravel, markerVis, featureVis, colorMode, customGcodes, filamentColour, toolColorKey });
+  useGcodePreview(refsRef, {
+    gcode,
+    view,
+    range,
+    moveCut,
+    showTravel,
+    markerVis,
+    featureVis,
+    colorMode,
+    customGcodes,
+    filamentColour,
+    toolColorKey,
+  });
 
   // keyboard
   useKeyboardShortcuts(requestCamera, toggleOrtho);
@@ -82,7 +105,9 @@ export function Viewer() {
         </div>
       )}
       <div className="viewer-hint">
-        {view === 'plater' && <div>Left: rotate · Right/Middle: pan · Wheel: zoom · M/R/S: move/rotate/scale · F: place on face · A: arrange · Del: delete</div>}
+        {view === 'plater' && (
+          <div>Left: rotate · Right/Middle: pan · Wheel: zoom · M/R/S: move/rotate/scale · F: place on face · A: arrange · Del: delete</div>
+        )}
         <div>Views: 0-6 · K: perspective/ortho · Z: zoom to selection</div>
       </div>
       {/* PrusaSlicer's view toolbar: the standard views, the projection and zoom to selection */}
@@ -103,12 +128,7 @@ export function Viewer() {
           ⌖
         </button>
       </div>
-      <button
-        className="viewer-fit"
-        title="Reset view"
-        aria-label="Reset view"
-        onClick={() => requestCamera({ mode: 'bed' })}
-      >
+      <button className="viewer-fit" title="Reset view" aria-label="Reset view" onClick={() => requestCamera({ mode: 'bed' })}>
         ⌂
       </button>
     </div>

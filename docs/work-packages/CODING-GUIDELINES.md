@@ -8,7 +8,7 @@ code that a newcomer can navigate by folder name. Rules marked **MUST** are revi
 
 - **Single source of truth (DRY).** A concept – a type, a formula, a constant, an algorithm – exists
   once. Copies across web and server are bugs waiting to happen (P1.3 and T-001 had exactly such
-  bugs). Rule of three does not apply to domain logic: the *second* copy is already one too many.
+  bugs). Rule of three does not apply to domain logic: the _second_ copy is already one too many.
 - **Single responsibility.** A module, class or function does one thing. If its description needs
   "and", split it.
 - **Pure core, thin shell.** Domain logic (geometry, transforms, packing, G-code parsing, preset
@@ -75,7 +75,7 @@ web/src/
   alphabetically.
 - Names: verbs for functions (`computeBounds`), nouns for data, `is/has` for booleans; no
   abbreviations except established ones (`gcode`, `mmu`, `3mf`).
-- Comments explain *why*; the code explains *what*. Every exported function/type gets a one-line
+- Comments explain _why_; the code explains _what_. Every exported function/type gets a one-line
   JSDoc.
 - Errors: throw typed errors in the core (`class ValidationError extends Error`), map them to HTTP
   status codes in exactly one place per layer.
@@ -90,7 +90,7 @@ web/src/
   modal frame) become shared components in `components/common/`.
 - **Viewer:** `Viewer.tsx` becomes a composition of hooks/modules (`useScene`, `usePlaterObjects`,
   `useGizmo`, `useGcodePreview`, `usePainting`, `useKeyboardShortcuts`). Keyboard shortcuts are
-  defined once in a table that the handler *and* the help dialog read.
+  defined once in a table that the handler _and_ the help dialog read.
 - Hooks start with `use`, live next to their consumer or in `web/src/hooks/` when reused.
 
 ## 6. Server specifics

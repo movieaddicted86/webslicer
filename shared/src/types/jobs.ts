@@ -8,13 +8,7 @@ import type { Config } from './common.js';
 export type VolumeType = 'ModelPart' | 'ParameterModifier' | 'SupportEnforcer' | 'SupportBlocker' | 'NegativeVolume';
 
 /** Every `VolumeType`, in the order PrusaSlicer knows them. */
-export const VOLUME_TYPES: VolumeType[] = [
-  'ModelPart',
-  'ParameterModifier',
-  'SupportEnforcer',
-  'SupportBlocker',
-  'NegativeVolume',
-];
+export const VOLUME_TYPES: VolumeType[] = ['ModelPart', 'ParameterModifier', 'SupportEnforcer', 'SupportBlocker', 'NegativeVolume'];
 
 /** Kinds of custom G-code inserted at a print Z. */
 export type CustomGcodeType = 'color_change' | 'pause' | 'tool_change' | 'template' | 'custom';

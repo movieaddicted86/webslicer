@@ -1,0 +1,9 @@
+node_modules/
+dist/
+*.tsbuildinfo
+data/
+library/
+.ai/
+.claude/
+package-lock.json
+webslicer-src.tar.gz

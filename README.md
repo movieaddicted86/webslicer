@@ -21,7 +21,7 @@ to the browser. Runs as a Docker container or natively in a Proxmox LXC.
   (variable layer height), like the height range modifiers in PrusaSlicer.
 - **All slicing options** of the installed PrusaSlicer version: the option schema is generated at
   runtime from `prusa-slicer --help-fff/--help-sla` and sorted into the familiar
-  *Print / Filament / Printer Settings* tabs with pages and groups (Simple / Advanced / Expert mode,
+  _Print / Filament / Printer Settings_ tabs with pages and groups (Simple / Advanced / Expert mode,
   search, modified markers, reset).
 - **Vendor profiles**: all PrusaSlicer vendor bundles (Prusa, Creality, Anycubic, … 35 vendors) including
   inheritance, compatibility conditions (`compatible_printers_condition`), printer/nozzle variants,
@@ -70,25 +70,25 @@ docker run -d --name webslicer -p 8080:8080 -v webslicer-data:/data -v /path/to/
 `/data` holds settings, profiles, printers and jobs; `/library` is the file library you can mount on a
 folder or NAS share (default in Compose: `./library`).
 
-On first start the *Printers* dialog opens: pick vendor and printer model/nozzle (or create a *Custom
-printer*). Then drag a model into the 3D view and click **Slice now**.
+On first start the _Printers_ dialog opens: pick vendor and printer model/nozzle (or create a _Custom
+printer_). Then drag a model into the 3D view and click **Slice now**.
 
 ### Build arguments / environment variables
 
-| Variable | Default | Meaning |
-|---|---|---|
-| `PRUSASLICER_VERSION` (build arg) | `2.9.6` | PrusaSlicer version |
-| `PRUSASLICER_URL` (build arg) | – | Custom AppImage URL (overrides version/arch) |
-| `PORT` | `8080` | HTTP port |
-| `DATA_DIR` | `/data` | Presets, models, jobs, printer list, autosave |
-| `LIBRARY_DIR` | `/library` (Compose) or `$DATA_DIR/library` | File library for STL/3MF/G-code, meant to be mounted |
-| `MAX_JOBS` | `2` | Parallel slicing jobs |
-| `MAX_UPLOAD_BYTES` | `524288000` | Maximum upload size per model |
-| `JOB_RETENTION` | `50` | Jobs (G-code) kept |
-| `SLICE_TIMEOUT_MS` | `3600000` | Timeout per slicing job |
-| `PRUSASLICER_BIN` | `/opt/prusaslicer/AppRun` | Path to the slicer binary |
-| `PRUSASLICER_RESOURCES` | auto | Path to the `resources` directory (profiles) |
-| `MCP_TOKEN` | – | Bearer token for the agent endpoint `/mcp`; without it the endpoint does not exist (see [MCP](#mcp-let-agents-slice)) |
+| Variable                          | Default                                     | Meaning                                                                                                               |
+| --------------------------------- | ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `PRUSASLICER_VERSION` (build arg) | `2.9.6`                                     | PrusaSlicer version                                                                                                   |
+| `PRUSASLICER_URL` (build arg)     | –                                           | Custom AppImage URL (overrides version/arch)                                                                          |
+| `PORT`                            | `8080`                                      | HTTP port                                                                                                             |
+| `DATA_DIR`                        | `/data`                                     | Presets, models, jobs, printer list, autosave                                                                         |
+| `LIBRARY_DIR`                     | `/library` (Compose) or `$DATA_DIR/library` | File library for STL/3MF/G-code, meant to be mounted                                                                  |
+| `MAX_JOBS`                        | `2`                                         | Parallel slicing jobs                                                                                                 |
+| `MAX_UPLOAD_BYTES`                | `524288000`                                 | Maximum upload size per model                                                                                         |
+| `JOB_RETENTION`                   | `50`                                        | Jobs (G-code) kept                                                                                                    |
+| `SLICE_TIMEOUT_MS`                | `3600000`                                   | Timeout per slicing job                                                                                               |
+| `PRUSASLICER_BIN`                 | `/opt/prusaslicer/AppRun`                   | Path to the slicer binary                                                                                             |
+| `PRUSASLICER_RESOURCES`           | auto                                        | Path to the `resources` directory (profiles)                                                                          |
+| `MCP_TOKEN`                       | –                                           | Bearer token for the agent endpoint `/mcp`; without it the endpoint does not exist (see [MCP](#mcp-let-agents-slice)) |
 
 Example: `docker build --build-arg PRUSASLICER_VERSION=2.9.5 -t webslicer .`
 
@@ -155,7 +155,7 @@ claude mcp add --transport http webslicer http://webslicer.local:8080/mcp \
 }
 ```
 
-Claude Desktop: *Settings → Connectors → Add custom connector* works with a URL, but not with a
+Claude Desktop: _Settings → Connectors → Add custom connector_ works with a URL, but not with a
 static bearer header – bridge it through `mcp-remote` in `%APPDATA%\Claude\claude_desktop_config.json`
 (macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`):
 
@@ -164,13 +164,7 @@ static bearer header – bridge it through `mcp-remote` in `%APPDATA%\Claude\cla
   "mcpServers": {
     "webslicer": {
       "command": "npx",
-      "args": [
-        "-y",
-        "mcp-remote",
-        "http://webslicer.local:8080/mcp",
-        "--header",
-        "Authorization:${WEBSLICER_MCP_TOKEN}"
-      ],
+      "args": ["-y", "mcp-remote", "http://webslicer.local:8080/mcp", "--header", "Authorization:${WEBSLICER_MCP_TOKEN}"],
       "env": { "WEBSLICER_MCP_TOKEN": "Bearer change-me" }
     }
   }
@@ -181,19 +175,19 @@ No space around the `:` inside `args` – Claude Desktop on Windows does not quo
 
 ### Tools
 
-| Tool | Arguments | What it does |
-|---|---|---|
-| `webslicer.list_printers` | – | installed printers plus the printer presets of each |
-| `webslicer.list_presets` | `type`, `printer?`, `print?` | print/filament/printer presets with the compatibility flag |
-| `webslicer.get_option_schema` | `query?`, `type?`, `limit?` | options with label, type, default and allowed values (an exact key match ranks first) |
-| `webslicer.list_library` | `path?` | models, projects and G-code in the file library |
-| `webslicer.create_project` | `printer`, `print`, `filaments?` | a server-side project → `project_id` (expires 24 h after its last use) |
-| `webslicer.add_model` | `project_id`, `library_path`, `copies?` | adds an STL or 3MF from the library (3MF keeps its objects and their places) |
-| `webslicer.arrange` | `project_id` | packs the instances on the bed |
-| `webslicer.set_settings` | `project_id`, `scope`, `values` | sets options, validated against the schema (unknown keys are rejected) |
-| `webslicer.quick_settings` | `project_id`, `supports`, `infill`, `brim` | the three plater quick settings |
-| `webslicer.slice` | `project_id` | starts a slicing job → `job_id` (headless slices carry no thumbnails) |
-| `webslicer.get_job` | `job_id` | status, progress, time, filament (mm/g/cost), layers and the slicer warnings |
+| Tool                          | Arguments                                  | What it does                                                                          |
+| ----------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------- |
+| `webslicer.list_printers`     | –                                          | installed printers plus the printer presets of each                                   |
+| `webslicer.list_presets`      | `type`, `printer?`, `print?`               | print/filament/printer presets with the compatibility flag                            |
+| `webslicer.get_option_schema` | `query?`, `type?`, `limit?`                | options with label, type, default and allowed values (an exact key match ranks first) |
+| `webslicer.list_library`      | `path?`                                    | models, projects and G-code in the file library                                       |
+| `webslicer.create_project`    | `printer`, `print`, `filaments?`           | a server-side project → `project_id` (expires 24 h after its last use)                |
+| `webslicer.add_model`         | `project_id`, `library_path`, `copies?`    | adds an STL or 3MF from the library (3MF keeps its objects and their places)          |
+| `webslicer.arrange`           | `project_id`                               | packs the instances on the bed                                                        |
+| `webslicer.set_settings`      | `project_id`, `scope`, `values`            | sets options, validated against the schema (unknown keys are rejected)                |
+| `webslicer.quick_settings`    | `project_id`, `supports`, `infill`, `brim` | the three plater quick settings                                                       |
+| `webslicer.slice`             | `project_id`                               | starts a slicing job → `job_id` (headless slices carry no thumbnails)                 |
+| `webslicer.get_job`           | `job_id`                                   | status, progress, time, filament (mm/g/cost), layers and the slicer warnings          |
 
 `slice` and the project tools are the writing ones, the rest is marked read-only (`readOnlyHint`).
 `set_settings` takes `scope: "print"`, `"printer"`, `"filament"` or `"filament[<index>]"` for the
@@ -301,19 +295,19 @@ the server builds a 3MF from all objects + transforms, writes the merged configu
 
 ### API (excerpt)
 
-| Method | Path | Purpose |
-|---|---|---|
-| GET | `/api/schema` | option schema + layout |
-| GET | `/api/vendors` | vendors & printer models |
-| POST | `/api/presets/:type/list` | presets (with compatibility) |
+| Method         | Path                       | Purpose                                    |
+| -------------- | -------------------------- | ------------------------------------------ |
+| GET            | `/api/schema`              | option schema + layout                     |
+| GET            | `/api/vendors`             | vendors & printer models                   |
+| POST           | `/api/presets/:type/list`  | presets (with compatibility)               |
 | GET/PUT/DELETE | `/api/presets/:type/:name` | read preset / save as user preset / delete |
-| POST | `/api/models` | upload STL (body = binary STL) |
-| POST | `/api/slice` | create job → `202 {id}` |
-| GET | `/api/jobs/:id/events` | progress (SSE) |
-| GET | `/api/jobs/:id/gcode` | result (`?download`) |
-| POST | `/api/jobs/:id/send` | upload to a physical printer |
-| POST | `/api/export/3mf` | project 3MF |
-| GET | `/api/library` | file library |
+| POST           | `/api/models`              | upload STL (body = binary STL)             |
+| POST           | `/api/slice`               | create job → `202 {id}`                    |
+| GET            | `/api/jobs/:id/events`     | progress (SSE)                             |
+| GET            | `/api/jobs/:id/gcode`      | result (`?download`)                       |
+| POST           | `/api/jobs/:id/send`       | upload to a physical printer               |
+| POST           | `/api/export/3mf`          | project 3MF                                |
+| GET            | `/api/library`             | file library                               |
 
 ## More documents
 

@@ -17,7 +17,8 @@ import {
 const FOV = 45;
 const ASPECT = 16 / 9;
 
-const box = (min: [number, number, number], max: [number, number, number]) => new THREE.Box3(new THREE.Vector3(...min), new THREE.Vector3(...max));
+const box = (min: [number, number, number], max: [number, number, number]) =>
+  new THREE.Box3(new THREE.Vector3(...min), new THREE.Vector3(...max));
 
 /** Every corner of the box has to sit inside the frustum of the frame, with `shrink` of the distance. */
 function cornersInside(b: THREE.Box3, frame: { target: THREE.Vector3; position: THREE.Vector3; up: THREE.Vector3 }, shrink = 0): boolean {
@@ -26,9 +27,7 @@ function cornersInside(b: THREE.Box3, frame: { target: THREE.Vector3; position: 
   const tanY = Math.tan((FOV * Math.PI) / 360);
   const corner = new THREE.Vector3();
   for (let i = 0; i < 8; i++) {
-    corner
-      .set(i & 1 ? b.max.x : b.min.x, i & 2 ? b.max.y : b.min.y, i & 4 ? b.max.z : b.min.z)
-      .sub(frame.target);
+    corner.set(i & 1 ? b.max.x : b.min.x, i & 2 ? b.max.y : b.min.y, i & 4 ? b.max.z : b.min.z).sub(frame.target);
     const depth = distance - corner.dot(basis.dir);
     if (Math.abs(corner.dot(basis.up)) > depth * tanY + 1e-9) return false;
     if (Math.abs(corner.dot(basis.right)) > depth * tanY * ASPECT + 1e-9) return false;
@@ -135,9 +134,7 @@ test('a box fitted for the perspective camera also fits the orthographic frustum
     const basis = viewBasis(frame.position.clone().sub(frame.target), frame.up);
     const corner = new THREE.Vector3();
     for (let i = 0; i < 8; i++) {
-      corner
-        .set(i & 1 ? b.max.x : b.min.x, i & 2 ? b.max.y : b.min.y, i & 4 ? b.max.z : b.min.z)
-        .sub(frame.target);
+      corner.set(i & 1 ? b.max.x : b.min.x, i & 2 ? b.max.y : b.min.y, i & 4 ? b.max.z : b.min.z).sub(frame.target);
       // an ortho camera shows the whole frustum at any depth, so the depth plays no part
       assert.ok(Math.abs(corner.dot(basis.up)) <= halfHeight + 1e-9, `${v.id} vertical`);
       assert.ok(Math.abs(corner.dot(basis.right)) <= halfWidth + 1e-9, `${v.id} horizontal`);

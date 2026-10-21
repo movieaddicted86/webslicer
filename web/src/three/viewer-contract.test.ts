@@ -62,7 +62,7 @@ test('objectIsOutside is true when an instance leaves the bed, false when it fit
   assert.equal(objectIsOutside(cubeObject([125, 105, 195]), bed, 200), true);
 });
 
-test('objectIsOutside compares against the bed polygon\'s bounding box, not the polygon', () => {
+test("objectIsOutside compares against the bed polygon's bounding box, not the polygon", () => {
   // The L-shaped bed of UAT-05: the notch at the back right is not printable.
   const bed = '0x0,200x0,200x200,100x200,0x120';
   const shape = bedShapeOf({ bed_shape: bed });

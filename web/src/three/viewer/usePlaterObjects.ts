@@ -75,7 +75,10 @@ export function usePlaterObjects(refsRef: RefObject<SceneRefs | null>, options: 
         if (!inode) {
           const group = new THREE.Group();
           group.userData = { kind: 'instance', id: o.id, instanceId: inst.id };
-          const mesh = new THREE.Mesh(o.geometry, new THREE.MeshStandardMaterial({ color: OBJECT_COLOR, roughness: 0.55, metalness: 0.05 }));
+          const mesh = new THREE.Mesh(
+            o.geometry,
+            new THREE.MeshStandardMaterial({ color: OBJECT_COLOR, roughness: 0.55, metalness: 0.05 }),
+          );
           mesh.userData = { kind: 'object', id: o.id, instanceId: inst.id };
           group.add(mesh);
           node.group.add(group);
@@ -172,7 +175,13 @@ export function usePlaterObjects(refsRef: RefObject<SceneRefs | null>, options: 
             const h = (r.maxZ - r.minZ) / sz;
             const m = new THREE.Mesh(
               new THREE.BoxGeometry(w, d, h),
-              new THREE.MeshBasicMaterial({ color: i % 2 ? 0x6fb1ff : 0xffb86f, transparent: true, opacity: 0.18, depthWrite: false, side: THREE.DoubleSide }),
+              new THREE.MeshBasicMaterial({
+                color: i % 2 ? 0x6fb1ff : 0xffb86f,
+                transparent: true,
+                opacity: 0.18,
+                depthWrite: false,
+                side: THREE.DoubleSide,
+              }),
             );
             m.position.set(cx, cy, r.minZ / sz + h / 2);
             m.renderOrder = 5;
@@ -209,7 +218,8 @@ export function usePlaterObjects(refsRef: RefObject<SceneRefs | null>, options: 
           vm.userData.extruder = v.extruder || o.extruder;
           const spec = VOLUME_COLORS[v.type];
           const volSelected = selected && selectedVolumeId === v.id;
-          const partBase = v.type === 'ModelPart' && v.extruder > 0 ? EXTRUDER_COLORS[(v.extruder - 1) % EXTRUDER_COLORS.length] : spec.color;
+          const partBase =
+            v.type === 'ModelPart' && v.extruder > 0 ? EXTRUDER_COLORS[(v.extruder - 1) % EXTRUDER_COLORS.length] : spec.color;
           vmat.color.set(volSelected ? SELECTED_COLOR : partBase);
           vmat.emissive.set(volSelected ? 0x16304a : 0x000000);
           vmat.opacity = volSelected ? Math.min(1, spec.opacity + 0.25) : spec.opacity;

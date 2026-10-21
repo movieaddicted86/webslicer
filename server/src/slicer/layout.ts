@@ -45,7 +45,13 @@ export const LAYOUT_FFF: Tab[] = [
           { title: 'Vertical shells', keys: ['perimeters', 'spiral_vase'] },
           {
             title: 'Horizontal shells',
-            keys: ['top_solid_layers', 'top_solid_min_thickness', 'bottom_solid_layers', 'bottom_solid_min_thickness', 'ensure_vertical_shell_thickness'],
+            keys: [
+              'top_solid_layers',
+              'top_solid_min_thickness',
+              'bottom_solid_layers',
+              'bottom_solid_min_thickness',
+              'ensure_vertical_shell_thickness',
+            ],
           },
           {
             title: 'Quality (slower slicing)',
@@ -62,7 +68,14 @@ export const LAYOUT_FFF: Tab[] = [
           },
           {
             title: 'Advanced',
-            keys: ['seam_position', 'staggered_inner_seams', 'seam_gap_distance', 'external_perimeters_first', 'gap_fill_enabled', 'perimeter_generator'],
+            keys: [
+              'seam_position',
+              'staggered_inner_seams',
+              'seam_gap_distance',
+              'external_perimeters_first',
+              'gap_fill_enabled',
+              'perimeter_generator',
+            ],
           },
           {
             title: 'Scarf seam',
@@ -90,7 +103,12 @@ export const LAYOUT_FFF: Tab[] = [
           { title: 'Ironing', keys: ['ironing', 'ironing_type', 'ironing_flowrate', 'ironing_spacing'] },
           {
             title: 'Reducing printing time',
-            keys: ['infill_every_layers', 'automatic_infill_combination', 'automatic_infill_combination_max_layer_height', 'infill_only_where_needed'],
+            keys: [
+              'infill_every_layers',
+              'automatic_infill_combination',
+              'automatic_infill_combination_max_layer_height',
+              'infill_only_where_needed',
+            ],
           },
           {
             title: 'Advanced',
@@ -119,7 +137,10 @@ export const LAYOUT_FFF: Tab[] = [
             title: 'Support material',
             keys: ['support_material', 'support_material_auto', 'support_material_threshold', 'support_material_enforce_layers'],
           },
-          { title: 'Raft', keys: ['raft_layers', 'raft_contact_distance', 'raft_expansion', 'raft_first_layer_density', 'raft_first_layer_expansion'] },
+          {
+            title: 'Raft',
+            keys: ['raft_layers', 'raft_contact_distance', 'raft_expansion', 'raft_first_layer_density', 'raft_first_layer_expansion'],
+          },
           {
             title: 'Options for support material and raft',
             keys: [
@@ -278,7 +299,15 @@ export const LAYOUT_FFF: Tab[] = [
           { title: 'Flow', keys: ['bridge_flow_ratio'] },
           {
             title: 'Slicing',
-            keys: ['slice_closing_radius', 'slicing_mode', 'resolution', 'gcode_resolution', 'arc_fitting', 'xy_size_compensation', 'elefant_foot_compensation'],
+            keys: [
+              'slice_closing_radius',
+              'slicing_mode',
+              'resolution',
+              'gcode_resolution',
+              'arc_fitting',
+              'xy_size_compensation',
+              'elefant_foot_compensation',
+            ],
           },
           {
             title: 'Arachne perimeter generator',
@@ -349,14 +378,29 @@ export const LAYOUT_FFF: Tab[] = [
         title: 'Cooling',
         groups: [
           { title: 'Enable', keys: ['fan_always_on', 'cooling'] },
-          { title: 'Fan settings', keys: ['min_fan_speed', 'max_fan_speed', 'bridge_fan_speed', 'disable_fan_first_layers', 'full_fan_speed_layer'] },
+          {
+            title: 'Fan settings',
+            keys: ['min_fan_speed', 'max_fan_speed', 'bridge_fan_speed', 'disable_fan_first_layers', 'full_fan_speed_layer'],
+          },
           {
             title: 'Cooling thresholds',
-            keys: ['fan_below_layer_time', 'slowdown_below_layer_time', 'cooling_slowdown_logic', 'cooling_perimeter_transition_distance', 'min_print_speed'],
+            keys: [
+              'fan_below_layer_time',
+              'slowdown_below_layer_time',
+              'cooling_slowdown_logic',
+              'cooling_perimeter_transition_distance',
+              'min_print_speed',
+            ],
           },
           {
             title: 'Dynamic fan speeds',
-            keys: ['enable_dynamic_fan_speeds', 'overhang_fan_speed_0', 'overhang_fan_speed_1', 'overhang_fan_speed_2', 'overhang_fan_speed_3'],
+            keys: [
+              'enable_dynamic_fan_speeds',
+              'overhang_fan_speed_0',
+              'overhang_fan_speed_1',
+              'overhang_fan_speed_2',
+              'overhang_fan_speed_3',
+            ],
           },
         ],
       },
@@ -516,7 +560,16 @@ export const LAYOUT_FFF: Tab[] = [
               'machine_max_acceleration_travel',
             ],
           },
-          { title: 'Jerk limits (mm/s)', keys: ['machine_max_jerk_x', 'machine_max_jerk_y', 'machine_max_jerk_z', 'machine_max_jerk_e', 'machine_max_junction_deviation'] },
+          {
+            title: 'Jerk limits (mm/s)',
+            keys: [
+              'machine_max_jerk_x',
+              'machine_max_jerk_y',
+              'machine_max_jerk_z',
+              'machine_max_jerk_e',
+              'machine_max_junction_deviation',
+            ],
+          },
           { title: 'Minimum feedrates (mm/s)', keys: ['machine_min_extruding_rate', 'machine_min_travel_rate'] },
         ],
       },
@@ -608,12 +661,15 @@ export const PRINTER_VECTOR_KEYS = new Set([
 
 export const PRINTER_STRING_VECTOR_KEYS = new Set(['extruder_colour']);
 
-export const PRINT_VECTOR_KEYS = new Set(['post_process', 'compatible_printers', 'compatible_prints', 'wiping_volumes_matrix', 'wiping_volumes_extruders']);
+export const PRINT_VECTOR_KEYS = new Set([
+  'post_process',
+  'compatible_printers',
+  'compatible_prints',
+  'wiping_volumes_matrix',
+  'wiping_volumes_extruders',
+]);
 
-const M = (
-  label: string,
-  extra: Partial<KnownOption> = {},
-): KnownOption => ({ label, ...extra });
+const M = (label: string, extra: Partial<KnownOption> = {}): KnownOption => ({ label, ...extra });
 
 export const KNOWN_OPTIONS: Record<string, KnownOption> = {
   // --- print
@@ -641,7 +697,10 @@ export const KNOWN_OPTIONS: Record<string, KnownOption> = {
   fuzzy_skin: M('Fuzzy Skin', { mode: 'simple', enumLabels: ['None', 'Outside walls', 'All walls'] }),
   fuzzy_skin_thickness: M('Fuzzy skin thickness', { mode: 'simple' }),
   fuzzy_skin_point_dist: M('Fuzzy skin point distance', { mode: 'simple' }),
-  top_one_perimeter_type: M('Only one perimeter on top surfaces', { mode: 'advanced', enumLabels: ['Disabled', 'All top surfaces', 'Topmost surface only'] }),
+  top_one_perimeter_type: M('Only one perimeter on top surfaces', {
+    mode: 'advanced',
+    enumLabels: ['Disabled', 'All top surfaces', 'Topmost surface only'],
+  }),
   only_one_perimeter_first_layer: M('Only one perimeter on first layer', { mode: 'advanced' }),
   fill_density: M('Fill density', { mode: 'simple' }),
   fill_pattern: M('Fill pattern', { mode: 'simple' }),

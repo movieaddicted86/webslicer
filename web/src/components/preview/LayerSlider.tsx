@@ -16,7 +16,14 @@ export function LayerSlider({ gcode }: { gcode: ParsedGcode }) {
         Top
       </label>
       <div className="slider-with-markers">
-        <input id={topId} type="range" min={0} max={gcode.layerCount - 1} value={range[1]} onChange={(e) => setRange([Math.min(range[0], Number(e.target.value)), Number(e.target.value)])} />
+        <input
+          id={topId}
+          type="range"
+          min={0}
+          max={gcode.layerCount - 1}
+          value={range[1]}
+          onChange={(e) => setRange([Math.min(range[0], Number(e.target.value)), Number(e.target.value)])}
+        />
         <div className="slider-markers">
           {customGcodes.map((c) => {
             const idx = layerIndexOfZ(gcode.layerZ, c.printZ);
@@ -37,7 +44,14 @@ export function LayerSlider({ gcode }: { gcode: ParsedGcode }) {
       <label className="small" htmlFor={bottomId}>
         Bottom
       </label>
-      <input id={bottomId} type="range" min={0} max={gcode.layerCount - 1} value={range[0]} onChange={(e) => setRange([Number(e.target.value), Math.max(range[1], Number(e.target.value))])} />
+      <input
+        id={bottomId}
+        type="range"
+        min={0}
+        max={gcode.layerCount - 1}
+        value={range[0]}
+        onChange={(e) => setRange([Number(e.target.value), Math.max(range[1], Number(e.target.value))])}
+      />
     </>
   );
 }

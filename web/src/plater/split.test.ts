@@ -18,7 +18,9 @@ function cube(size: number, at: [number, number, number] = [0, 0, 0], invert = f
   const out: number[] = [];
   for (const quad of quads) {
     const [ax, ay, az, bx, by, bz, cx, cy, cz, dx, dy, dz] = quad;
-    const tri = invert ? [ax, ay, az, cx, cy, cz, bx, by, bz, ax, ay, az, dx, dy, dz, cx, cy, cz] : [ax, ay, az, bx, by, bz, cx, cy, cz, ax, ay, az, cx, cy, cz, dx, dy, dz];
+    const tri = invert
+      ? [ax, ay, az, cx, cy, cz, bx, by, bz, ax, ay, az, dx, dy, dz, cx, cy, cz]
+      : [ax, ay, az, bx, by, bz, cx, cy, cz, ax, ay, az, cx, cy, cz, dx, dy, dz];
     out.push(...tri);
   }
   return out;
@@ -122,6 +124,13 @@ test('shellPositions and signedVolume describe one shell of a soup', () => {
   const shells = splitShells(positions);
   const first = shellPositions(positions, shells[0]);
   assert.equal(first.length, 12 * 9);
-  assert.ok(Math.abs(signedVolume(first, Uint32Array.from({ length: 12 }, (_, i) => i)) - 1000) < 1e-9);
+  assert.ok(
+    Math.abs(
+      signedVolume(
+        first,
+        Uint32Array.from({ length: 12 }, (_, i) => i),
+      ) - 1000,
+    ) < 1e-9,
+  );
   assert.ok(Math.abs(signedVolume(positions, shells[1]) - 64) < 1e-9);
 });

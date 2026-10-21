@@ -5,7 +5,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
-import { instanceBounds, mirrorPlacement, placementFromMatrix, placementMatrix, type Bounds, type Placement, type Vec3 } from '@webslicer/shared';
+import {
+  instanceBounds,
+  mirrorPlacement,
+  placementFromMatrix,
+  placementMatrix,
+  type Bounds,
+  type Placement,
+  type Vec3,
+} from '@webslicer/shared';
 import { fromBox3, fromMatrix4, toBox3, toMatrix4, toVector3 } from './matrix.js';
 
 const close = (a: number, b: number, eps = 1e-12) => assert.ok(Math.abs(a - b) <= eps, `${a} != ${b}`);

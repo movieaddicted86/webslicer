@@ -13,7 +13,12 @@ let snapshotRenderer: THREE.WebGLRenderer | undefined;
  * Render thumbnails of `objects` (a THREE.Group containing the plater objects) with a transparent
  * background, framed like PrusaSlicer's thumbnails, and encode them in the requested formats.
  */
-export function renderThumbnails(scene: THREE.Scene, objects: THREE.Object3D, specs: ThumbnailSpec[], colors: string[] = []): ThumbnailInput[] {
+export function renderThumbnails(
+  scene: THREE.Scene,
+  objects: THREE.Object3D,
+  specs: ThumbnailSpec[],
+  colors: string[] = [],
+): ThumbnailInput[] {
   if (!specs.length) return [];
   if (!snapshotRenderer) {
     snapshotRenderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, preserveDrawingBuffer: true });

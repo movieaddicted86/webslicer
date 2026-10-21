@@ -41,19 +41,19 @@ docs/                         Feature-Comparison (parity matrix), UAT, UAT-Repor
 
 ## 3. Toolchain and commands
 
-| Purpose | Command (repo root) |
-|---|---|
-| Install | `npm ci` |
-| Type check shared | `npm run typecheck -w shared` |
-| Type check web | `npm run typecheck -w web` |
-| Type check server | `npm run typecheck -w server` |
-| Unit tests, all three workspaces | `npm test` (node:test via tsx) |
-| Unit tests, one workspace | `npm test -w shared` · `-w server` · `-w web` |
-| Build shared | `npm run build -w shared` |
-| Full build | `npm run build` |
-| Run everything (incl. PrusaSlicer) | `docker compose up -d --build` → http://localhost:8080 |
-| Web dev server | `npm run dev -w web` → http://localhost:5173 (proxies `/api` to :8080) |
-| Shell scripts | `shellcheck -S warning proxmox/*.sh` |
+| Purpose                            | Command (repo root)                                                    |
+| ---------------------------------- | ---------------------------------------------------------------------- |
+| Install                            | `npm ci`                                                               |
+| Type check shared                  | `npm run typecheck -w shared`                                          |
+| Type check web                     | `npm run typecheck -w web`                                             |
+| Type check server                  | `npm run typecheck -w server`                                          |
+| Unit tests, all three workspaces   | `npm test` (node:test via tsx)                                         |
+| Unit tests, one workspace          | `npm test -w shared` · `-w server` · `-w web`                          |
+| Build shared                       | `npm run build -w shared`                                              |
+| Full build                         | `npm run build`                                                        |
+| Run everything (incl. PrusaSlicer) | `docker compose up -d --build` → http://localhost:8080                 |
+| Web dev server                     | `npm run dev -w web` → http://localhost:5173 (proxies `/api` to :8080) |
+| Shell scripts                      | `shellcheck -S warning proxmox/*.sh`                                   |
 
 `shared` is built first: the other two workspaces import it from `shared/dist`. Test files are
 `*.test.ts` next to the code they cover, colocated in all three workspaces (`npm test` globs
@@ -70,7 +70,7 @@ with Vite. The dev machine is Windows 11 with Git Bash/PowerShell: set `MSYS_NO_
 - Formatting like the existing code: 2 spaces, single quotes, semicolons, trailing commas, lines up
   to ~140 characters. Do not reformat code you do not change.
 - Server imports use ESM with `.js` suffix (`from './slicer/threemf.js'`).
-- Comments: short JSDoc one-liners on exported functions/types and comments that explain *why*.
+- Comments: short JSDoc one-liners on exported functions/types and comments that explain _why_.
   No commented-out code, no TODO without an entry in `TODO.md`.
 - **No new runtime dependencies** without approval of the lead developer. Dev dependencies only if
   the work package allows it.

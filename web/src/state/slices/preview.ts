@@ -74,7 +74,10 @@ export const createPreviewSlice: StateCreator<State, [], [], PreviewSlice> = (se
       scheduleReslice();
     },
     updateCustomGcode: (printZ, patch) => {
-      set((s) => ({ customGcodes: s.customGcodes.map((x) => (Math.abs(x.printZ - printZ) <= 1e-4 ? { ...x, ...patch } : x)), sliceDirty: true }));
+      set((s) => ({
+        customGcodes: s.customGcodes.map((x) => (Math.abs(x.printZ - printZ) <= 1e-4 ? { ...x, ...patch } : x)),
+        sliceDirty: true,
+      }));
       scheduleReslice();
     },
     removeCustomGcode: (printZ) => {
@@ -82,7 +85,8 @@ export const createPreviewSlice: StateCreator<State, [], [], PreviewSlice> = (se
         const customGcodes = s.customGcodes.filter((x) => Math.abs(x.printZ - printZ) > 1e-4);
         return {
           customGcodes,
-          previewColorMode: s.previewColorMode === 'colorprint' && !customGcodes.some((x) => x.type === 'color_change') ? 'feature' : s.previewColorMode,
+          previewColorMode:
+            s.previewColorMode === 'colorprint' && !customGcodes.some((x) => x.type === 'color_change') ? 'feature' : s.previewColorMode,
           sliceDirty: true,
         };
       });
@@ -91,7 +95,11 @@ export const createPreviewSlice: StateCreator<State, [], [], PreviewSlice> = (se
     setCustomGcodes: (codes) =>
       set((s) => ({
         customGcodes: [...codes].sort((a, b) => a.printZ - b.printZ),
-        previewColorMode: codes.some((x) => x.type === 'color_change') ? 'colorprint' : s.previewColorMode === 'colorprint' ? 'feature' : s.previewColorMode,
+        previewColorMode: codes.some((x) => x.type === 'color_change')
+          ? 'colorprint'
+          : s.previewColorMode === 'colorprint'
+            ? 'feature'
+            : s.previewColorMode,
       })),
     loadGcodePreview: async (jobId) => {
       set({ gcodeLoading: true });
@@ -108,7 +116,14 @@ export const createPreviewSlice: StateCreator<State, [], [], PreviewSlice> = (se
         const range: [number, number] = keep ? prevRange : [0, Math.max(0, parsed.layerCount - 1)];
         const oldVis = get().previewFeatureVisibility;
         for (const f of parsed.featureTypes) if (keep && oldVis[f] === false) vis[f] = false;
-        set({ gcode: parsed, gcodeJobId: jobId, previewLayerRange: range, previewMoveCut: undefined, previewFeatureVisibility: vis, view: 'preview' });
+        set({
+          gcode: parsed,
+          gcodeJobId: jobId,
+          previewLayerRange: range,
+          previewMoveCut: undefined,
+          previewFeatureVisibility: vis,
+          view: 'preview',
+        });
       } finally {
         set({ gcodeLoading: false });
       }
@@ -116,6 +131,7 @@ export const createPreviewSlice: StateCreator<State, [], [], PreviewSlice> = (se
     // moving a vertical slider resets the horizontal one to "end of layer"
     setPreviewLayerRange: (previewLayerRange) => set({ previewLayerRange, previewMoveCut: undefined }),
     setPreviewShowTravel: (previewShowTravel) => set({ previewShowTravel }),
-    togglePreviewFeature: (f) => set((s) => ({ previewFeatureVisibility: { ...s.previewFeatureVisibility, [f]: !s.previewFeatureVisibility[f] } })),
+    togglePreviewFeature: (f) =>
+      set((s) => ({ previewFeatureVisibility: { ...s.previewFeatureVisibility, [f]: !s.previewFeatureVisibility[f] } })),
   };
 };

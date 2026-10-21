@@ -136,8 +136,7 @@ export function transformMesh(mesh: Mesh, m: number[]): Mesh {
     out[i + 2] = m[2] * x + m[6] * y + m[10] * z + m[14];
   }
   // a mirroring transform flips the winding order
-  const det =
-    m[0] * (m[5] * m[10] - m[9] * m[6]) - m[4] * (m[1] * m[10] - m[9] * m[2]) + m[8] * (m[1] * m[6] - m[5] * m[2]);
+  const det = m[0] * (m[5] * m[10] - m[9] * m[6]) - m[4] * (m[1] * m[10] - m[9] * m[2]) + m[8] * (m[1] * m[6] - m[5] * m[2]);
   let indices = mesh.indices;
   if (det < 0) {
     indices = new Uint32Array(mesh.indices.length);
@@ -195,20 +194,24 @@ function fmt(n: number): string {
 const CUSTOM_GCODE_TYPE_ID: Record<CustomGcodeType, number> = { color_change: 0, pause: 1, tool_change: 2, template: 3, custom: 4 };
 
 /** Build Metadata/Prusa_Slicer_custom_gcode_per_print_z.xml */
-export function customGcodeXml(codes: CustomGcode[], mode: 'SingleExtruder' | 'MultiAsSingle' | 'MultiExtruder', config?: IniSection): string {
+export function customGcodeXml(
+  codes: CustomGcode[],
+  mode: 'SingleExtruder' | 'MultiAsSingle' | 'MultiExtruder',
+  config?: IniSection,
+): string {
   const lines = ['<?xml version="1.0" encoding="utf-8"?>', '<custom_gcodes_per_print_z>'];
   for (const c of [...codes].sort((a, b) => a.printZ - b.printZ)) {
     // "gcode" is only read by PrusaSlicer < 2.3; newer versions use type + extra
     const gcode =
       c.type === 'color_change'
-        ? config?.color_change_gcode ?? 'M600'
+        ? (config?.color_change_gcode ?? 'M600')
         : c.type === 'pause'
-          ? config?.pause_print_gcode ?? 'M601'
+          ? (config?.pause_print_gcode ?? 'M601')
           : c.type === 'template'
-            ? config?.template_custom_gcode ?? ''
+            ? (config?.template_custom_gcode ?? '')
             : c.type === 'tool_change'
               ? 'tool_change'
-              : c.extra ?? '';
+              : (c.extra ?? '');
     lines.push(
       `<code print_z="${fmt(c.printZ)}" type="${CUSTOM_GCODE_TYPE_ID[c.type]}" extruder="${c.extruder ?? 1}" color="${xmlEscape(c.color ?? '')}" extra="${xmlEscape(escapeStringCstyle(c.extra ?? ''))}" gcode="${xmlEscape(escapeStringCstyle(gcode))}"/>`,
     );
@@ -271,10 +274,7 @@ export async function build3mf(
   const volumeRanges: Array<Array<{ vol: ThreeMfVolume; first: number; last: number }>> = [];
   objects.forEach((obj, i) => {
     const id = i + 1;
-    const all: ThreeMfVolume[] = [
-      { name: obj.name, mesh: obj.mesh, type: 'ModelPart', extruder: undefined },
-      ...(obj.volumes || []),
-    ];
+    const all: ThreeMfVolume[] = [{ name: obj.name, mesh: obj.mesh, type: 'ModelPart', extruder: undefined }, ...(obj.volumes || [])];
     parts.push(`  <object id="${id}" name="${xmlEscape(obj.name)}" type="model">`);
     parts.push('   <mesh>');
     parts.push('    <vertices>');
@@ -445,7 +445,12 @@ function readPaintFromModel(model: string): Map<string, { supports?: string; sea
 }
 
 function xmlUnescape(v: string): string {
-  return v.replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&apos;/g, "'").replace(/&amp;/g, '&');
+  return v
+    .replace(/&quot;/g, '"')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, '&');
 }
 
 /** Build items of 3D/3dmodel.model in document order: the object id each one instantiates and its transform. */
@@ -549,13 +554,36 @@ export async function read3mfProject(
           else if (k === 'matrix') vol.matrix = v.split(/\s+/).map(Number);
           else if (k === 'modifier') {
             if (v === '1' && vol.type === 'ModelPart') vol.type = 'ParameterModifier';
-          } else if (['source_file', 'source_object_id', 'source_volume_id', 'source_offset_x', 'source_offset_y', 'source_offset_z', 'source_in_inches', 'source_in_meters', 'mesh_stat', 'mesh_text_info'].includes(k)) {
+          } else if (
+            [
+              'source_file',
+              'source_object_id',
+              'source_volume_id',
+              'source_offset_x',
+              'source_offset_y',
+              'source_offset_z',
+              'source_in_inches',
+              'source_in_meters',
+              'mesh_stat',
+              'mesh_text_info',
+            ].includes(k)
+          ) {
             /* ignore */
           } else vol.config[k] = v;
         }
         volumes.push(vol);
       }
-      objects.push({ name, config: oc, extruder, instances, volumes, supportPaint: paint?.supports, seamPaint: paint?.seam, mmuPaint: paint?.mmu, ranges });
+      objects.push({
+        name,
+        config: oc,
+        extruder,
+        instances,
+        volumes,
+        supportPaint: paint?.supports,
+        seamPaint: paint?.seam,
+        mmuPaint: paint?.mmu,
+        ranges,
+      });
       objectIds.push(objId);
     }
   }

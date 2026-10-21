@@ -36,7 +36,11 @@ async function main() {
   seedSamples();
 
   const tokens = bootstrapEnvToken();
-  console.log(tokens ? `[webslicer] MCP: enabled (${tokens} token${tokens === 1 ? '' : 's'})` : '[webslicer] MCP: disabled (set MCP_TOKEN to enable /mcp)');
+  console.log(
+    tokens
+      ? `[webslicer] MCP: enabled (${tokens} token${tokens === 1 ? '' : 's'})`
+      : '[webslicer] MCP: disabled (set MCP_TOKEN to enable /mcp)',
+  );
 
   const app = express();
   app.disable('x-powered-by');

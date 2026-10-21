@@ -72,16 +72,28 @@ export function ObjectsSection() {
           <ToolbarButton title="Add instance (+)" onClick={addInstance} disabled={selected.length !== 1}>
             +
           </ToolbarButton>
-          <ToolbarButton title="Remove the last instance (−)" onClick={removeOneInstance} disabled={selected.length !== 1 || instanceCount <= 1}>
+          <ToolbarButton
+            title="Remove the last instance (−)"
+            onClick={removeOneInstance}
+            disabled={selected.length !== 1 || instanceCount <= 1}
+          >
             −
           </ToolbarButton>
           <ToolbarButton title="Duplicate" onClick={() => duplicate(selectedIds)} disabled={!selected.length}>
             ⧉
           </ToolbarButton>
-          <ToolbarButton title="Delete the picked instance, otherwise the selected object or volume (Del)" onClick={deleteSelection} disabled={!selected.length}>
+          <ToolbarButton
+            title="Delete the picked instance, otherwise the selected object or volume (Del)"
+            onClick={deleteSelection}
+            disabled={!selected.length}
+          >
             🗑
           </ToolbarButton>
-          <ToolbarButton title="Delete all" onClick={() => objects.length && confirm('Remove all objects?') && clear()} disabled={!objects.length}>
+          <ToolbarButton
+            title="Delete all"
+            onClick={() => objects.length && confirm('Remove all objects?') && clear()}
+            disabled={!objects.length}
+          >
             ✕
           </ToolbarButton>
         </div>
@@ -111,7 +123,13 @@ export function ObjectsSection() {
         {!objects.length && !autosaveInfo && (
           <li className="empty">
             Drop STL / OBJ / 3MF / AMF files onto the 3D view, use Import or{' '}
-            <a href="#" onClick={(e) => { e.preventDefault(); openDialog('library', 'open'); }}>
+            <a
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                openDialog('library', 'open');
+              }}
+            >
               open the library
             </a>
             .

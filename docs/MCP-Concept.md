@@ -19,11 +19,11 @@ the browser today.
 
 ## 2. Architecture options
 
-| Option | Description | Assessment |
-|---|---|---|
-| **A. MCP endpoint in the WebSlicer server** (`/mcp`, Streamable HTTP) | `@modelcontextprotocol/sdk` in the Express server; tools call the internal functions directly (jobs.ts, presets.ts, library.ts). | **Recommended.** No second component, uses job queue, library and presets directly, one Docker image. Ideal for clients on the LAN (Claude Desktop, Home Assistant). |
-| B. Separate MCP server (stdio) as npm package | Small process on the client machine that talks to WebSlicer's REST API. | Good for Claude Desktop / Claude Code over stdio without exposing the MCP endpoint on the network. Can later be derived from A (same tool definitions, different transport). |
-| C. REST + OpenAPI only | Agents use the REST API via generic HTTP tools. | No MCP benefit (discovery, schemas, prompts, resources). Fallback only. |
+| Option                                                                | Description                                                                                                                      | Assessment                                                                                                                                                                   |
+| --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **A. MCP endpoint in the WebSlicer server** (`/mcp`, Streamable HTTP) | `@modelcontextprotocol/sdk` in the Express server; tools call the internal functions directly (jobs.ts, presets.ts, library.ts). | **Recommended.** No second component, uses job queue, library and presets directly, one Docker image. Ideal for clients on the LAN (Claude Desktop, Home Assistant).         |
+| B. Separate MCP server (stdio) as npm package                         | Small process on the client machine that talks to WebSlicer's REST API.                                                          | Good for Claude Desktop / Claude Code over stdio without exposing the MCP endpoint on the network. Can later be derived from A (same tool definitions, different transport). |
+| C. REST + OpenAPI only                                                | Agents use the REST API via generic HTTP tools.                                                                                  | No MCP benefit (discovery, schemas, prompts, resources). Fallback only.                                                                                                      |
 
 Decision: **implement A, add B as a thin stdio wrapper later** (shared tool definitions in
 `server/src/mcp/tools.ts`, interchangeable transport).
@@ -53,13 +53,13 @@ JSON file in `data/projects/<uuid>.json` with the preset names plus the override
 and the objects with their instance matrices; the meshes live in the model directory like any uploaded
 model. A thin REST surface exposes it (the browser UI does not use these routes):
 
-| Route | Body | Answer |
-|---|---|---|
-| `POST /api/projects` | `{ printer, print, filaments?, owner? }` – a preset name or `{ name, config }` each | 201 with the project |
-| `GET /api/projects/:id` | – | the project, 404 if unknown or expired |
-| `POST /api/projects/:id/models` | `{ libraryPath, copies? }` (1–1000) | the project with the added objects |
-| `POST /api/projects/:id/arrange` | – | the project with the instances packed on the bed |
-| `POST /api/projects/:id/slice` | `{ binaryGcode?, outputName? }` | 202 with the job record (like `POST /api/slice`) |
+| Route                            | Body                                                                                | Answer                                           |
+| -------------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------ |
+| `POST /api/projects`             | `{ printer, print, filaments?, owner? }` – a preset name or `{ name, config }` each | 201 with the project                             |
+| `GET /api/projects/:id`          | –                                                                                   | the project, 404 if unknown or expired           |
+| `POST /api/projects/:id/models`  | `{ libraryPath, copies? }` (1–1000)                                                 | the project with the added objects               |
+| `POST /api/projects/:id/arrange` | –                                                                                   | the project with the instances packed on the bed |
+| `POST /api/projects/:id/slice`   | `{ binaryGcode?, outputName? }`                                                     | 202 with the job record (like `POST /api/slice`) |
 
 Inputs are validated like `validateSliceRequest`; a bad library path, an unknown preset, too many
 instances or objects that do not fit on the bed answer 400 with a message, an unknown project id 404.
@@ -82,29 +82,29 @@ exports the catalogue). The tools of phase 1 are implemented and marked ✔; the
 
 - ✔ `list_printers()` → installed printers, their printer presets, and the default preset names
 - ✔ `list_presets(type, printer?, print?)` → print/filament/printer presets with the compatibility flag
- (a printer only shows presets of an installed printer model – the setup wizard installs them)
+  (a printer only shows presets of an installed printer model – the setup wizard installs them)
 - ✔ `get_option_schema(query?, type?, limit?)` → options with label, type, default and enum values
- (substring over key, label, category and tooltip; an exact key match ranks first)
+  (substring over key, label, category and tooltip; an exact key match ranks first)
 - ✔ `list_library(path?)` → models, projects and G-code in the library (`resolveLibraryPath`)
 
 **Build a project**
 
 - ✔ `create_project(printer, print, filaments[])` → `project_id` (server-side state, TTL 24 h,
- max. 20 live projects per owner)
+  max. 20 live projects per owner)
 - ✔ `add_model(project_id, library_path, copies?)` – STL or 3MF (3MF keeps its objects and placements)
 - ✔ `arrange(project_id)` – the shelf algorithm of the browser
 - ✔ `set_settings(project_id, scope, values)` – validated against the schema, unknown keys and keys of
- another preset type are rejected; `scope` is `print`, `printer`, `filament` or `filament[<index>]`
+  another preset type are rejected; `scope` is `print`, `printer`, `filament` or `filament[<index>]`
 - ✔ `quick_settings(project_id, {supports, infill, brim})` – the three plater quick settings, mapped to
- the same keys the browser writes
+  the same keys the browser writes
 - `transform_object(project_id, object_id, …)`, `place_on_face`, `set_object_settings`,
- `add_modifier(...)`, `add_height_range(...)` (phase 2)
+  `add_modifier(...)`, `add_height_range(...)` (phase 2)
 
 **Slice and evaluate**
 
 - ✔ `slice(project_id)` → `job_id` (headless, no thumbnails; progress via `get_job`)
 - ✔ `get_job(job_id)` → status, progress, time, filament (mm/g/cost), layers and the warnings of the
- slicer log
+  slicer log
 - `compare(project_id, variants[])` (phase 3), `export_project`, `export_gcode` (phase 2)
 
 **Printers** – `list_print_hosts`, `test_print_host`, `send_to_printer` (phase 3, with confirmation),
@@ -113,9 +113,9 @@ later `printer_status(host_id)`.
 ### 4.2 Still planned
 
 - Object tools (phase 2): `transform_object`, `place_on_face`, `set_object_settings`, `add_modifier`,
- `add_height_range`; `search_library(text)`; `export_project`, `export_gcode`
+  `add_height_range`; `search_library(text)`; `export_project`, `export_gcode`
 - Resources (phase 2): `webslicer://presets/{type}/{name}`, `webslicer://jobs/{id}/log`,
- `webslicer://library/{path}` (3MF/G-code as binary resource), `webslicer://schema`
+  `webslicer://library/{path}` (3MF/G-code as binary resource), `webslicer://schema`
 - Prompts (phase 2): `slice-and-print`, `optimize-for-time`, `compare-layer-heights`
 - `send_to_printer(job_id, host_id, {start})` (phase 3) – **start=true only with explicit user approval**
 
@@ -135,13 +135,13 @@ The audit log planned for phase 2 is already in phase 1 (see §5).
 
 ## 6. Phased implementation
 
-| Phase | Content | Effort |
-|---|---|---|
-| 0 | Headless import (3MF mesh reader, normalization, server-side arrange), project store with TTL | 2–3 days |
-| 1 | MCP endpoint (`@modelcontextprotocol/sdk`, Streamable HTTP, token auth), "discover" + "slice" tools (list_*, create_project, add_model, set_settings, quick_settings, slice, get_job), audit log – **done (T-006)** | 2 days |
-| 2 | Object tools (transform, modifiers, height ranges), resources, prompts | 2 days |
-| 3 | `send_to_printer` with confirmation, variant comparison, thumbnail rasterizer | 2 days |
-| 4 | stdio variant as npm package (`webslicer-mcp`), docs, examples for Claude Desktop / Claude Code / Home Assistant | 1 day |
+| Phase | Content                                                                                                                                                                                                             | Effort   |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| 0     | Headless import (3MF mesh reader, normalization, server-side arrange), project store with TTL                                                                                                                       | 2–3 days |
+| 1     | MCP endpoint (`@modelcontextprotocol/sdk`, Streamable HTTP, token auth), "discover" + "slice" tools (list_*, create_project, add_model, set_settings, quick_settings, slice, get_job), audit log – **done (T-006)** | 2 days   |
+| 2     | Object tools (transform, modifiers, height ranges), resources, prompts                                                                                                                                              | 2 days   |
+| 3     | `send_to_printer` with confirmation, variant comparison, thumbnail rasterizer                                                                                                                                       | 2 days   |
+| 4     | stdio variant as npm package (`webslicer-mcp`), docs, examples for Claude Desktop / Claude Code / Home Assistant                                                                                                    | 1 day    |
 
 Tests: unit tests of the tool handlers against the existing logic, integration test with the MCP
 Inspector (`npx @modelcontextprotocol/inspector`) and an E2E script that runs a complete agent workflow

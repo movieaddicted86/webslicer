@@ -21,7 +21,11 @@ export const PAINT_COLORS: Record<number, [number, number, number]> = {
  * longest edge). Returns a new non-indexed geometry; the first triangles keep their order
  * so existing paint arrays can be mapped (see remapPaint).
  */
-export function subdivideForPainting(g: THREE.BufferGeometry, maxEdge: number, maxTriangles = 400_000): { geometry: THREE.BufferGeometry; parent: Uint32Array } {
+export function subdivideForPainting(
+  g: THREE.BufferGeometry,
+  maxEdge: number,
+  maxTriangles = 400_000,
+): { geometry: THREE.BufferGeometry; parent: Uint32Array } {
   const src = (g.getIndex() ? g.toNonIndexed() : g).getAttribute('position').array as Float32Array;
   const n = src.length / 9;
   // working list of triangles as flat coords + parent index
@@ -35,9 +39,15 @@ export function subdivideForPainting(g: THREE.BufferGeometry, maxEdge: number, m
     const out: number[] = [];
     const outParents: number[] = [];
     for (let t = 0; t < tris.length; t += 9) {
-      const ax = tris[t], ay = tris[t + 1], az = tris[t + 2];
-      const bx = tris[t + 3], by = tris[t + 4], bz = tris[t + 5];
-      const cx = tris[t + 6], cy = tris[t + 7], cz = tris[t + 8];
+      const ax = tris[t],
+        ay = tris[t + 1],
+        az = tris[t + 2];
+      const bx = tris[t + 3],
+        by = tris[t + 4],
+        bz = tris[t + 5];
+      const cx = tris[t + 6],
+        cy = tris[t + 7],
+        cz = tris[t + 8];
       const ab = (bx - ax) ** 2 + (by - ay) ** 2 + (bz - az) ** 2;
       const bc = (cx - bx) ** 2 + (cy - by) ** 2 + (cz - bz) ** 2;
       const ca = (ax - cx) ** 2 + (ay - cy) ** 2 + (az - cz) ** 2;
@@ -50,13 +60,19 @@ export function subdivideForPainting(g: THREE.BufferGeometry, maxEdge: number, m
       }
       changed = true;
       if (longest === ab) {
-        const mx = (ax + bx) / 2, my = (ay + by) / 2, mz = (az + bz) / 2;
+        const mx = (ax + bx) / 2,
+          my = (ay + by) / 2,
+          mz = (az + bz) / 2;
         out.push(ax, ay, az, mx, my, mz, cx, cy, cz, mx, my, mz, bx, by, bz, cx, cy, cz);
       } else if (longest === bc) {
-        const mx = (bx + cx) / 2, my = (by + cy) / 2, mz = (bz + cz) / 2;
+        const mx = (bx + cx) / 2,
+          my = (by + cy) / 2,
+          mz = (bz + cz) / 2;
         out.push(ax, ay, az, bx, by, bz, mx, my, mz, ax, ay, az, mx, my, mz, cx, cy, cz);
       } else {
-        const mx = (cx + ax) / 2, my = (cy + ay) / 2, mz = (cz + az) / 2;
+        const mx = (cx + ax) / 2,
+          my = (cy + ay) / 2,
+          mz = (cz + az) / 2;
         out.push(ax, ay, az, bx, by, bz, mx, my, mz, mx, my, mz, bx, by, bz, cx, cy, cz);
       }
       outParents.push(parent, parent);

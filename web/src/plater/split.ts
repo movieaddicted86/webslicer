@@ -73,9 +73,7 @@ export function splitShells(positions: Float32Array): Uint32Array[] {
   const shells = Array.from(groups.values(), (tris) => Uint32Array.from(tris));
   mergeHollowShells(positions, shells);
   // largest first; the magnitude keeps an inverted single shell from sorting to the end
-  return shells
-    .filter((s) => s.length > 0)
-    .sort((a, b) => Math.abs(signedVolume(positions, b)) - Math.abs(signedVolume(positions, a)));
+  return shells.filter((s) => s.length > 0).sort((a, b) => Math.abs(signedVolume(positions, b)) - Math.abs(signedVolume(positions, a)));
 }
 
 /** Flat position array of a set of triangles of a non-indexed mesh (a shell's own geometry). */
@@ -94,9 +92,15 @@ export function signedVolume(positions: Float32Array, tris: Uint32Array): number
   let volume = 0;
   for (let i = 0; i < tris.length; i++) {
     const o = tris[i] * 9;
-    const ax = positions[o], ay = positions[o + 1], az = positions[o + 2];
-    const bx = positions[o + 3], by = positions[o + 4], bz = positions[o + 5];
-    const cx = positions[o + 6], cy = positions[o + 7], cz = positions[o + 8];
+    const ax = positions[o],
+      ay = positions[o + 1],
+      az = positions[o + 2];
+    const bx = positions[o + 3],
+      by = positions[o + 4],
+      bz = positions[o + 5];
+    const cx = positions[o + 6],
+      cy = positions[o + 7],
+      cz = positions[o + 8];
     volume += ax * (by * cz - bz * cy) - ay * (bx * cz - bz * cx) + az * (bx * cy - by * cx);
   }
   return volume / 6;

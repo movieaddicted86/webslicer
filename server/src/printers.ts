@@ -142,7 +142,8 @@ export async function uploadToPrinter(
           body: data,
         });
         if (res.ok) return { ok: true, message: `Uploaded ${filename} to PrusaLink${startPrint ? ' and started print' : ''}` };
-        if (res.status !== 404) return { ok: false, message: `PrusaLink upload failed: HTTP ${res.status} ${await res.text().catch(() => '')}` };
+        if (res.status !== 404)
+          return { ok: false, message: `PrusaLink upload failed: HTTP ${res.status} ${await res.text().catch(() => '')}` };
         // Fallback: legacy OctoPrint-compatible API
         const fd = new UndiciFormData();
         fd.append('file', blob, filename);

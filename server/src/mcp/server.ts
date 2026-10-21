@@ -55,11 +55,28 @@ function createServer(ctx: ToolContext): McpServer {
         const params = sanitizeParams(args ?? {});
         try {
           const data = await tool.handler(args, ctx);
-          appendAudit({ time: new Date().toISOString(), token: ctx.tokenId, owner: ctx.owner, tool: tool.name, params, ok: true, durationMs: Date.now() - started });
+          appendAudit({
+            time: new Date().toISOString(),
+            token: ctx.tokenId,
+            owner: ctx.owner,
+            tool: tool.name,
+            params,
+            ok: true,
+            durationMs: Date.now() - started,
+          });
           return { content: [{ type: 'text' as const, text: JSON.stringify(data ?? {}, null, 2) }] };
         } catch (e) {
           const message = (e as Error).message || 'tool failed';
-          appendAudit({ time: new Date().toISOString(), token: ctx.tokenId, owner: ctx.owner, tool: tool.name, params, ok: false, error: message, durationMs: Date.now() - started });
+          appendAudit({
+            time: new Date().toISOString(),
+            token: ctx.tokenId,
+            owner: ctx.owner,
+            tool: tool.name,
+            params,
+            ok: false,
+            error: message,
+            durationMs: Date.now() - started,
+          });
           return { content: [{ type: 'text' as const, text: message }], isError: true };
         }
       },

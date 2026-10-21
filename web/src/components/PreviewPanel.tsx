@@ -109,7 +109,13 @@ export function PreviewPanel() {
               <LayerCodes printZ={gcode.layerZ[range[1]]} firstLayer={range[1] === 0} maxZ={gcode.layerZ[gcode.layerCount - 1] ?? 0} />
               <MoveSlider gcode={gcode} />
               <ViewOptions />
-              <PreviewLegend gcode={gcode} usedTools={usedTools} featureTimeScale={featureTimeScale} featureShare={featureShare} estimatedSeconds={info?.estimatedTimeSeconds} />
+              <PreviewLegend
+                gcode={gcode}
+                usedTools={usedTools}
+                featureTimeScale={featureTimeScale}
+                featureShare={featureShare}
+                estimatedSeconds={info?.estimatedTimeSeconds}
+              />
             </section>
           )}
           {!gcode && gcodeLoading && <div className="muted small">Loading preview…</div>}
@@ -118,7 +124,9 @@ export function PreviewPanel() {
               Load toolpath preview
             </button>
           )}
-          {!job.outputName.endsWith('.gcode') && <div className="muted small">No toolpath preview for {job.outputName.split('.').pop()} output.</div>}
+          {!job.outputName.endsWith('.gcode') && (
+            <div className="muted small">No toolpath preview for {job.outputName.split('.').pop()} output.</div>
+          )}
           <details>
             <summary className="small">Slicer log</summary>
             <pre className="log">{jobLog.join('\n')}</pre>
