@@ -1,4 +1,5 @@
 import type { CustomGcode } from '../api';
+import { DEFAULT_COLOR_CSS } from '../palette';
 
 export interface ColorSegment {
   color: string;
@@ -7,7 +8,7 @@ export interface ColorSegment {
 }
 
 /** Normalise a filament colour value ('#FF8000', '"#FF8000"', 'FF8000;#00FF00') to '#rrggbb'. */
-export function normalizeColor(value: string | undefined, fallback = '#e6b84a'): string {
+export function normalizeColor(value: string | undefined, fallback = DEFAULT_COLOR_CSS): string {
   if (!value) return fallback;
   const first = value.replace(/"/g, '').split(';')[0].trim();
   const m = /^#?([0-9a-f]{6})$/i.exec(first);

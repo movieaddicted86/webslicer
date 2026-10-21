@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { encodeQoi, bytesToBase64 } from '../gcode/qoi';
 import { parseThumbnailSpec, type ThumbnailInput, type ThumbnailSpec } from '@webslicer/shared';
+import { DEFAULT_COLOR_CSS } from '../palette';
 
 // the `thumbnails` option is read by `@webslicer/shared` (one parser for the browser and the CLI);
 // re-exported so the settings UI keeps its `../three/thumbnail` import path
@@ -55,7 +56,7 @@ export function renderThumbnails(scene: THREE.Scene, objects: THREE.Object3D, sp
   const translucent: Array<{ mesh: THREE.Mesh; visible: boolean }> = [];
   // render in filament colours (per extruder) instead of selection / warning colours
   const recolored: Array<{ mat: THREE.MeshStandardMaterial; color: THREE.Color; emissive: THREE.Color }> = [];
-  const fallback = '#e6b84a';
+  const fallback = DEFAULT_COLOR_CSS;
   objects.traverse((o) => {
     const m = o as THREE.Mesh;
     if (!m.isMesh) return;

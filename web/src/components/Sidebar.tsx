@@ -4,6 +4,7 @@ import { bedShapeOf } from '@webslicer/shared';
 import { PresetSelect } from './PresetSelect';
 import { PreviewPanel } from './PreviewPanel';
 import { NumericField } from './common/NumericField';
+import { extruderCss } from '../palette';
 import { objectIsOutside } from '../three/Viewer';
 import { toBool } from '../values';
 import { createPrimitive, type PrimitiveShape } from '../three/primitives';
@@ -122,8 +123,6 @@ function TransformInputs({
   );
 }
 
-const EXTRUDER_CSS = ['#e6b84a', '#73c2fb', '#d96fd9', '#84d08a', '#f09b59', '#a9a9f5'];
-
 /** Height range modifiers of the selected object (variable layer height and per-range settings) */
 function RangePanel({ o }: { o: PlaterObject }) {
   const addRange = useStore((s) => s.addRange);
@@ -230,9 +229,9 @@ function PaintPanel({ o }: { o: PlaterObject }) {
       {paintMode === 'mmu' ? (
         <div className="paint-tools">
           {Array.from({ length: extruders }, (_, i) => i + 1).map((n) => (
-            <label key={n} className={`tool extruder ${paintExtruder === n ? 'active' : ''}`} style={{ borderColor: paintExtruder === n ? EXTRUDER_CSS[(n - 1) % EXTRUDER_CSS.length] : undefined }}>
+            <label key={n} className={`tool extruder ${paintExtruder === n ? 'active' : ''}`} style={{ borderColor: paintExtruder === n ? extruderCss(n) : undefined }}>
               <input type="radio" checked={paintExtruder === n} onChange={() => setPaintExtruder(n)} />
-              <span className="swatch" style={{ background: EXTRUDER_CSS[(n - 1) % EXTRUDER_CSS.length] }} /> {n}
+              <span className="swatch" style={{ background: extruderCss(n) }} /> {n}
             </label>
           ))}
         </div>
