@@ -26,31 +26,50 @@ async function save(list: PhysicalPrinter[]): Promise<void> {
   await fs.writeFile(file(), JSON.stringify(list, null, 2));
 }
 
+/**
+ * Serializes the read-modify-write of the printer list.
+ *
+ * The synchronous store was atomic for free: `readFileSync`…`writeFileSync` never yields, so two
+ * requests could not interleave and lose one of the printers. With `await` in between they can, so
+ * every change goes through this chain – same behaviour, still no blocking of the event loop.
+ */
+let writes: Promise<unknown> = Promise.resolve();
+
+function update<T>(fn: () => Promise<T>): Promise<T> {
+  const next = writes.then(fn, fn);
+  writes = next.catch(() => undefined);
+  return next;
+}
+
 export async function upsertPrinter(p: Partial<PhysicalPrinter>): Promise<PhysicalPrinter> {
-  const list = await listPrinters();
-  const host = (p.host || '').trim().replace(/\/+$/, '');
-  const full: PhysicalPrinter = {
-    id: p.id || randomUUID(),
-    name: (p.name || host || 'Printer').trim(),
-    type: (p.type || 'octoprint') as HostType,
-    host: /^https?:\/\//i.test(host) ? host : `http://${host}`,
-    apiKey: p.apiKey || undefined,
-    presetName: p.presetName || undefined,
-    ignoreTls: !!p.ignoreTls,
-  };
-  const i = list.findIndex((x) => x.id === full.id);
-  if (i >= 0) list[i] = full;
-  else list.push(full);
-  await save(list);
-  return full;
+  return update(async () => {
+    const list = await listPrinters();
+    const host = (p.host || '').trim().replace(/\/+$/, '');
+    const full: PhysicalPrinter = {
+      id: p.id || randomUUID(),
+      name: (p.name || host || 'Printer').trim(),
+      type: (p.type || 'octoprint') as HostType,
+      host: /^https?:\/\//i.test(host) ? host : `http://${host}`,
+      apiKey: p.apiKey || undefined,
+      presetName: p.presetName || undefined,
+      ignoreTls: !!p.ignoreTls,
+    };
+    const i = list.findIndex((x) => x.id === full.id);
+    if (i >= 0) list[i] = full;
+    else list.push(full);
+    await save(list);
+    return full;
+  });
 }
 
 export async function deletePrinter(id: string): Promise<boolean> {
-  const list = await listPrinters();
-  const next = list.filter((p) => p.id !== id);
-  if (next.length === list.length) return false;
-  await save(next);
-  return true;
+  return update(async () => {
+    const list = await listPrinters();
+    const next = list.filter((p) => p.id !== id);
+    if (next.length === list.length) return false;
+    await save(next);
+    return true;
+  });
 }
 
 export async function getPrinter(id: string): Promise<PhysicalPrinter | undefined> {
