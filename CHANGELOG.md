@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+- **Safety (S1-b):** sending G-code to a print host now checks that the host is the machine the file
+  was sliced for. A physical printer can be linked to a printer preset (Printers → Edit → "Printer
+  preset"); `POST /api/jobs/:id/send` compares that preset with the job's own printer preset and
+  refuses a mismatch with **409** `{ error, issues }` – the G-code's start/end G-code, axis limits and
+  nozzle belong to another machine. Presets are compared by lineage: the same name or a system preset's
+  alias is the same machine; a preset that inherits the other (directly or through a chain) warns with
+  `send.preset_derived`, because a derived preset can change the nozzle, axis limits or start/end
+  G-code; two presets that only share an ancestor (siblings) are a mismatch and are blocked. A host
+  without a preset only warns, because there is nothing to compare. A refused send is still possible
+  with an override: `override: true` plus a reasoned text (trimmed, at most 500 characters, required) is
+  accepted and written to `data/audit.log` (job, host, issues, reason, time) in the MCP audit format.
+  The send dialog preselects the host that fits, lists the issues, asks for the override with its
+  reason and, when "Start printing after upload" is ticked although a warning is shown, for an extra
+  confirmation. Files that were sendable before are sendable unchanged when the host is linked to the
+  matching preset – the REST contract apart from the new 409 and the two optional fields is untouched.
 - **Safety (S1-a):** the MCP tools no longer let an agent prepare G-code outside the machine's
   limits. `set_settings` used to accept every key in every scope – including printer options such as
   `z_offset` or `bed_shape` – and only type-coerced the value. Now only process and material options

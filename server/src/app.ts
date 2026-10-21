@@ -45,11 +45,20 @@ export function createApp(): express.Express {
 
   // The one place where a thrown error becomes an HTTP response: typed errors carry their status,
   // Express' body-parser reports oversize payloads as `entity.too.large`, everything else is a 500.
-  app.use((err: Error & { status?: number; type?: string }, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-    const status = statusOf(err) ?? err.status ?? (err.type === 'entity.too.large' ? 413 : 500);
-    if (status >= 500) console.error(err);
-    res.status(status).json({ error: err.message || 'Internal error' });
-  });
+  app.use(
+    (
+      err: Error & { status?: number; type?: string; details?: Record<string, unknown> },
+      _req: express.Request,
+      res: express.Response,
+      _next: express.NextFunction,
+    ) => {
+      const status = statusOf(err) ?? err.status ?? (err.type === 'entity.too.large' ? 413 : 500);
+      if (status >= 500) console.error(err);
+      // typed errors may carry fields the client needs to decide (the issues of a refused send);
+      // `error` stays the message so every existing reader keeps working
+      res.status(status).json({ error: err.message || 'Internal error', ...(status < 500 ? err.details : undefined) });
+    },
+  );
 
   return app;
 }

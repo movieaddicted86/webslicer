@@ -107,6 +107,30 @@ test('the send body reads a printer id and a file name only when they are string
   assert.deepEqual(jobSendSchema.parse({}), { startPrint: false });
 });
 
+test('an override needs a non-empty reason of at most 500 characters', () => {
+  assert.equal(jobSendSchema.parse({ printerId: 'p1', override: true, reason: '  tested  ' }).reason, '  tested  ');
+  // the reason as a flag value counts, `override` read from a form or a script counts too
+  assert.equal(jobSendSchema.parse({ override: 'true', reason: 'x' }).override, true);
+  assert.equal(jobSendSchema.parse({ override: 1, reason: 'x' }).override, true);
+  // without one: the first issue names the field
+  for (const body of [
+    { override: true },
+    { override: true, reason: '' },
+    { override: true, reason: '   ' },
+    { override: true, reason: 5 },
+  ]) {
+    const parsed = jobSendSchema.safeParse(body);
+    assert.equal(parsed.success, false, JSON.stringify(body));
+    assert.equal(parsed.error?.issues[0].message, 'an override needs a reason');
+  }
+  const long = jobSendSchema.safeParse({ override: true, reason: 'x'.repeat(501) });
+  assert.equal(long.success, false);
+  assert.equal(long.error?.issues[0].message, 'invalid override reason (at most 500 characters)');
+  // a reason without the flag is harmless, and a flag value that is not a boolean is dropped
+  assert.equal(jobSendSchema.parse({ printerId: 'p1', reason: 'unused' }).override, undefined);
+  assert.equal(jobSendSchema.parse({ override: 'yes' }).override, undefined);
+});
+
 // ---------------------------------------------------------------------------
 // projects
 // ---------------------------------------------------------------------------

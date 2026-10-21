@@ -23,7 +23,8 @@ import {
 import { parseStl, read3mfProject } from '../slicer/threemf.js';
 import { createJob, getJob, listJobs, subscribe, cancelJob, deleteJob, jobOutputPath, readJobLog } from '../jobs.js';
 import type { PhysicalPrinter, PresetType, SliceRequest } from '@webslicer/shared';
-import { listPrinters, upsertPrinter, deletePrinter, getPrinter, testPrinter, uploadToPrinter } from '../services/printers.js';
+import { listPrinters, upsertPrinter, deletePrinter, getPrinter, testPrinter } from '../services/printers.js';
+import { sendJobOutput } from '../services/sendGate.js';
 import { API_KEY_MASK, installedPrintersOf, jobSendSchema, parsePrinter, parsePrinterTest, printerHost } from '../validation/printers.js';
 import { presetBodySchema, presetListSchema } from '../validation/presets.js';
 import { firstIssueMessage } from '../validation/common.js';
@@ -304,11 +305,23 @@ export function apiRouter(): express.Router {
   r.post('/jobs/:id/send', json, async (req, res) => {
     const j = getJob(req.params.id);
     if (!j || j.status !== 'done') return res.status(404).json({ error: 'output not available' });
-    const body = jobSendSchema.parse(req.body ?? {});
+    const parsed = jobSendSchema.safeParse(req.body ?? {});
+    if (!parsed.success) return badRequest(res, firstIssueMessage(parsed.error, 'invalid send request'));
+    const body = parsed.data;
     const p = body.printerId ? await getPrinter(body.printerId) : undefined;
     if (!p) return badRequest(res, 'printerId required');
     const filename = (body.filename || j.outputName).replace(/[\\/]/g, '_');
-    const result = await uploadToPrinter(p, jobOutputPath(j), filename, body.startPrint);
+    // S1-b: the job's printer preset has to be the one the host is set up for; a block is a 409 with
+    // the issues, and only an override with a written reason gets past it (and into the audit log).
+    const result = await sendJobOutput({
+      job: j,
+      printer: p,
+      gcodePath: jobOutputPath(j),
+      filename,
+      startPrint: body.startPrint,
+      override: body.override,
+      reason: body.reason?.trim(),
+    });
     res.status(result.ok ? 200 : 502).json(result);
   });
 

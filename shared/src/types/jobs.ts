@@ -135,6 +135,27 @@ export interface JobEvent {
   job?: JobRecord;
 }
 
+/** `block` refuses a send (unless it is overridden with a reason); `warn` only asks for a confirmation. */
+export type SendIssueSeverity = 'block' | 'warn';
+
+/**
+ * One finding of the send gate (S1-b): `rule` is the stable id (`send.preset_mismatch`,
+ * `send.no_binding`, later `preflight.*`), `message` is written for the person about to print.
+ */
+export interface SendIssue {
+  rule: string;
+  severity: SendIssueSeverity;
+  message: string;
+}
+
+/** What `POST /api/jobs/:id/send` answers when the upload was accepted. */
+export interface SendResult {
+  ok: boolean;
+  message: string;
+  /** what the send was accepted despite: warnings, or the blocks an override covered */
+  issues: SendIssue[];
+}
+
 /** One sub-volume of a 3MF project: a triangle range inside the object mesh plus its settings. */
 export interface ProjectVolume {
   name: string;

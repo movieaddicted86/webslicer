@@ -8,6 +8,8 @@ export function PhysicalPrintersDialog({ onClose }: { onClose: () => void }) {
   const printers = useStore((s) => s.physicalPrinters);
   const refresh = useStore((s) => s.refreshPhysicalPrinters);
   const toast = useStore((s) => s.toast);
+  // the preset a host is bound to is what the send gate compares the G-code against (S1-b)
+  const printerPresets = useStore((s) => s.presetLists.printer);
   const empty: Partial<PhysicalPrinter> = { name: '', type: 'prusalink', host: '', apiKey: '' };
   const [edit, setEdit] = useState<Partial<PhysicalPrinter> | null>(printers.length ? null : empty);
   const [testing, setTesting] = useState<string>('');
@@ -96,6 +98,17 @@ export function PhysicalPrintersDialog({ onClose }: { onClose: () => void }) {
               onChange={(e) => setEdit({ ...edit, apiKey: e.target.value })}
               placeholder={edit.type === 'moonraker' ? 'optional' : 'required'}
             />
+          </label>
+          <label>
+            Printer preset{' '}
+            <select value={edit.presetName || ''} onChange={(e) => setEdit({ ...edit, presetName: e.target.value || undefined })}>
+              <option value="">— not linked —</option>
+              {printerPresets.map((p) => (
+                <option key={p.name} value={p.name}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
           </label>
           {/^https:/i.test(edit.host || '') && (
             <label className="checkbox">

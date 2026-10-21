@@ -36,7 +36,9 @@ to the browser. Runs as a Docker container or natively in a Proxmox LXC.
 - **Export**: G-code (also binary `.bgcode`), project as 3MF (with all settings, opens directly in
   desktop PrusaSlicer), config bundle `.ini`.
 - **Physical printers**: upload (optionally starting the print) to **PrusaLink**, **OctoPrint** and
-  **Klipper/Moonraker** (Mainsail/Fluidd), also over HTTPS with self-signed certificates.
+  **Klipper/Moonraker** (Mainsail/Fluidd), also over HTTPS with self-signed certificates. A host can
+  be linked to a printer preset; sending G-code sliced for another printer is refused unless you
+  override it with a reason (which is written to the audit log).
 - **Thumbnails in G-code**: the browser renders previews in the sizes and formats of the printer profile
   (PNG, JPG, QOI for Prusa displays), the server embeds them into the G-code. Printer displays and
   Mainsail/Fluidd/OctoPrint then show the print with an image.
@@ -308,6 +310,10 @@ the server builds a 3MF from all objects + transforms, writes the merged configu
 | POST           | `/api/jobs/:id/send`       | upload to a physical printer               |
 | POST           | `/api/export/3mf`          | project 3MF                                |
 | GET            | `/api/library`             | file library                               |
+
+`POST /api/jobs/:id/send` answers **409** `{ error, issues }` when the job's printer preset is not the
+one the host is linked to; repeating the call with `{ "override": true, "reason": "…" }` sends anyway
+and records the override in `data/audit.log`.
 
 ## More documents
 
