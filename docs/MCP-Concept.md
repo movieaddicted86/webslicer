@@ -144,8 +144,8 @@ checks every value against two rules in `shared/src/safety/mcpPolicy.ts`:
 
 **Allowlist** – only process and material options. Never:
 
-- anything in the printer scope (`start_gcode` lives in the print preset, `z_offset`, `bed_shape`,
-  `max_print_height`, `nozzle_diameter`, `machine_*` and the rest of the printer scope are closed);
+- anything in the printer scope (`z_offset`, `bed_shape`, `max_print_height`, `nozzle_diameter`,
+  `machine_*` and the rest of the printer scope are closed);
 - G-code and script text: `multiline` options, every `*_gcode` key, `post_process`;
 - free text and coordinates (`string`, `strings`, `point`, `point3`) – including `notes`,
   `custom_parameters_*` and `gcode_substitutions`;
