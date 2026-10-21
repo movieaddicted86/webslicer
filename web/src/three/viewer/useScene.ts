@@ -224,5 +224,7 @@ export function useScene(refsRef: MutableRefObject<SceneRefs | null>, containerR
       refsRef.current = null;
       useStore.setState({ renderThumbnails: undefined });
     };
+    // `containerRef`/`refsRef` are stable ref objects owned by the Viewer; the scene is built once
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- stable refs, not dependencies
   }, []);
 }

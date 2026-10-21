@@ -12,6 +12,7 @@ import { splitVector, unescapeStringsCstyle } from '@webslicer/shared';
 import type { InstalledPrinter, PresetSummary, PresetType, ResolvedPreset, Schema } from '@webslicer/shared';
 
 function safeName(name: string): string {
+  // eslint-disable-next-line no-control-regex -- intentional control-character stripping
   return name.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').trim();
 }
 

@@ -255,7 +255,6 @@ test('addInstances copies the selected instance and arranges the copies on the b
 
 test('mirror flips the picked instance in place and keeps it on the bed', async () => {
   await importOne(box(10));
-  const o = st().objects[0];
   st().mirror(0);
   const flipped = st().objects[0].instances[0];
   closePoint(flipped.scale, [-1, 1, 1]);

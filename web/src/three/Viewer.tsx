@@ -34,7 +34,6 @@ export function Viewer() {
   const featureVis = useStore((s) => s.previewFeatureVisibility);
   const moveCut = useStore((s) => s.previewMoveCut);
   const markerVis = useStore((s) => s.previewMarkers);
-  const showShells = useStore((s) => s.previewShowShells);
   const colorMode = useStore((s) => s.previewColorMode);
   const customGcodes = useStore((s) => s.customGcodes);
   const filamentColour = useStore((s) => s.presets.filament[0]?.current.filament_colour);

@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { config } from '../config.js';
 import { parseIni, type IniSection } from './ini.js';
-import type { PresetType, PrinterModel, Vendor } from '@webslicer/shared';
+import type { PresetType, Vendor } from '@webslicer/shared';
 
 export interface SystemPreset {
   type: PresetType;

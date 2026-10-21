@@ -310,5 +310,7 @@ export function useGcodePreview(refsRef: RefObject<SceneRefs | null>, options: G
       const cut = moveCut === undefined ? { ...window.end, marker: Number.MAX_SAFE_INTEGER } : { ...window.end, marker: moveCut };
       applyGcodeRange(refs, gcode, range, cut, showTravel, markerVis, featureVis);
     }
+    // `refsRef` is a stable ref object owned by the Viewer; its content changes without a re-render
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- stable ref, not a dependency
   }, [gcode, view, range, moveCut, showTravel, markerVis, featureVis, colorMode, customGcodes, filamentColour, toolColorKey]);
 }

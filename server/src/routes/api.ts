@@ -1,7 +1,6 @@
 import express, { type Request, type Response, type NextFunction } from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
-import { randomUUID } from 'node:crypto';
 import { config } from '../config.js';
 import { getSlicerVersion } from '../slicer/cli.js';
 import { loadBundles, resolveModelAsset } from '../slicer/bundles.js';

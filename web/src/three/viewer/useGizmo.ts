@@ -47,5 +47,7 @@ export function useGizmo(refsRef: RefObject<SceneRefs | null>, options: GizmoOpt
       refs.transform.getHelper().visible = false;
       refs.transform.enabled = false;
     }
+    // `refsRef` is a stable ref object owned by the Viewer; its content changes without a re-render
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- stable ref, not a dependency
   }, [objects, selectedIds, selectedVolumeId, selectedInstanceId, transformMode, view, paintMode]);
 }

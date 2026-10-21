@@ -133,5 +133,7 @@ export function useBed(refsRef: RefObject<SceneRefs | null>, bedShape: string, b
       }
       refs.bedKey = key;
     }
+    // `refsRef` is a stable ref object owned by the Viewer; its content changes without a re-render
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- stable ref, not a dependency
   }, [bedShape, bedAssetKey]);
 }

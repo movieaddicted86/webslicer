@@ -11,7 +11,8 @@ export function MoveSlider({ gcode }: { gcode: ParsedGcode }) {
   const range = useStore((s) => s.previewLayerRange);
   const moveCut = useStore((s) => s.previewMoveCut);
   const setMoveCut = useStore((s) => s.setPreviewMoveCut);
-  const moves = useMemo(() => layerMoves(gcode, range[1]), [gcode, range[1]]);
+  const topLayer = range[1];
+  const moves = useMemo(() => layerMoves(gcode, topLayer), [gcode, topLayer]);
   const sliderId = useId();
   if (moves.length === 0) return null;
   const first = moves[0];

@@ -42,32 +42,30 @@ export function LibraryDialog({ onClose, mode }: { onClose: () => void; mode: Li
   const [busy, setBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const load = useCallback(
-    async (p: string) => {
-      setLoading(true);
-      setError('');
+  const load = useCallback(async (p: string) => {
+    setLoading(true);
+    setError('');
+    try {
+      const r = await libraryApi.list(p);
+      setEntries(r.entries);
+      setRoot(r.root);
+      setPath(r.path);
       try {
-        const r = await libraryApi.list(p);
-        setEntries(r.entries);
-        setRoot(r.root);
-        setPath(r.path);
-        try {
-          localStorage.setItem('webslicer.libraryPath', r.path);
-        } catch {
-          /* ignore */
-        }
-      } catch (e) {
-        setError((e as Error).message);
-        if (p) load('');
-      } finally {
-        setLoading(false);
+        localStorage.setItem('webslicer.libraryPath', r.path);
+      } catch {
+        /* ignore */
       }
-    },
-    [],
-  );
+    } catch (e) {
+      setError((e as Error).message);
+      if (p) load('');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
   useEffect(() => {
     load(path);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // the initial listing only: the dialog is remounted per open, later loads come from `open`/`up`
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount
   }, []);
 
   const crumbs = path ? path.split('/') : [];
@@ -140,7 +138,8 @@ export function LibraryDialog({ onClose, mode }: { onClose: () => void; mode: Li
     }
   };
 
-  const title = mode === 'open' ? 'Library – open model or project' : mode === 'saveProject' ? 'Library – save project (3MF)' : 'Library – save G-code';
+  const title =
+    mode === 'open' ? 'Library – open model or project' : mode === 'saveProject' ? 'Library – save project (3MF)' : 'Library – save G-code';
   const shown = entries.filter((e) => e.dir || mode === 'open' || (mode === 'saveProject' ? e.kind === 'project' : e.kind === 'gcode'));
 
   return (
@@ -170,7 +169,13 @@ export function LibraryDialog({ onClose, mode }: { onClose: () => void; mode: Li
             <button onClick={() => load(path)} title="Refresh" aria-label="Refresh">
               ⟳
             </button>
-            <input ref={fileRef} type="file" multiple style={{ display: 'none' }} onChange={(e) => e.target.files && upload(e.target.files)} />
+            <input
+              ref={fileRef}
+              type="file"
+              multiple
+              style={{ display: 'none' }}
+              onChange={(e) => e.target.files && upload(e.target.files)}
+            />
           </div>
         </div>
         {error && <div className="error small">{error}</div>}
@@ -209,7 +214,12 @@ export function LibraryDialog({ onClose, mode }: { onClose: () => void; mode: Li
         {mode !== 'open' && (
           <div className="modal-actions">
             <span className="muted small">Save in /{path}</span>
-            <input value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && save()} style={{ width: 260 }} />
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && save()}
+              style={{ width: 260 }}
+            />
             <button className="primary" onClick={save} disabled={busy || !name.trim()}>
               {busy ? 'Saving…' : 'Save'}
             </button>

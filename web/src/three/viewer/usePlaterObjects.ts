@@ -240,5 +240,7 @@ export function usePlaterObjects(refsRef: RefObject<SceneRefs | null>, options: 
         if (refs.transform.object && refs.transform.object.parent === node.group) refs.transform.detach();
       }
     }
+    // `refsRef` is a stable ref object owned by the Viewer; its content changes without a re-render
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- stable ref, not a dependency
   }, [objects, selectedIds, selectedVolumeId, selectedInstanceId, view, bedShape, maxHeight, gcode, paintMode, shells]);
 }

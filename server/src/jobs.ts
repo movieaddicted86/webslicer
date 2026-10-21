@@ -191,7 +191,13 @@ export function cancelJob(id: string): boolean {
  */
 export function mergeConfigs(schema: Schema, req: SliceRequest, opts: { forProject?: boolean } = {}): IniSection {
   const merged: IniSection = {};
-  const skip = new Set(['inherits', 'compatible_printers', 'compatible_printers_condition', 'compatible_prints', 'compatible_prints_condition']);
+  const skip = new Set([
+    'inherits',
+    'compatible_printers',
+    'compatible_printers_condition',
+    'compatible_prints',
+    'compatible_prints_condition',
+  ]);
   // Printer first, then print: a few keys occur in both preset types in vendor bundles
   // (e.g. elefant_foot_compensation on SLA printers) and the print preset owns them.
   for (const [k, v] of Object.entries(req.printer.config)) if (!skip.has(k)) merged[k] = v;
@@ -271,7 +277,12 @@ export async function build3mfForRequest(req: SliceRequest, projectConfig?: IniS
 }
 
 function sanitizeFilename(name: string, ext: string): string {
-  let base = name.replace(/\.(gcode|bgcode|sl1|sl1s|3mf)$/i, '').replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').trim();
+  let base = name
+    .replace(/\.(gcode|bgcode|sl1|sl1s|3mf)$/i, '')
+    // the control-character range is the point here: user-supplied names must not reach the filesystem raw
+    // eslint-disable-next-line no-control-regex -- intentional control-character stripping
+    .replace(/[<>:"/\\|?*\x00-\x1f]/g, '_')
+    .trim();
   if (!base) base = 'print';
   return `${base}${ext}`;
 }
@@ -279,7 +290,8 @@ function sanitizeFilename(name: string, ext: string): string {
 export function createJob(req: SliceRequest, schema: Schema): JobRecord {
   const id = randomUUID();
   const tech = req.printer.config.printer_technology === 'SLA' ? 'SLA' : 'FFF';
-  const binary = tech === 'FFF' && !!req.binaryGcode && (req.printer.config.binary_gcode === '1' || req.printer.config.binary_gcode === 'true');
+  const binary =
+    tech === 'FFF' && !!req.binaryGcode && (req.printer.config.binary_gcode === '1' || req.printer.config.binary_gcode === 'true');
   const ext = tech === 'SLA' ? '.sl1' : binary ? '.bgcode' : '.gcode';
   const job: JobRecord = {
     id,
@@ -405,7 +417,9 @@ async function runJob(job: JobRecord) {
   if (outFile.endsWith('.gcode') && req.thumbnails?.length) {
     try {
       await injectThumbnails(outFile, req.thumbnails);
-      logLines.push(`WebSlicer: embedded ${req.thumbnails.length} thumbnail(s): ${req.thumbnails.map((t) => `${t.width}x${t.height}/${t.format}`).join(', ')}`);
+      logLines.push(
+        `WebSlicer: embedded ${req.thumbnails.length} thumbnail(s): ${req.thumbnails.map((t) => `${t.width}x${t.height}/${t.format}`).join(', ')}`,
+      );
     } catch (e) {
       logLines.push(`WebSlicer: thumbnail embedding failed: ${(e as Error).message}`);
     }

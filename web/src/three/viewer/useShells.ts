@@ -39,5 +39,6 @@ export function useShells(refsRef: RefObject<SceneRefs | null>, shells: boolean,
     }
     // `objects` is not read here: it re-runs the effect after the objects sync, so a newly added
     // object gets the shells treatment too
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- stable ref, not a dependency
   }, [shells, objects]);
 }

@@ -8,27 +8,9 @@
  */
 import type { StateCreator } from 'zustand';
 import * as THREE from 'three';
-import type {
-  Config,
-  CustomGcode,
-  InstalledPrinter,
-  JobRecord,
-  LayerRangeInput,
-  Mode,
-  PhysicalPrinter,
-  Placement,
-  PresetSummary,
-  PresetType,
-  Schema,
-  ServerInfo,
-  ThumbnailInput,
-  Vendor,
-  Vec3,
-  VolumeType,
-} from '../api';
+import type { Config, JobRecord, LayerRangeInput, Placement, PresetType, Schema, ServerInfo, ThumbnailInput, Vec3, VolumeType } from '../api';
 import type { ThumbnailSpec } from '@webslicer/shared';
-import type { MarkerKind, ParsedGcode } from '../gcode/types';
-import type { PreviewColorMode } from '../gcode/colorschemes';
+import type { ParsedGcode } from '../gcode/types';
 import type { PaintKind } from '../three/paint';
 import type { UiSlice } from './slices/ui';
 import type { PresetSlice } from './slices/preset';
