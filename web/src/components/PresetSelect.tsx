@@ -89,12 +89,13 @@ export function PresetSelect({ type, slot, extruderIdx = 0, label }: Props) {
         <button
           className={`icon ${modified ? 'accent' : ''}`}
           title="Save preset"
+          aria-label="Save preset"
           onClick={() => openDialog('savePreset', { type, extruderIdx })}
         >
           💾
         </button>
         {modified && (
-          <button className="icon" title="Discard changes" onClick={() => discard(type, extruderIdx)}>
+          <button className="icon" title="Discard changes" aria-label="Discard changes" onClick={() => discard(type, extruderIdx)}>
             ↶
           </button>
         )}
@@ -102,6 +103,7 @@ export function PresetSelect({ type, slot, extruderIdx = 0, label }: Props) {
           <button
             className="icon"
             title="Delete user preset"
+            aria-label="Delete user preset"
             onClick={() => confirm(`Delete preset "${slot.name}"?`) && deletePreset(type, slot.name).catch((e) => toast('error', e.message))}
           >
             🗑

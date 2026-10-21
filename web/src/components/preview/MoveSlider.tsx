@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useId, useMemo } from 'react';
 import { useStore } from '../../state/store';
 import { layerMoves, toolPosition } from '../../gcode/moves';
 import type { ParsedGcode } from '../../gcode/types';
@@ -12,6 +12,7 @@ export function MoveSlider({ gcode }: { gcode: ParsedGcode }) {
   const moveCut = useStore((s) => s.previewMoveCut);
   const setMoveCut = useStore((s) => s.setPreviewMoveCut);
   const moves = useMemo(() => layerMoves(gcode, range[1]), [gcode, range[1]]);
+  const sliderId = useId();
   if (moves.length === 0) return null;
   const first = moves[0];
   const last = moves[moves.length - 1];
@@ -20,8 +21,11 @@ export function MoveSlider({ gcode }: { gcode: ParsedGcode }) {
   const done = value - first + 1;
   return (
     <div className="move-slider">
-      <label className="small">Move</label>
+      <label className="small" htmlFor={sliderId}>
+        Move
+      </label>
       <input
+        id={sliderId}
         type="range"
         min={first}
         max={last}

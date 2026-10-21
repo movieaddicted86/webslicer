@@ -113,6 +113,7 @@ export function ObjectSettingsDialog({ onClose, objectId, volumeId, rangeId }: {
                 <button
                   className="icon"
                   title="Remove override"
+                  aria-label="Remove override"
                   onClick={() => {
                     const c = { ...config };
                     delete c[k];

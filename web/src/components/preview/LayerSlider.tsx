@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import { useStore } from '../../state/store';
 import type { ParsedGcode } from '../../gcode/types';
 import { CODE_LABEL, layerIndexOfZ } from './formats';
@@ -7,11 +8,15 @@ export function LayerSlider({ gcode }: { gcode: ParsedGcode }) {
   const range = useStore((s) => s.previewLayerRange);
   const setRange = useStore((s) => s.setPreviewLayerRange);
   const customGcodes = useStore((s) => s.customGcodes);
+  const topId = useId();
+  const bottomId = useId();
   return (
     <>
-      <label className="small">Top</label>
+      <label className="small" htmlFor={topId}>
+        Top
+      </label>
       <div className="slider-with-markers">
-        <input type="range" min={0} max={gcode.layerCount - 1} value={range[1]} onChange={(e) => setRange([Math.min(range[0], Number(e.target.value)), Number(e.target.value)])} />
+        <input id={topId} type="range" min={0} max={gcode.layerCount - 1} value={range[1]} onChange={(e) => setRange([Math.min(range[0], Number(e.target.value)), Number(e.target.value)])} />
         <div className="slider-markers">
           {customGcodes.map((c) => {
             const idx = layerIndexOfZ(gcode.layerZ, c.printZ);
@@ -29,8 +34,10 @@ export function LayerSlider({ gcode }: { gcode: ParsedGcode }) {
           })}
         </div>
       </div>
-      <label className="small">Bottom</label>
-      <input type="range" min={0} max={gcode.layerCount - 1} value={range[0]} onChange={(e) => setRange([Number(e.target.value), Math.max(range[1], Number(e.target.value))])} />
+      <label className="small" htmlFor={bottomId}>
+        Bottom
+      </label>
+      <input id={bottomId} type="range" min={0} max={gcode.layerCount - 1} value={range[0]} onChange={(e) => setRange([Number(e.target.value), Math.max(range[1], Number(e.target.value))])} />
     </>
   );
 }

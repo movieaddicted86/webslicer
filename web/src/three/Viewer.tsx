@@ -100,13 +100,14 @@ export function Viewer() {
         >
           {ortho ? 'Ortho' : 'Persp'}
         </button>
-        <button title="Zoom to selection (Z)" onClick={() => requestCamera({ mode: 'fit' })}>
+        <button title="Zoom to selection (Z)" aria-label="Zoom to selection (Z)" onClick={() => requestCamera({ mode: 'fit' })}>
           ⌖
         </button>
       </div>
       <button
         className="viewer-fit"
         title="Reset view"
+        aria-label="Reset view"
         onClick={() => requestCamera({ mode: 'bed' })}
       >
         ⌂

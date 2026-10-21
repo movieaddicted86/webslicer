@@ -124,7 +124,7 @@ export function TopBar() {
           <option value="advanced">Advanced</option>
           <option value="expert">Expert</option>
         </select>
-        <button onClick={() => openDialog('about')} title="About">
+        <button onClick={() => openDialog('about')} title="About" aria-label="About">
           ?
         </button>
       </div>
