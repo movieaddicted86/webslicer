@@ -1,7 +1,13 @@
+/**
+ * `validateSliceRequest` used to live in `routes/api.ts`, next to the route handlers that called it.
+ * T-021 (R-9) moved it to the service layer (`services/slice.ts`), so this test now pins the service
+ * boundary instead of the route module: the HTTP contract of the slice routes is covered by
+ * `routes/http.test.ts`, which mounts the real app.
+ */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { validateSliceRequest } from './api.js';
-import type { SliceRequest } from '../jobs.js';
+import { validateSliceRequest } from '../services/slice.js';
+import type { SliceRequest } from '@webslicer/shared';
 import { IDENTITY, translate } from '@webslicer/shared';
 
 const I = IDENTITY;
@@ -63,4 +69,16 @@ test('validateSliceRequest rejects NaN in the legacy transform', () => {
 
 test('validateSliceRequest still rejects a missing transform', () => {
   assert.throws(() => validateSliceRequest(request({ transform: undefined })), /transform must have 16 entries/);
+});
+
+test('validateSliceRequest still throws a plain Error, so the callers keep their own status (R-10 types this)', async () => {
+  const { HttpError } = await import('../errors.js');
+  let thrown: unknown;
+  try {
+    validateSliceRequest(request({ instances: [] }));
+  } catch (e) {
+    thrown = e;
+  }
+  assert.ok(thrown instanceof Error);
+  assert.ok(!(thrown instanceof HttpError), 'not typed: /api/slice maps it to 400, /api/export/3mf falls through to 500');
 });

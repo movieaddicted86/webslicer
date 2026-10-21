@@ -3,19 +3,17 @@
  *
  * Deliberately transport-free: `server.ts` binds these definitions to the Streamable HTTP endpoint,
  * and the stdio wrapper of phase 4 can reuse the very same list. Every tool works on the modules the
- * browser uses (presets, library, `plater/project.ts`, the job queue) and is scoped to the owner of
+ * browser uses (presets, library, `services/projects.ts`, the job queue) and is scoped to the owner of
  * the token that called it.
  */
-import fs from 'node:fs';
-import path from 'node:path';
 import { z } from 'zod';
-import { createJob, getJob, jobDir } from '../jobs.js';
+import { createJob, getJob, readJobLog } from '../jobs.js';
 import { activeSchema } from '../services/schema.js';
 import { NotFoundError, ValidationError } from '../errors.js';
 import type { OptionDef, PresetType, Schema } from '@webslicer/shared';
 import { defaultPresetName, getInstalledPrinters, listPresets, resolvePreset } from '../slicer/presets.js';
-import { listLibrary } from '../routes/library.js';
-import { validateSliceRequest } from '../routes/api.js';
+import { listLibrary } from '../services/library.js';
+import { validateSliceRequest } from '../services/slice.js';
 import {
   PROJECT_TTL_HOURS,
   addModelFromLibrary,
@@ -26,7 +24,7 @@ import {
   toSliceRequest,
   touchProject,
   type Project,
-} from '../plater/project.js';
+} from '../services/projects.js';
 
 /** live projects a single token may own */
 export const MAX_PROJECTS_PER_OWNER = 20;
@@ -83,8 +81,8 @@ const schemaOf = activeSchema;
 // ---------------------------------------------------------------------------
 
 /** Load a project of this owner; everything else looks like it does not exist. */
-export function loadOwnedProject(id: unknown, owner: string): Project {
-  const project = loadProject(String(id ?? ''));
+export async function loadOwnedProject(id: unknown, owner: string): Promise<Project> {
+  const project = await loadProject(String(id ?? ''));
   if (!project || project.owner !== owner) throw new NotFoundError(`Project "${String(id)}" not found`);
   return project;
 }
@@ -212,13 +210,8 @@ export function applySettings(
 // ---------------------------------------------------------------------------
 
 /** Warnings and errors of a finished job, from the slicer log. */
-function warningsOf(jobId: string): string[] {
-  let text = '';
-  try {
-    text = fs.readFileSync(path.join(jobDir(jobId), 'log.txt'), 'utf8');
-  } catch {
-    return [];
-  }
+async function warningsOf(jobId: string): Promise<string[]> {
+  const text = await readJobLog(jobId);
   return text
     .split('\n')
     .filter((l) => /warn|error|critical|invalid/i.test(l))
@@ -354,7 +347,7 @@ export const TOOLS: AnyTool[] = [
     readOnly: true,
     input: z.object({ path: z.string().optional().describe('folder relative to the library root (default: root)') }),
     handler: async (args) => {
-      const listing = listLibrary(args.path || '');
+      const listing = await listLibrary(args.path || '');
       return {
         path: listing.path,
         entries: listing.entries.map((e) => ({
@@ -381,13 +374,13 @@ export const TOOLS: AnyTool[] = [
     }),
     handler: async (args, ctx) => {
       const schema = await schemaOf();
-      const live = listProjects().filter((p) => p.owner === ctx.owner);
+      const live = (await listProjects()).filter((p) => p.owner === ctx.owner);
       if (live.length >= MAX_PROJECTS_PER_OWNER) {
         throw new ValidationError(
           `Too many live projects (${MAX_PROJECTS_PER_OWNER}); one of them expires ${PROJECT_TTL_HOURS} h after its last use`,
         );
       }
-      const project = createProject({
+      const project = await createProject({
         schema,
         printer: { name: args.printer, config: {} },
         print: { name: args.print, config: {} },
@@ -410,7 +403,7 @@ export const TOOLS: AnyTool[] = [
       copies: z.number().int().min(1).max(1000).optional().describe('number of copies (default 1)'),
     }),
     handler: async (args, ctx) => {
-      const project = loadOwnedProject(args.project_id, ctx.owner);
+      const project = await loadOwnedProject(args.project_id, ctx.owner);
       await addModelFromLibrary(project, args.library_path, args.copies ?? 1);
       return summary(project);
     },
@@ -422,7 +415,7 @@ export const TOOLS: AnyTool[] = [
     description: 'Place every instance of the project on the bed (the same shelf packing the browser uses).',
     readOnly: false,
     input: z.object({ project_id: z.string() }),
-    handler: async (args, ctx) => summary(arrange(loadOwnedProject(args.project_id, ctx.owner), await schemaOf())),
+    handler: async (args, ctx) => summary(await arrange(await loadOwnedProject(args.project_id, ctx.owner), await schemaOf())),
   }),
 
   defineTool({
@@ -439,9 +432,9 @@ export const TOOLS: AnyTool[] = [
         .describe('option key -> value, e.g. { "fill_density": "30%" }'),
     }),
     handler: async (args, ctx) => {
-      const project = loadOwnedProject(args.project_id, ctx.owner);
+      const project = await loadOwnedProject(args.project_id, ctx.owner);
       const applied = applySettings(await schemaOf(), project, args.scope, args.values);
-      touchProject(project);
+      await touchProject(project);
       return { project_id: project.id, scope: args.scope, changed: applied, expires_at: project.expiresAt };
     },
   }),
@@ -461,7 +454,7 @@ export const TOOLS: AnyTool[] = [
       if (args.supports === undefined && args.infill === undefined && args.brim === undefined) {
         throw new ValidationError('Give at least one of supports, infill, brim');
       }
-      const project = loadOwnedProject(args.project_id, ctx.owner);
+      const project = await loadOwnedProject(args.project_id, ctx.owner);
       const schema = await schemaOf();
       const applied: Record<string, string> = {};
       // exactly the values the browser's quick settings write (web/src/components/Sidebar.tsx)
@@ -482,7 +475,7 @@ export const TOOLS: AnyTool[] = [
       }
       for (const [key, value] of Object.entries(applied)) coerceOptionValue(schema, 'print', key, value);
       Object.assign(project.print.config, applied);
-      touchProject(project);
+      await touchProject(project);
       return { project_id: project.id, changed: applied, print: project.print.name, expires_at: project.expiresAt };
     },
   }),
@@ -494,12 +487,12 @@ export const TOOLS: AnyTool[] = [
     readOnly: false,
     input: z.object({ project_id: z.string() }),
     handler: async (args, ctx) => {
-      const project = loadOwnedProject(args.project_id, ctx.owner);
+      const project = await loadOwnedProject(args.project_id, ctx.owner);
       const schema = await schemaOf();
       const request = toSliceRequest(project, schema);
       validateSliceRequest(request);
-      const job = createJob(request, schema);
-      touchProject(project);
+      const job = await createJob(request, schema);
+      await touchProject(project);
       return {
         job_id: job.id,
         status: job.status,
@@ -547,7 +540,7 @@ export const TOOLS: AnyTool[] = [
                 size_bytes: info?.sizeBytes ?? null,
               }
             : null,
-        warnings: warningsOf(job.id),
+        warnings: await warningsOf(job.id),
       };
     },
   }),

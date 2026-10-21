@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { Agent, fetch as undiciFetch, FormData as UndiciFormData } from 'undici';
-import { config } from './config.js';
+import { config } from '../config.js';
 import type { HostType, PhysicalPrinter } from '@webslicer/shared';
 
 function file(): string {

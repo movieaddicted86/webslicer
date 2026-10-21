@@ -12,7 +12,7 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import { TOOLS, type ToolContext } from './tools.js';
 import { authenticateHeader, mcpEnabled, type McpToken } from './tokens.js';
 import { appendAudit, sanitizeParams } from './audit.js';
-import { appVersion } from '../routes/api.js';
+import { appVersion } from '../services/version.js';
 
 interface AuthedRequest extends Request {
   mcpToken?: McpToken;
@@ -39,8 +39,8 @@ export function originAllowed(req: Request): boolean {
 }
 
 /** The tools of one request, wrapped in the audit log. */
-function createServer(ctx: ToolContext): McpServer {
-  const server = new McpServer({ name: 'webslicer', version: appVersion() });
+async function createServer(ctx: ToolContext): Promise<McpServer> {
+  const server = new McpServer({ name: 'webslicer', version: await appVersion() });
   for (const tool of TOOLS) {
     server.registerTool(
       tool.name,
@@ -107,7 +107,7 @@ export function mcpRouter(): express.Router {
     json,
     asyncHandler(async (req, res) => {
       const token = (req as AuthedRequest).mcpToken!;
-      const server = createServer({ owner: token.owner, tokenId: token.id });
+      const server = await createServer({ owner: token.owner, tokenId: token.id });
       const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
       res.on('close', () => {
         void transport.close();
