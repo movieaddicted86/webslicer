@@ -109,12 +109,13 @@ Priority: **P1** needed for version 1.0 · **P2** important afterwards · **P3**
 
 ## 5. Printers and print hosts
 
-| Feature                                                       | WebSlicer | Prio | Note                  |
-| ------------------------------------------------------------- | --------- | ---- | --------------------- |
-| PrusaLink, OctoPrint, Klipper/Moonraker                       | ✅        | –    | hardware test pending |
-| Prusa Connect, Duet, Repetier, FlashAir, AstroBox, MKS, Obico | ❌        | P3   |                       |
-| Upload queue / printer status                                 | ❌        | P2   |                       |
-| Firmware flasher                                              | ➖        | P4   |                       |
+| Feature                                                       | WebSlicer | Prio | Note                                |
+| ------------------------------------------------------------- | --------- | ---- | ----------------------------------- |
+| PrusaLink, OctoPrint, Klipper/Moonraker                       | ✅        | –    | hardware test pending               |
+| Print host linked to a preset; mismatch needs an override     | ✅        | –    | S1-b: 409 + reason in the audit log |
+| Prusa Connect, Duet, Repetier, FlashAir, AstroBox, MKS, Obico | ❌        | P3   |                                     |
+| Upload queue / printer status                                 | ❌        | P2   |                                     |
+| Firmware flasher                                              | ➖        | P4   |                                     |
 
 ## 6. User interface and operations
 
