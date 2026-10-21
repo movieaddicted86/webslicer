@@ -24,9 +24,9 @@ export interface StoredModel {
 /** Model ids that must never be pruned (live server-side projects). */
 export interface ModelLifecycleHooks {
   /** model ids live projects still reference – those files are never pruned */
-  keepModelIds: () => Set<string>;
+  keepModelIds: () => Promise<Set<string>>;
   /** remove projects whose TTL ran out, together with their models */
-  pruneProjects: () => void;
+  pruneProjects: () => Promise<void>;
 }
 
 let hooks: ModelLifecycleHooks | undefined;
@@ -68,10 +68,12 @@ export async function deleteModel(id: string): Promise<void> {
 
 /** Remove uploaded model files that are older than MODEL_RETENTION_DAYS (default 7). */
 export async function pruneModels(): Promise<void> {
-  hooks?.pruneProjects();
+  // Projects first: an expired project takes its models with it, and only what is left afterwards is
+  // measured against the model retention – the same order as on `main` (`pruneProjects`, then keep).
+  await hooks?.pruneProjects();
   const days = Number(process.env.MODEL_RETENTION_DAYS || 7);
   const cutoff = Date.now() - days * 86400_000;
-  const keep = hooks?.keepModelIds() ?? new Set<string>();
+  const keep = (await hooks?.keepModelIds()) ?? new Set<string>();
   let names: string[];
   try {
     names = await fs.readdir(config.modelsDir);

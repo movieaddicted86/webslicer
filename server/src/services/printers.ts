@@ -2,7 +2,7 @@
  * Physical printers (print hosts) and G-code upload: OctoPrint, Moonraker (Klipper),
  * PrusaLink.
  */
-import fs from 'node:fs';
+import fs from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { Agent, fetch as undiciFetch, FormData as UndiciFormData } from 'undici';
@@ -13,21 +13,21 @@ function file(): string {
   return path.join(config.dataDir, 'physical_printers.json');
 }
 
-export function listPrinters(): PhysicalPrinter[] {
+export async function listPrinters(): Promise<PhysicalPrinter[]> {
   try {
-    return JSON.parse(fs.readFileSync(file(), 'utf8')) as PhysicalPrinter[];
+    return JSON.parse(await fs.readFile(file(), 'utf8')) as PhysicalPrinter[];
   } catch {
     return [];
   }
 }
 
-function save(list: PhysicalPrinter[]) {
-  fs.mkdirSync(config.dataDir, { recursive: true });
-  fs.writeFileSync(file(), JSON.stringify(list, null, 2));
+async function save(list: PhysicalPrinter[]): Promise<void> {
+  await fs.mkdir(config.dataDir, { recursive: true });
+  await fs.writeFile(file(), JSON.stringify(list, null, 2));
 }
 
-export function upsertPrinter(p: Partial<PhysicalPrinter>): PhysicalPrinter {
-  const list = listPrinters();
+export async function upsertPrinter(p: Partial<PhysicalPrinter>): Promise<PhysicalPrinter> {
+  const list = await listPrinters();
   const host = (p.host || '').trim().replace(/\/+$/, '');
   const full: PhysicalPrinter = {
     id: p.id || randomUUID(),
@@ -41,20 +41,20 @@ export function upsertPrinter(p: Partial<PhysicalPrinter>): PhysicalPrinter {
   const i = list.findIndex((x) => x.id === full.id);
   if (i >= 0) list[i] = full;
   else list.push(full);
-  save(list);
+  await save(list);
   return full;
 }
 
-export function deletePrinter(id: string): boolean {
-  const list = listPrinters();
+export async function deletePrinter(id: string): Promise<boolean> {
+  const list = await listPrinters();
   const next = list.filter((p) => p.id !== id);
   if (next.length === list.length) return false;
-  save(next);
+  await save(next);
   return true;
 }
 
-export function getPrinter(id: string): PhysicalPrinter | undefined {
-  return listPrinters().find((p) => p.id === id);
+export async function getPrinter(id: string): Promise<PhysicalPrinter | undefined> {
+  return (await listPrinters()).find((p) => p.id === id);
 }
 
 function headers(p: PhysicalPrinter, extra: Record<string, string> = {}): Record<string, string> {
@@ -107,7 +107,7 @@ export async function uploadToPrinter(
   filename: string,
   startPrint: boolean,
 ): Promise<{ ok: boolean; message: string }> {
-  const data = fs.readFileSync(gcodePath);
+  const data = await fs.readFile(gcodePath);
   const blob = new Blob([data], { type: 'application/octet-stream' });
   try {
     switch (p.type) {

@@ -6,7 +6,6 @@
  * persistence rules (what is written when) are in one place.
  */
 import fs from 'node:fs/promises';
-import fsSync from 'node:fs';
 import path from 'node:path';
 import { config } from '../config.js';
 import type { JobRecord, SliceRequest } from '@webslicer/shared';
@@ -103,7 +102,7 @@ export async function loadJobRecords(): Promise<JobRecord[]> {
   for (const id of names) {
     const file = jobFile(id, 'job.json');
     try {
-      if (!fsSync.existsSync(file)) continue;
+      // `readFile` answers ENOENT/EISDIR itself, so no separate existence check is needed.
       const job = JSON.parse(await fs.readFile(file, 'utf8')) as JobRecord;
       if (job.status === 'running' || job.status === 'queued') {
         job.status = 'error';

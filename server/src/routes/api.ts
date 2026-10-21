@@ -22,7 +22,7 @@ import {
 } from '../slicer/presets.js';
 import { parseStl, read3mfProject } from '../slicer/threemf.js';
 import { createJob, getJob, listJobs, subscribe, cancelJob, deleteJob, jobOutputPath, readJobLog } from '../jobs.js';
-import type { PresetType, SliceRequest } from '@webslicer/shared';
+import type { PhysicalPrinter, PresetType, SliceRequest } from '@webslicer/shared';
 import { listPrinters, upsertPrinter, deletePrinter, getPrinter, testPrinter, uploadToPrinter } from '../services/printers.js';
 import { libraryRouter } from './library.js';
 import { projectsRouter } from './projects.js';
@@ -368,7 +368,7 @@ export function apiRouter(): express.Router {
       const j = getJob(req.params.id);
       if (!j || j.status !== 'done') return res.status(404).json({ error: 'output not available' });
       const body = (req.body || {}) as { printerId?: string; filename?: string; startPrint?: boolean };
-      const p = body.printerId ? getPrinter(body.printerId) : undefined;
+      const p = body.printerId ? await getPrinter(body.printerId) : undefined;
       if (!p) return badRequest(res, 'printerId required');
       const filename = (body.filename || j.outputName).replace(/[\\/]/g, '_');
       const result = await uploadToPrinter(p, jobOutputPath(j), filename, !!body.startPrint);
@@ -377,23 +377,38 @@ export function apiRouter(): express.Router {
   );
 
   // ---- physical printers ---------------------------------------------------
-  r.get('/printers', (_req, res) => res.json(listPrinters().map(maskPrinter)));
-  r.post('/printers', json, (req, res) => res.json(maskPrinter(upsertPrinter(req.body || {}))));
-  r.put('/printers/:id', json, (req, res) => {
-    const existing = getPrinter(req.params.id);
-    if (!existing) return res.status(404).json({ error: 'printer not found' });
-    const body = req.body || {};
-    if (body.apiKey === '••••••••' || body.apiKey === undefined) body.apiKey = existing.apiKey;
-    res.json(maskPrinter(upsertPrinter({ ...existing, ...body, id: existing.id })));
-  });
-  r.delete('/printers/:id', (req, res) => {
-    if (!deletePrinter(req.params.id)) return res.status(404).json({ error: 'printer not found' });
-    res.json({ ok: true });
-  });
+  // The printer store reads its JSON with `fs/promises` (N-7), so these handlers are async now.
+  r.get(
+    '/printers',
+    asyncHandler(async (_req, res) => res.json((await listPrinters()).map(maskPrinter))),
+  );
+  r.post(
+    '/printers',
+    json,
+    asyncHandler(async (req, res) => res.json(maskPrinter(await upsertPrinter(req.body || {})))),
+  );
+  r.put(
+    '/printers/:id',
+    json,
+    asyncHandler(async (req, res) => {
+      const existing = await getPrinter(req.params.id);
+      if (!existing) return res.status(404).json({ error: 'printer not found' });
+      const body = req.body || {};
+      if (body.apiKey === '••••••••' || body.apiKey === undefined) body.apiKey = existing.apiKey;
+      res.json(maskPrinter(await upsertPrinter({ ...existing, ...body, id: existing.id })));
+    }),
+  );
+  r.delete(
+    '/printers/:id',
+    asyncHandler(async (req, res) => {
+      if (!(await deletePrinter(req.params.id))) return res.status(404).json({ error: 'printer not found' });
+      res.json({ ok: true });
+    }),
+  );
   r.post(
     '/printers/:id/test',
     asyncHandler(async (req, res) => {
-      const p = getPrinter(req.params.id);
+      const p = await getPrinter(req.params.id);
       if (!p) return res.status(404).json({ error: 'printer not found' });
       res.json(await testPrinter(p));
     }),
@@ -485,6 +500,6 @@ async function resolveExistingFile(file: string): Promise<string | undefined> {
   }
 }
 
-function maskPrinter(p: ReturnType<typeof listPrinters>[number]) {
+function maskPrinter(p: PhysicalPrinter) {
   return { ...p, apiKey: p.apiKey ? '••••••••' : undefined, hasApiKey: !!p.apiKey };
 }

@@ -11,7 +11,6 @@
  * project, and the server may have restarted in between.
  */
 import fs from 'node:fs/promises';
-import fsSync from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { config } from '../config.js';
@@ -286,33 +285,12 @@ export async function pruneProjects(): Promise<void> {
   }
 }
 
-// the model life cycle of `services/models.ts` prunes through this module's project store
-setModelLifecycleHooks({
-  keepModelIds: () => keepModelIdsSync(),
-  pruneProjects: () => void pruneProjects(),
-});
-
 /**
- * Synchronous view for the pruning hook: the hook runs inside `pruneModels`, which may be called
- * from the synchronous job start-up path. Reading the (small) project files synchronously keeps that
- * call site simple; the request paths use `keepModelIds` instead.
+ * Register the project store as the model life cycle of `services/models.ts`: the pruning there has
+ * to know which models a live project still needs, and an expired project has to take its models with
+ * it. Both directions are async, so the whole pass stays on `fs/promises` (N-7).
  */
-function keepModelIdsSync(): Set<string> {
-  const keep = new Set<string>();
-  let names: string[] = [];
-  try {
-    names = fsSync.readdirSync(config.projectsDir);
-  } catch {
-    return keep;
-  }
-  for (const f of names) {
-    if (!f.endsWith('.json')) continue;
-    try {
-      const p = JSON.parse(fsSync.readFileSync(path.join(config.projectsDir, f), 'utf8')) as Project;
-      for (const o of p.objects ?? []) keep.add(o.modelId);
-    } catch {
-      /* skip an unreadable project */
-    }
-  }
-  return keep;
-}
+setModelLifecycleHooks({
+  keepModelIds,
+  pruneProjects,
+});
