@@ -14,37 +14,14 @@ import { createJob } from '../jobs.js';
 import { validateSliceRequest } from '../services/slice.js';
 import { activeSchema } from '../services/schema.js';
 import { ValidationError } from '../errors.js';
-import type { IniSection } from '../slicer/ini.js';
-import {
-  addModelFromLibrary,
-  arrange,
-  createProject,
-  toSliceRequest,
-  touchProject,
-  loadProject,
-  type ProjectPresetRef,
-} from '../services/projects.js';
+import { copiesOf, parseProjectCreate, projectModelsSchema, projectSliceSchema } from '../validation/projects.js';
+import { addModelFromLibrary, arrange, createProject, toSliceRequest, touchProject, loadProject } from '../services/projects.js';
 import type { Schema, SliceRequest } from '@webslicer/shared';
 
 function asyncHandler(fn: (req: Request, res: Response, next: NextFunction) => Promise<unknown>) {
   return (req: Request, res: Response, next: NextFunction) => {
     fn(req, res, next).catch(next);
   };
-}
-
-/**
- * A preset slot is either a bare name ("MK4S") or `{ name, config }` – agents usually send names and
- * only the overrides they changed.
- */
-function presetRef(value: unknown, label: string): ProjectPresetRef {
-  if (typeof value === 'string') return { name: value.trim(), config: {} };
-  if (value && typeof value === 'object') {
-    const v = value as { name?: unknown; config?: unknown };
-    if (v.config !== undefined && (typeof v.config !== 'object' || v.config === null || Array.isArray(v.config)))
-      throw new ValidationError(`${label}.config must be an object`);
-    return { name: String(v.name ?? '').trim(), config: (v.config as IniSection) || {} };
-  }
-  throw new ValidationError(`${label} must be a preset name or { name, config }`);
 }
 
 export function projectsRouter(): express.Router {
@@ -68,16 +45,15 @@ export function projectsRouter(): express.Router {
     '/',
     json,
     asyncHandler(async (req, res) => {
-      const body = (req.body || {}) as Record<string, unknown>;
+      const body = parseProjectCreate(req.body);
+      if (!body.ok) throw new ValidationError(body.message);
       const s = await activeSchema();
-      const filaments = body.filaments === undefined ? undefined : Array.isArray(body.filaments) ? body.filaments : null;
-      if (filaments === null) throw new ValidationError('filaments must be an array');
       const project = await createProject({
         schema: s,
-        printer: presetRef(body.printer, 'printer'),
-        print: presetRef(body.print, 'print'),
-        filaments: filaments?.map((f, i) => presetRef(f, `filaments[${i}]`)),
-        owner: body.owner === undefined ? undefined : String(body.owner),
+        printer: body.printer,
+        print: body.print,
+        filaments: body.filaments,
+        owner: body.owner,
       });
       res.status(201).json(project);
     }),
@@ -98,10 +74,9 @@ export function projectsRouter(): express.Router {
     asyncHandler(async (req, res) => {
       const found = await withProject(req, res);
       if (!found.project) return;
-      const body = (req.body || {}) as { libraryPath?: unknown; copies?: unknown };
-      if (typeof body.libraryPath !== 'string' || !body.libraryPath.trim()) throw new ValidationError('libraryPath required');
-      const copies = body.copies === undefined ? 1 : Number(body.copies);
-      res.json(await addModelFromLibrary(found.project, body.libraryPath, copies));
+      const body = projectModelsSchema.safeParse(req.body || {});
+      if (!body.success) throw new ValidationError(body.error.issues[0]?.message || 'libraryPath required');
+      res.json(await addModelFromLibrary(found.project, body.data.libraryPath, copiesOf(body.data.copies)));
     }),
   );
 
@@ -121,10 +96,10 @@ export function projectsRouter(): express.Router {
     asyncHandler(async (req, res) => {
       const found = await withProject(req, res);
       if (!found.project) return;
-      const body = (req.body || {}) as { binaryGcode?: unknown; outputName?: unknown };
+      const body = projectSliceSchema.parse(req.body || {});
       const request: SliceRequest = toSliceRequest(found.project, found.schema);
-      if (body.binaryGcode !== undefined) request.binaryGcode = !!body.binaryGcode;
-      if (typeof body.outputName === 'string' && body.outputName.trim()) request.outputName = body.outputName.trim();
+      if (body.binaryGcode !== undefined) request.binaryGcode = body.binaryGcode;
+      if (body.outputName !== undefined) request.outputName = body.outputName;
       // no thumbnails here: rendering them needs a browser (concept §3.5, rasterizer comes in phase 3)
       validateSliceRequest(request);
       const job = await createJob(request, found.schema);

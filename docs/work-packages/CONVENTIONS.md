@@ -18,7 +18,8 @@ shared/src/types/             API contract types (SliceRequest, JobRecord, Confi
 shared/src/math/              Matrix4 helpers, placement compose/decompose, bounds, mirror
 shared/src/plater/            packing, normalisation, split, bed shape, spacing
 shared/src/values.ts          preset value codecs and their limits
-server/src/routes/api.ts      REST API, request validation (validateSliceRequest)
+server/src/routes/api.ts      REST API (validate → service → respond)
+server/src/validation/        one zod schema per request payload, shared by REST and MCP
 server/src/jobs.ts            slice job queue, SliceRequest → 3MF → CLI
 server/src/slicer/threemf.ts  3MF writer/reader (PrusaSlicer extensions) + tests
 web/src/state/store.ts        composes `useStore` from the slice creators and re-exports them
@@ -109,8 +110,9 @@ with Vite. The dev machine is Windows 11 with Git Bash/PowerShell: set `MSYS_NO_
 
 ### Server specifics
 
-- Every request body is validated in `routes/api.ts` before use (types, lengths, limits). Reject
-  invalid input with a clear message; never trust the client.
+- Every request body is validated against the schema of its payload in `server/src/validation/`
+  before use (types, lengths, limits) – the same schema the MCP tools declare to their clients.
+  Reject invalid input with a clear message; never trust the client.
 - Types shared with the web app live in `shared/src/types` and are declared **once** there.
   `web/src/api.ts` re-exports them, so `import { type SliceRequest } from './api'` keeps working;
   nothing is declared a second time on the web side.

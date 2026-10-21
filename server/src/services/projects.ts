@@ -20,6 +20,7 @@ import { deleteModel, saveModel, setModelLifecycleHooks } from './models.js';
 import { defaultPresetName, resolvePreset } from '../slicer/presets.js';
 import type { IniSection } from '../slicer/ini.js';
 import { loadModelFile } from '../plater/meshes.js';
+import { copiesSchema } from '../validation/projects.js';
 import {
   arrangementSpacing,
   bedShapeOf,
@@ -206,7 +207,8 @@ export async function createProject(opts: {
  */
 export async function addModelFromLibrary(project: Project, libraryPath: string, copies = 1): Promise<Project> {
   const n = Math.floor(Number(copies));
-  if (!Number.isInteger(n) || n < 1 || n > 1000) throw new ValidationError('copies must be an integer between 1 and 1000');
+  // the range rule lives in `validation/projects.ts`; this is the same rule at the store's end
+  if (!copiesSchema.safeParse(n).success) throw new ValidationError('copies must be an integer between 1 and 1000');
   const abs = resolveLibraryPath(libraryPath); // rejects escapes with a ValidationError
   let isFile = false;
   try {
