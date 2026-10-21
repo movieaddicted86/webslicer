@@ -3,15 +3,17 @@
  * colours. Moved out of `Viewer.tsx` verbatim; `Viewer.tsx` re-exports `VOLUME_COLORS`.
  */
 import type { VolumeType } from '../../api';
+import { DEFAULT_COLOR, EXTRUDER_COLORS } from '../../palette';
 
-export const OBJECT_COLOR = 0xe6b84a;
+/** The extruder palette lives in `palette.ts` (F-21) and is re-exported here for the plater code. */
+export { EXTRUDER_COLORS };
+export const OBJECT_COLOR = DEFAULT_COLOR;
 export const SELECTED_COLOR = 0x6fb1ff;
 export const OUTSIDE_COLOR = 0xd94f4f;
-export const EXTRUDER_COLORS = [0xe6b84a, 0x73c2fb, 0xd96fd9, 0x84d08a, 0xf09b59, 0xa9a9f5];
 
 /** Colours of sub-volumes, close to PrusaSlicer's */
 export const VOLUME_COLORS: Record<VolumeType, { color: number; opacity: number }> = {
-  ModelPart: { color: 0xe6b84a, opacity: 1 },
+  ModelPart: { color: DEFAULT_COLOR, opacity: 1 },
   ParameterModifier: { color: 0xffe14d, opacity: 0.45 },
   SupportEnforcer: { color: 0x4d6bff, opacity: 0.45 },
   SupportBlocker: { color: 0xff4d4d, opacity: 0.45 },

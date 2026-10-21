@@ -1,0 +1,104 @@
+import { useState } from 'react';
+import { Modal } from './Modal';
+import { useStore } from '../../state/store';
+import { api, type PhysicalPrinter } from '../../api';
+
+/** The printers WebSlicer can send G-code to (PrusaLink, OctoPrint, Moonraker). */
+export function PhysicalPrintersDialog({ onClose }: { onClose: () => void }) {
+  const printers = useStore((s) => s.physicalPrinters);
+  const refresh = useStore((s) => s.refreshPhysicalPrinters);
+  const toast = useStore((s) => s.toast);
+  const empty: Partial<PhysicalPrinter> = { name: '', type: 'prusalink', host: '', apiKey: '' };
+  const [edit, setEdit] = useState<Partial<PhysicalPrinter> | null>(printers.length ? null : empty);
+  const [testing, setTesting] = useState<string>('');
+
+  const save = async () => {
+    if (!edit) return;
+    try {
+      if (edit.id) await api.updatePrinter(edit.id, edit);
+      else await api.addPrinter(edit);
+      await refresh();
+      setEdit(null);
+    } catch (e) {
+      toast('error', (e as Error).message);
+    }
+  };
+  const test = async () => {
+    if (!edit) return;
+    setTesting('…');
+    const r = edit.id && (!edit.apiKey || edit.apiKey === '••••••••') ? await api.testPrinterById(edit.id).catch((e) => ({ ok: false, message: e.message })) : await api.testPrinter(edit).catch((e) => ({ ok: false, message: e.message }));
+    setTesting(r.ok ? `✓ ${r.message}` : `✗ ${r.message}`);
+  };
+  return (
+    <Modal title="Physical printers" onClose={onClose}>
+      {!edit && (
+        <>
+          <ul className="printer-list">
+            {printers.map((p) => (
+              <li key={p.id}>
+                <div>
+                  <b>{p.name}</b> <span className="muted small">{p.type} · {p.host}</span>
+                </div>
+                <div>
+                  <button onClick={() => setEdit({ ...p, apiKey: p.hasApiKey ? '••••••••' : '' })}>Edit</button>
+                  <button
+                    onClick={async () => {
+                      if (!confirm(`Delete ${p.name}?`)) return;
+                      await api.deletePrinter(p.id);
+                      refresh();
+                    }}
+                  >
+                    Delete
+                  </button>
+                </div>
+              </li>
+            ))}
+            {!printers.length && <li className="muted">No printers configured.</li>}
+          </ul>
+          <div className="modal-actions">
+            <button className="primary" onClick={() => setEdit(empty)}>
+              Add printer
+            </button>
+          </div>
+        </>
+      )}
+      {edit && (
+        <div className="form">
+          <label>
+            Name <input value={edit.name || ''} onChange={(e) => setEdit({ ...edit, name: e.target.value })} />
+          </label>
+          <label>
+            Host type
+            <select value={edit.type} onChange={(e) => setEdit({ ...edit, type: e.target.value as PhysicalPrinter['type'] })}>
+              <option value="prusalink">PrusaLink (MK4/MK3.9/XL/MINI, MK3S with Pi)</option>
+              <option value="octoprint">OctoPrint</option>
+              <option value="moonraker">Klipper / Moonraker (Mainsail, Fluidd)</option>
+            </select>
+          </label>
+          <label>
+            Hostname / IP <input placeholder="192.168.1.50 or http://printer.local" value={edit.host || ''} onChange={(e) => setEdit({ ...edit, host: e.target.value })} />
+          </label>
+          <label>
+            API key <input value={edit.apiKey || ''} onChange={(e) => setEdit({ ...edit, apiKey: e.target.value })} placeholder={edit.type === 'moonraker' ? 'optional' : 'required'} />
+          </label>
+          {/^https:/i.test(edit.host || '') && (
+            <label className="checkbox">
+              <input type="checkbox" checked={!!edit.ignoreTls} onChange={(e) => setEdit({ ...edit, ignoreTls: e.target.checked })} /> Accept self-signed
+              certificate (skip TLS verification)
+            </label>
+          )}
+          {testing && <div className={`small ${testing.startsWith('✓') ? 'success' : 'error'}`}>{testing}</div>}
+          <div className="modal-actions">
+            <button onClick={() => setEdit(null)}>Cancel</button>
+            <button onClick={test} disabled={!edit.host}>
+              Test connection
+            </button>
+            <button className="primary" onClick={save} disabled={!edit.host || !edit.name}>
+              Save
+            </button>
+          </div>
+        </div>
+      )}
+    </Modal>
+  );
+}
