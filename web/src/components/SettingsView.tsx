@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react';
+import { SERVER_ONLY_KEYS } from '@webslicer/shared';
 import { useStore } from '../state/store';
 import { PresetSelect } from './PresetSelect';
 import { OptionField } from './OptionField';
+import { ServerOnlyOption } from './ServerOnlyOption';
 import { MODE_RANK } from '../values';
 import type { PresetType } from '../api';
 
@@ -30,6 +32,9 @@ export function SettingsView() {
   const visibleKey = (k: string) => {
     const d = schema.options[k];
     if (!d) return false;
+    // options the server drops before slicing (SEC-1) are not editable – a preset may still carry
+    // them, so they are listed read-only with the reason instead of silently doing nothing
+    if (SERVER_ONLY_KEYS.has(k)) return false;
     // hide options of the other printer technology (e.g. SLA display settings on an FFF printer)
     if (d.technology && d.technology !== 'any' && d.technology !== tech) return false;
     const r = MODE_RANK[d.mode || 'expert'];
@@ -126,6 +131,11 @@ export function SettingsView() {
                       />
                     );
                   })}
+                  {g.keys
+                    .filter((k) => SERVER_ONLY_KEYS.has(k))
+                    .map((k) => (
+                      <ServerOnlyOption key={k} def={schema.options[k]} />
+                    ))}
                 </div>
               );
             })}

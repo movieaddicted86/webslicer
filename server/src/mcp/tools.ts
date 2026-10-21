@@ -13,6 +13,7 @@ import { NotFoundError, ValidationError } from '../errors.js';
 import type { OptionDef, PresetType, Schema } from '@webslicer/shared';
 import { defaultPresetName, getInstalledPrinters, listPresets, resolvePreset } from '../slicer/presets.js';
 import { listLibrary } from '../services/library.js';
+import { SERVER_ONLY_KEYS, serverOnlyReason } from '../services/serverOnly.js';
 import { validateSliceRequest } from '../services/slice.js';
 import { copiesSchema, toPresetRef } from '../validation/projects.js';
 import {
@@ -138,8 +139,13 @@ function everyPart(text: string, part: RegExp): boolean {
 /**
  * Check a setting against the option schema and return the value as PrusaSlicer stores it. Unknown
  * keys, keys of another preset type and values outside an enum are rejected (concept §4).
+ *
+ * The server-only keys (SEC-1) are rejected too, and before the schema lookup, so the message names
+ * the reason instead of "Unknown option": a client that learns the rule from the message is the point
+ * of this channel. Everywhere else the key is dropped instead – `services/configMerge.ts`.
  */
 export function coerceOptionValue(schema: Schema, type: PresetType, key: string, value: string | number | boolean): string {
+  if (SERVER_ONLY_KEYS.has(key)) throw new ValidationError(`Option "${key}" cannot be set: ${serverOnlyReason(key)}`);
   const opt = schema.options[key];
   if (!opt) throw new ValidationError(`Unknown option "${key}"`);
   if (!opt.presetTypes.includes(type)) throw new ValidationError(`Option "${key}" is not a ${type} preset option`);
@@ -289,7 +295,8 @@ export const TOOLS: AnyTool[] = [
   defineTool({
     name: 'webslicer.get_option_schema',
     title: 'Get option schema',
-    description: 'Slicer options with label, type, default and allowed values – the options set_settings accepts.',
+    description:
+      'Slicer options with label, type, default and allowed values – the options set_settings accepts. The server-only keys (post_process, output_filename_format) are not listed: set_settings refuses them.',
     readOnly: true,
     input: z.object({
       query: z.string().optional().describe('substring of the key, label, category or tooltip'),
@@ -314,6 +321,8 @@ export const TOOLS: AnyTool[] = [
         return 3;
       };
       const all = Object.values(schema.options).filter((o) => {
+        // the server-only keys are not settable through set_settings, so not offered here either
+        if (SERVER_ONLY_KEYS.has(o.key)) return false;
         if (args.type && !o.presetTypes.includes(args.type)) return false;
         if (!needle) return true;
         return [o.key, o.label, o.category, o.tooltip].some((f) =>

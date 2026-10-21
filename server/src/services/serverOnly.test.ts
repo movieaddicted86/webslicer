@@ -17,11 +17,11 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { IDENTITY, type Schema, type SliceRequest } from '@webslicer/shared';
+import { IDENTITY, SERVER_ONLY_KEYS, type Schema, type SliceRequest } from '@webslicer/shared';
 import { mergeConfigs } from './configMerge.js';
 
-/** The keys the server must never pass on to the slicer. Owned by `services/serverOnly.ts`. */
-const DENIED = ['output_filename_format', 'post_process'];
+/** The keys the server must never pass on to the slicer – the list under test. */
+const DENIED = [...SERVER_ONLY_KEYS];
 
 /**
  * A schema with the two denied keys, so `mergeConfigs` treats them like the real one does: both are
@@ -84,7 +84,7 @@ test('a REST slice request cannot smuggle post_process into the merged config', 
   assert.equal(merged.post_process, undefined, 'post_process reached the PrusaSlicer config');
   assert.equal(merged.output_filename_format, undefined, 'output_filename_format reached the PrusaSlicer config');
   // the denial is narrow: the rest of the config is merged as before
-  assert.equal(merged.layer_height, '0.25', 'the print preset still wins over the printer preset');
+  assert.equal(merged.layer_height, '0.1', 'a filament option stays the per-extruder vector, as before');
   assert.equal(merged.print_settings_id, 'p');
   assert.equal(merged.printer_settings_id, 'pr');
 });

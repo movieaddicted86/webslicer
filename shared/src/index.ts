@@ -9,5 +9,6 @@
  */
 export * from './math/index.js';
 export * from './plater/index.js';
+export * from './serverOnly.js';
 export * from './types/index.js';
 export * from './values.js';

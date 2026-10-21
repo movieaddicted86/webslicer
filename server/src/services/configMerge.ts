@@ -6,10 +6,15 @@
  */
 import { escapeStringsCstyle, splitVector, unescapeStringsCstyle, type Schema, type SliceRequest } from '@webslicer/shared';
 import type { IniSection } from '../slicer/ini.js';
+import { SERVER_ONLY_KEYS } from './serverOnly.js';
 
 /**
  * Merge print + printer + filament presets into one flat PrusaSlicer config.
  * Filament options are per-extruder vectors; one filament preset per extruder.
+ *
+ * The server-only keys (SEC-1) are dropped here and not at the call sites: this is the one place
+ * every path to the slicer goes through – the REST slice route, the project slice, the MCP `slice`
+ * tool, the 3MF and config exports and the autosave – so a new caller cannot forget the rule.
  */
 export function mergeConfigs(schema: Schema, req: SliceRequest, opts: { forProject?: boolean } = {}): IniSection {
   const merged: IniSection = {};
@@ -19,6 +24,7 @@ export function mergeConfigs(schema: Schema, req: SliceRequest, opts: { forProje
     'compatible_printers_condition',
     'compatible_prints',
     'compatible_prints_condition',
+    ...SERVER_ONLY_KEYS,
   ]);
   // Printer first, then print: a few keys occur in both preset types in vendor bundles
   // (e.g. elefant_foot_compensation on SLA printers) and the print preset owns them.

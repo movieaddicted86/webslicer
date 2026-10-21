@@ -17,6 +17,7 @@ import { config } from '../config.js';
 import { NotFoundError, ValidationError } from '../errors.js';
 import { resolveLibraryPath } from './library.js';
 import { deleteModel, saveModel, setModelLifecycleHooks } from './models.js';
+import { stripServerOnly } from './serverOnly.js';
 import { defaultPresetName, resolvePreset } from '../slicer/presets.js';
 import type { IniSection } from '../slicer/ini.js';
 import { loadModelFile } from '../plater/meshes.js';
@@ -78,7 +79,9 @@ function resolveSlot(schema: Schema, type: PresetType, slot: ProjectPresetRef): 
   if (!slot || typeof slot.name !== 'string' || !slot.name.trim()) throw new ValidationError(`${type} preset name required`);
   const preset = resolvePreset(schema, type, slot.name);
   if (!preset) throw new ValidationError(`Unknown ${type} preset "${slot.name}"`);
-  return { name: preset.name, config: { ...preset.config, ...(slot.config || {}) } };
+  // the server-only keys are stripped here as well as in `mergeConfigs` (SEC-1): a project that never
+  // stores them cannot hand them to any other reader of its config either
+  return { name: preset.name, config: stripServerOnly({ ...preset.config, ...(slot.config || {}) }) };
 }
 
 /** Printer, print and filament configs of a project, with its overrides applied. */
