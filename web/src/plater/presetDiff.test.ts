@@ -63,7 +63,10 @@ test('transferChanges transfers a key the old preset cleared as the empty value'
   const oldSaved = { perimeters: '2', idle_temperature: '190' };
   const oldCurrent = { perimeters: '2', idle_temperature: '' };
   const newSaved = { perimeters: '3', idle_temperature: '180' };
-  assert.deepEqual(transferChanges(newSaved, oldSaved, oldCurrent, ['perimeters', 'idle_temperature']), { perimeters: '3', idle_temperature: '' });
+  assert.deepEqual(transferChanges(newSaved, oldSaved, oldCurrent, ['perimeters', 'idle_temperature']), {
+    perimeters: '3',
+    idle_temperature: '',
+  });
 });
 
 test('transferChanges leaves the input configs untouched', () => {

@@ -45,6 +45,8 @@ export function useCamera(refsRef: RefObject<SceneRefs | null>, ortho: boolean, 
     writeOrthoPref(ortho);
     const refs = refsRef.current;
     if (refs) switchCamera(refs, ortho);
+    // `refsRef` is a stable ref object owned by the Viewer; its content changes without a re-render
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- stable ref, not a dependency
   }, [ortho]);
 
   // --- camera commands: standard views, zoom to selection, fit the bed
@@ -65,5 +67,7 @@ export function useCamera(refsRef: RefObject<SceneRefs | null>, ortho: boolean, 
     // zoom to selection keeps the direction the user is looking from
     const offset = refs.camera.position.clone().sub(refs.controls.target);
     frameBox(refs, focusBox(refs, shape), offset.normalize(), refs.camera.up.clone());
+    // `refsRef` is a stable ref object owned by the Viewer; its content changes without a re-render
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- stable ref, not a dependency
   }, [request]);
 }

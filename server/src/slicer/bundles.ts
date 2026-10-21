@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { config } from '../config.js';
 import { parseIni, type IniSection } from './ini.js';
-import type { PresetType, PrinterModel, Vendor } from '@webslicer/shared';
+import type { PresetType, Vendor } from '@webslicer/shared';
 
 export interface SystemPreset {
   type: PresetType;
@@ -33,12 +33,7 @@ export interface BundleData {
 const PRESET_SECTION_TYPES: PresetType[] = ['print', 'filament', 'printer', 'sla_print', 'sla_material'];
 const META_KEYS = new Set(['inherits', 'alias', 'renamed_from']);
 
-function resolveSection(
-  name: string,
-  raw: Map<string, IniSection>,
-  cache: Map<string, IniSection>,
-  stack: Set<string>,
-): IniSection {
+function resolveSection(name: string, raw: Map<string, IniSection>, cache: Map<string, IniSection>, stack: Set<string>): IniSection {
   const cached = cache.get(name);
   if (cached) return cached;
   const sec = raw.get(name);

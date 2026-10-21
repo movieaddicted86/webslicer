@@ -43,7 +43,10 @@ test('placementMatrix builds T(position) · R(euler XYZ) · S(scale)', () => {
   // three.js reference for position (12, -4, 3), rotation (0.4, -0.2, pi/6), scale (1.5, 0.75, 2)
   closePoint(
     placementMatrix(rotated),
-    [1.273143830716, 0.590295037014, 0.529770285677, 0, -0.36752496669, 0.627258719981, 0.184314668617, 0, -0.39733866159, -0.76331180419, 1.805402192751, 0, 12, -4, 3, 1],
+    [
+      1.273143830716, 0.590295037014, 0.529770285677, 0, -0.36752496669, 0.627258719981, 0.184314668617, 0, -0.39733866159, -0.76331180419,
+      1.805402192751, 0, 12, -4, 3, 1,
+    ],
     1e-12,
   );
   // a 90 degree turn about Y maps +X to -Z (a transposed rotation would map it to +Z)

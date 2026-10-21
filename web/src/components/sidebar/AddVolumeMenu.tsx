@@ -34,7 +34,8 @@ export function AddVolumeMenu({ o, onClose }: { o: PlaterObject; onClose: () => 
     geometry.computeBoundingBox();
     const h = geometry.boundingBox!.max.z - geometry.boundingBox!.min.z;
     // modifiers etc. start at the object centre; slabs and new parts sit on the bed
-    const position: [number, number, number] = shape === 'slab' || type === 'ModelPart' ? [0, 0, h / 2] : [0, 0, objSize[2] / 2 / objScale[2]];
+    const position: [number, number, number] =
+      shape === 'slab' || type === 'ModelPart' ? [0, 0, h / 2] : [0, 0, objSize[2] / 2 / objScale[2]];
     await addVolume(o.id, { name: `${VOLUME_LABELS[type]} ${shape}`, type, geometry, position });
     onClose();
   };

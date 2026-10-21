@@ -15,10 +15,17 @@
     "dev": "npm run build -w shared && concurrently -n web,server -c cyan,green \"npm run dev -w web\" \"npm run dev -w server\"",
     "start": "node server/dist/index.js",
     "typecheck": "npm run build -w shared && npm run typecheck -w shared && npm run typecheck -w web && npm run typecheck -w server",
-    "test": "npm run build -w shared && npm run test -w shared && npm run test -w server && npm run test -w web"
+    "test": "npm run build -w shared && npm run test -w shared && npm run test -w server && npm run test -w web",
+    "lint": "eslint shared/src web/src server/src",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "devDependencies": {
-    "concurrently": "^9.1.2"
+    "concurrently": "^9.1.2",
+    "eslint": "^9.39.5",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "prettier": "^3.9.10",
+    "typescript-eslint": "^8.72.0"
   },
   "engines": {
     "node": ">=22"

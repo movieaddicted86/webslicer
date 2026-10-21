@@ -43,10 +43,44 @@ const OBJECT_SETTING_EXCLUDES = new Set([
 ]);
 
 /** Settings that only make sense per object, not per modifier/part volume (PrusaSlicer "object only"). */
-const OBJECT_ONLY_PREFIXES = ['support_material', 'support_tree', 'raft_', 'brim_', 'skirt', 'seam_', 'staggered_inner_seams', 'scarf_seam', 'layer_height', 'first_layer_height', 'slicing_mode', 'xy_size_compensation', 'elefant_foot', 'dont_support_bridges', 'interface_shells', 'mmu_segmented', 'wipe_into', 'infill_only_where_needed', 'only_one_perimeter_first_layer', 'avoid_crossing', 'thick_bridges', 'ooze_prevention', 'standby_temperature'];
+const OBJECT_ONLY_PREFIXES = [
+  'support_material',
+  'support_tree',
+  'raft_',
+  'brim_',
+  'skirt',
+  'seam_',
+  'staggered_inner_seams',
+  'scarf_seam',
+  'layer_height',
+  'first_layer_height',
+  'slicing_mode',
+  'xy_size_compensation',
+  'elefant_foot',
+  'dont_support_bridges',
+  'interface_shells',
+  'mmu_segmented',
+  'wipe_into',
+  'infill_only_where_needed',
+  'only_one_perimeter_first_layer',
+  'avoid_crossing',
+  'thick_bridges',
+  'ooze_prevention',
+  'standby_temperature',
+];
 
 /** The overrides of one object, volume or height range: search on the left, the changed options on the right. */
-export function ObjectSettingsDialog({ onClose, objectId, volumeId, rangeId }: { onClose: () => void; objectId: string; volumeId?: string; rangeId?: string }) {
+export function ObjectSettingsDialog({
+  onClose,
+  objectId,
+  volumeId,
+  rangeId,
+}: {
+  onClose: () => void;
+  objectId: string;
+  volumeId?: string;
+  rangeId?: string;
+}) {
   const o = useStore((s) => s.objects.find((x) => x.id === objectId));
   const schema = useStore((s) => s.schema)!;
   const updateObject = useStore((s) => s.updateObject);
@@ -61,7 +95,9 @@ export function ObjectSettingsDialog({ onClose, objectId, volumeId, rangeId }: {
   const candidates = useMemo(
     () =>
       schema.presetKeys.print
-        .filter((k) => !OBJECT_SETTING_EXCLUDES.has(k) && schema.options[k] && MODE_RANK[schema.options[k].mode || 'expert'] <= MODE_RANK[mode])
+        .filter(
+          (k) => !OBJECT_SETTING_EXCLUDES.has(k) && schema.options[k] && MODE_RANK[schema.options[k].mode || 'expert'] <= MODE_RANK[mode],
+        )
         .filter((k) => !forVolume || !OBJECT_ONLY_PREFIXES.some((p) => k.startsWith(p)))
         .filter((k) => !search || k.includes(search.toLowerCase()) || schema.options[k].label.toLowerCase().includes(search.toLowerCase()))
         .sort((a, b) => schema.options[a].label.localeCompare(schema.options[b].label)),
@@ -91,7 +127,11 @@ export function ObjectSettingsDialog({ onClose, objectId, volumeId, rangeId }: {
           <input placeholder="Add setting… (search)" value={search} onChange={(e) => setSearch(e.target.value)} />
           <ul>
             {candidates.slice(0, 200).map((k) => (
-              <li key={k} className={config[k] !== undefined ? 'added' : ''} onClick={() => config[k] === undefined && setConfig({ ...config, [k]: printCfg[k] ?? schema.options[k].default })}>
+              <li
+                key={k}
+                className={config[k] !== undefined ? 'added' : ''}
+                onClick={() => config[k] === undefined && setConfig({ ...config, [k]: printCfg[k] ?? schema.options[k].default })}
+              >
                 <span>{schema.options[k].label}</span>
                 <span className="muted small">{schema.options[k].category}</span>
               </li>
@@ -100,16 +140,21 @@ export function ObjectSettingsDialog({ onClose, objectId, volumeId, rangeId }: {
         </div>
         <div className="object-settings-values">
           {!keys.length && (
-            <div className="muted">
-              No overrides. Pick a setting on the left to override it for this {vol ? 'volume' : 'object'} only.
-            </div>
+            <div className="muted">No overrides. Pick a setting on the left to override it for this {vol ? 'volume' : 'object'} only.</div>
           )}
           {keys.map((k) => {
             const def = schema.options[k];
             if (!def) return null;
             return (
               <div key={k} className="override-row">
-                <OptionField def={def} value={config[k]} savedValue={printCfg[k]} extruders={1} onChange={(v) => setConfig({ ...config, [k]: v })} onReset={() => setConfig({ ...config, [k]: printCfg[k] ?? def.default })} />
+                <OptionField
+                  def={def}
+                  value={config[k]}
+                  savedValue={printCfg[k]}
+                  extruders={1}
+                  onChange={(v) => setConfig({ ...config, [k]: v })}
+                  onReset={() => setConfig({ ...config, [k]: printCfg[k] ?? def.default })}
+                />
                 <button
                   className="icon"
                   title="Remove override"

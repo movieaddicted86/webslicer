@@ -35,7 +35,32 @@ function fullMatchRegex(pattern: string, ignoreCase: boolean): RegExp {
 function tokenize(src: string): Token[] {
   const tokens: Token[] = [];
   let i = 0;
-  const ops = ['==', '!=', '<>', '<=', '>=', '=~', '!~', '&&', '||', '<', '>', '+', '-', '*', '/', '%', '(', ')', '[', ']', '!', ',', '?', ':'];
+  const ops = [
+    '==',
+    '!=',
+    '<>',
+    '<=',
+    '>=',
+    '=~',
+    '!~',
+    '&&',
+    '||',
+    '<',
+    '>',
+    '+',
+    '-',
+    '*',
+    '/',
+    '%',
+    '(',
+    ')',
+    '[',
+    ']',
+    '!',
+    ',',
+    '?',
+    ':',
+  ];
   while (i < src.length) {
     const c = src[i];
     if (/\s/.test(c)) {

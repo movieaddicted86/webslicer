@@ -84,7 +84,10 @@ function resolveSlot(schema: Schema, type: PresetType, slot: ProjectPresetRef): 
 }
 
 /** Printer, print and filament configs of a project, with its overrides applied. */
-export function resolvedConfigs(project: Project, schema: Schema): { printer: ProjectPresetRef; print: ProjectPresetRef; filaments: ProjectPresetRef[] } {
+export function resolvedConfigs(
+  project: Project,
+  schema: Schema,
+): { printer: ProjectPresetRef; print: ProjectPresetRef; filaments: ProjectPresetRef[] } {
   const filaments = (project.filaments.length ? project.filaments : [{ name: defaultPresetName('filament'), config: {} }]).map((f) =>
     resolveSlot(schema, 'filament', f),
   );
@@ -230,7 +233,13 @@ export async function addModelFromLibrary(project: Project, libraryPath: string,
     for (let c = 0; c < n; c++) instances.push(...norm.instances);
     if (instances.length > 1000) throw fail('more than 1000 instances', 400);
     // keep the mesh bounds in the project: arranging needs them and must not re-read every model
-    project.objects.push({ id: `obj-${project.objects.length + 1}`, modelId: stored.id, name: m.name, bounds: meshBounds(norm.vertices), instances });
+    project.objects.push({
+      id: `obj-${project.objects.length + 1}`,
+      modelId: stored.id,
+      name: m.name,
+      bounds: meshBounds(norm.vertices),
+      instances,
+    });
   }
   return touchProject(project);
 }

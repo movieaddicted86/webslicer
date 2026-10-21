@@ -26,7 +26,10 @@ export function PhysicalPrintersDialog({ onClose }: { onClose: () => void }) {
   const test = async () => {
     if (!edit) return;
     setTesting('…');
-    const r = edit.id && (!edit.apiKey || edit.apiKey === '••••••••') ? await api.testPrinterById(edit.id).catch((e) => ({ ok: false, message: e.message })) : await api.testPrinter(edit).catch((e) => ({ ok: false, message: e.message }));
+    const r =
+      edit.id && (!edit.apiKey || edit.apiKey === '••••••••')
+        ? await api.testPrinterById(edit.id).catch((e) => ({ ok: false, message: e.message }))
+        : await api.testPrinter(edit).catch((e) => ({ ok: false, message: e.message }));
     setTesting(r.ok ? `✓ ${r.message}` : `✗ ${r.message}`);
   };
   return (
@@ -37,7 +40,10 @@ export function PhysicalPrintersDialog({ onClose }: { onClose: () => void }) {
             {printers.map((p) => (
               <li key={p.id}>
                 <div>
-                  <b>{p.name}</b> <span className="muted small">{p.type} · {p.host}</span>
+                  <b>{p.name}</b>{' '}
+                  <span className="muted small">
+                    {p.type} · {p.host}
+                  </span>
                 </div>
                 <div>
                   <button onClick={() => setEdit({ ...p, apiKey: p.hasApiKey ? '••••••••' : '' })}>Edit</button>
@@ -76,15 +82,25 @@ export function PhysicalPrintersDialog({ onClose }: { onClose: () => void }) {
             </select>
           </label>
           <label>
-            Hostname / IP <input placeholder="192.168.1.50 or http://printer.local" value={edit.host || ''} onChange={(e) => setEdit({ ...edit, host: e.target.value })} />
+            Hostname / IP{' '}
+            <input
+              placeholder="192.168.1.50 or http://printer.local"
+              value={edit.host || ''}
+              onChange={(e) => setEdit({ ...edit, host: e.target.value })}
+            />
           </label>
           <label>
-            API key <input value={edit.apiKey || ''} onChange={(e) => setEdit({ ...edit, apiKey: e.target.value })} placeholder={edit.type === 'moonraker' ? 'optional' : 'required'} />
+            API key{' '}
+            <input
+              value={edit.apiKey || ''}
+              onChange={(e) => setEdit({ ...edit, apiKey: e.target.value })}
+              placeholder={edit.type === 'moonraker' ? 'optional' : 'required'}
+            />
           </label>
           {/^https:/i.test(edit.host || '') && (
             <label className="checkbox">
-              <input type="checkbox" checked={!!edit.ignoreTls} onChange={(e) => setEdit({ ...edit, ignoreTls: e.target.checked })} /> Accept self-signed
-              certificate (skip TLS verification)
+              <input type="checkbox" checked={!!edit.ignoreTls} onChange={(e) => setEdit({ ...edit, ignoreTls: e.target.checked })} />{' '}
+              Accept self-signed certificate (skip TLS verification)
             </label>
           )}
           {testing && <div className={`small ${testing.startsWith('✓') ? 'success' : 'error'}`}>{testing}</div>}

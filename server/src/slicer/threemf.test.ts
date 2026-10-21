@@ -71,7 +71,10 @@ test('3MF roundtrip of height ranges and MMU paint', async () => {
       name: 'c',
       mesh: cube(10),
       transform: I,
-      ranges: [{ minZ: 0, maxZ: 4, config: { layer_height: '0.1' } }, { minZ: 4, maxZ: 10, config: { layer_height: '0.3', perimeters: '3' } }],
+      ranges: [
+        { minZ: 0, maxZ: 4, config: { layer_height: '0.1' } },
+        { minZ: 4, maxZ: 10, config: { layer_height: '0.3', perimeters: '3' } },
+      ],
       supportPaint: '400000000000',
       mmuPaint: '000000000023',
     },
@@ -173,7 +176,8 @@ test('3MF roundtrip keeps a mirrored instance transform (rotation + mirror + non
   // 90° about Z with a non-uniform scale; the sign ends up in the scale, so the determinant stays
   // negative.  (Computed with three.js, rounded to the values the 3MF writer prints.)
   const mirrored = [0, 1.5, 0, 0, 1, 0, 0, 0, 0, 0, 2, 0, 10, 20, 0, 1];
-  const det = (m: number[]) => m[0] * (m[5] * m[10] - m[9] * m[6]) - m[4] * (m[1] * m[10] - m[9] * m[2]) + m[8] * (m[1] * m[6] - m[5] * m[2]);
+  const det = (m: number[]) =>
+    m[0] * (m[5] * m[10] - m[9] * m[6]) - m[4] * (m[1] * m[10] - m[9] * m[2]) + m[8] * (m[1] * m[6] - m[5] * m[2]);
   assert.ok(det(mirrored) < 0);
   const buf = await build3mf([{ name: 'cube', mesh: cube(30), transform: mirrored, instances: [mirrored] }]);
   const proj = await read3mfProject(buf);
@@ -193,7 +197,10 @@ test('3MF writer emits one item per instance and instances_count', async () => {
   const buf = await build3mf([{ name: 'cube', mesh: cube(20), transform: instances[0], instances }]);
   const items = await readItems(buf);
   assert.equal(items.length, 3);
-  assert.deepEqual(items.map((i) => i.objectId), ['1', '1', '1']);
+  assert.deepEqual(
+    items.map((i) => i.objectId),
+    ['1', '1', '1'],
+  );
   // 3MF item transform: 9 matrix values then the translation
   assert.deepEqual(
     items.map((i) => i.transform.slice(9)),
@@ -209,14 +216,19 @@ test('3MF writer emits one item per instance and instances_count', async () => {
 });
 
 test('3MF writer keeps the object mesh in object coordinates with instances', async () => {
-  const buf = await build3mf([{ name: 'cube', mesh: cube(20), transform: translate(10, 0, 0), instances: [translate(10, 0, 0), translate(40, 0, 0)] }]);
+  const buf = await build3mf([
+    { name: 'cube', mesh: cube(20), transform: translate(10, 0, 0), instances: [translate(10, 0, 0), translate(40, 0, 0)] },
+  ]);
   const JSZip = (await import('jszip')).default;
   const model = await (await JSZip.loadAsync(buf)).file('3D/3dmodel.model')!.async('string');
   // the resource mesh is untouched: a 20 mm cube starting at the origin
   assert.ok(/<vertex x="0" y="0" z="0"\/>/.test(model), model.slice(0, 1200));
   assert.ok(/<vertex x="20" y="20" z="20"\/>/.test(model));
   const items = await readItems(buf);
-  assert.deepEqual(items.map((i) => i.transform[9]), [10, 40]);
+  assert.deepEqual(
+    items.map((i) => i.transform[9]),
+    [10, 40],
+  );
 });
 
 test('3MF reader returns instance transforms and build order', async () => {
@@ -245,7 +257,10 @@ test('3MF reader maps mixed objects (A with 2 instances, B with 1) in build orde
     { name: 'B', mesh: cube(15), transform: b },
   ]);
   const items = await readItems(buf);
-  assert.deepEqual(items.map((i) => i.objectId), ['1', '1', '2']);
+  assert.deepEqual(
+    items.map((i) => i.objectId),
+    ['1', '1', '2'],
+  );
   const proj = await read3mfProject(buf);
   assert.equal(proj.objects.length, 2);
   assert.equal(proj.objects[0].instances.length, 2);

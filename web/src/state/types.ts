@@ -10,25 +10,18 @@ import type { StateCreator } from 'zustand';
 import * as THREE from 'three';
 import type {
   Config,
-  CustomGcode,
-  InstalledPrinter,
   JobRecord,
   LayerRangeInput,
-  Mode,
-  PhysicalPrinter,
   Placement,
-  PresetSummary,
   PresetType,
   Schema,
   ServerInfo,
   ThumbnailInput,
-  Vendor,
   Vec3,
   VolumeType,
 } from '../api';
 import type { ThumbnailSpec } from '@webslicer/shared';
-import type { MarkerKind, ParsedGcode } from '../gcode/types';
-import type { PreviewColorMode } from '../gcode/colorschemes';
+import type { ParsedGcode } from '../gcode/types';
 import type { PaintKind } from '../three/paint';
 import type { UiSlice } from './slices/ui';
 import type { PresetSlice } from './slices/preset';
@@ -172,13 +165,7 @@ export interface CoreState {
 }
 
 /** The whole store state: what every slice contributes plus the state they share. */
-export type State = CoreState &
-  UiSlice &
-  PresetSlice &
-  PlaterSlice &
-  JobSlice &
-  PreviewSlice &
-  HistorySlice;
+export type State = CoreState & UiSlice & PresetSlice & PlaterSlice & JobSlice & PreviewSlice & HistorySlice;
 
 /**
  * A part of a slice: a creator that `createPlaterSlice` spreads into itself (painting, height

@@ -1,6 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { attributeToTriangleState, triangleStateToAttribute, paintStringToStates, PAINT_BLOCKER, PAINT_ENFORCER, PAINT_NONE } from './paint.js';
+import {
+  attributeToTriangleState,
+  triangleStateToAttribute,
+  paintStringToStates,
+  PAINT_BLOCKER,
+  PAINT_ENFORCER,
+  PAINT_NONE,
+} from './paint.js';
 
 test('whole-triangle states encode like PrusaSlicer', () => {
   assert.equal(triangleStateToAttribute(PAINT_ENFORCER), '4');

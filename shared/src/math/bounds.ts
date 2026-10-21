@@ -65,10 +65,7 @@ export function normalizationOffset(bounds: Bounds): Vec3 {
  * instance matrix by the same offset, so the placed copies keep the position they had in the file.
  * An empty instance list means "one copy at the object's own origin" and gets the identity.
  */
-export function normalize(
-  vertices: Float32Array,
-  instances: Matrix4[],
-): { vertices: Float32Array; offset: Vec3; instances: Matrix4[] } {
+export function normalize(vertices: Float32Array, instances: Matrix4[]): { vertices: Float32Array; offset: Vec3; instances: Matrix4[] } {
   const c = normalizationOffset(meshBounds(vertices));
   const shift = translate(c[0], c[1], c[2]);
   return {

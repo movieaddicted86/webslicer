@@ -33,7 +33,9 @@ export const createRangeSlice: SlicePart<RangeSlice> = (set, get) => ({
   updateRange: (objectId, rangeId, patch) => {
     get().recordHistory();
     set((s) => ({
-      objects: s.objects.map((x) => (x.id === objectId ? { ...x, ranges: x.ranges.map((r) => (r.id === rangeId ? { ...r, ...patch } : r)) } : x)),
+      objects: s.objects.map((x) =>
+        x.id === objectId ? { ...x, ranges: x.ranges.map((r) => (r.id === rangeId ? { ...r, ...patch } : r)) } : x,
+      ),
       sliceDirty: true,
     }));
   },

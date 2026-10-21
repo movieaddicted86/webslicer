@@ -37,7 +37,12 @@ export function extractWarnings(lines: string[]): string[] {
   const out: string[] = [];
   for (let i = 0; i < lines.length; i++) {
     if (!/warning/i.test(lines[i])) continue;
-    const parts = [lines[i].trim().replace(LOG_PREFIX, '').replace(/^(print\s+)?warning\s*:\s*/i, '')];
+    const parts = [
+      lines[i]
+        .trim()
+        .replace(LOG_PREFIX, '')
+        .replace(/^(print\s+)?warning\s*:\s*/i, ''),
+    ];
     // a following line that warns itself opens the next block instead of continuing this one
     for (let j = i + 1; j < lines.length && parts.length < MAX_BLOCK_LINES && !isLogNoise(lines[j]) && !/warning/i.test(lines[j]); j++) {
       parts.push(lines[j].trim());
@@ -133,7 +138,8 @@ export function readGcodeInfo(file: string): GcodeInfo {
       else if ((m = /^; estimated printing time \(normal mode\) = (.*)$/.exec(line))) {
         info.estimatedTime = m[1].trim();
         info.estimatedTimeSeconds = parseDuration(m[1]);
-      } else if ((m = /^; estimated first layer printing time \(normal mode\) = (.*)$/.exec(line))) info.estimatedFirstLayerTime = m[1].trim();
+      } else if ((m = /^; estimated first layer printing time \(normal mode\) = (.*)$/.exec(line)))
+        info.estimatedFirstLayerTime = m[1].trim();
       else if ((m = /^; filament used \[mm\] = (.*)$/.exec(line))) info.filamentUsedMm = nums(m[1]);
       else if ((m = /^; filament used \[cm3\] = (.*)$/.exec(line))) info.filamentUsedCm3 = nums(m[1]);
       else if ((m = /^; filament used \[g\] = (.*)$/.exec(line))) info.filamentUsedG = nums(m[1]);

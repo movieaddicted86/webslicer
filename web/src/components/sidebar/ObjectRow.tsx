@@ -62,7 +62,15 @@ export function ObjectRow({
         {o.extruder > 0 && <span className="badge">E{o.extruder}</span>}
         {Object.keys(o.config).length > 0 && <span className="badge">⚙</span>}
         {o.instances.length > 1 && (
-          <button className="badge inst" title={instancesLabel} aria-label={instancesLabel} onClick={(e) => { e.stopPropagation(); onToggleInstances(); }}>
+          <button
+            className="badge inst"
+            title={instancesLabel}
+            aria-label={instancesLabel}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleInstances();
+            }}
+          >
             ×{o.instances.length}
           </button>
         )}

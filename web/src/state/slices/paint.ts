@@ -60,7 +60,9 @@ export const createPaintSlice: SlicePart<PaintSlice> = (set, get) => ({
   beginPaintStroke: (objectId) => {
     // history snapshot with copied paint arrays (strokes mutate them in place)
     const s = get();
-    const snap = s.objects.map((o) => (o.id === objectId && o.paint ? { ...o, paint: { supports: o.paint.supports?.slice(), seam: o.paint.seam?.slice() } } : o));
+    const snap = s.objects.map((o) =>
+      o.id === objectId && o.paint ? { ...o, paint: { supports: o.paint.supports?.slice(), seam: o.paint.seam?.slice() } } : o,
+    );
     s.recordHistory(snap);
   },
   applyPaint: (objectId, kind, triangles, value) => {

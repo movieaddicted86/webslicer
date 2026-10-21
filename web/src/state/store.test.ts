@@ -167,7 +167,10 @@ const importOne = (geometry: THREE.BufferGeometry, name = 'cube.stl') => st().ad
 test('selecting the printer preset loads the compatible print and filament presets', async () => {
   assert.equal(st().presets.printer.name, PRINTER);
   assert.equal(st().presets.print.name, '0.20mm NORMAL');
-  assert.deepEqual(st().presets.filament.map((f) => f.name), ['Prusament PLA']);
+  assert.deepEqual(
+    st().presets.filament.map((f) => f.name),
+    ['Prusament PLA'],
+  );
   assert.equal(isModified(st().presets.print), false);
   assert.equal(st().sliceDirty, true);
   // the selection is what survives a reload
@@ -199,13 +202,16 @@ test('addObjects imports a model onto the bed centre and uploads it', async () =
 
 test('addObjects keeps a project import at its own instance transform', async () => {
   // a mesh whose own frame already stands on Z = 0, as a 3MF object's coordinates do
-  await st().addObjects([
-    {
-      name: 'project.3mf',
-      geometry: box(10, [0, 0, 5]),
-      instances: [{ position: [40, 0, 0], rotation: [0, 0, 0], scale: [1, 1, 1] }],
-    },
-  ], { keepPositions: true });
+  await st().addObjects(
+    [
+      {
+        name: 'project.3mf',
+        geometry: box(10, [0, 0, 5]),
+        instances: [{ position: [40, 0, 0], rotation: [0, 0, 0], scale: [1, 1, 1] }],
+      },
+    ],
+    { keepPositions: true },
+  );
   const [o] = st().objects;
   // the build item's transform is kept instead of the bed centre, and no arrange rewrites it
   closePoint(o.instances[0].position, [40, 0, 0], 'project place');
@@ -255,7 +261,6 @@ test('addInstances copies the selected instance and arranges the copies on the b
 
 test('mirror flips the picked instance in place and keeps it on the bed', async () => {
   await importOne(box(10));
-  const o = st().objects[0];
   st().mirror(0);
   const flipped = st().objects[0].instances[0];
   closePoint(flipped.scale, [-1, 1, 1]);
@@ -273,12 +278,21 @@ test('splitToObjects turns the shells into objects that keep their place', async
   await st().splitToObjects(st().objects[0].id);
   const after = st().objects;
   assert.equal(after.length, 2);
-  assert.deepEqual(after.map((o) => o.name), ['pair.stl (1)', 'pair.stl (2)']);
+  assert.deepEqual(
+    after.map((o) => o.name),
+    ['pair.stl (1)', 'pair.stl (2)'],
+  );
   // the source spans x 0…40, is normalized by 20, and every shell is put back at its own centre
   closePoint(after[0].instances[0].position, [110, 105, 0]);
   closePoint(after[1].instances[0].position, [140, 105, 0]);
-  assert.deepEqual(st().selectedIds, after.map((o) => o.id));
-  assert.deepEqual(after.map((o) => o.triangles), [12, 12]);
+  assert.deepEqual(
+    st().selectedIds,
+    after.map((o) => o.id),
+  );
+  assert.deepEqual(
+    after.map((o) => o.triangles),
+    [12, 12],
+  );
   assert.equal(st().toasts[st().toasts.length - 1].text, 'Split into 2 objects');
   assert.equal(st().undoStack.length, depth + 1, 'the whole split is one undo step');
   st().undo();
@@ -362,11 +376,17 @@ test('removeObjects drops objects and their selection, undo brings both back', a
   const [a, b] = st().objects;
   st().select([a.id, b.id]);
   st().removeObjects([a.id]);
-  assert.deepEqual(st().objects.map((o) => o.id), [b.id]);
+  assert.deepEqual(
+    st().objects.map((o) => o.id),
+    [b.id],
+  );
   assert.deepEqual(st().selectedIds, [b.id]);
   assert.equal(st().sliceDirty, true);
   st().undo();
-  assert.deepEqual(st().objects.map((o) => o.id), [a.id, b.id]);
+  assert.deepEqual(
+    st().objects.map((o) => o.id),
+    [a.id, b.id],
+  );
   assert.deepEqual(st().selectedIds, [b.id], 'the selection is intersected with what came back');
   st().clearObjects();
   assert.deepEqual(st().objects, []);
@@ -391,7 +411,11 @@ test('undo and redo step through import, instances, arrange and mirror', async (
   st().undo();
   assert.deepEqual(
     st().objects[0].instances.map((i) => i.position),
-    [[125, 105, 0], [125, 105, 0], [125, 105, 0]],
+    [
+      [125, 105, 0],
+      [125, 105, 0],
+      [125, 105, 0],
+    ],
     'the arrange of the copies is undone, the copies stay',
   );
   st().undo();
@@ -462,6 +486,9 @@ test('deletePreset removes the preset and falls back to a compatible one', async
   await st().deletePreset('print', '0.20mm NORMAL');
   assert.deepEqual(server.deleted, ['print:0.20mm NORMAL']);
   assert.equal(st().presets.print.name, '0.25mm DRAFT', 'the next compatible print preset');
-  assert.equal(st().presetLists.print.some((p) => p.name === '0.20mm NORMAL'), false);
+  assert.equal(
+    st().presetLists.print.some((p) => p.name === '0.20mm NORMAL'),
+    false,
+  );
   assert.equal(st().toasts[st().toasts.length - 1].text, 'Deleted print preset "0.20mm NORMAL"');
 });

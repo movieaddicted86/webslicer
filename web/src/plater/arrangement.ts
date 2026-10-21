@@ -17,7 +17,11 @@ export function packItemOf(o: PlaterObject, inst: PlaterInstance, key: string, s
 }
 
 /** Every instance of every object as a packing item, keyed `obj:inst` (or whatever `keyOf` says). */
-export function layoutOf(objects: PlaterObject[], spacing: number, keyOf: (o: PlaterObject, i: PlaterInstance, k: number) => string = (o, i) => `${o.id}:${i.id}`): PackItem[] {
+export function layoutOf(
+  objects: PlaterObject[],
+  spacing: number,
+  keyOf: (o: PlaterObject, i: PlaterInstance, k: number) => string = (o, i) => `${o.id}:${i.id}`,
+): PackItem[] {
   return objects.flatMap((o) => o.instances.map((i, k) => packItemOf(o, i, keyOf(o, i, k), spacing)));
 }
 
@@ -36,7 +40,10 @@ export function bedAndSpacing(presets: { print: { current: Config }; printer: { 
 
 /** Does every instance still fit when `preview` (an object with its extra instances) joins them? */
 export function fitsOnBed(objects: PlaterObject[], preview: PlaterObject, spacing: number, bed: BedShape): boolean {
-  return !!packShelf(layoutOf([...objects, preview], spacing, (o, i, k) => `${o.id}:${i.id}:${k}`), bed);
+  return !!packShelf(
+    layoutOf([...objects, preview], spacing, (o, i, k) => `${o.id}:${i.id}:${k}`),
+    bed,
+  );
 }
 
 /**
@@ -59,6 +66,9 @@ export function placementUpdates(items: ArrangedInstance[], packed: PackedItem[]
 export function withPlacements(objects: PlaterObject[], updates: Map<string, [number, number, number]>): PlaterObject[] {
   return objects.map((o) => {
     if (!o.instances.some((i) => updates.has(`${o.id}:${i.id}`))) return o;
-    return { ...o, instances: o.instances.map((i) => (updates.has(`${o.id}:${i.id}`) ? { ...i, position: updates.get(`${o.id}:${i.id}`)! } : i)) };
+    return {
+      ...o,
+      instances: o.instances.map((i) => (updates.has(`${o.id}:${i.id}`) ? { ...i, position: updates.get(`${o.id}:${i.id}`)! } : i)),
+    };
   });
 }

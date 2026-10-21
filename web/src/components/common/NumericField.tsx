@@ -17,7 +17,19 @@ export interface NumericFieldProps {
 }
 
 /** A controlled number input (F-20) – a thin face over the one draft/commit skeleton. */
-export function NumericField({ text, onText, apply, keepText, step, min, max, placeholder, disabled, className, title }: NumericFieldProps) {
+export function NumericField({
+  text,
+  onText,
+  apply,
+  keepText,
+  step,
+  min,
+  max,
+  placeholder,
+  disabled,
+  className,
+  title,
+}: NumericFieldProps) {
   const field = useFieldDraft(text, onText, { apply, keepText });
   return (
     <input

@@ -18,7 +18,19 @@ export interface TextFieldProps {
  * A controlled text field (F-20). A multiline field never commits on Enter – Enter belongs to the
  * text there (the G-code box behaves like that on `main`); it commits when it is left.
  */
-export function TextField({ value, onChange, apply, keepText, multiline, rows, type, className, spellCheck, disabled, title }: TextFieldProps) {
+export function TextField({
+  value,
+  onChange,
+  apply,
+  keepText,
+  multiline,
+  rows,
+  type,
+  className,
+  spellCheck,
+  disabled,
+  title,
+}: TextFieldProps) {
   const field = useFieldDraft(value, onChange, { apply, keepText });
   if (multiline) {
     return (

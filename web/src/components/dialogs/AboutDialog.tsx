@@ -27,7 +27,8 @@ export function AboutDialog({ onClose }: { onClose: () => void }) {
         </tbody>
       </table>
       <p className="muted small">
-        PrusaSlicer is © Prusa Research, licensed under AGPL-3.0. WebSlicer is an independent project and is not affiliated with Prusa Research.
+        PrusaSlicer is © Prusa Research, licensed under AGPL-3.0. WebSlicer is an independent project and is not affiliated with Prusa
+        Research.
       </p>
       <p className="small">
         {/* the one shortcut table the key handler reads as well – the two cannot drift apart */}

@@ -73,7 +73,14 @@ function asyncHandler(fn: (req: Request, res: Response, next: NextFunction) => P
 }
 
 function safeName(name: string): string {
-  const n = path.basename(String(name || '')).replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').trim();
+  const n = path
+    .basename(String(name || ''))
+    .replace(
+      // eslint-disable-next-line no-control-regex -- intentional control-character stripping
+      /[<>:"/\\|?*\x00-\x1f]/g,
+      '_',
+    )
+    .trim();
   if (!n || n === '.' || n === '..') throw Object.assign(new Error('invalid name'), { status: 400 });
   return n;
 }
@@ -90,7 +97,8 @@ export function libraryRouter(): express.Router {
   r.get('/file', (req, res) => {
     const abs = resolveLibraryPath(String(req.query.path || ''));
     if (!fs.existsSync(abs) || !fs.statSync(abs).isFile()) return res.status(404).json({ error: 'file not found' });
-    if (req.query.download !== undefined) res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(path.basename(abs))}"`);
+    if (req.query.download !== undefined)
+      res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(path.basename(abs))}"`);
     res.type('application/octet-stream').sendFile(abs);
   });
 

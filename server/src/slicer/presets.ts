@@ -12,6 +12,7 @@ import { splitVector, unescapeStringsCstyle } from '@webslicer/shared';
 import type { InstalledPrinter, PresetSummary, PresetType, ResolvedPreset, Schema } from '@webslicer/shared';
 
 function safeName(name: string): string {
+  // eslint-disable-next-line no-control-regex -- intentional control-character stripping
   return name.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').trim();
 }
 
@@ -215,7 +216,7 @@ export function listPresets(schema: Schema, type: PresetType, opts: ListOptions 
   };
 
   const compat = (cfg: IniSection): boolean | undefined => {
-    if (type === 'printer' || type === 'sla_material' && !opts.printerConfig) return undefined;
+    if (type === 'printer' || (type === 'sla_material' && !opts.printerConfig)) return undefined;
     if (!opts.printerConfig || !opts.printerName) return undefined;
     if (!isCompatibleWithPrinter(cfg, opts.printerName, opts.printerConfig)) return false;
     if (type === 'filament' && opts.printName && opts.printConfig) {

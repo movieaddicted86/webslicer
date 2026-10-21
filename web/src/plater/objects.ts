@@ -128,7 +128,8 @@ export function mergeUploadState(snapshot: PlaterObject[], current: PlaterObject
       const cv = cur?.volumes.find((x) => x.id === v.id);
       return cv && (cv.modelId || cv.uploadError) && !v.modelId ? { ...v, modelId: cv.modelId, uploadError: cv.uploadError } : v;
     });
-    if (cur && (cur.modelId || cur.uploadError) && !o.modelId) return { ...o, modelId: cur.modelId, uploadError: cur.uploadError, volumes: vols };
+    if (cur && (cur.modelId || cur.uploadError) && !o.modelId)
+      return { ...o, modelId: cur.modelId, uploadError: cur.uploadError, volumes: vols };
     return vols.some((v, i) => v !== o.volumes[i]) ? { ...o, volumes: vols } : o;
   });
 }

@@ -92,7 +92,8 @@ export const api = {
   deletePrinter: (id: string) => fetch(`/api/printers/${id}`, { method: 'DELETE' }).then((r) => handle<{ ok: boolean }>(r)),
   testPrinter: (p: Partial<PhysicalPrinter>) =>
     fetch('/api/printers/test', jsonInit('POST', p)).then((r) => handle<{ ok: boolean; message: string }>(r)),
-  testPrinterById: (id: string) => fetch(`/api/printers/${id}/test`, { method: 'POST' }).then((r) => handle<{ ok: boolean; message: string }>(r)),
+  testPrinterById: (id: string) =>
+    fetch(`/api/printers/${id}/test`, { method: 'POST' }).then((r) => handle<{ ok: boolean; message: string }>(r)),
   export3mf: async (req: SliceRequest) => {
     const r = await fetch('/api/export/3mf', jsonInit('POST', req));
     if (!r.ok) throw new Error(`export failed (${r.status})`);
@@ -122,7 +123,8 @@ export const api = {
 };
 
 export const libraryApi = {
-  list: (p: string) => fetch(`/api/library?path=${encodeURIComponent(p)}`).then((r) => handle<{ root: string; path: string; entries: LibraryEntry[] }>(r)),
+  list: (p: string) =>
+    fetch(`/api/library?path=${encodeURIComponent(p)}`).then((r) => handle<{ root: string; path: string; entries: LibraryEntry[] }>(r)),
   fileUrl: (p: string, download = false) => `/api/library/file?path=${encodeURIComponent(p)}${download ? '&download' : ''}`,
   fetchFile: async (p: string) => {
     const r = await fetch(`/api/library/file?path=${encodeURIComponent(p)}`);
@@ -130,21 +132,28 @@ export const libraryApi = {
     return r.blob();
   },
   upload: (p: string, data: ArrayBuffer | Blob) =>
-    fetch(`/api/library/file?path=${encodeURIComponent(p)}`, { method: 'PUT', headers: { 'Content-Type': 'application/octet-stream' }, body: data }).then((r) =>
-      handle<{ ok: boolean; path: string }>(r),
-    ),
-  mkdir: (p: string, name: string) => fetch('/api/library/mkdir', jsonInit('POST', { path: p, name })).then((r) => handle<{ ok: boolean; path: string }>(r)),
-  remove: (p: string) => fetch(`/api/library/file?path=${encodeURIComponent(p)}`, { method: 'DELETE' }).then((r) => handle<{ ok: boolean }>(r)),
+    fetch(`/api/library/file?path=${encodeURIComponent(p)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/octet-stream' },
+      body: data,
+    }).then((r) => handle<{ ok: boolean; path: string }>(r)),
+  mkdir: (p: string, name: string) =>
+    fetch('/api/library/mkdir', jsonInit('POST', { path: p, name })).then((r) => handle<{ ok: boolean; path: string }>(r)),
+  remove: (p: string) =>
+    fetch(`/api/library/file?path=${encodeURIComponent(p)}`, { method: 'DELETE' }).then((r) => handle<{ ok: boolean }>(r)),
   saveProject: (p: string, name: string, req: SliceRequest) =>
     fetch(`/api/library/project?path=${encodeURIComponent(p)}&name=${encodeURIComponent(name)}`, jsonInit('POST', req)).then((r) =>
       handle<{ ok: boolean; path: string; size: number }>(r),
     ),
   saveGcode: (jobId: string, p: string, name: string) =>
-    fetch('/api/library/gcode', jsonInit('POST', { jobId, path: p, name })).then((r) => handle<{ ok: boolean; path: string; size: number }>(r)),
+    fetch('/api/library/gcode', jsonInit('POST', { jobId, path: p, name })).then((r) =>
+      handle<{ ok: boolean; path: string; size: number }>(r),
+    ),
 };
 
 export const autosaveApi = {
-  save: (client: string, req: SliceRequest) => fetch(`/api/autosave/${client}`, jsonInit('PUT', req)).then((r) => handle<{ ok: boolean; savedAt: string }>(r)),
+  save: (client: string, req: SliceRequest) =>
+    fetch(`/api/autosave/${client}`, jsonInit('PUT', req)).then((r) => handle<{ ok: boolean; savedAt: string }>(r)),
   info: async (client: string) => {
     const r = await fetch(`/api/autosave/${client}?info`);
     if (r.status === 404) return undefined;

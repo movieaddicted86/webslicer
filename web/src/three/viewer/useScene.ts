@@ -167,10 +167,17 @@ export function useScene(refsRef: MutableRefObject<SceneRefs | null>, containerR
       const st = useStore.getState();
       if (st.placeOnFace) {
         // lay the clicked face flat on the bed
-        const hit = hits.find((h) => h.face && (h.object.userData.kind === 'object' || !(h.object as THREE.Mesh).material || !((h.object as THREE.Mesh).material as THREE.MeshStandardMaterial).transparent));
+        const hit = hits.find(
+          (h) =>
+            h.face &&
+            (h.object.userData.kind === 'object' ||
+              !(h.object as THREE.Mesh).material ||
+              !((h.object as THREE.Mesh).material as THREE.MeshStandardMaterial).transparent),
+        );
         if (hit && hit.face) {
           const normal = hit.face.normal.clone().transformDirection(hit.object.matrixWorld);
-          const objectId = hit.object.userData.kind === 'volume' ? (hit.object.parent!.userData.id as string) : (hit.object.userData.id as string);
+          const objectId =
+            hit.object.userData.kind === 'volume' ? (hit.object.parent!.userData.id as string) : (hit.object.userData.id as string);
           st.select([objectId]);
           st.placeObjectOnFace(objectId, [normal.x, normal.y, normal.z]);
         } else st.setPlaceOnFace(false);
@@ -224,5 +231,7 @@ export function useScene(refsRef: MutableRefObject<SceneRefs | null>, containerR
       refsRef.current = null;
       useStore.setState({ renderThumbnails: undefined });
     };
+    // `containerRef`/`refsRef` are stable ref objects owned by the Viewer; the scene is built once
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- stable refs, not dependencies
   }, []);
 }

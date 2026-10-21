@@ -30,7 +30,10 @@ test('validateSliceRequest rejects an empty instances array', () => {
 });
 
 test('validateSliceRequest rejects more than 1000 instances', () => {
-  assert.throws(() => validateSliceRequest(request({ instances: Array.from({ length: 1001 }, () => I) })), /instances must have 1-1000 entries/);
+  assert.throws(
+    () => validateSliceRequest(request({ instances: Array.from({ length: 1001 }, () => I) })),
+    /instances must have 1-1000 entries/,
+  );
 });
 
 test('validateSliceRequest accepts exactly 1000 instances', () => {
@@ -52,7 +55,10 @@ test('validateSliceRequest rejects a non-numeric instance entry', () => {
 });
 
 test('validateSliceRequest rejects NaN in the legacy transform', () => {
-  assert.throws(() => validateSliceRequest(request({ transform: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, Number.POSITIVE_INFINITY, 0, 0, 1] })), /16 finite numbers/);
+  assert.throws(
+    () => validateSliceRequest(request({ transform: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, Number.POSITIVE_INFINITY, 0, 0, 1] })),
+    /16 finite numbers/,
+  );
 });
 
 test('validateSliceRequest still rejects a missing transform', () => {

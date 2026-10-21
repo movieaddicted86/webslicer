@@ -20,9 +20,11 @@ export function SettingsView() {
 
   const type: PresetType = view;
   const tech = presets.printer.current.printer_technology === 'SLA' ? 'SLA' : 'FFF';
-  const tabType: PresetType = tech === 'SLA' && type === 'print' ? 'sla_print' : tech === 'SLA' && type === 'filament' ? 'sla_material' : type;
+  const tabType: PresetType =
+    tech === 'SLA' && type === 'print' ? 'sla_print' : tech === 'SLA' && type === 'filament' ? 'sla_material' : type;
   const tab = schema.layout.find((t) => t.presetType === tabType) || schema.layout.find((t) => t.presetType === type)!;
-  const slot = type === 'filament' ? presets.filament[Math.min(extruderIdx, presets.filament.length - 1)] : presets[type as 'print' | 'printer'];
+  const slot =
+    type === 'filament' ? presets.filament[Math.min(extruderIdx, presets.filament.length - 1)] : presets[type as 'print' | 'printer'];
 
   const rank = MODE_RANK[mode];
   const visibleKey = (k: string) => {
@@ -55,7 +57,6 @@ export function SettingsView() {
 
   const page = search ? undefined : pages[Math.min(pageIdx, pages.length - 1)];
   const shownPages = search ? pages : page ? [page] : [];
-
 
   return (
     <div className="settings">
@@ -100,7 +101,13 @@ export function SettingsView() {
                     <div className="option">
                       <label title="Number of extruders. Resizes all per-extruder settings and filament slots.">Extruders</label>
                       <div className="control">
-                        <input type="number" min={1} max={16} value={extruders} onChange={(e) => setExtruderCount(Number(e.target.value))} />
+                        <input
+                          type="number"
+                          min={1}
+                          max={16}
+                          value={extruders}
+                          onChange={(e) => setExtruderCount(Number(e.target.value))}
+                        />
                       </div>
                     </div>
                   )}

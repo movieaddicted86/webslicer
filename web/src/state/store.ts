@@ -44,7 +44,14 @@ useStore.subscribe((s, prev) => {
     if (!st.objects.length || st.objects.some((o) => !o.modelId && !o.uploadError)) return;
     // cheap change key: object ids/transforms/config + preset names + modified state
     const key = JSON.stringify([
-      st.objects.map((o) => [o.id, o.instances.map((i) => [i.id, i.position, i.rotation, i.scale]), o.config, o.extruder, o.visible, o.volumes.map((v) => [v.id, v.type, v.position, v.rotation, v.scale, v.config])]),
+      st.objects.map((o) => [
+        o.id,
+        o.instances.map((i) => [i.id, i.position, i.rotation, i.scale]),
+        o.config,
+        o.extruder,
+        o.visible,
+        o.volumes.map((v) => [v.id, v.type, v.position, v.rotation, v.scale, v.config]),
+      ]),
       st.presets.print.name,
       st.customGcodes,
       st.presets.printer.name,

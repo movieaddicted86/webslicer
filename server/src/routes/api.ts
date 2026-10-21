@@ -1,7 +1,6 @@
 import express, { type Request, type Response, type NextFunction } from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
-import { randomUUID } from 'node:crypto';
 import { config } from '../config.js';
 import { getSlicerVersion } from '../slicer/cli.js';
 import { loadBundles, resolveModelAsset } from '../slicer/bundles.js';
@@ -345,7 +344,8 @@ export function apiRouter(): express.Router {
     if (!j || j.status !== 'done') return res.status(404).json({ error: 'output not available' });
     const f = jobOutputPath(j);
     if (!fs.existsSync(f)) return res.status(404).json({ error: 'output missing' });
-    if (req.query.download !== undefined) res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(j.outputName)}"`);
+    if (req.query.download !== undefined)
+      res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(j.outputName)}"`);
     res.type(j.outputName.endsWith('.gcode') ? 'text/plain' : 'application/octet-stream').sendFile(f);
   });
 
@@ -516,20 +516,23 @@ export function validateSliceRequest(body: SliceRequest) {
     if (!isId(o.modelId)) throw new Error('invalid modelId');
     if (!Array.isArray(o.transform) || o.transform.length !== 16) throw new Error('transform must have 16 entries');
     if (o.instances !== undefined) {
-      if (!Array.isArray(o.instances) || !o.instances.length || o.instances.length > 1000) throw new Error('instances must have 1-1000 entries');
+      if (!Array.isArray(o.instances) || !o.instances.length || o.instances.length > 1000)
+        throw new Error('instances must have 1-1000 entries');
       for (const t of o.instances) {
         if (!isTransform(t)) throw new Error('every instance must be a transform with 16 finite numbers');
       }
       // keep the first instance in sync with the legacy field
       o.transform = o.instances[0];
     } else {
-      for (const v of o.transform) if (typeof v !== 'number' || !Number.isFinite(v)) throw new Error('transform must contain 16 finite numbers');
+      for (const v of o.transform)
+        if (typeof v !== 'number' || !Number.isFinite(v)) throw new Error('transform must contain 16 finite numbers');
     }
     for (const key of ['supportPaint', 'seamPaint'] as const) {
       const p = o[key];
       if (p !== undefined && (typeof p !== 'string' || p.length > 2_000_000 || !/^[048]*$/.test(p))) throw new Error(`invalid ${key}`);
     }
-    if (o.mmuPaint !== undefined && (typeof o.mmuPaint !== 'string' || o.mmuPaint.length > 2_000_000 || !/^[0-9a-f]*$/i.test(o.mmuPaint))) throw new Error('invalid mmuPaint');
+    if (o.mmuPaint !== undefined && (typeof o.mmuPaint !== 'string' || o.mmuPaint.length > 2_000_000 || !/^[0-9a-f]*$/i.test(o.mmuPaint)))
+      throw new Error('invalid mmuPaint');
     if (o.ranges !== undefined) {
       if (!Array.isArray(o.ranges) || o.ranges.length > 64) throw new Error('invalid ranges');
       for (const r of o.ranges) {
@@ -552,15 +555,18 @@ export function validateSliceRequest(body: SliceRequest) {
       if (!CUSTOM_GCODE_TYPES.includes(c.type)) throw new Error(`invalid custom G-code type ${c.type}`);
       if (c.color !== undefined && !/^#[0-9a-f]{6}$/i.test(c.color)) throw new Error('invalid custom G-code colour');
       if (c.extra !== undefined && (typeof c.extra !== 'string' || c.extra.length > 20000)) throw new Error('invalid custom G-code text');
-      if (c.extruder !== undefined && (!Number.isInteger(c.extruder) || c.extruder < 1 || c.extruder > 16)) throw new Error('invalid custom G-code extruder');
+      if (c.extruder !== undefined && (!Number.isInteger(c.extruder) || c.extruder < 1 || c.extruder > 16))
+        throw new Error('invalid custom G-code extruder');
     }
   }
   if (body.thumbnails !== undefined) {
     if (!Array.isArray(body.thumbnails) || body.thumbnails.length > 8) throw new Error('at most 8 thumbnails');
     for (const t of body.thumbnails) {
       if (!['PNG', 'JPG', 'QOI'].includes(t.format)) throw new Error('invalid thumbnail format');
-      if (!Number.isInteger(t.width) || !Number.isInteger(t.height) || t.width <= 0 || t.height <= 0 || t.width > 2000 || t.height > 2000) throw new Error('invalid thumbnail size');
-      if (typeof t.data !== 'string' || t.data.length > 4_000_000 || !/^[A-Za-z0-9+/=\s]*$/.test(t.data)) throw new Error('invalid thumbnail data');
+      if (!Number.isInteger(t.width) || !Number.isInteger(t.height) || t.width <= 0 || t.height <= 0 || t.width > 2000 || t.height > 2000)
+        throw new Error('invalid thumbnail size');
+      if (typeof t.data !== 'string' || t.data.length > 4_000_000 || !/^[A-Za-z0-9+/=\s]*$/.test(t.data))
+        throw new Error('invalid thumbnail data');
     }
   }
 }

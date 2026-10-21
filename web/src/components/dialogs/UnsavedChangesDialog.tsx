@@ -16,10 +16,13 @@ export function UnsavedChangesDialog({ onClose, payload }: { onClose: () => void
   const lists = useStore((s) => s.presetLists[payload.type]);
   const [busy, setBusy] = useState(false);
   const changes = useMemo(() => presetDiff(payload.source.saved, payload.source.current), [payload]);
-  const [name, setName] = useState(payload.source.system ? `${payload.source.name.replace(/^- default (FFF|SLA) -$/, 'My preset')} - Copy` : payload.source.name);
+  const [name, setName] = useState(
+    payload.source.system ? `${payload.source.name.replace(/^- default (FFF|SLA) -$/, 'My preset')} - Copy` : payload.source.name,
+  );
   // Printer settings describe the machine, so they are never transferred to another printer preset.
   const transferDisabled = payload.type === 'printer';
-  const targetLabel = payload.type === 'filament' && payload.extruderIdx > 0 ? `${payload.target} (extruder ${payload.extruderIdx + 1})` : payload.target;
+  const targetLabel =
+    payload.type === 'filament' && payload.extruderIdx > 0 ? `${payload.target} (extruder ${payload.extruderIdx + 1})` : payload.target;
   const exists = lists.find((p) => p.name === name.trim());
   const nameTaken = !!exists?.system;
 
@@ -70,7 +73,12 @@ export function UnsavedChangesDialog({ onClose, payload }: { onClose: () => void
       {!changes.length && <p className="muted">No option differs from the saved preset.</p>}
       <div className="form save-in-dialog">
         <label>
-          Save as <input value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && !nameTaken && name.trim() && save()} />
+          Save as{' '}
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && !nameTaken && name.trim() && save()}
+          />
         </label>
         {nameTaken && <div className="error small">A system preset with this name exists; choose a different name.</div>}
       </div>

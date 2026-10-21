@@ -49,7 +49,11 @@ export function PaintPanel({ o }: { o: PlaterObject }) {
       {paintMode === 'mmu' ? (
         <div className="paint-tools">
           {Array.from({ length: extruders }, (_, i) => i + 1).map((n) => (
-            <label key={n} className={`tool extruder ${paintExtruder === n ? 'active' : ''}`} style={{ borderColor: paintExtruder === n ? extruderCss(n) : undefined }}>
+            <label
+              key={n}
+              className={`tool extruder ${paintExtruder === n ? 'active' : ''}`}
+              style={{ borderColor: paintExtruder === n ? extruderCss(n) : undefined }}
+            >
               <input type="radio" checked={paintExtruder === n} onChange={() => setPaintExtruder(n)} />
               <span className="swatch" style={{ background: extruderCss(n) }} /> {n}
             </label>
@@ -73,7 +77,10 @@ export function PaintPanel({ o }: { o: PlaterObject }) {
         <input type="range" min={0.5} max={25} step={0.5} value={brushRadius} onChange={(e) => setBrushRadius(Number(e.target.value))} />
       </label>
       <div className="manip-actions">
-        <button onClick={() => clearPaint(o.id, paintMode)} disabled={!(paintMode === 'supports' ? nSup : paintMode === 'seam' ? nSeam : nMmu)}>
+        <button
+          onClick={() => clearPaint(o.id, paintMode)}
+          disabled={!(paintMode === 'supports' ? nSup : paintMode === 'seam' ? nSeam : nMmu)}
+        >
           Clear all
         </button>
       </div>

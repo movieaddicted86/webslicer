@@ -122,7 +122,10 @@ function buildGcode(refs: SceneRefs, g: ParsedGcode, coloring: GcodeColoring) {
     const mg = new THREE.BufferGeometry();
     mg.setAttribute('position', new THREE.BufferAttribute(arr, 3));
     const kind = MARKER_KINDS[k];
-    const mp = new THREE.Points(mg, new THREE.PointsMaterial({ color: new THREE.Color(MARKER_COLORS[kind]), size: 3, sizeAttenuation: false }));
+    const mp = new THREE.Points(
+      mg,
+      new THREE.PointsMaterial({ color: new THREE.Color(MARKER_COLORS[kind]), size: 3, sizeAttenuation: false }),
+    );
     mp.frustumCulled = false;
     mp.visible = false;
     // markers of one kind are sorted by layer and move (both grow in G-code order), so the window of
@@ -133,10 +136,7 @@ function buildGcode(refs: SceneRefs, g: ParsedGcode, coloring: GcodeColoring) {
   }
   refs.markerPoints = points;
 
-  const cone = new THREE.Mesh(
-    new THREE.ConeGeometry(0.6, 1.6, 12),
-    new THREE.MeshBasicMaterial({ color: 0xffd24d }),
-  );
+  const cone = new THREE.Mesh(new THREE.ConeGeometry(0.6, 1.6, 12), new THREE.MeshBasicMaterial({ color: 0xffd24d }));
   cone.rotation.x = Math.PI / 2; // PrusaSlicer's marker points along +Z
   cone.visible = false;
   cone.renderOrder = 30;
@@ -261,7 +261,8 @@ function applyGcodeRange(
     }
   }
   if (refs.toolMarker) {
-    const pos = cut.extrusion < 0 && cut.travel < 0 && cut.wipe < 0 ? undefined : toolPosition(gcode, Math.max(cut.extrusion, cut.travel, cut.wipe));
+    const pos =
+      cut.extrusion < 0 && cut.travel < 0 && cut.wipe < 0 ? undefined : toolPosition(gcode, Math.max(cut.extrusion, cut.travel, cut.wipe));
     refs.toolMarker.visible = !!pos && hi >= lo;
     if (pos) refs.toolMarker.position.set(pos[0], pos[1], pos[2]);
   }
@@ -289,7 +290,12 @@ export function useGcodePreview(refsRef: RefObject<SceneRefs | null>, options: G
   useEffect(() => {
     const refs = refsRef.current;
     if (!refs) return;
-    const coloring: GcodeColoring = { mode: colorMode, baseColor: normalizeColor(filamentColour), codes: customGcodes, toolColors: toolColorKey.split(',') };
+    const coloring: GcodeColoring = {
+      mode: colorMode,
+      baseColor: normalizeColor(filamentColour),
+      codes: customGcodes,
+      toolColors: toolColorKey.split(','),
+    };
     if (gcode && refs.gcodeRef !== gcode) buildGcode(refs, gcode, coloring);
     else if (gcode && refs.gcodeLines && refs.colorKey !== coloringKey(coloring)) {
       // recolour in place (colour mode or colour changes edited)
@@ -310,5 +316,7 @@ export function useGcodePreview(refsRef: RefObject<SceneRefs | null>, options: G
       const cut = moveCut === undefined ? { ...window.end, marker: Number.MAX_SAFE_INTEGER } : { ...window.end, marker: moveCut };
       applyGcodeRange(refs, gcode, range, cut, showTravel, markerVis, featureVis);
     }
+    // `refsRef` is a stable ref object owned by the Viewer; its content changes without a re-render
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- stable ref, not a dependency
   }, [gcode, view, range, moveCut, showTravel, markerVis, featureVis, colorMode, customGcodes, filamentColour, toolColorKey]);
 }

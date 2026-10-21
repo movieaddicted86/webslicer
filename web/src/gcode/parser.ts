@@ -21,7 +21,10 @@ const TYPE_MAP: Record<string, string> = {
 class GrowArray<T extends Float32Array | Uint8Array | Uint32Array> {
   arr: T;
   len = 0;
-  constructor(private ctor: new (n: number) => T, initial = 1 << 16) {
+  constructor(
+    private ctor: new (n: number) => T,
+    initial = 1 << 16,
+  ) {
     this.arr = new ctor(initial);
   }
   push(...vals: number[]) {

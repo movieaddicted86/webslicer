@@ -48,7 +48,17 @@ function ScalarInput({
       return <NumericField text={value} onText={onChange} step={scalarType === 'int' ? 1 : 'any'} disabled={disabled} />;
     case 'string':
       if (def.multiline || def.gcode) {
-        return <TextField value={value} onChange={onChange} multiline rows={def.gcode ? 8 : 3} className={def.gcode ? 'gcode' : ''} spellCheck={false} disabled={disabled} />;
+        return (
+          <TextField
+            value={value}
+            onChange={onChange}
+            multiline
+            rows={def.gcode ? 8 : 3}
+            className={def.gcode ? 'gcode' : ''}
+            spellCheck={false}
+            disabled={disabled}
+          />
+        );
       }
       return <TextField value={value} onChange={onChange} type="text" disabled={disabled} />;
     default:
@@ -69,7 +79,14 @@ function BedShapeEditor({ value, onChange }: { value: string; onChange: (v: stri
   const [custom, setCustom] = useState(!isRect);
   const [text, setText] = useState(value);
   const setRect = (nx: number, ny: number, ox: number, oy: number) => {
-    onChange(serializePoints([[-ox, -oy], [nx - ox, -oy], [nx - ox, ny - oy], [-ox, ny - oy]]));
+    onChange(
+      serializePoints([
+        [-ox, -oy],
+        [nx - ox, -oy],
+        [nx - ox, ny - oy],
+        [-ox, ny - oy],
+      ]),
+    );
   };
   const sizeX = maxX - minX,
     sizeY = maxY - minY,
@@ -89,7 +106,13 @@ function BedShapeEditor({ value, onChange }: { value: string; onChange: (v: stri
           <input type="number" value={originY} onChange={(e) => setRect(sizeX, sizeY, originX, Number(e.target.value))} />
         </div>
       ) : (
-        <textarea rows={3} value={text} onChange={(e) => setText(e.target.value)} onBlur={() => onChange(text)} placeholder="0x0,250x0,250x210,0x210" />
+        <textarea
+          rows={3}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onBlur={() => onChange(text)}
+          placeholder="0x0,250x0,250x210,0x210"
+        />
       )}
       <label className="checkbox small">
         <input type="checkbox" checked={custom} onChange={(e) => setCustom(e.target.checked)} /> Custom shape (polygon points "XxY,…")
@@ -101,7 +124,8 @@ function BedShapeEditor({ value, onChange }: { value: string; onChange: (v: stri
 export function OptionField({ def, value, savedValue, onChange, onReset, extruders, singleElement, disabled }: Props) {
   const raw = value ?? def.default;
   const modified = (savedValue ?? def.default) !== raw;
-  const isVec = ['floats', 'ints', 'bools', 'strings', 'percents', 'floats_or_percents', 'points'].includes(def.type) && def.key !== 'bed_shape';
+  const isVec =
+    ['floats', 'ints', 'bools', 'strings', 'percents', 'floats_or_percents', 'points'].includes(def.type) && def.key !== 'bed_shape';
   let body;
   if (def.key === 'bed_shape') {
     body = <BedShapeEditor value={raw} onChange={onChange} />;
@@ -149,7 +173,10 @@ export function OptionField({ def, value, savedValue, onChange, onReset, extrude
     body = <ScalarInput def={def} value={v ?? ''} disabled={disabled} onChange={(nv) => onChange(encodeVector(def, [nv]))} />;
   }
   return (
-    <div className={`option ${modified ? 'modified' : ''} ${def.multiline || def.gcode || def.key === 'bed_shape' ? 'block' : ''}`} id={`opt-${def.key}`}>
+    <div
+      className={`option ${modified ? 'modified' : ''} ${def.multiline || def.gcode || def.key === 'bed_shape' ? 'block' : ''}`}
+      id={`opt-${def.key}`}
+    >
       <label title={`${def.key}\n\n${def.tooltip}`}>
         {modified && <span className="dot" />}
         {def.label}

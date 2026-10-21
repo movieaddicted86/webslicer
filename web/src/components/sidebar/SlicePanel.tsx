@@ -32,8 +32,12 @@ export function SlicePanel() {
       )}
       {toBool(printerBinary) && (
         <label className="checkbox small" title="Binary G-code is smaller and uploads faster, but cannot be previewed in the browser.">
-          <input type="checkbox" checked={binaryGcode} onChange={(e) => useStore.setState({ binaryGcode: e.target.checked, sliceDirty: true })} /> Export binary G-code
-          (.bgcode) – no preview
+          <input
+            type="checkbox"
+            checked={binaryGcode}
+            onChange={(e) => useStore.setState({ binaryGcode: e.target.checked, sliceDirty: true })}
+          />{' '}
+          Export binary G-code (.bgcode) – no preview
         </label>
       )}
       {running ? (

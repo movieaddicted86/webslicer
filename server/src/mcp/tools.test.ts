@@ -83,7 +83,10 @@ test('set_settings rejects unknown keys, wrong preset types and invalid values',
 
 test('applySettings writes the overrides into the right slot', () => {
   const project = newProject();
-  assert.deepEqual(applySettings(schema, project, 'print', { fill_density: '30%', infill_pattern: 'gyroid' }), { fill_density: '30%', infill_pattern: 'gyroid' });
+  assert.deepEqual(applySettings(schema, project, 'print', { fill_density: '30%', infill_pattern: 'gyroid' }), {
+    fill_density: '30%',
+    infill_pattern: 'gyroid',
+  });
   assert.deepEqual(project.print.config, { fill_density: '30%', infill_pattern: 'gyroid' });
   assert.deepEqual(project.printer.config, {});
 

@@ -3,12 +3,12 @@ services:
     build:
       context: .
       args:
-        PRUSASLICER_VERSION: "2.9.6"
+        PRUSASLICER_VERSION: '2.9.6'
     image: webslicer:latest
     container_name: webslicer
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - '8080:8080'
     volumes:
       # settings, profiles, printers, jobs, autosave
       - webslicer-data:/data

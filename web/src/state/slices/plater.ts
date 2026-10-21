@@ -15,8 +15,26 @@ import { decodeMmu, decodePaint, encodeMmu, encodePaint } from '../../three/pain
 import { geometrySize, geometryToStl, objectFrameOffset, shellGeometry } from '../../three/geometry';
 import { apply as applyMatrix, bedShapeOf, fillCount, mirrorPlacement, packShelf, placementMatrix, type PackItem } from '@webslicer/shared';
 import { splitShells } from '../../plater/split';
-import { bedAndSpacing, fitsOnBed, layoutOf, packItemOf, placementUpdates, withPlacements, type ArrangedInstance } from '../../plater/arrangement';
-import { IDENTITY_PLACEMENT, instanceBounds, makeVolume, mintInstanceId, mintObjectId, mintRangeId, mintVolumeId, pickedInstanceId, selectedInstance } from '../../plater/objects';
+import {
+  bedAndSpacing,
+  fitsOnBed,
+  layoutOf,
+  packItemOf,
+  placementUpdates,
+  withPlacements,
+  type ArrangedInstance,
+} from '../../plater/arrangement';
+import {
+  IDENTITY_PLACEMENT,
+  instanceBounds,
+  makeVolume,
+  mintInstanceId,
+  mintObjectId,
+  mintRangeId,
+  mintVolumeId,
+  pickedInstanceId,
+  selectedInstance,
+} from '../../plater/objects';
 import { createPaintSlice, type PaintSlice } from './paint';
 import { createRangeSlice, type RangeSlice } from './ranges';
 import type { NewVolumeInput, PlaterInstance, PlaterObject, PlaterVolume, State } from '../types';
@@ -149,7 +167,13 @@ export const createPlaterSlice: StateCreator<State, [], [], PlaterSlice> = (set,
         ranges: (it.ranges || []).map((r) => ({ id: mintRangeId(), minZ: r.minZ, maxZ: r.maxZ, config: { ...r.config } })),
       });
     }
-    set((st) => ({ objects: [...st.objects, ...created], selectedIds: created.map((c) => c.id), selectedVolumeId: undefined, selectedInstanceId: undefined, sliceDirty: true }));
+    set((st) => ({
+      objects: [...st.objects, ...created],
+      selectedIds: created.map((c) => c.id),
+      selectedVolumeId: undefined,
+      selectedInstanceId: undefined,
+      sliceDirty: true,
+    }));
     if (!opts.keepPositions) get().arrange();
     // upload meshes
     for (const o of created) {
@@ -187,7 +211,9 @@ export const createPlaterSlice: StateCreator<State, [], [], PlaterSlice> = (set,
   },
   updateVolume: (objectId, vid, patch) =>
     set((s) => ({
-      objects: s.objects.map((o) => (o.id === objectId ? { ...o, volumes: o.volumes.map((v) => (v.id === vid ? { ...v, ...patch } : v)) } : o)),
+      objects: s.objects.map((o) =>
+        o.id === objectId ? { ...o, volumes: o.volumes.map((v) => (v.id === vid ? { ...v, ...patch } : v)) } : o,
+      ),
       sliceDirty: true,
     })),
   removeVolume: (objectId, vid) => {
@@ -202,7 +228,9 @@ export const createPlaterSlice: StateCreator<State, [], [], PlaterSlice> = (set,
   updateObject: (id, patch) => set((s) => ({ objects: s.objects.map((o) => (o.id === id ? { ...o, ...patch } : o)), sliceDirty: true })),
   updateInstance: (objectId, instId, patch) =>
     set((s) => ({
-      objects: s.objects.map((o) => (o.id === objectId ? { ...o, instances: o.instances.map((i) => (i.id === instId ? { ...i, ...patch } : i)) } : o)),
+      objects: s.objects.map((o) =>
+        o.id === objectId ? { ...o, instances: o.instances.map((i) => (i.id === instId ? { ...i, ...patch } : i)) } : o,
+      ),
       sliceDirty: true,
     })),
   selectInstance: (objectId, instId) => set({ selectedIds: [objectId], selectedInstanceId: instId, selectedVolumeId: undefined }),
@@ -218,7 +246,17 @@ export const createPlaterSlice: StateCreator<State, [], [], PlaterSlice> = (set,
   },
   clearObjects: () => {
     get().recordHistory();
-    set({ objects: [], selectedIds: [], selectedVolumeId: undefined, selectedInstanceId: undefined, sliceDirty: true, gcode: undefined, gcodeJobId: undefined, customGcodes: [], previewColorMode: 'feature' });
+    set({
+      objects: [],
+      selectedIds: [],
+      selectedVolumeId: undefined,
+      selectedInstanceId: undefined,
+      sliceDirty: true,
+      gcode: undefined,
+      gcodeJobId: undefined,
+      customGcodes: [],
+      previewColorMode: 'feature',
+    });
   },
   duplicateObjects: async (ids) => {
     get().recordHistory();
@@ -228,17 +266,31 @@ export const createPlaterSlice: StateCreator<State, [], [], PlaterSlice> = (set,
       ...o,
       id: mintObjectId(),
       // independent copies: every instance gets its own transform (and id), offset like PrusaSlicer's duplicate
-      instances: o.instances.map((i) => ({ ...i, id: mintInstanceId(), position: [i.position[0] + 10, i.position[1] + 10, i.position[2]] })),
+      instances: o.instances.map((i) => ({
+        ...i,
+        id: mintInstanceId(),
+        position: [i.position[0] + 10, i.position[1] + 10, i.position[2]],
+      })),
       config: { ...o.config },
       volumes: o.volumes.map((v) => ({ ...v, id: mintVolumeId(), config: { ...v.config } })),
       paint: o.paint ? { supports: o.paint.supports?.slice(), seam: o.paint.seam?.slice(), mmu: o.paint.mmu?.slice() } : undefined,
       ranges: o.ranges.map((r) => ({ ...r, id: mintRangeId(), config: { ...r.config } })),
     }));
-    set((st) => ({ objects: [...st.objects, ...created], selectedIds: created.map((c) => c.id), selectedVolumeId: undefined, selectedInstanceId: undefined, sliceDirty: true }));
+    set((st) => ({
+      objects: [...st.objects, ...created],
+      selectedIds: created.map((c) => c.id),
+      selectedVolumeId: undefined,
+      selectedInstanceId: undefined,
+      sliceDirty: true,
+    }));
     get().arrange();
   },
   select: (ids, additive = false) =>
-    set((s) => ({ selectedIds: additive ? Array.from(new Set([...s.selectedIds, ...ids])) : ids, selectedVolumeId: undefined, selectedInstanceId: undefined })),
+    set((s) => ({
+      selectedIds: additive ? Array.from(new Set([...s.selectedIds, ...ids])) : ids,
+      selectedVolumeId: undefined,
+      selectedInstanceId: undefined,
+    })),
   setTransformMode: (transformMode) => set({ transformMode, placeOnFace: false }),
   placeOnFace: false,
   setPlaceOnFace: (placeOnFace) => set({ placeOnFace }),
@@ -264,7 +316,8 @@ export const createPlaterSlice: StateCreator<State, [], [], PlaterSlice> = (set,
     if (!o) return;
     const inst = selectedInstance(s, o);
     const box = instanceBounds(o, inst);
-    if (Math.abs(box.min.z) > 1e-6) get().updateInstance(id, inst.id, { position: [inst.position[0], inst.position[1], inst.position[2] - box.min.z] });
+    if (Math.abs(box.min.z) > 1e-6)
+      get().updateInstance(id, inst.id, { position: [inst.position[0], inst.position[1], inst.position[2] - box.min.z] });
   },
   arrange: () => {
     const s = get();
@@ -309,7 +362,14 @@ export const createPlaterSlice: StateCreator<State, [], [], PlaterSlice> = (set,
     }));
     const preview = { ...o, instances: [...o.instances, ...added] };
     const { bed, spacing } = bedAndSpacing(s0.presets);
-    if (!fitsOnBed(s0.objects.filter((x) => x.id !== objectId), preview, spacing, bed)) {
+    if (
+      !fitsOnBed(
+        s0.objects.filter((x) => x.id !== objectId),
+        preview,
+        spacing,
+        bed,
+      )
+    ) {
       // the copies would be born off the bed; refuse instead of leaving an unprintable plater
       s0.toast('error', `Not enough room on the bed for ${add > 1 ? `${add} more instances` : 'another instance'} of ${o.name}`);
       return;
@@ -393,7 +453,9 @@ export const createPlaterSlice: StateCreator<State, [], [], PlaterSlice> = (set,
     // the original keeps its other instances; with only one it disappears (like PrusaSlicer's split)
     const rest = src.instances.filter((i) => i.id !== inst.id);
     set((st) => ({
-      objects: [...st.objects.filter((x) => x.id !== objectId || rest.length > 0), created].map((x) => (x.id === objectId ? { ...x, instances: rest } : x)),
+      objects: [...st.objects.filter((x) => x.id !== objectId || rest.length > 0), created].map((x) =>
+        x.id === objectId ? { ...x, instances: rest } : x,
+      ),
       selectedIds: [created.id],
       selectedInstanceId: created.instances[0].id,
       selectedVolumeId: undefined,
@@ -421,7 +483,10 @@ export const createPlaterSlice: StateCreator<State, [], [], PlaterSlice> = (set,
         const next = targets.get(`${o.id}:${inst.id}`);
         if (!next) continue;
         const box = instanceBounds({ ...o, instances: [next] }, next);
-        dropped.set(`${o.id}:${inst.id}`, Math.abs(box.min.z) > 1e-6 ? { ...next, position: [next.position[0], next.position[1], next.position[2] - box.min.z] } : next);
+        dropped.set(
+          `${o.id}:${inst.id}`,
+          Math.abs(box.min.z) > 1e-6 ? { ...next, position: [next.position[0], next.position[1], next.position[2] - box.min.z] } : next,
+        );
       }
     }
     set((st) => ({
@@ -472,7 +537,11 @@ export const createPlaterSlice: StateCreator<State, [], [], PlaterSlice> = (set,
         supportPaint: paint.supports,
         seamPaint: paint.seam,
         mmuPaint: paint.mmu,
-        instances: o.instances.map((inst) => ({ position: [...inst.position] as [number, number, number], rotation: [...inst.rotation] as [number, number, number], scale: [...inst.scale] as [number, number, number] })),
+        instances: o.instances.map((inst) => ({
+          position: [...inst.position] as [number, number, number],
+          rotation: [...inst.rotation] as [number, number, number],
+          scale: [...inst.scale] as [number, number, number],
+        })),
       };
     });
     // one undo step for the whole action: the original goes, the shells arrive (the snapshot of
@@ -536,7 +605,17 @@ export const createPlaterSlice: StateCreator<State, [], [], PlaterSlice> = (set,
     const paint = o.paint ? { supports: remap(o.paint.supports), seam: remap(o.paint.seam), mmu: remap(o.paint.mmu) } : undefined;
     set((st) => ({
       objects: st.objects.map((x) =>
-        x.id === objectId ? { ...x, geometry: mainGeometry, triangles: main.length, volumes: [...x.volumes, ...volumes], paint, modelId: undefined, uploadError: undefined } : x,
+        x.id === objectId
+          ? {
+              ...x,
+              geometry: mainGeometry,
+              triangles: main.length,
+              volumes: [...x.volumes, ...volumes],
+              paint,
+              modelId: undefined,
+              uploadError: undefined,
+            }
+          : x,
       ),
       selectedVolumeId: undefined,
       sliceDirty: true,

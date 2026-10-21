@@ -47,7 +47,8 @@ export function parseHelp(text: string, knownKeys?: Set<string>): RawHelpOption[
     if (!line.trim()) continue;
     if (line.startsWith('\t')) continue; // ordering paragraph
     // " --name HINT, --alias HINT, -x   description" – every alias may carry its own type hint.
-    const optMatch = /^ ((?:--?[A-Za-z0-9_-]+(?: (?:N|ABCD|X,Y,Z|X,Y))?)(?:, --?[A-Za-z0-9_-]+(?: (?:N|ABCD|X,Y,Z|X,Y))?)*)(?:\s+(.*))?$/.exec(line);
+    const optMatch =
+      /^ ((?:--?[A-Za-z0-9_-]+(?: (?:N|ABCD|X,Y,Z|X,Y))?)(?:, --?[A-Za-z0-9_-]+(?: (?:N|ABCD|X,Y,Z|X,Y))?)*)(?:\s+(.*))?$/.exec(line);
     if (optMatch && !line.startsWith('  ')) {
       const specs = optMatch[1].split(/,\s+(?=-)/).map((s) => s.trim());
       let hint = '';
@@ -200,10 +201,16 @@ function deriveOption(raw: RawHelpOption, presetTypes: PresetType[]): OptionDef 
     sidetext: known.sidetext ?? sidetext,
     mode: known.mode,
     presetTypes,
-    perExtruder: vector && (presetTypes.includes('filament') || PRINTER_STRING_VECTOR_KEYS.has(raw.key) || PRINTER_VECTOR_KEYS.has(raw.key)) && !raw.key.startsWith('machine_'),
+    perExtruder:
+      vector &&
+      (presetTypes.includes('filament') || PRINTER_STRING_VECTOR_KEYS.has(raw.key) || PRINTER_VECTOR_KEYS.has(raw.key)) &&
+      !raw.key.startsWith('machine_'),
     nullable:
       known.nullable ??
-      (raw.key.startsWith('filament_retract') || raw.key.startsWith('filament_travel') || raw.key === 'filament_wipe' || raw.key === 'filament_deretract_speed'),
+      (raw.key.startsWith('filament_retract') ||
+        raw.key.startsWith('filament_travel') ||
+        raw.key === 'filament_wipe' ||
+        raw.key === 'filament_deretract_speed'),
     multiline: known.multiline ?? (gcode || /notes$/.test(raw.key) || raw.key === 'filament_ramming_parameters'),
     gcode,
     technology: 'any',
@@ -211,12 +218,7 @@ function deriveOption(raw: RawHelpOption, presetTypes: PresetType[]): OptionDef 
 }
 
 /** Build the schema from the slicer help, the vendor bundle key sets and the curated layout. */
-export function buildSchema(
-  helpFff: string,
-  helpSla: string,
-  version: string,
-  bundleKeys: Record<PresetType, Set<string>>,
-): Schema {
+export function buildSchema(helpFff: string, helpSla: string, version: string, bundleKeys: Record<PresetType, Set<string>>): Schema {
   const known = new Set<string>();
   for (const t of Object.keys(bundleKeys) as PresetType[]) for (const k of bundleKeys[t]) known.add(k);
   const rawFff = parseHelp(helpFff, known);
@@ -252,10 +254,19 @@ export function buildSchema(
     let t: PresetType | undefined = known?.presetType;
     if (!t) {
       if (slaKeys.has(k) && !fffKeys.has(k)) {
-        t = k.startsWith('material_') || /^(initial_)?exposure_time$/.test(k) || k.startsWith('sla_material') ? 'sla_material' : 'sla_print';
-      } else if (/^(filament_|start_filament|end_filament|temperature|first_layer_temperature|bed_temperature|first_layer_bed_temperature|fan_|min_fan|max_fan|bridge_fan|disable_fan|full_fan|cooling|slowdown_|min_print_speed|extrusion_multiplier|idle_temperature|chamber_|enable_dynamic_fan|overhang_fan)/.test(k)) {
+        t =
+          k.startsWith('material_') || /^(initial_)?exposure_time$/.test(k) || k.startsWith('sla_material') ? 'sla_material' : 'sla_print';
+      } else if (
+        /^(filament_|start_filament|end_filament|temperature|first_layer_temperature|bed_temperature|first_layer_bed_temperature|fan_|min_fan|max_fan|bridge_fan|disable_fan|full_fan|cooling|slowdown_|min_print_speed|extrusion_multiplier|idle_temperature|chamber_|enable_dynamic_fan|overhang_fan)/.test(
+          k,
+        )
+      ) {
         t = 'filament';
-      } else if (/^(machine_|retract_|deretract_|wipe$|nozzle_|extruder_offset|extruder_colour|min_layer_height|max_layer_height|bed_shape|max_print_height|z_offset|gcode_flavor|start_gcode|end_gcode|before_layer_gcode|layer_gcode|toolchange_gcode|between_objects_gcode|color_change_gcode|pause_print_gcode|template_custom_gcode|use_|single_extruder|variable_layer|printer_|silent_mode|remaining_times|thumbnails|binary_gcode|cooling_tube|parking_pos|extra_loading|high_current|travel_|autoemit|prefer_clockwise|host_type|print_host|printhost)/.test(k)) {
+      } else if (
+        /^(machine_|retract_|deretract_|wipe$|nozzle_|extruder_offset|extruder_colour|min_layer_height|max_layer_height|bed_shape|max_print_height|z_offset|gcode_flavor|start_gcode|end_gcode|before_layer_gcode|layer_gcode|toolchange_gcode|between_objects_gcode|color_change_gcode|pause_print_gcode|template_custom_gcode|use_|single_extruder|variable_layer|printer_|silent_mode|remaining_times|thumbnails|binary_gcode|cooling_tube|parking_pos|extra_loading|high_current|travel_|autoemit|prefer_clockwise|host_type|print_host|printhost)/.test(
+          k,
+        )
+      ) {
         t = 'printer';
       } else {
         t = 'print';
@@ -281,7 +292,8 @@ export function buildSchema(
   // Keys placed in any curated tab are never repeated as "Other options" of another tab
   // (vendor bundles sometimes carry print options in printer sections).
   const placedAnywhere = new Set<string>();
-  for (const tab of LAYOUT_FFF) for (const page of tab.pages) for (const g of page.groups) for (const k of g.keys) if (options[k]) placedAnywhere.add(k);
+  for (const tab of LAYOUT_FFF)
+    for (const page of tab.pages) for (const g of page.groups) for (const k of g.keys) if (options[k]) placedAnywhere.add(k);
   for (const tab of LAYOUT_FFF) {
     const used = new Set<string>(placedAnywhere);
     const pages: LayoutPage[] = [];

@@ -24,12 +24,18 @@ export function Sidebar() {
       <section className="presets">
         <PresetSelect type="print" slot={presets.print} label="Print settings" />
         {presets.filament.slice(0, extruders).map((f, i) => (
-          <PresetSelect key={i} type="filament" slot={f} extruderIdx={i} label={extruders > 1 ? `Filament (extruder ${i + 1})` : 'Filament'} />
+          <PresetSelect
+            key={i}
+            type="filament"
+            slot={f}
+            extruderIdx={i}
+            label={extruders > 1 ? `Filament (extruder ${i + 1})` : 'Filament'}
+          />
         ))}
         <PresetSelect type="printer" slot={presets.printer} label="Printer" />
         <label className="checkbox small">
-          <input type="checkbox" checked={showIncompatible} onChange={(e) => useStore.setState({ showIncompatible: e.target.checked })} /> Show
-          incompatible presets
+          <input type="checkbox" checked={showIncompatible} onChange={(e) => useStore.setState({ showIncompatible: e.target.checked })} />{' '}
+          Show incompatible presets
         </label>
       </section>
       {view !== 'preview' && (

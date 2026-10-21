@@ -52,7 +52,13 @@ test('help parser and schema (fixtures)', { skip: !fixtures }, () => {
   assert.ok(byKey.has('start_gcode'));
   assert.equal(byKey.get('nozzle_diameter')?.hint, 'N');
 
-  const keys = { print: new Set<string>(), filament: new Set<string>(), printer: new Set<string>(), sla_print: new Set<string>(), sla_material: new Set<string>() };
+  const keys = {
+    print: new Set<string>(),
+    filament: new Set<string>(),
+    printer: new Set<string>(),
+    sla_print: new Set<string>(),
+    sla_material: new Set<string>(),
+  };
   const profiles = path.join(fixtures!, 'profiles');
   let presetCount = 0;
   for (const f of fs.readdirSync(profiles).filter((x) => x.endsWith('.ini'))) {
@@ -112,10 +118,20 @@ test('bundle inheritance + compatibility (fixtures)', { skip: !fixtures }, () =>
   assert.ok(!mk4s!.config.inherits);
   const prints = presets.filter((p) => p.type === 'print');
   const compatible = prints.filter((p) => evaluateCondition(p.config.compatible_printers_condition, (k) => mk4s!.config[k]));
-  console.log(`MK4S: ${compatible.length}/${prints.length} print presets compatible, e.g. ${compatible.slice(0, 3).map((p) => p.name).join(' | ')}`);
+  console.log(
+    `MK4S: ${compatible.length}/${prints.length} print presets compatible, e.g. ${compatible
+      .slice(0, 3)
+      .map((p) => p.name)
+      .join(' | ')}`,
+  );
   assert.ok(compatible.length > 3 && compatible.length < prints.length);
   const fil = presets.filter((p) => p.type === 'filament');
   const filOk = fil.filter((p) => evaluateCondition(p.config.compatible_printers_condition, (k) => mk4s!.config[k]));
-  console.log(`MK4S: ${filOk.length}/${fil.length} filaments compatible, e.g. ${filOk.slice(0, 3).map((p) => p.name).join(' | ')}`);
+  console.log(
+    `MK4S: ${filOk.length}/${fil.length} filaments compatible, e.g. ${filOk
+      .slice(0, 3)
+      .map((p) => p.name)
+      .join(' | ')}`,
+  );
   assert.ok(filOk.length > 10 && filOk.length < fil.length);
 });

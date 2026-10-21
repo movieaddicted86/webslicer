@@ -14,7 +14,15 @@ import { createJob } from '../jobs.js';
 import { loadBundles } from '../slicer/bundles.js';
 import { getSchema } from '../slicer/schema.js';
 import type { IniSection } from '../slicer/ini.js';
-import { addModelFromLibrary, arrange, createProject, toSliceRequest, touchProject, loadProject, type ProjectPresetRef } from '../plater/project.js';
+import {
+  addModelFromLibrary,
+  arrange,
+  createProject,
+  toSliceRequest,
+  touchProject,
+  loadProject,
+  type ProjectPresetRef,
+} from '../plater/project.js';
 import { validateSliceRequest } from './api.js';
 import type { Schema, SliceRequest } from '@webslicer/shared';
 
@@ -37,7 +45,8 @@ function presetRef(value: unknown, label: string): ProjectPresetRef {
   if (typeof value === 'string') return { name: value.trim(), config: {} };
   if (value && typeof value === 'object') {
     const v = value as { name?: unknown; config?: unknown };
-    if (v.config !== undefined && (typeof v.config !== 'object' || v.config === null || Array.isArray(v.config))) throw fail(`${label}.config must be an object`, 400);
+    if (v.config !== undefined && (typeof v.config !== 'object' || v.config === null || Array.isArray(v.config)))
+      throw fail(`${label}.config must be an object`, 400);
     return { name: String(v.name ?? '').trim(), config: (v.config as IniSection) || {} };
   }
   throw fail(`${label} must be a preset name or { name, config }`, 400);
@@ -53,7 +62,10 @@ export function projectsRouter(): express.Router {
   };
 
   /** Load a project or answer 404. */
-  const withProject = async (req: Request, res: Response): Promise<{ project: NonNullable<ReturnType<typeof loadProject>>; schema: Schema } | undefined> => {
+  const withProject = async (
+    req: Request,
+    res: Response,
+  ): Promise<{ project: NonNullable<ReturnType<typeof loadProject>>; schema: Schema } | undefined> => {
     const project = loadProject(req.params.id);
     if (!project) {
       res.status(404).json({ error: 'project not found' });

@@ -5,7 +5,16 @@
  * stored selection has exactly one format.
  */
 import type { StateCreator } from 'zustand';
-import { api, type Config, type InstalledPrinter, type Mode, type PresetSummary, type PresetType, type ResolvedPreset, type Schema } from '../../api';
+import {
+  api,
+  type Config,
+  type InstalledPrinter,
+  type Mode,
+  type PresetSummary,
+  type PresetType,
+  type ResolvedPreset,
+  type Schema,
+} from '../../api';
 import { presetDiff, transferChanges } from '../../plater/presetDiff';
 import { resizeVector, unescapeStringsCstyle } from '../../values';
 import type { PendingPresetSwitch, PresetSlot, State } from '../types';
@@ -108,7 +117,12 @@ export function saveSelection(s: State) {
   try {
     localStorage.setItem(
       LS_KEY,
-      JSON.stringify({ print: s.presets.print.name, filament: s.presets.filament.map((f) => f.name), printer: s.presets.printer.name, mode: s.mode }),
+      JSON.stringify({
+        print: s.presets.print.name,
+        filament: s.presets.filament.map((f) => f.name),
+        printer: s.presets.printer.name,
+        mode: s.mode,
+      }),
     );
   } catch {
     /* ignore */
@@ -134,7 +148,10 @@ export const createPresetSlice: StateCreator<State, [], [], PresetSlice> = (set,
   requestPresetSwitch: async (type, name, extruderIdx = 0) => {
     const s = get();
     const slot = slotOf(s.presets, type, extruderIdx);
-    const pending: PendingPresetSwitch | undefined = slot && isModified(slot) && name !== slot.name ? { type, extruderIdx, target: name, source: { ...slot, saved: { ...slot.saved }, current: { ...slot.current } } } : undefined;
+    const pending: PendingPresetSwitch | undefined =
+      slot && isModified(slot) && name !== slot.name
+        ? { type, extruderIdx, target: name, source: { ...slot, saved: { ...slot.saved }, current: { ...slot.current } } }
+        : undefined;
     if (pending) {
       const changes = presetDiff(pending.source.saved, pending.source.current);
       if (changes.length) {
@@ -208,8 +225,12 @@ export const createPresetSlice: StateCreator<State, [], [], PresetSlice> = (set,
       if (first && first.name !== curPrint) await get().selectPreset('print', first.name);
       else if (!first && curPrint !== '- default FFF -') await get().selectPreset('print', '- default FFF -');
     }
-    const model = get().vendors.flatMap((v) => v.models).find((m) => m.vendorId === printer.vendorId && m.id === printer.printerModel);
-    const defaultFilaments = printer.current.default_filament_profile ? unescapeStringsCstyle(printer.current.default_filament_profile) : [];
+    const model = get()
+      .vendors.flatMap((v) => v.models)
+      .find((m) => m.vendorId === printer.vendorId && m.id === printer.printerModel);
+    const defaultFilaments = printer.current.default_filament_profile
+      ? unescapeStringsCstyle(printer.current.default_filament_profile)
+      : [];
     for (let i = 0; i < n; i++) {
       const cur = get().presets.filament[i]?.name;
       const fl = get().presetLists.filament;
@@ -226,7 +247,13 @@ export const createPresetSlice: StateCreator<State, [], [], PresetSlice> = (set,
     // Printer changes (nozzle, notes, bed…) influence which print/filament presets are compatible.
     if (type === 'printer' || type === 'print') {
       clearTimeout(refreshTimer);
-      refreshTimer = setTimeout(() => get().refreshPresetLists().catch(() => undefined), 600);
+      refreshTimer = setTimeout(
+        () =>
+          get()
+            .refreshPresetLists()
+            .catch(() => undefined),
+        600,
+      );
     }
     set((s) => {
       const presets = { ...s.presets };
@@ -242,7 +269,8 @@ export const createPresetSlice: StateCreator<State, [], [], PresetSlice> = (set,
   },
   resetOption: (type, key, extruderIdx = 0) => {
     const s = get();
-    const slot = type === 'filament' ? s.presets.filament[extruderIdx] : type === 'print' || type === 'printer' ? s.presets[type] : undefined;
+    const slot =
+      type === 'filament' ? s.presets.filament[extruderIdx] : type === 'print' || type === 'printer' ? s.presets[type] : undefined;
     if (!slot) return;
     get().setOption(type, key, slot.saved[key] ?? '', extruderIdx);
   },
@@ -261,7 +289,8 @@ export const createPresetSlice: StateCreator<State, [], [], PresetSlice> = (set,
   },
   savePresetAs: async (type, name, extruderIdx = 0) => {
     const s = get();
-    const slot = type === 'filament' ? s.presets.filament[extruderIdx] : type === 'print' || type === 'printer' ? s.presets[type] : undefined;
+    const slot =
+      type === 'filament' ? s.presets.filament[extruderIdx] : type === 'print' || type === 'printer' ? s.presets[type] : undefined;
     if (!slot) return;
     const inherits = slot.system && !slot.name.startsWith('- default') ? slot.name : slot.inherits;
     await api.savePreset(type, name, slot.current, inherits);
