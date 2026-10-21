@@ -12,6 +12,8 @@ import { getJob, jobOutputPath } from '../jobs.js';
 import { build3mfForRequest } from '../services/slice.js';
 import { mergeConfigs } from '../services/configMerge.js';
 import { activeSchema } from '../services/schema.js';
+import { libraryGcodeSchema, libraryMkdirSchema, libraryProjectSchema } from '../validation/library.js';
+import { firstIssueMessage } from '../validation/common.js';
 import {
   copyIntoLibrary,
   deleteLibraryEntry,
@@ -67,8 +69,8 @@ export function libraryRouter(): express.Router {
     '/mkdir',
     json,
     asyncHandler(async (req, res) => {
-      const body = (req.body || {}) as { path?: unknown; name?: unknown };
-      res.json({ ok: true, ...(await makeLibraryDir(String(body.path || ''), String(body.name ?? ''))) });
+      const body = libraryMkdirSchema.parse(req.body ?? {});
+      res.json({ ok: true, ...(await makeLibraryDir(body.path, body.name)) });
     }),
   );
 
@@ -85,8 +87,9 @@ export function libraryRouter(): express.Router {
     '/project',
     json,
     asyncHandler(async (req, res) => {
+      const parsed = libraryProjectSchema.safeParse(req.body ?? {});
+      if (!parsed.success) return res.status(400).json({ error: firstIssueMessage(parsed.error, 'no objects') });
       const body = req.body as SliceRequest;
-      if (!body?.objects?.length) return res.status(400).json({ error: 'no objects' });
       const buf = await build3mfForRequest(body, mergeConfigs(await activeSchema(), body, { forProject: true }));
       const target = libraryTarget(String(req.query.path || ''), String(req.query.name || 'project'), '.3mf');
       res.json({ ok: true, ...(await writeLibraryData(target, buf)) });
@@ -98,10 +101,10 @@ export function libraryRouter(): express.Router {
     '/gcode',
     json,
     asyncHandler(async (req, res) => {
-      const body = (req.body || {}) as { jobId?: unknown; path?: unknown; name?: unknown };
-      const job = getJob(String(body.jobId || ''));
+      const body = libraryGcodeSchema.parse(req.body ?? {});
+      const job = getJob(body.jobId);
       if (!job || job.status !== 'done') return res.status(404).json({ error: 'job output not available' });
-      const target = libraryTarget(String(body.path || ''), String(body.name || job.outputName), path.extname(job.outputName));
+      const target = libraryTarget(body.path, body.name || job.outputName, path.extname(job.outputName));
       res.json({ ok: true, ...(await copyIntoLibrary(jobOutputPath(job), target)) });
     }),
   );

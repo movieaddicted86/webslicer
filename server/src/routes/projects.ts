@@ -14,7 +14,7 @@ import { createJob } from '../jobs.js';
 import { validateSliceRequest } from '../services/slice.js';
 import { activeSchema } from '../services/schema.js';
 import { ValidationError } from '../errors.js';
-import { copiesOf, parseProjectCreate, projectModelsSchema } from '../validation/projects.js';
+import { copiesOf, parseProjectCreate, projectModelsSchema, projectSliceSchema } from '../validation/projects.js';
 import {
   addModelFromLibrary,
   arrange,
@@ -103,10 +103,10 @@ export function projectsRouter(): express.Router {
     asyncHandler(async (req, res) => {
       const found = await withProject(req, res);
       if (!found.project) return;
-      const body = (req.body || {}) as { binaryGcode?: unknown; outputName?: unknown };
+      const body = projectSliceSchema.parse(req.body || {});
       const request: SliceRequest = toSliceRequest(found.project, found.schema);
-      if (body.binaryGcode !== undefined) request.binaryGcode = !!body.binaryGcode;
-      if (typeof body.outputName === 'string' && body.outputName.trim()) request.outputName = body.outputName.trim();
+      if (body.binaryGcode !== undefined) request.binaryGcode = body.binaryGcode;
+      if (body.outputName !== undefined) request.outputName = body.outputName;
       // no thumbnails here: rendering them needs a browser (concept §3.5, rasterizer comes in phase 3)
       validateSliceRequest(request);
       const job = await createJob(request, found.schema);

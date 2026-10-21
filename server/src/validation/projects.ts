@@ -97,13 +97,32 @@ export const projectModelsSchema = z.looseObject({
   copies: z.unknown().optional(),
 });
 
+/**
+ * How many copies of a model.
+ *
+ * The one rule, declared once: the MCP tool takes it as its client-visible input schema (where the
+ * range is part of the tool contract) and the store refuses the same range at the other end.
+ */
+export const copiesSchema = z.number().int().min(1).max(1000);
+
 /** `copies` of the models route: the store validates the range, the route only coerces, as it did. */
 export function copiesOf(value: unknown): number {
   return value === undefined ? 1 : Number(value);
 }
 
-/** The body of `POST /api/projects/:id/slice` – both fields are optional overrides. */
+/**
+ * The body of `POST /api/projects/:id/slice` – both fields are optional overrides of the project.
+ *
+ * The rules are the ones the route applied by hand: `binaryGcode` is read as a flag, `outputName` only
+ * counts when it is a non-empty string (anything else leaves the project's own name alone).
+ */
 export const projectSliceSchema = z.looseObject({
-  binaryGcode: z.unknown().optional(),
-  outputName: z.unknown().optional(),
+  binaryGcode: z
+    .unknown()
+    .optional()
+    .transform((v) => (v === undefined ? undefined : !!v)),
+  outputName: z
+    .unknown()
+    .optional()
+    .transform((v) => (typeof v === 'string' && v.trim() ? v.trim() : undefined)),
 });

@@ -68,3 +68,50 @@ export function printerHost(value: string | undefined): string {
     .replace(/\/+$/, '');
   return /^https?:\/\//i.test(host) ? host : `http://${host}`;
 }
+
+/**
+ * The body of `POST /api/jobs/:id/send`: which printer the output goes to, under which name, whether
+ * the print starts right away.
+ *
+ * `printerId` is only usable when it is a string – anything else means "no printer", which the route
+ * answers with its 400. A `filename` that is not a string falls back to the output name of the job
+ * (the old code called `.replace` on it and crashed with a 500).
+ */
+export const jobSendSchema = z.looseObject({
+  printerId: z
+    .unknown()
+    .optional()
+    .transform((v) => (typeof v === 'string' ? v : undefined)),
+  filename: z
+    .unknown()
+    .optional()
+    .transform((v) => (typeof v === 'string' ? v : undefined)),
+  startPrint: z
+    .unknown()
+    .optional()
+    .transform((v) => !!v),
+});
+
+/** One entry of the installed-printer list (`PUT /api/installed-printers`). */
+const installedPrinterSchema = z.object({
+  vendorId: z.string({ error: () => 'vendorId required' }),
+  modelId: z.string({ error: () => 'modelId required' }),
+  variant: z.unknown().optional(),
+});
+
+/**
+ * The list of installed printer models.
+ *
+ * The route tolerated anything that was not an array (it installed nothing) and skipped single entries
+ * without a vendor and model – both preserved here, so one bad entry does not drop the others.
+ */
+export function installedPrintersOf(body: unknown): Array<{ vendorId: string; modelId: string; variant: string }> {
+  const list = Array.isArray(body) ? body : [];
+  const out: Array<{ vendorId: string; modelId: string; variant: string }> = [];
+  for (const entry of list) {
+    const parsed = installedPrinterSchema.safeParse(entry);
+    if (!parsed.success) continue;
+    out.push({ vendorId: parsed.data.vendorId, modelId: parsed.data.modelId, variant: String(parsed.data.variant ?? '') });
+  }
+  return out;
+}

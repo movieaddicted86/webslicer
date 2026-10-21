@@ -14,6 +14,7 @@ import type { OptionDef, PresetType, Schema } from '@webslicer/shared';
 import { defaultPresetName, getInstalledPrinters, listPresets, resolvePreset } from '../slicer/presets.js';
 import { listLibrary } from '../services/library.js';
 import { validateSliceRequest } from '../services/slice.js';
+import { copiesSchema, toPresetRef } from '../validation/projects.js';
 import {
   PROJECT_TTL_HOURS,
   addModelFromLibrary,
@@ -382,9 +383,9 @@ export const TOOLS: AnyTool[] = [
       }
       const project = await createProject({
         schema,
-        printer: { name: args.printer, config: {} },
-        print: { name: args.print, config: {} },
-        filaments: args.filaments?.map((name) => ({ name, config: {} })),
+        printer: toPresetRef(args.printer),
+        print: toPresetRef(args.print),
+        filaments: args.filaments?.map((name) => toPresetRef(name)),
         owner: ctx.owner,
       });
       return summary(project);
@@ -400,7 +401,7 @@ export const TOOLS: AnyTool[] = [
     input: z.object({
       project_id: z.string(),
       library_path: z.string().describe('path relative to the library root, e.g. "samples/calibration_cube_20mm.stl"'),
-      copies: z.number().int().min(1).max(1000).optional().describe('number of copies (default 1)'),
+      copies: copiesSchema.optional().describe('number of copies (default 1)'),
     }),
     handler: async (args, ctx) => {
       const project = await loadOwnedProject(args.project_id, ctx.owner);

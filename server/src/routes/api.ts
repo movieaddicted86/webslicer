@@ -24,7 +24,9 @@ import { parseStl, read3mfProject } from '../slicer/threemf.js';
 import { createJob, getJob, listJobs, subscribe, cancelJob, deleteJob, jobOutputPath, readJobLog } from '../jobs.js';
 import type { PhysicalPrinter, PresetType, SliceRequest } from '@webslicer/shared';
 import { listPrinters, upsertPrinter, deletePrinter, getPrinter, testPrinter, uploadToPrinter } from '../services/printers.js';
-import { API_KEY_MASK, parsePrinter, parsePrinterTest, printerHost } from '../validation/printers.js';
+import { API_KEY_MASK, installedPrintersOf, jobSendSchema, parsePrinter, parsePrinterTest, printerHost } from '../validation/printers.js';
+import { presetBodySchema, presetListSchema } from '../validation/presets.js';
+import { firstIssueMessage } from '../validation/common.js';
 import { ValidationError } from '../errors.js';
 import { libraryRouter } from './library.js';
 import { projectsRouter } from './projects.js';
@@ -103,12 +105,7 @@ export function apiRouter(): express.Router {
 
   r.get('/installed-printers', (_req, res) => res.json(getInstalledPrinters()));
   r.put('/installed-printers', json, (req, res) => {
-    const list = Array.isArray(req.body) ? req.body : [];
-    setInstalledPrinters(
-      list
-        .filter((x: Record<string, unknown>) => x && typeof x.vendorId === 'string' && typeof x.modelId === 'string')
-        .map((x: Record<string, string>) => ({ vendorId: x.vendorId, modelId: x.modelId, variant: String(x.variant ?? '') })),
-    );
+    setInstalledPrinters(installedPrintersOf(req.body));
     res.json(getInstalledPrinters());
   });
 
@@ -120,16 +117,10 @@ export function apiRouter(): express.Router {
       const t = presetType(req, res);
       if (!t) return;
       const s = await schemaOf();
-      const body = (req.body || {}) as {
-        printerName?: string;
-        printerConfig?: IniSection;
-        printName?: string;
-        printConfig?: IniSection;
-        all?: boolean;
-      };
-      let printerConfig = body.printerConfig;
+      const body = presetListSchema.parse(req.body ?? {});
+      let printerConfig = body.printerConfig as IniSection | undefined;
       if (!printerConfig && body.printerName) printerConfig = resolvePreset(s, 'printer', body.printerName)?.config;
-      let printConfig = body.printConfig;
+      let printConfig = body.printConfig as IniSection | undefined;
       if (!printConfig && body.printName) printConfig = resolvePreset(s, 'print', body.printName)?.config;
       res.json(
         listPresets(s, t, {
@@ -137,7 +128,7 @@ export function apiRouter(): express.Router {
           printerConfig,
           printName: body.printName,
           printConfig,
-          all: !!body.all,
+          all: body.all,
         }),
       );
     }),
@@ -173,13 +164,13 @@ export function apiRouter(): express.Router {
       if (!t) return;
       const name = String(req.params.name || '').trim();
       if (!name || name.startsWith('-') || name.includes('/') || name.includes('\\')) return badRequest(res, 'invalid preset name');
-      const body = (req.body || {}) as { config?: IniSection; inherits?: string };
-      if (!body.config || typeof body.config !== 'object') return badRequest(res, 'config required');
+      const parsed = presetBodySchema.safeParse(req.body ?? {});
+      if (!parsed.success) return badRequest(res, firstIssueMessage(parsed.error, 'config required'));
       const s = await schemaOf();
       const allowed = new Set(s.presetKeys[t]);
       const cfg: IniSection = {};
-      for (const [k, v] of Object.entries(body.config)) if (allowed.has(k) && typeof v === 'string') cfg[k] = v;
-      saveUserPreset(t, name, cfg, body.inherits);
+      for (const [k, v] of Object.entries(parsed.data.config)) if (allowed.has(k)) cfg[k] = v;
+      saveUserPreset(t, name, cfg, parsed.data.inherits);
       res.json(resolvePreset(s, t, name));
     }),
   );
@@ -369,11 +360,11 @@ export function apiRouter(): express.Router {
     asyncHandler(async (req, res) => {
       const j = getJob(req.params.id);
       if (!j || j.status !== 'done') return res.status(404).json({ error: 'output not available' });
-      const body = (req.body || {}) as { printerId?: string; filename?: string; startPrint?: boolean };
+      const body = jobSendSchema.parse(req.body ?? {});
       const p = body.printerId ? await getPrinter(body.printerId) : undefined;
       if (!p) return badRequest(res, 'printerId required');
       const filename = (body.filename || j.outputName).replace(/[\\/]/g, '_');
-      const result = await uploadToPrinter(p, jobOutputPath(j), filename, !!body.startPrint);
+      const result = await uploadToPrinter(p, jobOutputPath(j), filename, body.startPrint);
       res.status(result.ok ? 200 : 502).json(result);
     }),
   );
