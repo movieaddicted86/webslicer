@@ -1,20 +1,11 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
 import { useStore, instanceBounds, selectedInstance, pickedInstanceId, type PlaterInstance, type PlaterObject, type PlaterVolume } from '../state/store';
 import { bedShapeOf } from '@webslicer/shared';
-import {
-  VIEWS,
-  fitFrame,
-  orthoExtents,
-  orthoFitDistance,
-  orthoFrustumHeight,
-  viewByKey,
-  viewDirection,
-  type CameraView,
-} from '../plater/camera';
+import { VIEWS, viewDirection } from '../plater/camera';
 import { FEATURE_COLORS, MARKER_COLORS, MARKER_KINDS, type MarkerKind, type ParsedGcode } from '../gcode/types';
 import { moveWindow, toolPosition } from '../gcode/moves';
 import { RANGE_SCHEMES, rangeColor, rangePosition, schemeRange, type PreviewColorMode } from '../gcode/colorschemes';
@@ -22,7 +13,9 @@ import type { CustomGcode, VolumeType } from '../api';
 import { colorAtZ, normalizeColor } from '../gcode/colorprint';
 import { renderThumbnails } from './thumbnail';
 import { useKeyboardShortcuts } from './viewer/useKeyboardShortcuts';
-import type { BedAsset, CamRequest, ObjectNode, SceneRefs } from './viewer/types';
+import type { BedAsset, ObjectNode, SceneRefs } from './viewer/types';
+import { useCamera, useCameraState } from './viewer/useCamera';
+import { FOV, bedBox, frameBox, orthoHeightOf, setOrthoFrustum } from './viewer/camera';
 import { computeCentroids, paintToColors, trianglesInSphere, type PaintKind } from './paint';
 
 const OBJECT_COLOR = 0xe6b84a;
@@ -142,135 +135,6 @@ function buildBed(group: THREE.Group, bedShape: string, asset?: BedAsset) {
   front.position.set((bed.min[0] + bed.max[0]) / 2, bed.min[1] - 3, 0);
   group.add(front);
 }
-
-const FOV = 45;
-const DEFAULT_BED = '0x0,200x0,200x200,0x200';
-/** Where the perspective/orthographic choice is remembered (see `plater/camera.ts`). */
-const ORTHO_KEY = 'webslicer.camera.ortho';
-
-function readOrthoPref(): boolean {
-  try {
-    return localStorage.getItem(ORTHO_KEY) === 'ortho';
-  } catch {
-    return false;
-  }
-}
-
-function writeOrthoPref(ortho: boolean) {
-  try {
-    localStorage.setItem(ORTHO_KEY, ortho ? 'ortho' : 'persp');
-  } catch {
-    /* private window or blocked storage: the choice just is not remembered */
-  }
-}
-
-/** Height of the area an ortho camera shows, including its wheel zoom. */
-const orthoHeightOf = (cam: THREE.OrthographicCamera) => (cam.top - cam.bottom) / cam.zoom;
-
-/** Give the ortho camera the frustum of a perspective view that shows `height` mm at the target. */
-function setOrthoFrustum(cam: THREE.OrthographicCamera, height: number, aspect: number, zoom = 1) {
-  const { halfHeight, halfWidth } = orthoExtents(height, aspect);
-  cam.top = halfHeight;
-  cam.bottom = -halfHeight;
-  cam.left = -halfWidth;
-  cam.right = halfWidth;
-  cam.zoom = zoom;
-  cam.updateProjectionMatrix();
-}
-
-/**
- * Frame `box`: both cameras are moved to the same place and the ortho frustum is set to the area
- * the perspective view shows at that distance, so switching the camera never changes the framing.
- */
-function frameBox(refs: SceneRefs, box: THREE.Box3, dir: THREE.Vector3, up: THREE.Vector3) {
-  const aspect = refs.persp.aspect || 1;
-  const frame = fitFrame(box, dir, up, FOV, aspect);
-  refs.persp.position.copy(frame.position);
-  refs.persp.up.copy(frame.up);
-  refs.ortho.position.copy(frame.position);
-  refs.ortho.up.copy(frame.up);
-  setOrthoFrustum(refs.ortho, orthoFrustumHeight(frame.distance, FOV), aspect);
-  refs.controls.target.copy(frame.target);
-  refs.controls.update();
-}
-
-/** The whole print bed, the fallback target of every camera command. */
-function bedBox(bedShape: string): THREE.Box3 {
-  const bed = bedShapeOf({ bed_shape: bedShape || DEFAULT_BED });
-  return new THREE.Box3(new THREE.Vector3(bed.min[0], bed.min[1], 0), new THREE.Vector3(bed.max[0], bed.max[1], 0));
-}
-
-/** World bounds of the toolpaths of the visible layers (undefined when the range is empty). */
-function gcodeBox(g: ParsedGcode, range: [number, number]): THREE.Box3 | undefined {
-  const lo = Math.max(0, Math.min(range[0], g.layerCount - 1));
-  const hi = Math.max(lo, Math.min(range[1], g.layerCount - 1));
-  const from = g.layerStart[lo] * 6;
-  const to = g.layerStart[hi + 1] * 6;
-  const box = new THREE.Box3(
-    new THREE.Vector3(Infinity, Infinity, Infinity),
-    new THREE.Vector3(-Infinity, -Infinity, -Infinity),
-  );
-  for (let i = from; i < to; i += 3) {
-    box.min.x = Math.min(box.min.x, g.positions[i]);
-    box.min.y = Math.min(box.min.y, g.positions[i + 1]);
-    box.min.z = Math.min(box.min.z, g.positions[i + 2]);
-    box.max.x = Math.max(box.max.x, g.positions[i]);
-    box.max.y = Math.max(box.max.y, g.positions[i + 1]);
-    box.max.z = Math.max(box.max.z, g.positions[i + 2]);
-  }
-  return box.isEmpty() ? undefined : box;
-}
-
-/**
- * What a camera command frames (PrusaSlicer's "zoom to selection"): in the preview the visible
- * toolpaths, in the plater the selected instances (the picked one, or all of them when the object
- * row is selected) and otherwise the whole bed.
- */
-function focusBox(refs: SceneRefs, bedShape: string): THREE.Box3 {
-  const st = useStore.getState();
-  if (st.view === 'preview') {
-    const box = st.gcode && st.previewLayerRange ? gcodeBox(st.gcode, st.previewLayerRange) : undefined;
-    return box || bedBox(bedShape);
-  }
-  const box = new THREE.Box3();
-  for (const id of st.selectedIds) {
-    const node = refs.nodes.get(id);
-    const o = st.objects.find((x) => x.id === id);
-    if (!node || !o) continue;
-    const picked = st.selectedIds.length === 1 ? pickedInstanceId(st, o) : undefined;
-    for (const [iid, inode] of node.instances) {
-      if (picked && iid !== picked) continue;
-      box.union(new THREE.Box3().setFromObject(inode.mesh));
-      for (const vm of inode.volumes.values()) box.union(new THREE.Box3().setFromObject(vm));
-    }
-  }
-  return box.isEmpty() ? bedBox(bedShape) : box;
-}
-
-/** Move the controls, the picking ray and the gizmo onto the other camera, keeping the framing. */
-function switchCamera(refs: SceneRefs, ortho: boolean) {
-  const from = refs.camera as THREE.PerspectiveCamera | THREE.OrthographicCamera;
-  const to = ortho ? refs.ortho : refs.persp;
-  if (from === to) return;
-  const target = refs.controls.target;
-  const offset = from.position.clone().sub(target);
-  const distance = offset.length() || 1;
-  to.up.copy(from.up);
-  if (ortho) {
-    // the same distance, with the ortho frustum showing what the perspective view showed
-    to.position.copy(from.position);
-    setOrthoFrustum(refs.ortho, orthoFrustumHeight(distance, FOV), refs.persp.aspect || 1);
-  } else {
-    // the ortho frustum's area is what a perspective camera shows at this distance
-    refs.persp.position.copy(target).addScaledVector(offset.normalize(), orthoFitDistance(orthoHeightOf(refs.ortho), FOV));
-  }
-  refs.camera = to;
-  refs.controls.object = to;
-  refs.transform.camera = to;
-  refs.controls.update();
-}
-
-/** What a camera key or toolbar click asks for. */
 
 interface GcodeColoring {
   mode: PreviewColorMode;
@@ -557,14 +421,7 @@ function readTransform(obj: THREE.Object3D) {
 export function Viewer() {
   const containerRef = useRef<HTMLDivElement>(null);
   const refsRef = useRef<SceneRefs | null>(null);
-  /** perspective or orthographic – remembered across sessions */
-  const [ortho, setOrtho] = useState(readOrthoPref);
-  /** camera command of the last toolbar click or key; the counter makes a repeated command re-run */
-  const [camRequest, setCamRequest] = useState<{ req: CamRequest; seq: number } | undefined>(undefined);
-  const camSeq = useRef(0);
-  const requestCamera = (req: CamRequest) => setCamRequest({ req, seq: ++camSeq.current });
-  const toggleOrtho = () => setOrtho((o) => !o);
-  useKeyboardShortcuts(requestCamera, toggleOrtho);
+  const { ortho, request: camRequest, toggleOrtho, requestCamera } = useCameraState();
 
   const objects = useStore((s) => s.objects);
   const selectedIds = useStore((s) => s.selectedIds);
@@ -901,32 +758,9 @@ export function Viewer() {
     }
   }, [bedShape, bedAssetKey]);
 
-  // --- perspective / orthographic (PrusaSlicer's K)
-  useEffect(() => {
-    writeOrthoPref(ortho);
-    const refs = refsRef.current;
-    if (refs) switchCamera(refs, ortho);
-  }, [ortho]);
-
-  // --- camera commands: standard views, zoom to selection, fit the bed
-  useEffect(() => {
-    const refs = refsRef.current;
-    if (!refs || !camRequest) return;
-    const shape = useStore.getState().presets.printer.current.bed_shape || DEFAULT_BED;
-    if (camRequest.req.mode === 'bed') {
-      const { dir, up } = viewDirection('iso');
-      frameBox(refs, bedBox(shape), dir, up);
-      return;
-    }
-    if (camRequest.req.mode === 'view') {
-      const { dir, up } = viewDirection(camRequest.req.view);
-      frameBox(refs, focusBox(refs, shape), dir, up);
-      return;
-    }
-    // zoom to selection keeps the direction the user is looking from
-    const offset = refs.camera.position.clone().sub(refs.controls.target);
-    frameBox(refs, focusBox(refs, shape), offset.normalize(), refs.camera.up.clone());
-  }, [camRequest]);
+  // --- perspective / orthographic (PrusaSlicer's K), and the camera commands: standard views,
+  // zoom to selection, fit the bed
+  useCamera(refsRef, ortho, camRequest);
 
   // --- objects sync
   useEffect(() => {
@@ -1197,6 +1031,9 @@ export function Viewer() {
     }
   }, [gcode, view, range, moveCut, showTravel, markerVis, featureVis, colorMode, customGcodes, filamentColour, toolColorKey]);
 
+  // keyboard
+  useKeyboardShortcuts(requestCamera, toggleOrtho);
+
   return (
     <div className={`viewer ${placeOnFace ? 'place-on-face' : ''}`} ref={containerRef}>
       {placeOnFace && <div className="viewer-banner">Place on face: click the face that should lie flat on the bed (Esc to cancel)</div>}
@@ -1221,7 +1058,7 @@ export function Viewer() {
         <button
           className={ortho ? 'active' : ''}
           title={ortho ? 'Orthographic projection (K)' : 'Perspective projection (K)'}
-          onClick={() => setOrtho((o) => !o)}
+          onClick={toggleOrtho}
         >
           {ortho ? 'Ortho' : 'Persp'}
         </button>
