@@ -23,24 +23,46 @@ export const HOST_TYPES: HostType[] = ['octoprint', 'moonraker', 'prusalink'];
 /** The stored API-key mask; sending it back means "keep the stored key". */
 export const API_KEY_MASK = '••••••••';
 
-const host = z.string({ error: () => 'invalid host' }).max(500, 'invalid host').optional();
-const name = z.string({ error: () => 'invalid printer name' }).max(200, 'invalid printer name').optional();
-const type = z.enum(HOST_TYPES, { error: (iss) => `invalid printer type ${String((iss as unknown as { input: unknown }).input)}` }).optional();
-const apiKey = z.string({ error: () => 'invalid API key' }).max(500, 'invalid API key').optional();
+const host = z
+  .string({ error: () => 'invalid host' })
+  .max(500, 'invalid host')
+  .optional();
+const name = z
+  .string({ error: () => 'invalid printer name' })
+  .max(200, 'invalid printer name')
+  .optional();
+const type = z
+  .enum(HOST_TYPES, { error: (iss) => `invalid printer type ${String((iss as unknown as { input: unknown }).input)}` })
+  .optional();
+const apiKey = z
+  .string({ error: () => 'invalid API key' })
+  .max(500, 'invalid API key')
+  .optional();
 
 /** A printer as the client sends it. */
 export const printerInputSchema = z.looseObject({
-  id: z.string({ error: () => 'invalid printer id' }).max(100, 'invalid printer id').optional(),
+  id: z
+    .string({ error: () => 'invalid printer id' })
+    .max(100, 'invalid printer id')
+    .optional(),
   name,
   type,
   host,
   apiKey,
-  presetName: z.string({ error: () => 'invalid preset name' }).max(200, 'invalid preset name').optional(),
+  presetName: z
+    .string({ error: () => 'invalid preset name' })
+    .max(200, 'invalid preset name')
+    .optional(),
   ignoreTls: z.boolean({ error: () => 'invalid ignoreTls' }).optional(),
 });
 
 /** `POST /api/printers/test` takes the same fields, minus the ones only a stored printer has. */
-export const printerTestSchema = z.looseObject({ host, type, apiKey, ignoreTls: z.boolean({ error: () => 'invalid ignoreTls' }).optional() });
+export const printerTestSchema = z.looseObject({
+  host,
+  type,
+  apiKey,
+  ignoreTls: z.boolean({ error: () => 'invalid ignoreTls' }).optional(),
+});
 
 export type PrinterInput = z.output<typeof printerInputSchema>;
 

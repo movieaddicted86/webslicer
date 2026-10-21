@@ -15,14 +15,7 @@ import { validateSliceRequest } from '../services/slice.js';
 import { activeSchema } from '../services/schema.js';
 import { ValidationError } from '../errors.js';
 import { copiesOf, parseProjectCreate, projectModelsSchema, projectSliceSchema } from '../validation/projects.js';
-import {
-  addModelFromLibrary,
-  arrange,
-  createProject,
-  toSliceRequest,
-  touchProject,
-  loadProject,
-} from '../services/projects.js';
+import { addModelFromLibrary, arrange, createProject, toSliceRequest, touchProject, loadProject } from '../services/projects.js';
 import type { Schema, SliceRequest } from '@webslicer/shared';
 
 function asyncHandler(fn: (req: Request, res: Response, next: NextFunction) => Promise<unknown>) {

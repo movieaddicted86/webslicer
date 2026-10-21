@@ -62,7 +62,9 @@ const filamentsSurfaceSchema = z.unknown().superRefine((v, ctx) => {
  * cannot carry keys at all.
  */
 const projectCreateSchema = ordered(
-  z.custom<Record<string, unknown>>((v) => !!v && typeof v === 'object', { error: () => 'printer must be a preset name or { name, config }' }),
+  z.custom<Record<string, unknown>>((v) => !!v && typeof v === 'object', {
+    error: () => 'printer must be a preset name or { name, config }',
+  }),
   z.looseObject({ filaments: filamentsSurfaceSchema.optional() }),
   z.looseObject({ printer: presetSlotSchema('printer'), print: presetSlotSchema('print') }),
   z.looseObject({
@@ -91,9 +93,7 @@ export function parseProjectCreate(
 
 /** `POST /api/projects/:id/models`: a library path and how many copies of each model. */
 export const projectModelsSchema = z.looseObject({
-  libraryPath: z
-    .string({ error: () => 'libraryPath required' })
-    .refine((v) => !!v.trim(), { error: () => 'libraryPath required' }),
+  libraryPath: z.string({ error: () => 'libraryPath required' }).refine((v) => !!v.trim(), { error: () => 'libraryPath required' }),
   copies: z.unknown().optional(),
 });
 

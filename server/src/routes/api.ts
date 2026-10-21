@@ -394,7 +394,8 @@ export function apiRouter(): express.Router {
       const parsed = parsePrinter(req.body);
       if (!parsed.ok) throw new ValidationError(parsed.message);
       // the mask means "keep the stored key"; an empty key clears it (the store turns `''` into "no key")
-      const apiKey = parsed.printer.apiKey === undefined || parsed.printer.apiKey === API_KEY_MASK ? existing.apiKey : parsed.printer.apiKey;
+      const apiKey =
+        parsed.printer.apiKey === undefined || parsed.printer.apiKey === API_KEY_MASK ? existing.apiKey : parsed.printer.apiKey;
       res.json(maskPrinter(await upsertPrinter({ ...existing, ...parsed.printer, apiKey, id: existing.id })));
     }),
   );

@@ -118,7 +118,10 @@ const instancesSchema = ordered(
     if (Array.isArray(v) && v.length >= 1 && v.length <= 1000 && v.some((t) => !isCompleteTransform(t)))
       ctx.addIssue({ code: 'custom', message: INSTANCE_TRANSFORM });
   }),
-  z.array(finiteTransform, { error: () => INSTANCES_COUNT }).min(1, INSTANCES_COUNT).max(1000, INSTANCES_COUNT),
+  z
+    .array(finiteTransform, { error: () => INSTANCES_COUNT })
+    .min(1, INSTANCES_COUNT)
+    .max(1000, INSTANCES_COUNT),
 );
 
 const objectSchema = ordered(
