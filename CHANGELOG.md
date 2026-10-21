@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- Refactoring of the request validation (R-10), no behaviour change: every payload the server accepts
+  is described by one zod schema in `server/src/validation/` – the slice request (transforms,
+  instances, ranges, volumes, paints, custom G-codes, thumbnails), the project create/models/arrange
+  bodies, the printers, the presets, the library bodies and the job upload. The REST routes and the
+  MCP tools use the same schemas, so a rule (and its message) no longer exists twice; the hand-written
+  `isTransform` and the field checks in the routes are gone, and `copies` has one owner. Status codes
+  and error messages stay as they were – the API contract tests and a `curl`-level smoke comparison
+  of all 154 exchanges against the previous build pin them. Two payloads that used to crash the
+  request handler with a 500 (an element of `objects`/`volumes`/`ranges`/`customGcodes`/`thumbnails`
+  that is not an object, and a non-string `filename` in `POST /api/jobs/:id/send`) are now reported as
+  the field error they are (400) or ignored, as the surrounding code already did.
 - Refactoring of the server internals (R-9), no behaviour change: the server logic lives behind
   `server/src/services/` (slicing, projects, library, printers, models, config merge, autosave,
   schema, version) and no longer knows Express; the routes only validate, call a service and answer,

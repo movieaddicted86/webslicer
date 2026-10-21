@@ -55,6 +55,27 @@ const filamentsSurfaceSchema = z.unknown().superRefine((v, ctx) => {
 });
 
 /**
+ * The `filaments` of a project body: an array of slots, each named in a message by its index
+ * (`filaments[0] …`), plus an optional owner.
+ *
+ * The slots are checked here and not by `z.array(presetSlotSchema(…))` because the label differs per
+ * element – and the rule itself still comes from `presetSlotSchema`, so there is one owner of it.
+ */
+const projectSlotsSchema = z.looseObject({
+  filaments: z
+    .unknown()
+    .optional()
+    .superRefine((v, ctx) => {
+      if (!Array.isArray(v)) return; // the surface stage above names that failure
+      v.forEach((element, i) => {
+        const slot = presetSlotSchema(`filaments[${i}]`).safeParse(element);
+        if (!slot.success) for (const issue of slot.error.issues) ctx.addIssue({ code: 'custom', message: issue.message });
+      });
+    }),
+  owner: z.unknown().optional(),
+});
+
+/**
  * `POST /api/projects`: preset slots for printer, print and the filaments, plus an optional owner.
  *
  * The body itself became `{}` when it was falsy (`req.body || {}`), and an unknown key is ignored –
@@ -67,10 +88,7 @@ const projectCreateSchema = ordered(
   }),
   z.looseObject({ filaments: filamentsSurfaceSchema.optional() }),
   z.looseObject({ printer: presetSlotSchema('printer'), print: presetSlotSchema('print') }),
-  z.looseObject({
-    filaments: z.array(presetSlotSchema('filaments')).optional(),
-    owner: z.unknown().optional(),
-  }),
+  projectSlotsSchema,
 );
 
 /** Validate a project create body; the first issue's message is the one the client shows. */
@@ -91,11 +109,19 @@ export function parseProjectCreate(
   };
 }
 
-/** `POST /api/projects/:id/models`: a library path and how many copies of each model. */
-export const projectModelsSchema = z.looseObject({
-  libraryPath: z.string({ error: () => 'libraryPath required' }).refine((v) => !!v.trim(), { error: () => 'libraryPath required' }),
-  copies: z.unknown().optional(),
-});
+/**
+ * `POST /api/projects/:id/models`: a library path and how many copies of each model.
+ *
+ * A body that cannot carry keys at all (the route read `req.body || {}`) is the empty body, so the
+ * missing path is named – not the body type.
+ */
+export const projectModelsSchema = z.preprocess(
+  (v) => (v && typeof v === 'object' && !Array.isArray(v) ? v : {}),
+  z.looseObject({
+    libraryPath: z.string({ error: () => 'libraryPath required' }).refine((v) => !!v.trim(), { error: () => 'libraryPath required' }),
+    copies: z.unknown().optional(),
+  }),
+);
 
 /**
  * How many copies of a model.
@@ -114,15 +140,23 @@ export function copiesOf(value: unknown): number {
  * The body of `POST /api/projects/:id/slice` – both fields are optional overrides of the project.
  *
  * The rules are the ones the route applied by hand: `binaryGcode` is read as a flag, `outputName` only
- * counts when it is a non-empty string (anything else leaves the project's own name alone).
+ * counts when it is a non-empty string (anything else leaves the project's own name alone – such a
+ * value is dropped, not kept as `undefined`).
  */
-export const projectSliceSchema = z.looseObject({
-  binaryGcode: z
-    .unknown()
-    .optional()
-    .transform((v) => (v === undefined ? undefined : !!v)),
-  outputName: z
-    .unknown()
-    .optional()
-    .transform((v) => (typeof v === 'string' && v.trim() ? v.trim() : undefined)),
-});
+export const projectSliceSchema = z.preprocess(
+  (v) => {
+    const body = (v && typeof v === 'object' ? { ...(v as Record<string, unknown>) } : {}) as Record<string, unknown>;
+    if ('outputName' in body && !(typeof body.outputName === 'string' && body.outputName.trim())) delete body.outputName;
+    return body;
+  },
+  z.looseObject({
+    binaryGcode: z
+      .unknown()
+      .optional()
+      .transform((v) => (v === undefined ? undefined : !!v)),
+    outputName: z
+      .string()
+      .optional()
+      .transform((v) => (v === undefined ? undefined : v.trim())),
+  }),
+);

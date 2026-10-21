@@ -97,22 +97,24 @@ export function printerHost(value: string | undefined): string {
  *
  * `printerId` is only usable when it is a string – anything else means "no printer", which the route
  * answers with its 400. A `filename` that is not a string falls back to the output name of the job
- * (the old code called `.replace` on it and crashed with a 500).
+ * (the old code called `.replace` on it and crashed with a 500). A field of the wrong type is *dropped*
+ * rather than kept as `undefined`, so the parsed body only carries what the route can use.
  */
-export const jobSendSchema = z.looseObject({
-  printerId: z
-    .unknown()
-    .optional()
-    .transform((v) => (typeof v === 'string' ? v : undefined)),
-  filename: z
-    .unknown()
-    .optional()
-    .transform((v) => (typeof v === 'string' ? v : undefined)),
-  startPrint: z
-    .unknown()
-    .optional()
-    .transform((v) => !!v),
-});
+export const jobSendSchema = z.preprocess(
+  (v) => {
+    const body = (v && typeof v === 'object' ? { ...(v as Record<string, unknown>) } : {}) as Record<string, unknown>;
+    for (const key of ['printerId', 'filename'] as const) if (key in body && typeof body[key] !== 'string') delete body[key];
+    return body;
+  },
+  z.looseObject({
+    printerId: z.string().optional(),
+    filename: z.string().optional(),
+    startPrint: z
+      .unknown()
+      .optional()
+      .transform((v) => !!v),
+  }),
+);
 
 /** One entry of the installed-printer list (`PUT /api/installed-printers`). */
 const installedPrinterSchema = z.object({
