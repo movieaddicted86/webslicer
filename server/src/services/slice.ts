@@ -20,11 +20,6 @@ export function isPresetType(type: string): type is PresetType {
   return (PRESET_TYPES as string[]).includes(type);
 }
 
-/** A 4x4 transform: exactly 16 finite numbers. */
-export function isTransform(t: unknown): t is number[] {
-  return Array.isArray(t) && t.length === 16 && t.every((v) => typeof v === 'number' && Number.isFinite(v));
-}
-
 /**
  * Validate a slice request in place. The rules live in `validation/slice.ts` as one zod schema (R-10),
  * shared with the MCP tools; this wrapper keeps the contract the callers rely on: it *normalises in

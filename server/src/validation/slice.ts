@@ -46,15 +46,22 @@ const THUMBNAIL_DATA = 'invalid thumbnail data';
 
 const UUID = /^[0-9a-f-]{36}$/i;
 
-/** A 4x4 transform: 16 finite numbers. Shape and contents report the same message. */
+/** A complete 4x4 transform: exactly 16 numbers, none of them NaN or infinite. */
+const finiteTransform = z
+  .array(z.number({ error: () => TRANSFORM_FINITE }), { error: () => TRANSFORM_FINITE })
+  .length(16, TRANSFORM_FINITE);
+
+/** The legacy `transform` of an object, where the shape and the contents have their own messages. */
 const transformShape = z.array(z.unknown(), { error: () => TRANSFORM_COUNT }).length(16, TRANSFORM_COUNT);
 
-/** The same for a volume, whose failures have their own wording. */
-const volumeTransformShape = z.array(z.unknown(), { error: () => VOLUME_TRANSFORM }).length(16, VOLUME_TRANSFORM);
+/** A volume transform: shape and contents share one message, so one schema says both. */
+const volumeTransformShape = z
+  .array(z.number({ error: () => VOLUME_TRANSFORM }), { error: () => VOLUME_TRANSFORM })
+  .length(16, VOLUME_TRANSFORM);
 
-/** Is this a transform with finite numbers? (the check the old `isTransform` did) */
-function isTransform(t: unknown): boolean {
-  return Array.isArray(t) && t.length === 16 && t.every((v) => typeof v === 'number' && Number.isFinite(v));
+/** Is this a complete transform? `finiteTransform` answers it – no second implementation of the rule. */
+function isCompleteTransform(v: unknown): boolean {
+  return finiteTransform.safeParse(v).success;
 }
 
 /** `type` of a custom G-code or a volume: the message names the value, as the old checks did. */
@@ -76,7 +83,7 @@ const volumeSchema = ordered(
       },
       { error: () => VOLUME_MODEL_ID },
     )
-    // contents and shape report the same message here, as the old `isTransform` check did
+    // contents and shape report the same message here, so one transform schema answers both
     .superRefine((v, ctx) => {
       if (v.transform.every((x) => typeof x === 'number' && Number.isFinite(x))) return;
       ctx.addIssue({ code: 'custom', path: ['transform'], message: VOLUME_TRANSFORM });
@@ -108,13 +115,10 @@ const rangeSchema = ordered(
 const instancesSchema = ordered(
   z.unknown().superRefine((v, ctx) => {
     // only a well-sized array can get this far; the shape stage names the other failures
-    if (Array.isArray(v) && v.length >= 1 && v.length <= 1000 && v.some((t) => !isTransform(t)))
+    if (Array.isArray(v) && v.length >= 1 && v.length <= 1000 && v.some((t) => !isCompleteTransform(t)))
       ctx.addIssue({ code: 'custom', message: INSTANCE_TRANSFORM });
   }),
-  z
-    .array(z.array(z.unknown(), { error: () => INSTANCE_TRANSFORM }).length(16, INSTANCE_TRANSFORM), { error: () => INSTANCES_COUNT })
-    .min(1, INSTANCES_COUNT)
-    .max(1000, INSTANCES_COUNT),
+  z.array(finiteTransform, { error: () => INSTANCES_COUNT }).min(1, INSTANCES_COUNT).max(1000, INSTANCES_COUNT),
 );
 
 const objectSchema = ordered(
@@ -129,9 +133,7 @@ const objectSchema = ordered(
     // the legacy transform is only inspected when no `instances` replace it
     .superRefine((o, ctx) => {
       if (o.instances !== undefined) return;
-      for (const v of o.transform)
-        if (typeof v !== 'number' || !Number.isFinite(v))
-          return ctx.addIssue({ code: 'custom', path: ['transform'], message: TRANSFORM_FINITE });
+      if (!isCompleteTransform(o.transform)) ctx.addIssue({ code: 'custom', path: ['transform'], message: TRANSFORM_FINITE });
     }),
   z.looseObject({
     instances: instancesSchema.optional(),

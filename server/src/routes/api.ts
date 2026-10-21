@@ -24,6 +24,8 @@ import { parseStl, read3mfProject } from '../slicer/threemf.js';
 import { createJob, getJob, listJobs, subscribe, cancelJob, deleteJob, jobOutputPath, readJobLog } from '../jobs.js';
 import type { PhysicalPrinter, PresetType, SliceRequest } from '@webslicer/shared';
 import { listPrinters, upsertPrinter, deletePrinter, getPrinter, testPrinter, uploadToPrinter } from '../services/printers.js';
+import { API_KEY_MASK, parsePrinter, parsePrinterTest, printerHost } from '../validation/printers.js';
+import { ValidationError } from '../errors.js';
 import { libraryRouter } from './library.js';
 import { projectsRouter } from './projects.js';
 import type { IniSection } from '../slicer/ini.js';
@@ -378,6 +380,7 @@ export function apiRouter(): express.Router {
 
   // ---- physical printers ---------------------------------------------------
   // The printer store reads its JSON with `fs/promises` (N-7), so these handlers are async now.
+  // The bodies are validated by `validation/printers.ts` (R-10), the same schema the MCP tools use.
   r.get(
     '/printers',
     asyncHandler(async (_req, res) => res.json((await listPrinters()).map(maskPrinter))),
@@ -385,7 +388,11 @@ export function apiRouter(): express.Router {
   r.post(
     '/printers',
     json,
-    asyncHandler(async (req, res) => res.json(maskPrinter(await upsertPrinter(req.body || {})))),
+    asyncHandler(async (req, res) => {
+      const parsed = parsePrinter(req.body);
+      if (!parsed.ok) throw new ValidationError(parsed.message);
+      res.json(maskPrinter(await upsertPrinter(parsed.printer)));
+    }),
   );
   r.put(
     '/printers/:id',
@@ -393,9 +400,11 @@ export function apiRouter(): express.Router {
     asyncHandler(async (req, res) => {
       const existing = await getPrinter(req.params.id);
       if (!existing) return res.status(404).json({ error: 'printer not found' });
-      const body = req.body || {};
-      if (body.apiKey === '••••••••' || body.apiKey === undefined) body.apiKey = existing.apiKey;
-      res.json(maskPrinter(await upsertPrinter({ ...existing, ...body, id: existing.id })));
+      const parsed = parsePrinter(req.body);
+      if (!parsed.ok) throw new ValidationError(parsed.message);
+      // the mask means "keep the stored key"; an empty key clears it (the store turns `''` into "no key")
+      const apiKey = parsed.printer.apiKey === undefined || parsed.printer.apiKey === API_KEY_MASK ? existing.apiKey : parsed.printer.apiKey;
+      res.json(maskPrinter(await upsertPrinter({ ...existing, ...parsed.printer, apiKey, id: existing.id })));
     }),
   );
   r.delete(
@@ -417,16 +426,16 @@ export function apiRouter(): express.Router {
     '/printers/test',
     json,
     asyncHandler(async (req, res) => {
-      const body = req.body || {};
-      const host = String(body.host || '').replace(/\/+$/, '');
+      const parsed = parsePrinterTest(req.body);
+      if (!parsed.ok) throw new ValidationError(parsed.message);
       res.json(
         await testPrinter({
           id: 'tmp',
           name: 'tmp',
-          type: body.type || 'octoprint',
-          host: /^https?:\/\//i.test(host) ? host : `http://${host}`,
-          apiKey: body.apiKey || undefined,
-          ignoreTls: !!body.ignoreTls,
+          type: parsed.printer.type || 'octoprint',
+          host: printerHost(parsed.printer.host),
+          apiKey: parsed.printer.apiKey || undefined,
+          ignoreTls: !!parsed.printer.ignoreTls,
         }),
       );
     }),
