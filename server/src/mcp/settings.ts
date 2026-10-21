@@ -18,8 +18,9 @@
 import { z } from 'zod';
 import { mcpAllowlistOf, mcpBandIssue, mcpKeyVerdict, type McpSettingIssue, type PresetType, type Schema } from '@webslicer/shared';
 import { ValidationError } from '../errors.js';
-import { resolvedConfigs, touchProject, type Project, type ProjectPresetRef } from '../services/projects.js';
+import { touchProject, type Project, type ProjectPresetRef } from '../services/projects.js';
 import { activeSchema } from '../services/schema.js';
+import { defaultPresetName, resolvePreset } from '../slicer/presets.js';
 import { coerceOptionValue } from './optionValues.js';
 import { loadOwnedProject } from './projectAccess.js';
 import { defineTool, type AnyTool } from './toolTypes.js';
@@ -59,12 +60,17 @@ function slotOf(project: Project, type: PresetType, index: number): ProjectPrese
   return slots[index];
 }
 
-/** The resolved preset values a band is measured against – read before the call changes anything. */
+/**
+ * The preset values a band is measured against – the *preset*, not the project's own overrides.
+ *
+ * Anchoring on the preset matters: the resolved config already carries the overrides of earlier
+ * calls, so a band measured there would move along with every accepted change and a client could
+ * walk a temperature out of the band 25 °C per call ("ratchet"). The preset value stays put.
+ */
 function baseConfigOf(project: Project, type: PresetType, index: number, schema: Schema): Record<string, string> {
-  const cfg = resolvedConfigs(project, schema);
-  if (type === 'print') return cfg.print.config;
-  if (type === 'printer') return cfg.printer.config;
-  return (cfg.filaments[index] ?? cfg.filaments[0]).config;
+  const slot =
+    type === 'filament' ? (project.filaments[index] ?? project.filaments[0]) : type === 'print' ? project.print : project.printer;
+  return resolvePreset(schema, type, slot?.name ?? defaultPresetName(type))?.config ?? {};
 }
 
 /** A short note where the accepted keys are, instead of pasting the whole allowlist into an error. */

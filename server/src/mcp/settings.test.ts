@@ -177,6 +177,15 @@ test('the band rejects a temperature 40 °C away and accepts 20 °C (S1-a)', asy
   assert.deepEqual(applySettings(schema, project, 'filament', { temperature: '235' }), { temperature: '235' });
 });
 
+test('the band stays anchored to the preset, so repeated calls cannot ratchet a value out', async () => {
+  const project = await newProject();
+  // 215 -> 240 is inside, but 240 -> 265 must fail: the band is measured against the preset 215,
+  // not against the override the previous call wrote
+  assert.deepEqual(applySettings(schema, project, 'filament', { temperature: '240' }), { temperature: '240' });
+  assert.throws(() => applySettings(schema, project, 'filament', { temperature: '265' }), /outside the band.*190–240 °C/);
+  assert.deepEqual(project.filaments[0].config, { temperature: '240' }, 'the refused step changed nothing');
+});
+
 test('check_settings reports ok without changing the project', async () => {
   const project = await newProject();
   const ok = checkSettings(schema, project, 'filament', { temperature: '235' });
