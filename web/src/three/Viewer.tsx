@@ -21,7 +21,8 @@ import { RANGE_SCHEMES, rangeColor, rangePosition, schemeRange, type PreviewColo
 import type { CustomGcode, VolumeType } from '../api';
 import { colorAtZ, normalizeColor } from '../gcode/colorprint';
 import { renderThumbnails } from './thumbnail';
-import { matchesShortcut } from './viewer/shortcuts';
+import { useKeyboardShortcuts } from './viewer/useKeyboardShortcuts';
+import type { BedAsset, CamRequest, ObjectNode, SceneRefs } from './viewer/types';
 import { computeCentroids, paintToColors, trianglesInSphere, type PaintKind } from './paint';
 
 const OBJECT_COLOR = 0xe6b84a;
@@ -37,61 +38,6 @@ export const VOLUME_COLORS: Record<VolumeType, { color: number; opacity: number 
   SupportBlocker: { color: 0xff4d4d, opacity: 0.45 },
   NegativeVolume: { color: 0x707070, opacity: 0.45 },
 };
-
-interface InstanceNode {
-  /** scene node carrying the instance transform; its children are in object-local coordinates */
-  group: THREE.Group;
-  /** object body; shares the geometry with its sibling instances, owns its material (per-instance colour) */
-  mesh: THREE.Mesh;
-  volumes: Map<string, THREE.Mesh>;
-  /** translucent slabs visualizing height range modifiers */
-  slabs?: THREE.Group;
-  slabKey?: string;
-}
-
-interface ObjectNode {
-  /** pure container, no transform of its own */
-  group: THREE.Group;
-  /** one scene node per instance */
-  instances: Map<string, InstanceNode>;
-}
-
-interface SceneRefs {
-  renderer: THREE.WebGLRenderer;
-  scene: THREE.Scene;
-  /** the active camera – `persp` or `ortho`; controls, picking and rendering all use it */
-  camera: THREE.Camera;
-  persp: THREE.PerspectiveCamera;
-  ortho: THREE.OrthographicCamera;
-  controls: OrbitControls;
-  transform: TransformControls;
-  bedGroup: THREE.Group;
-  objectsGroup: THREE.Group;
-  gcodeGroup: THREE.Group;
-  nodes: Map<string, ObjectNode>;
-  raycaster: THREE.Raycaster;
-  dragging: boolean;
-  gcodeLines?: THREE.LineSegments;
-  travelLines?: THREE.LineSegments;
-  wipeLines?: THREE.LineSegments;
-  /** one THREE.Points per marker kind, so each kind can be toggled and coloured on its own */
-  markerPoints?: Map<MarkerKind, THREE.Points>;
-  /** cone following the horizontal slider */
-  toolMarker?: THREE.Mesh;
-  gcodeRef?: ParsedGcode;
-  /** key of the colouring currently applied to the toolpaths */
-  colorKey?: string;
-  bedKey?: string;
-  /** meshes of the plater, drawn translucent while "Shells" is on */
-  shells: { mesh: THREE.Mesh; key: string }[];
-  shellsOn: boolean;
-}
-
-interface BedAsset {
-  vendor: string;
-  model?: string;
-  texture?: string;
-}
 
 let bedLoadGeneration = 0;
 
@@ -325,7 +271,6 @@ function switchCamera(refs: SceneRefs, ortho: boolean) {
 }
 
 /** What a camera key or toolbar click asks for. */
-type CamRequest = { mode: 'view'; view: CameraView } | { mode: 'fit' } | { mode: 'bed' };
 
 interface GcodeColoring {
   mode: PreviewColorMode;
@@ -618,6 +563,8 @@ export function Viewer() {
   const [camRequest, setCamRequest] = useState<{ req: CamRequest; seq: number } | undefined>(undefined);
   const camSeq = useRef(0);
   const requestCamera = (req: CamRequest) => setCamRequest({ req, seq: ++camSeq.current });
+  const toggleOrtho = () => setOrtho((o) => !o);
+  useKeyboardShortcuts(requestCamera, toggleOrtho);
 
   const objects = useStore((s) => s.objects);
   const selectedIds = useStore((s) => s.selectedIds);
@@ -1249,70 +1196,6 @@ export function Viewer() {
       applyGcodeRange(refs, gcode, range, cut, showTravel, markerVis, featureVis);
     }
   }, [gcode, view, range, moveCut, showTravel, markerVis, featureVis, colorMode, customGcodes, filamentColour, toolColorKey]);
-
-  // keyboard
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const t = e.target as HTMLElement;
-      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
-      const st = useStore.getState();
-      // the camera keys work in the plater and in the preview
-      if (matchesShortcut(e, 'views')) {
-        e.preventDefault();
-        requestCamera({ mode: 'view', view: viewByKey(e.key)! });
-        return;
-      }
-      if (matchesShortcut(e, 'projection')) {
-        e.preventDefault();
-        setOrtho((o) => !o);
-        return;
-      }
-      if (matchesShortcut(e, 'zoom')) {
-        e.preventDefault();
-        requestCamera({ mode: 'fit' });
-        return;
-      }
-      if (st.view !== 'plater') return;
-      if (matchesShortcut(e, 'delete')) {
-        const o = st.objects.find((x) => x.id === st.selectedIds[0]);
-        if (st.selectedVolumeId && st.selectedIds.length === 1) st.removeVolume(st.selectedIds[0], st.selectedVolumeId);
-        // AC-4.4: Del removes the instance that was picked; without one the whole object goes
-        else if (st.selectedIds.length === 1 && o && pickedInstanceId(st, o) && o.instances.length > 1) st.removeInstance(o.id, st.selectedInstanceId);
-        else if (st.selectedIds.length) st.removeObjects(st.selectedIds);
-      } else if (matchesShortcut(e, 'addInstance')) {
-        if (st.selectedIds.length === 1) st.addInstances(st.selectedIds[0]);
-      } else if (matchesShortcut(e, 'removeInstance')) {
-        // AC-1.2: "−" always drops the last copy
-        if (st.selectedIds.length === 1) st.removeInstance(st.selectedIds[0]);
-      } else if (matchesShortcut(e, 'paintSupports') && st.selectedIds.length === 1) {
-        if (st.paintMode === 'supports') st.stopPaint();
-        else st.startPaint(st.selectedIds[0], 'supports');
-      } else if (matchesShortcut(e, 'paintSeam') && st.selectedIds.length === 1) {
-        if (st.paintMode === 'seam') st.stopPaint();
-        else st.startPaint(st.selectedIds[0], 'seam');
-      } else if (matchesShortcut(e, 'placeOnFace')) st.setPlaceOnFace(!st.placeOnFace);
-      else if (matchesShortcut(e, 'move')) st.setTransformMode('translate');
-      else if (matchesShortcut(e, 'rotate')) st.setTransformMode('rotate');
-      else if (matchesShortcut(e, 'scale')) st.setTransformMode('scale');
-      else if (matchesShortcut(e, 'undo')) {
-        e.preventDefault();
-        st.undo();
-      } else if (matchesShortcut(e, 'redo')) {
-        e.preventDefault();
-        st.redo();
-      } else if (matchesShortcut(e, 'selectAll')) {
-        e.preventDefault();
-        st.select(st.objects.map((o) => o.id));
-      } else if (matchesShortcut(e, 'arrange')) st.arrange();
-      else if (matchesShortcut(e, 'escape')) {
-        if (st.paintMode) st.stopPaint();
-        else if (st.placeOnFace) st.setPlaceOnFace(false);
-        else st.select([]);
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, []);
 
   return (
     <div className={`viewer ${placeOnFace ? 'place-on-face' : ''}`} ref={containerRef}>
