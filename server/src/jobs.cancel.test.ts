@@ -39,7 +39,7 @@ if (process.platform === 'win32') {
 }
 
 const { config, ensureDirs } = await import('./config.js');
-const { createJob, cancelJob, deleteJob, getJob, setSchema } = await import('./jobs.js');
+const { createJob, cancelJob, deleteJob, getJob, setSchema, subscribe } = await import('./jobs.js');
 const { loadJobRecords } = await import('./jobs/persistence.js');
 const { parseStl, writeBinaryStl } = await import('./slicer/threemf/mesh.js');
 const { IDENTITY } = await import('@webslicer/shared');
@@ -91,11 +91,30 @@ after(() => fs.rmSync(DATA_DIR, { recursive: true, force: true }));
 test('B6: a cancel while the job is preparing ends it cancelled and never spawns the slicer', async () => {
   fs.rmSync(MARK, { force: true });
   const job = await createJob(request('11111111-1111-1111-1111-111111111111'), SCHEMA);
-  await waitFor(() => job.status === 'running', 'the job to start');
+  assert.equal(job.status, 'queued', 'the listener attaches before the queue starts the job');
 
-  // right after the run starts it is still preparing; waiting for the CLI would be too late
-  assert.equal(cancelJob(job.id), true, 'a preparing job is cancellable');
+  // The cancel has to land *while* the run prepares, and polling `job.status` never bought that: the
+  // first 20 ms tick is already past the spawn on a fast runner (CI), while on Windows the mark file
+  // of the fake CLI appears only after the child has booted – so the old wait tested the timing of
+  // this machine, not the queue. The job's own event removes the race: `runJob` emits `running`
+  // before the config and the 3MF are written and long before the AbortController exists, and this
+  // listener runs synchronously inside that emit.
+  let sawRunning = false;
+  let cancelAccepted = false;
+  let markAtCancel = true;
+  const off = subscribe(job.id, (ev) => {
+    if (ev.type !== 'status' || sawRunning) return;
+    sawRunning = true;
+    markAtCancel = fs.existsSync(MARK);
+    cancelAccepted = cancelJob(job.id);
+  });
+
   await waitFor(() => job.status === 'cancelled', 'the cancelled status');
+  off();
+
+  assert.equal(sawRunning, true, 'the run reached the preparing stage, so this is the early-cancel path');
+  assert.equal(cancelAccepted, true, 'a preparing job is cancellable');
+  assert.equal(markAtCancel, false, 'the cancel arrived before the CLI was started');
   assert.equal(job.message, 'Cancelled');
   assert.equal(fs.existsSync(MARK), false, 'the CLI was not started for a job cancelled during preparation');
   assert.equal(fs.existsSync(path.join(config.jobsDir, job.id, 'config.ini')), false, 'the temporary config was removed');
