@@ -4,6 +4,11 @@ on:
   push:
   pull_request:
 
+# W6: read-only by default. Neither job publishes anything, so every token this workflow hands to a
+# step (including a dependency's install script or a pulled action) can only read the repository.
+permissions:
+  contents: read
+
 jobs:
   check:
     runs-on: ubuntu-latest
@@ -38,6 +43,9 @@ jobs:
   # split falls back to the equal (count-based) one, which still fits the gate with a cached browser.
   e2e:
     runs-on: ubuntu-latest
+    # the job only builds images and runs tests; the GHA cache needs no repository write scope
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
