@@ -8,7 +8,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { config } from '../config.js';
 import { activeSchema } from './schema.js';
-import { parseStl, transformMesh, build3mf, type ThreeMfObject, type ThreeMfVolume } from '../slicer/threemf.js';
+import { parseStl, transformMesh, build3mf, type ThreeMfObject, type ThreeMfVolume } from '../slicer/threemf/index.js';
 import { parseSliceRequest } from '../validation/slice.js';
 import { splitVector, type PresetType, type Schema, type SliceRequest } from '@webslicer/shared';
 import type { IniSection } from '../slicer/ini.js';

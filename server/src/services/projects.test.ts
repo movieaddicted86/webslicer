@@ -27,7 +27,7 @@ const {
   toSliceRequest,
   touchProject,
 } = await import('./projects.js');
-const { writeBinaryStl } = await import('../slicer/threemf.js');
+const { writeBinaryStl } = await import('../slicer/threemf/index.js');
 const { saveModel } = await import('../services/models.js');
 const { setActiveSchema } = await import('../services/schema.js');
 const { IDENTITY, instanceBounds } = await import('@webslicer/shared');

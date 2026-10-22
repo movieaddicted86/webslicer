@@ -6,7 +6,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import JSZip from 'jszip';
-import { build3mf, parseStl, writeBinaryStl, type ThreeMfObject } from '../slicer/threemf.js';
+import { build3mf, parseStl, writeBinaryStl, type ThreeMfObject } from '../slicer/threemf/index.js';
 import { loadModelBuffer } from './meshes.js';
 import { IDENTITY, translate } from '@webslicer/shared';
 

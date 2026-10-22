@@ -20,7 +20,7 @@ import {
   defaultPresetName,
   userPresetExists,
 } from '../slicer/presets.js';
-import { parseStl, read3mfProject } from '../slicer/threemf.js';
+import { parseStl, read3mfProject } from '../slicer/threemf/index.js';
 import { createJob, getJob, listJobs, subscribe, cancelJob, deleteJob, jobOutputPath, readJobLog } from '../jobs.js';
 import type { PhysicalPrinter, PresetType, SliceRequest } from '@webslicer/shared';
 import { listPrinters, upsertPrinter, deletePrinter, getPrinter, testPrinter } from '../services/printers.js';

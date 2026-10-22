@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { build3mf, read3mfProject, transformMesh, type Mesh } from './threemf.js';
+import { build3mf, read3mfProject, transformMesh, type Mesh } from './threemf/index.js';
 import { IDENTITY, translate } from '@webslicer/shared';
 
 function cube(size: number): Mesh {
@@ -96,7 +96,7 @@ test('3MF roundtrip of height ranges and MMU paint', async () => {
 });
 
 test('custom G-codes per print Z roundtrip', async () => {
-  const { customGcodeXml, parseCustomGcodeXml } = await import('./threemf.js');
+  const { customGcodeXml, parseCustomGcodeXml } = await import('./threemf/index.js');
   const xml = customGcodeXml(
     [
       { printZ: 5.2, type: 'pause', extra: 'Insert magnets' },

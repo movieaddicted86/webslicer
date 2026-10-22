@@ -10,7 +10,7 @@ import path from 'node:path';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import JSZip from 'jszip';
-import { build3mf, type Mesh, type ThreeMfObject } from './threemf.js';
+import { build3mf, type Mesh, type ThreeMfObject } from './threemf/index.js';
 import { IDENTITY, translate } from '@webslicer/shared';
 
 const FILE = path.join(import.meta.dirname, 'fixtures', 'written-3mf.json');

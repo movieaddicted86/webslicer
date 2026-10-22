@@ -11,7 +11,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { config } from '../config.js';
-import { writeBinaryStl, type Mesh } from '../slicer/threemf.js';
+import { writeBinaryStl, type Mesh } from '../slicer/threemf/index.js';
 
 export interface StoredModel {
   id: string;
