@@ -68,6 +68,21 @@ function ScalarInput({
   }
 }
 
+interface BedEditorState {
+  text: string;
+  custom: boolean;
+}
+
+/**
+ * B11: the state the bed editor shows after the incoming value changed from outside (a printer
+ * switch). A rect stays editable as a rect, a polygon as a polygon; without this the editor kept the
+ * previous printer's text and wrote it back on blur.
+ */
+export function syncBedEditor(value: string, shown: string, state: BedEditorState): BedEditorState {
+  if (value === shown) return state;
+  return { text: value, custom: parsePoints(value).length !== 4 };
+}
+
 function BedShapeEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const pts = parsePoints(value);
   const xs = pts.map((p) => p[0]);
@@ -77,8 +92,14 @@ function BedShapeEditor({ value, onChange }: { value: string; onChange: (v: stri
     minY = Math.min(...ys, 0),
     maxY = Math.max(...ys, 0);
   const isRect = pts.length === 4;
-  const [custom, setCustom] = useState(!isRect);
-  const [text, setText] = useState(value);
+  const [state, setState] = useState<BedEditorState>({ text: value, custom: !isRect });
+  const [shown, setShown] = useState(value);
+  if (value !== shown) {
+    setShown(value);
+    setState(syncBedEditor(value, shown, state));
+  }
+  const { custom, text } = state;
+  const setText = (t: string) => setState({ ...state, text: t });
   const setRect = (nx: number, ny: number, ox: number, oy: number) => {
     onChange(
       serializePoints([
@@ -116,7 +137,7 @@ function BedShapeEditor({ value, onChange }: { value: string; onChange: (v: stri
         />
       )}
       <label className="checkbox small">
-        <input type="checkbox" checked={custom} onChange={(e) => setCustom(e.target.checked)} /> Custom shape (polygon points "XxY,…")
+        <input type="checkbox" checked={custom} onChange={(e) => setState({ ...state, custom: e.target.checked })} /> Custom shape (polygon points "XxY,…")
       </label>
     </div>
   );

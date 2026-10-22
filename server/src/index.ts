@@ -30,7 +30,9 @@ async function main() {
   } catch (e) {
     console.error(`[webslicer] could not build option schema: ${(e as Error).message}`);
   }
-  loadJobsFromDisk();
+  // B11: without the await the server accepted requests before the queue had the jobs of the last
+  // run, so a client could see an empty `/api/jobs` and a restart's cleanup ran behind the listener
+  await loadJobsFromDisk();
   seedSamples();
 
   const tokens = bootstrapEnvToken();
