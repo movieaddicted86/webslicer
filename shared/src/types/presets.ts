@@ -57,6 +57,17 @@ export interface InstalledPrinter {
 /** Print host the sliced G-code can be uploaded to. */
 export type HostType = 'octoprint' | 'moonraker' | 'prusalink';
 
+/**
+ * The narrow limits of one known machine (S1-d): the global typo catchers are wide on purpose, so a
+ * physical printer can say what *it* may take. A job above them is a `send.printer_limit` block.
+ */
+export interface PrinterSafety {
+  /** highest hotend temperature in °C – 240 for a PTFE-lined hotend */
+  maxHotend?: number;
+  /** highest bed temperature in °C */
+  maxBed?: number;
+}
+
 export interface PhysicalPrinter {
   id: string;
   name: string;
@@ -68,4 +79,6 @@ export interface PhysicalPrinter {
   presetName?: string;
   /** accept self-signed HTTPS certificates */
   ignoreTls?: boolean;
+  /** the machine's own temperature limits (S1-d), optional */
+  safety?: PrinterSafety;
 }
