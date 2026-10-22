@@ -12,11 +12,17 @@ import type { FullConfig } from '@playwright/test';
 export const E2E_PRINTER = 'Original Prusa i3 MK3S & MK3S+';
 
 /**
- * A user print preset that only `e2e/fixtures/data/presets/print/` carries. Its presence says "this
- * data dir is a fixture copy", which no real instance has – a test against real data would delete the
- * user's jobs and overwrite their presets, so the check comes before the first write.
+ * A user **SLA print** preset that only `e2e/fixtures/data/presets/sla_print/` carries. Its presence
+ * says "this data dir is a fixture copy", which no real instance has – a test against real data would
+ * delete the user's jobs and overwrite their presets, so the check comes before the first write.
+ *
+ * SLA on purpose: a user *print* preset would take part in the compatibility pick that runs on
+ * startup (`ensureCompatiblePresets`), and the first compatible one becomes the active print settings.
+ * The FFF UI never reads SLA presets, so this marker is inert.
  */
 export const E2E_MARKER_PRESET = 'E2E fixture – do not use';
+/** The preset type the marker lives in. */
+export const E2E_MARKER_TYPE = 'sla_print';
 
 async function health(baseURL: string): Promise<string | undefined> {
   try {
@@ -47,7 +53,7 @@ export default async function globalSetup(config: FullConfig): Promise<void> {
   // A real instance (a compose stack, a NAS install) has jobs, presets and printers of its own; the
   // suite would delete its jobs below and overwrite presets and autosave files in the specs. The
   // marker preset is only in the fixture dir, so its absence means "stop here, write nothing".
-  const marker = await fetch(`${baseURL}/api/presets/print/${encodeURIComponent(E2E_MARKER_PRESET)}`);
+  const marker = await fetch(`${baseURL}/api/presets/${E2E_MARKER_TYPE}/${encodeURIComponent(E2E_MARKER_PRESET)}`);
   if (!marker.ok) {
     throw new Error(
       `refusing to run: ${baseURL} is not a fixture instance – the marker preset "${E2E_MARKER_PRESET}" is missing (${marker.status}).\n` +
