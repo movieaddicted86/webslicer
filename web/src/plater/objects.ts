@@ -33,29 +33,28 @@ export function pickedInstanceId(state: { selectedIds: string[]; selectedInstanc
   return id && o.instances.some((i) => i.id === id) ? id : undefined;
 }
 
+/** The bounding box of a geometry, computing it when needed; throws on a mesh without positions. */
+function boundsOf(g: THREE.BufferGeometry): THREE.Box3 {
+  if (!g.boundingBox) g.computeBoundingBox();
+  const bb = g.boundingBox;
+  if (!bb) throw new Error('geometry has no bounding box');
+  return bb;
+}
+
 /** World-space bounds of one instance (its own scale applies to the object's volumes too). */
 export function instanceBounds(o: PlaterObject, inst: PlaterInstance): THREE.Box3 {
-  if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
   const im = placementMatrix(inst);
-  let box = sharedInstanceBounds(fromBox3(o.geometry.boundingBox!), im);
+  let box = sharedInstanceBounds(fromBox3(boundsOf(o.geometry)), im);
   for (const v of o.volumes || []) {
     if (v.type !== 'ModelPart') continue;
-    if (!v.geometry.boundingBox) v.geometry.computeBoundingBox();
     // the volume matrix first, then the instance's – Box3.applyMatrix4 chained did the same two hulls
-    const vb = sharedInstanceBounds(sharedInstanceBounds(fromBox3(v.geometry.boundingBox!), placementMatrix(v)), im);
+    const vb = sharedInstanceBounds(sharedInstanceBounds(fromBox3(boundsOf(v.geometry)), placementMatrix(v)), im);
     box = {
       min: [Math.min(box.min[0], vb.min[0]), Math.min(box.min[1], vb.min[1]), Math.min(box.min[2], vb.min[2])],
       max: [Math.max(box.max[0], vb.max[0]), Math.max(box.max[1], vb.max[1]), Math.max(box.max[2], vb.max[2])],
     };
   }
   return toBox3(box);
-}
-
-/** World-space bounds of all instances (for whole-object checks). */
-export function objectBounds(o: PlaterObject): THREE.Box3 {
-  const box = new THREE.Box3();
-  for (const inst of o.instances) box.union(instanceBounds(o, inst));
-  return box;
 }
 
 /** next id of a plater object, same `obj-N` pattern as volumes, ranges and instances */
@@ -92,7 +91,7 @@ export function makeVolume(input: NewVolumeInput, offset: [number, number, numbe
     position = input.position;
   } else {
     // centre the geometry at its own origin and remember where it was (object frame)
-    const bb = g.boundingBox!;
+    const bb = boundsOf(g);
     const cx = (bb.min.x + bb.max.x) / 2;
     const cy = (bb.min.y + bb.max.y) / 2;
     const cz = (bb.min.z + bb.max.z) / 2;

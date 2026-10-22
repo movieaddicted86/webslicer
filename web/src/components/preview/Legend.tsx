@@ -3,18 +3,20 @@ import { useStore } from '../../state/store';
 import { FEATURE_COLORS, type ParsedGcode } from '../../gcode/types';
 import { RANGE_SCHEMES, legendSteps, schemeRange, type PreviewColorMode } from '../../gcode/colorschemes';
 import { colorPrintSegments, normalizeColor } from '../../gcode/colorprint';
-import { fmtFeatureTime, fmtLayerTime } from './formats';
+import { fmtFeatureTime, fmtLayerTime, fmtZ } from '../../format';
 
 /** Gradient legend of a range colour scheme (speed, fan, temperature, …), maximum on top like PrusaSlicer. */
-export function RangeLegend({ gcode, mode, estimatedSeconds }: { gcode: ParsedGcode; mode: PreviewColorMode; estimatedSeconds?: number }) {
-  const scheme = RANGE_SCHEMES[mode]!;
+function RangeLegend({ gcode, mode, estimatedSeconds }: { gcode: ParsedGcode; mode: PreviewColorMode; estimatedSeconds?: number }) {
+  const scheme = RANGE_SCHEMES[mode];
   const range = useMemo(() => schemeRange(gcode, mode), [gcode, mode]);
   // layer times come from feedrates only; scale them to the slicer's estimate (which includes acceleration)
   const timeScale = useMemo(() => {
-    if (!scheme.perLayer || !estimatedSeconds) return 1;
+    if (!scheme?.perLayer || !estimatedSeconds) return 1;
     const sum = gcode.layerTime.reduce((a, b) => a + b, 0);
     return sum > 0 ? estimatedSeconds / sum : 1;
-  }, [gcode, scheme.perLayer, estimatedSeconds]);
+  }, [gcode, scheme?.perLayer, estimatedSeconds]);
+  // a mode without a range scheme has no gradient to show
+  if (!scheme) return null;
   const label = (v: number) => (scheme.perLayer ? fmtLayerTime(v * timeScale) : v.toFixed(scheme.decimals));
   if (range[1] <= 0 && range[0] <= 0) return <div className="muted small">No data for this view in the G-code.</div>;
   return (
@@ -74,7 +76,7 @@ export function PreviewLegend({
             <span className="swatch" style={{ background: s.color }} />
             <span className="name">{i === 0 ? 'Default color' : `Color ${i}`}</span>
             <span className="muted">
-              {s.fromZ.toFixed(2)} – {s.toZ.toFixed(2)} mm
+              {fmtZ(s.fromZ)} – {fmtZ(s.toZ)} mm
             </span>
           </li>
         ))}

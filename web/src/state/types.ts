@@ -134,8 +134,8 @@ export interface Toast {
  * The state the slices share. Everything here is read (or written) by more than one slice, or is
  * owned by an action that lives in a different slice than the data:
  *
- * - server metadata and the dialog: `init` (ui) fills `info`/`schema`, while `restoreAutosave` (job)
- *   and the preset actions open dialogs and read the schema.
+ * - server metadata and the dialog: `init` (ui) fills `info`/`schema`, while the autosave restore
+ *   (`importFiles.ts`) and the preset actions open dialogs and read the schema.
  * - the selection fields: the plater owns them, the history slice clears/repairs them on undo.
  * - `gcode`/`gcodeJobId`: the plater clears them, the preview loads them, the job asks for them.
  * - `autosaveInfo`: `init` (ui) offers it, the job slice writes it.

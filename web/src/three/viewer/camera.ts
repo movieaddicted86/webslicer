@@ -68,7 +68,7 @@ export function bedBox(bedShape: string): THREE.Box3 {
 }
 
 /** World bounds of the toolpaths of the visible layers (undefined when the range is empty). */
-export function gcodeBox(g: ParsedGcode, range: [number, number]): THREE.Box3 | undefined {
+function gcodeBox(g: ParsedGcode, range: [number, number]): THREE.Box3 | undefined {
   const lo = Math.max(0, Math.min(range[0], g.layerCount - 1));
   const hi = Math.max(lo, Math.min(range[1], g.layerCount - 1));
   const from = g.layerStart[lo] * 6;

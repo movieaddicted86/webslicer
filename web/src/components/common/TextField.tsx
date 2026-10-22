@@ -1,6 +1,6 @@
 import { useFieldDraft, type FieldApply } from './useFieldDraft';
 
-export interface TextFieldProps {
+interface TextFieldProps {
   value: string;
   onChange: (text: string) => void;
   apply?: FieldApply;

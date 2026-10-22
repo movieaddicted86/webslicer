@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useStore } from '../../state/store';
+import { restoreAutosave } from '../../importFiles';
 import { SectionHeader } from '../common/SectionHeader';
 import { ToolbarButton } from '../common/ToolbarButton';
 import { ObjectRow } from './ObjectRow';
@@ -27,7 +28,6 @@ export function ObjectsSection() {
   const canUndo = useStore((s) => s.undoStack.length > 0);
   const canRedo = useStore((s) => s.redoStack.length > 0);
   const autosaveInfo = useStore((s) => s.autosaveInfo);
-  const restoreAutosave = useStore((s) => s.restoreAutosave);
   const discardAutosave = useStore((s) => s.discardAutosave);
   const openDialog = useStore((s) => s.openDialog);
   const [addMenuFor, setAddMenuFor] = useState<string | null>(null);

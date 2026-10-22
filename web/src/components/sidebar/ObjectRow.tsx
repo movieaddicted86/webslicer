@@ -1,6 +1,6 @@
 import { useStore, VOLUME_LABELS, type PlaterObject } from '../../state/store';
 import { objectIsOutside } from '../../three/Viewer';
-import { fmt } from './format';
+import { fmt } from '../../format';
 import { VOLUME_ICONS } from './volumes';
 import { AddVolumeMenu } from './AddVolumeMenu';
 

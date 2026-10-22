@@ -263,7 +263,8 @@ export async function arrange(project: Project, schema: Schema): Promise<Project
   if (!packed) throw new ValidationError('Not all objects fit on the bed');
   const byKey = new Map(items.map((it) => [it.key, it]));
   for (const p of packed) {
-    const it = byKey.get(p.id)!;
+    const it = byKey.get(p.id);
+    if (!it) continue;
     const dx = p.x - (it.box.min[0] + it.box.max[0]) / 2;
     const dy = p.y - (it.box.min[1] + it.box.max[1]) / 2;
     const dz = -it.box.min[2];

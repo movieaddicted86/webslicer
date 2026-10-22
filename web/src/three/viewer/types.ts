@@ -9,7 +9,7 @@ import type { TransformControls } from 'three/examples/jsm/controls/TransformCon
 import type { MarkerKind, ParsedGcode } from '../../gcode/types';
 import type { CameraView } from '../../plater/camera';
 
-export interface InstanceNode {
+interface InstanceNode {
   /** scene node carrying the instance transform; its children are in object-local coordinates */
   group: THREE.Group;
   /** object body; shares the geometry with its sibling instances, owns its material (per-instance colour) */
@@ -20,7 +20,7 @@ export interface InstanceNode {
   slabKey?: string;
 }
 
-export interface ObjectNode {
+interface ObjectNode {
   /** pure container, no transform of its own */
   group: THREE.Group;
   /** one scene node per instance */

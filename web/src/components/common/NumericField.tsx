@@ -1,6 +1,6 @@
 import { useFieldDraft, type FieldApply } from './useFieldDraft';
 
-export interface NumericFieldProps {
+interface NumericFieldProps {
   /** the text shown while the field is not edited – the store value, formatted by the caller */
   text: string;
   /** the text the user typed; the caller parses it and decides what reaches the store */

@@ -32,7 +32,9 @@ export function AddVolumeMenu({ o, onClose }: { o: PlaterObject; onClose: () => 
   const addPrimitive = async (type: VolumeType, shape: PrimitiveShape) => {
     const geometry = createPrimitive(shape, side, [o.size[0], o.size[1], o.size[2]]);
     geometry.computeBoundingBox();
-    const h = geometry.boundingBox!.max.z - geometry.boundingBox!.min.z;
+    const bb = geometry.boundingBox;
+    if (!bb) return;
+    const h = bb.max.z - bb.min.z;
     // modifiers etc. start at the object centre; slabs and new parts sit on the bed
     const position: [number, number, number] =
       shape === 'slab' || type === 'ModelPart' ? [0, 0, h / 2] : [0, 0, objSize[2] / 2 / objScale[2]];

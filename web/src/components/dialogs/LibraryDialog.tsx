@@ -2,16 +2,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useStore } from '../../state/store';
 import { libraryApi, type LibraryEntry } from '../../api';
 import { importFiles } from '../../importFiles';
+import { fmtSize } from '../../format';
 import { Modal } from './Modal';
 
 export type LibraryMode = 'open' | 'saveProject' | 'saveGcode';
 
-function fmtSize(n?: number) {
-  if (n === undefined) return '';
-  if (n < 1024) return `${n} B`;
-  if (n < 1048576) return `${(n / 1024).toFixed(1)} KB`;
-  return `${(n / 1048576).toFixed(1)} MB`;
-}
 function fmtDate(s?: string) {
   if (!s) return '';
   const d = new Date(s);

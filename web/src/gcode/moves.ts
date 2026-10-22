@@ -4,7 +4,7 @@ import type { ParsedGcode } from './types';
  * Move window of the top visible layer for the horizontal slider. The three segment kinds share one
  * global move counter, so each kind needs its own bounds.
  */
-export interface MoveWindow {
+interface MoveWindow {
   /** highest move index of the top visible layer, per segment kind (empty kind = -1) */
   end: { extrusion: number; travel: number; wipe: number };
   /** lowest move index of the top visible layer */

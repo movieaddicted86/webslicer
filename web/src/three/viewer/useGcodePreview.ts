@@ -268,7 +268,7 @@ function applyGcodeRange(
   }
 }
 
-export interface GcodePreviewOptions {
+interface GcodePreviewOptions {
   gcode?: ParsedGcode;
   view: View;
   /** visible layer range */

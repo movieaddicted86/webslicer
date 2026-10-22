@@ -9,7 +9,7 @@ import * as THREE from 'three';
 /** PrusaSlicer's standard views, in the order of its number keys: Iso = 0 … Right = 6. */
 export type CameraView = 'iso' | 'top' | 'bottom' | 'front' | 'rear' | 'left' | 'right';
 
-export interface ViewDef {
+interface ViewDef {
   id: CameraView;
   label: string;
   /** the number key of the view (PrusaSlicer: Iso 0, Top 1, Bottom 2, Front 3, Rear 4, Left 5, Right 6) */
@@ -42,7 +42,7 @@ export function viewByKey(key: string): CameraView | undefined {
 }
 
 export function viewDef(view: CameraView): ViewDef {
-  return VIEWS.find((v) => v.id === view)!;
+  return VIEWS.find((v) => v.id === view) ?? VIEWS[0];
 }
 
 /** Orthonormal camera basis: screen right, screen up and the direction towards the camera. */
@@ -55,7 +55,7 @@ export function viewBasis(dir: THREE.Vector3, up: THREE.Vector3): { right: THREE
   return { right, up: new THREE.Vector3().crossVectors(d, right).normalize(), dir: d };
 }
 
-export interface Frame {
+interface Frame {
   /** point the camera looks at – the centre of the box, and the orbit centre */
   target: THREE.Vector3;
   position: THREE.Vector3;

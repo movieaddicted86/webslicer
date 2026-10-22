@@ -51,7 +51,7 @@ const RANGE_COLORS: [number, number, number][] = [
   [0.761, 0.322, 0.235],
   [0.581, 0.149, 0.087],
 ];
-export const RANGE_STEPS = RANGE_COLORS.length;
+const RANGE_STEPS = RANGE_COLORS.length;
 
 /** Colour at position t ∈ [0, 1] of the gradient. */
 export function rangeColor(t: number): [number, number, number] {
@@ -63,8 +63,7 @@ export function rangeColor(t: number): [number, number, number] {
   return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f];
 }
 
-export const rgbCss = ([r, g, b]: [number, number, number]) =>
-  `rgb(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)})`;
+const rgbCss = ([r, g, b]: [number, number, number]) => `rgb(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)})`;
 
 /** Min/max of a scheme (layer times: only layers that take time; log scale: only positive values). */
 export function schemeRange(g: ParsedGcode, mode: PreviewColorMode): [number, number] {

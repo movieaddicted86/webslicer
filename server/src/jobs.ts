@@ -153,7 +153,8 @@ export async function createJob(req: SliceRequest, schema: Schema): Promise<JobR
 
 function pump() {
   while (running < config.maxJobs && queue.length) {
-    const id = queue.shift()!;
+    const id = queue.shift();
+    if (!id) break;
     const job = jobs.get(id);
     if (!job || job.status !== 'queued') continue;
     running++;
@@ -231,7 +232,8 @@ async function collectJobInfo(job: JobRecord, outFile: string, warnings: string[
 async function runJob(job: JobRecord) {
   const dir = jobDir(job.id);
   const req = await readJobRequest(job.id);
-  const schema = schemaRef!;
+  const schema = schemaRef;
+  if (!schema) throw new Error('schema not loaded yet');
   job.status = 'running';
   job.startedAt = new Date().toISOString();
   job.message = 'Preparing model';

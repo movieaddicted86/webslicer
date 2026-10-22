@@ -8,7 +8,7 @@ import { presetDiff, shortValue } from '../../plater/presetDiff';
  * changes. It lists them and asks what happens to them – transfer, save, discard or cancel.
  */
 export function UnsavedChangesDialog({ onClose, payload }: { onClose: () => void; payload: PendingPresetSwitch }) {
-  const schema = useStore((s) => s.schema)!;
+  const schema = useStore((s) => s.schema);
   const selectPreset = useStore((s) => s.selectPreset);
   const transferChanges = useStore((s) => s.transferChanges);
   const toast = useStore((s) => s.toast);
@@ -43,6 +43,8 @@ export function UnsavedChangesDialog({ onClose, payload }: { onClose: () => void
   const transfer = () => run(transferChanges);
   const save = () => run(() => savePendingPreset(name.trim()));
 
+  // the schema is loaded before a dialog can open (App waits for `ready`)
+  if (!schema) return null;
   return (
     <Modal title="Unsaved Changes" onClose={onClose} wide>
       <p>

@@ -13,7 +13,7 @@ import { computeCentroids, trianglesInSphere, type PaintKind } from '../paint';
 import { EXTRUDER_COLORS } from './colors';
 import type { SceneRefs } from './types';
 
-export interface Painting {
+interface Painting {
   /** a press: true when it started a stroke, so the scene keeps that press away from picking */
   down(e: PointerEvent): boolean;
   /** pointer move: continues the stroke and follows the brush cursor */
@@ -54,7 +54,8 @@ export function createPainting(refs: SceneRefs): Painting {
     const p = pickPaintHit(e);
     if (!p) return;
     const { hit, st } = p;
-    const o = st.objects.find((x) => x.id === paintStroke!.objectId);
+    const strokeId = paintStroke.objectId;
+    const o = st.objects.find((x) => x.id === strokeId);
     if (!o) return;
     const selInst = selectedInstance(st, o);
     let centroids = centroidCache.get(o.geometry);

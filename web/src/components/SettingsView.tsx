@@ -9,7 +9,7 @@ import type { PresetType } from '../api';
 
 export function SettingsView() {
   const view = useStore((s) => s.view) as PresetType;
-  const schema = useStore((s) => s.schema)!;
+  const schema = useStore((s) => s.schema);
   const mode = useStore((s) => s.mode);
   const presets = useStore((s) => s.presets);
   const setOption = useStore((s) => s.setOption);
@@ -24,13 +24,13 @@ export function SettingsView() {
   const tech = presets.printer.current.printer_technology === 'SLA' ? 'SLA' : 'FFF';
   const tabType: PresetType =
     tech === 'SLA' && type === 'print' ? 'sla_print' : tech === 'SLA' && type === 'filament' ? 'sla_material' : type;
-  const tab = schema.layout.find((t) => t.presetType === tabType) || schema.layout.find((t) => t.presetType === type)!;
+  const tab = schema ? schema.layout.find((t) => t.presetType === tabType) || schema.layout.find((t) => t.presetType === type) : undefined;
   const slot =
     type === 'filament' ? presets.filament[Math.min(extruderIdx, presets.filament.length - 1)] : presets[type as 'print' | 'printer'];
 
   const rank = MODE_RANK[mode];
   const visibleKey = (k: string) => {
-    const d = schema.options[k];
+    const d = schema?.options[k];
     if (!d) return false;
     // options the server drops before slicing (SEC-1) are not editable – a preset may still carry
     // them, so they are listed read-only with the reason instead of silently doing nothing
@@ -42,6 +42,7 @@ export function SettingsView() {
   };
 
   const pages = useMemo(() => {
+    if (!schema || !tab) return [];
     const q = search.trim().toLowerCase();
     if (!q) return tab.pages;
     return tab.pages
@@ -60,6 +61,8 @@ export function SettingsView() {
       .filter((p) => p.groups.length);
   }, [tab, search, schema]);
 
+  // the schema is loaded before the settings view can be shown (App waits for `ready`), and so is a tab
+  if (!schema || !tab) return null;
   const page = search ? undefined : pages[Math.min(pageIdx, pages.length - 1)];
   const shownPages = search ? pages : page ? [page] : [];
 

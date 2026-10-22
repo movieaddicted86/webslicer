@@ -1,6 +1,7 @@
 import { useStore } from '../../state/store';
 import { TextField } from '../common/TextField';
 import { colorAtZ, normalizeColor, suggestColor } from '../../gcode/colorprint';
+import { fmtZ } from '../../format';
 import { CODE_LABEL } from './formats';
 
 /**
@@ -25,7 +26,7 @@ export function LayerCodes({ printZ, firstLayer, maxZ }: { printZ: number | unde
   return (
     <div className="layer-codes">
       <div className="layer-codes-add">
-        <span className="small muted">At Z {z.toFixed(2)} mm:</span>
+        <span className="small muted">At Z {fmtZ(z)} mm:</span>
         <button
           disabled={disabled}
           title="Insert a filament change (M600) before this layer"
@@ -54,7 +55,7 @@ export function LayerCodes({ printZ, firstLayer, maxZ }: { printZ: number | unde
         <ul className="code-list">
           {codes.map((c) => (
             <li key={c.printZ} className={Math.abs(c.printZ - z) < 1e-4 ? 'current' : ''}>
-              <span className="code-z">{c.printZ.toFixed(2)}</span>
+              <span className="code-z">{fmtZ(c.printZ)}</span>
               <span className="code-type">{CODE_LABEL[c.type]}</span>
               {c.type === 'color_change' && (
                 <>

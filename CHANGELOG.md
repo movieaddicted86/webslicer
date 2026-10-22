@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Refactoring cleanup (R-12), no behaviour change: the web UI formats numbers, times and sizes
+  through one `web/src/format.ts` instead of per-call-site helpers (the output strings are pinned
+  by a unit test), exports that nothing imported are gone (`objectBounds`, `PAINT_NONE`,
+  `TOOL_NAMES`, `resetSchemaCache`, … – see `.ai/reports/T-029.md`), the last runtime import cycle
+  of the web store is broken (the autosave restore now lives in `importFiles.ts`), the volume type
+  list is read from the shared `VOLUME_TYPES`, and 44 non-null assertions in non-hot paths became
+  ordinary guards. No visible behaviour change: the T-017 and T-018 browser suites give the same
+  DOM, the same values and pixel-identical screenshots on `main` and the branch.
 - Refactoring of the slicer modules (R-11), no behaviour change: the three oversized files in
   `server/src/slicer/` are split by responsibility. `layout.ts` (1003 lines) became
   `slicer/layout/` – the curated tab table (`fff.data.ts`), the option metadata

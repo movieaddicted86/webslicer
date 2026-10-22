@@ -42,8 +42,9 @@ export function parseCustomGcodeXml(text: string): CustomGcode[] {
   const re = /<code\b([^>]*)\/?>/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(text))) {
+    const attributes = m[1];
     const attr = (name: string) => {
-      const a = new RegExp(`\\b${name}="([^"]*)"`).exec(m![1]);
+      const a = new RegExp(`\\b${name}="([^"]*)"`).exec(attributes);
       return a ? xmlUnescape(a[1]) : undefined;
     };
     const printZ = Number(attr('print_z'));

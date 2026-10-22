@@ -3,7 +3,8 @@ import { NumericField } from '../common/NumericField';
 import { TransformInputs } from './TransformInputs';
 import { PaintPanel } from './PaintPanel';
 import { RangePanel } from './RangePanel';
-import { AXES, fmt } from './format';
+import { AXES } from './axes';
+import { fmt } from '../../format';
 import type { Placement } from '../../api';
 
 /** The manipulation panel of the selected object (instance placement, copies, mirror, painting) */

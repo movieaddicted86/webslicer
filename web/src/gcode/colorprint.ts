@@ -1,7 +1,7 @@
 import type { CustomGcode } from '../api';
 import { DEFAULT_COLOR_CSS } from '../palette';
 
-export interface ColorSegment {
+interface ColorSegment {
   color: string;
   fromZ: number;
   toZ: number;

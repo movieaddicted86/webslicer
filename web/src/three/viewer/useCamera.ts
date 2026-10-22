@@ -15,7 +15,7 @@ import { viewDirection } from '../../plater/camera';
 import { DEFAULT_BED, bedBox, focusBox, frameBox, readOrthoPref, switchCamera, writeOrthoPref } from './camera';
 import type { CamRequest, SceneRefs } from './types';
 
-export interface CameraState {
+interface CameraState {
   /** true while the orthographic projection is active */
   ortho: boolean;
   /** the last command with its sequence number; the counter makes a repeated command re-run */

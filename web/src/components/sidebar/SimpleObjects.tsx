@@ -1,4 +1,5 @@
 import { useStore } from '../../state/store';
+import { restoreAutosave } from '../../importFiles';
 import { SectionHeader } from '../common/SectionHeader';
 import { ToolbarButton } from '../common/ToolbarButton';
 import { useDeleteSelection, useInstanceActions, useSelectedObjects } from './selection';
@@ -9,7 +10,6 @@ export function SimpleObjects() {
   const arrange = useStore((s) => s.arrange);
   const clear = useStore((s) => s.clearObjects);
   const autosaveInfo = useStore((s) => s.autosaveInfo);
-  const restoreAutosave = useStore((s) => s.restoreAutosave);
   const discardAutosave = useStore((s) => s.discardAutosave);
   const openDialog = useStore((s) => s.openDialog);
 

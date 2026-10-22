@@ -1,6 +1,7 @@
 import { useId } from 'react';
 import { useStore } from '../../state/store';
 import type { ParsedGcode } from '../../gcode/types';
+import { fmtZ } from '../../format';
 import { CODE_LABEL, layerIndexOfZ } from './formats';
 
 /** The top and bottom layer sliders; the marks on the top one are the colour changes and pauses. */
@@ -34,7 +35,7 @@ export function LayerSlider({ gcode }: { gcode: ParsedGcode }) {
                 key={c.printZ}
                 className={`marker ${c.type}`}
                 style={{ left: `${pct}%`, background: c.type === 'color_change' ? c.color : undefined }}
-                title={`${CODE_LABEL[c.type]} at Z ${c.printZ.toFixed(2)} mm – click to jump`}
+                title={`${CODE_LABEL[c.type]} at Z ${fmtZ(c.printZ)} mm – click to jump`}
                 onClick={() => setRange([Math.min(range[0], idx), idx])}
               />
             );
