@@ -38,7 +38,7 @@ export function SlicePanel() {
       )}
       {anyModified && <div className="muted small">Using modified (unsaved) settings.</div>}
       {objects.length > 0 && autosaveState !== 'idle' && (
-        <div className="muted small" title="The plater is autosaved on the server and offered for restore after a reload.">
+        <div className="muted small" title="The plater is autosaved on the server and restored automatically after a reload.">
           {autosaveState === 'saving' ? 'Autosaving…' : autosaveState === 'saved' ? 'Autosaved' : 'Autosave failed'}
         </div>
       )}

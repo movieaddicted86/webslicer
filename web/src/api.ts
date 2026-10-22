@@ -173,8 +173,9 @@ export const libraryApi = {
 };
 
 export const autosaveApi = {
-  save: (client: string, req: SliceRequest) =>
-    fetch(`/api/autosave/${client}`, jsonInit('PUT', req)).then((r) => handle<{ ok: boolean; savedAt: string }>(r)),
+  /** `keepalive` lets the request outlive the page (the flush when the tab is hidden or closed). */
+  save: (client: string, req: SliceRequest, keepalive = false) =>
+    fetch(`/api/autosave/${client}`, { ...jsonInit('PUT', req), keepalive }).then((r) => handle<{ ok: boolean; savedAt: string }>(r)),
   info: async (client: string) => {
     const r = await fetch(`/api/autosave/${client}?info`);
     if (r.status === 404) return undefined;

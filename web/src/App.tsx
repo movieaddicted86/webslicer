@@ -1,5 +1,6 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useStore } from './state/store';
+import { startSession } from './state/session';
 import { TopBar } from './components/TopBar';
 import { Sidebar } from './components/Sidebar';
 import { SettingsView } from './components/SettingsView';
@@ -13,10 +14,19 @@ export function App() {
   const ready = useStore((s) => s.ready);
   const fatal = useStore((s) => s.fatal);
   const view = useStore((s) => s.view);
+  const sessionStarted = useRef(false);
 
   useEffect(() => {
     init();
   }, [init]);
+
+  // The last session comes back on its own (T-035) – once the presets are loaded, so the restored
+  // project settings meet the same store a click on "Restore" did.
+  useEffect(() => {
+    if (!ready || sessionStarted.current) return;
+    sessionStarted.current = true;
+    void startSession();
+  }, [ready]);
 
   if (fatal) {
     return (

@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+- **Session restore (UX):** opening WebSlicer again shows the last plater right away. After a reload –
+  and after the browser was closed and reopened – the objects, instances, volumes, paint, height
+  ranges, custom G-codes, the selected presets (unsaved modifications included), the plater/preview
+  tab and the projection are back without a click; a toast says "Previous session restored" and
+  offers **Start empty**, which clears the plater and drops the autosave so the next reload stays
+  empty. The old "Unsaved session found – Restore/Discard" notice is gone; it only shows (with the
+  error and a Retry) when the automatic restore failed. The server autosave stays the source of
+  truth; a pending save is flushed on `visibilitychange → hidden` / `pagehide` with
+  `fetch(…, { keepalive: true })`, so the last seconds before a reload are no longer lost, and a
+  request larger than the 64 KiB keepalive budget is kept in IndexedDB and written on the next start.
+  "Delete all", "Start empty" and a new import replace the stored autosave. Two tabs: last write wins
+  (no tab sync).
+
 - **Safety (S1-d):** settings are now checked before the slicer runs, and a print host can carry its
   own limits. `POST /api/slice` (and the project slice, and the MCP `slice` tool) run the new
   `shared/src/safety/configLimits.ts` over the request: a hotend temperature outside `0` or

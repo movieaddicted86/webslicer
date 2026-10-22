@@ -135,15 +135,20 @@ export async function importFiles(files: FileList | File[]) {
   }
 }
 
-/** Replace the plater with the server-side autosave of this client, if there is one. */
-export async function restoreAutosave() {
+/**
+ * Replace the plater with the server-side autosave of this client, if there is one. The automatic
+ * start (T-035) passes `quiet`: it says "Previous session restored" itself and reports its own
+ * failure, so the restore must not toast twice.
+ */
+export async function restoreAutosave({ quiet = false } = {}) {
   const st = useStore.getState();
   try {
     const blob = await autosaveApi.fetch(clientId());
     await importFiles([new File([blob], 'autosave.3mf')]);
-    useStore.setState({ autosaveInfo: undefined });
-    st.toast('success', 'Previous session restored');
+    useStore.setState({ autosaveError: undefined });
+    if (!quiet) st.toast('success', 'Previous session restored');
   } catch (e) {
+    if (quiet) throw e;
     st.toast('error', `Restore failed: ${(e as Error).message}`);
   }
 }

@@ -128,7 +128,8 @@ export interface E2EState {
   dialogPayload?: unknown;
   pendingSwitch?: unknown;
   autosaveState: string;
-  autosaveInfo?: { savedAt: string; size: number };
+  /** set when the automatic restore of the previous session failed */
+  autosaveError?: string;
   installed: unknown[];
   vendors: unknown[];
   physicalPrinters: unknown[];
@@ -164,6 +165,11 @@ export interface E2EState {
   refreshPresetLists: () => Promise<void>;
   autosaveNow: () => Promise<void>;
   discardAutosave: () => Promise<void>;
+  /** painting (T-035 drives it to prove the paint survives a reload) */
+  startPaint: (objectId: string, kind: 'supports' | 'seam') => Promise<void>;
+  beginPaintStroke: (objectId: string) => void;
+  applyPaint: (objectId: string, kind: 'supports' | 'seam', triangles: number[], value: number) => void;
+  stopPaint: () => void;
 }
 
 /** The debug handle `main.tsx` puts on the window. */

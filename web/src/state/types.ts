@@ -128,6 +128,8 @@ export interface Toast {
   id: number;
   kind: 'info' | 'error' | 'success';
   text: string;
+  /** one button on the toast (e.g. "Start empty" on the restore notice); clicking the toast still dismisses it */
+  action?: { label: string; run: () => void };
 }
 
 /**
@@ -138,7 +140,7 @@ export interface Toast {
  *   (`importFiles.ts`) and the preset actions open dialogs and read the schema.
  * - the selection fields: the plater owns them, the history slice clears/repairs them on undo.
  * - `gcode`/`gcodeJobId`: the plater clears them, the preview loads them, the job asks for them.
- * - `autosaveInfo`: `init` (ui) offers it, the job slice writes it.
+ * - `autosaveError`: `session.ts` writes it when the automatic restore fails, the objects list reads it.
  */
 export interface CoreState {
   ready: boolean;
@@ -160,8 +162,8 @@ export interface CoreState {
   job?: JobRecord;
   gcode?: ParsedGcode;
   gcodeJobId?: string;
-  /** autosave of the plater on the server (per browser) */
-  autosaveInfo?: { savedAt: string; size: number };
+  /** the automatic restore of the last session failed; the objects list offers a retry with this message */
+  autosaveError?: string;
 }
 
 /** The whole store state: what every slice contributes plus the state they share. */
