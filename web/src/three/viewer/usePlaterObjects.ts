@@ -36,7 +36,7 @@ function makeVolumeMesh(v: PlaterVolume): THREE.Mesh {
   return mesh;
 }
 
-export interface PlaterObjectsOptions {
+interface PlaterObjectsOptions {
   objects: PlaterObject[];
   selectedIds: string[];
   selectedVolumeId?: string;

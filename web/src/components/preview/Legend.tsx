@@ -6,7 +6,7 @@ import { colorPrintSegments, normalizeColor } from '../../gcode/colorprint';
 import { fmtFeatureTime, fmtLayerTime, fmtZ } from '../../format';
 
 /** Gradient legend of a range colour scheme (speed, fan, temperature, …), maximum on top like PrusaSlicer. */
-export function RangeLegend({ gcode, mode, estimatedSeconds }: { gcode: ParsedGcode; mode: PreviewColorMode; estimatedSeconds?: number }) {
+function RangeLegend({ gcode, mode, estimatedSeconds }: { gcode: ParsedGcode; mode: PreviewColorMode; estimatedSeconds?: number }) {
   const scheme = RANGE_SCHEMES[mode]!;
   const range = useMemo(() => schemeRange(gcode, mode), [gcode, mode]);
   // layer times come from feedrates only; scale them to the slicer's estimate (which includes acceleration)

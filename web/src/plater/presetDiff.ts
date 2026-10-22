@@ -1,7 +1,7 @@
 import type { Config } from '../api';
 
 /** One option in which a preset differs from its saved state. */
-export interface PresetDiffEntry {
+interface PresetDiffEntry {
   key: string;
   /** saved value ('' when the key only exists in the current config) */
   from: string;

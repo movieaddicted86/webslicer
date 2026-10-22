@@ -51,13 +51,6 @@ export function instanceBounds(o: PlaterObject, inst: PlaterInstance): THREE.Box
   return toBox3(box);
 }
 
-/** World-space bounds of all instances (for whole-object checks). */
-export function objectBounds(o: PlaterObject): THREE.Box3 {
-  const box = new THREE.Box3();
-  for (const inst of o.instances) box.union(instanceBounds(o, inst));
-  return box;
-}
-
 /** next id of a plater object, same `obj-N` pattern as volumes, ranges and instances */
 let objectId = 0;
 let volumeId = 0;

@@ -13,9 +13,6 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { ThumbnailFormat, ThumbnailInput } from '@webslicer/shared';
 
-// the `thumbnails` option is read by `@webslicer/shared` (one parser for the browser and the CLI)
-export { parseThumbnailSpec } from '@webslicer/shared';
-
 const TAGS: Record<ThumbnailFormat, string> = { PNG: 'thumbnail', JPG: 'thumbnail_JPG', QOI: 'thumbnail_QOI' };
 
 export function thumbnailBlock(t: ThumbnailInput): string {

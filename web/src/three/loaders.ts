@@ -5,7 +5,7 @@ import { ThreeMFLoader } from 'three/examples/jsm/loaders/3MFLoader.js';
 import { AMFLoader } from 'three/examples/jsm/loaders/AMFLoader.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
-export interface LoadedModel {
+interface LoadedModel {
   name: string;
   geometry: THREE.BufferGeometry;
 }

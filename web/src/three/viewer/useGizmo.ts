@@ -11,7 +11,7 @@ import { type PaintKind } from '../paint';
 import type { State, View } from '../../state/types';
 import type { SceneRefs } from './types';
 
-export interface GizmoOptions {
+interface GizmoOptions {
   objects: PlaterObject[];
   selectedIds: string[];
   selectedVolumeId?: string;

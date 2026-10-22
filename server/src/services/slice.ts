@@ -10,15 +10,8 @@ import { config } from '../config.js';
 import { activeSchema } from './schema.js';
 import { parseStl, transformMesh, build3mf, type ThreeMfObject, type ThreeMfVolume } from '../slicer/threemf/index.js';
 import { parseSliceRequest } from '../validation/slice.js';
-import { splitVector, type PresetType, type Schema, type SliceRequest } from '@webslicer/shared';
+import { splitVector, type Schema, type SliceRequest } from '@webslicer/shared';
 import type { IniSection } from '../slicer/ini.js';
-
-const PRESET_TYPES: PresetType[] = ['print', 'filament', 'printer', 'sla_print', 'sla_material'];
-
-/** Is `type` one of the preset types the API knows? */
-export function isPresetType(type: string): type is PresetType {
-  return (PRESET_TYPES as string[]).includes(type);
-}
 
 /**
  * Validate a slice request in place. The rules live in `validation/slice.ts` as one zod schema (R-10),

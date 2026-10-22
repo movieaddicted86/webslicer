@@ -17,9 +17,8 @@ import { createHistorySlice } from './slices/history';
 import type { State } from './types';
 
 export * from './types';
-export { instanceBounds, objectBounds, pickedInstanceId, selectedInstance } from '../plater/objects';
+export { instanceBounds, pickedInstanceId, selectedInstance } from '../plater/objects';
 export { isModified } from './slices/preset';
-export { geometryToStl } from '../three/geometry';
 export { clientId } from './client';
 
 export const useStore = create<State>()((...a) => ({

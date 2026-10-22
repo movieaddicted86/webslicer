@@ -27,13 +27,6 @@ export const presetBodySchema = z.looseObject({
   inherits: z.string().optional(),
 });
 
-export type PresetBody = z.output<typeof presetBodySchema>;
-
-/** Parse a preset body; throws `ZodError` – the route maps the first issue's message to its 400. */
-export function parsePresetBody(body: unknown): PresetBody {
-  return presetBodySchema.parse(body ?? {});
-}
-
 /**
  * The body of `POST /api/presets/:type/list` – the context a compatibility flag is computed against.
  *

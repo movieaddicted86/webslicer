@@ -21,14 +21,6 @@ export function ordered(...stages: z.ZodType[]): z.ZodType<unknown> {
   return chained as z.ZodType<unknown>;
 }
 
-/**
- * A single schema as an untyped pipe stage – for the cases where only one more rule group follows and
- * the structural pipe types of zod would reject it.
- */
-export function stage(schema: z.ZodType): z.ZodType<unknown> {
-  return schema as unknown as z.ZodType<unknown>;
-}
-
 /** The message of the first issue – the one the API shows. */
 export function firstIssueMessage(error: z.ZodError, fallback: string): string {
   return error.issues[0]?.message || fallback;

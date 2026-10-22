@@ -24,4 +24,3 @@ import type { AnyTool } from './toolTypes.js';
 export const TOOLS: AnyTool[] = [...catalogTools, ...projectTools, ...settingsTools, ...jobTools];
 
 /** Tool names in catalogue order (used by the E2E script and the docs). */
-export const TOOL_NAMES: string[] = TOOLS.map((t) => t.name);

@@ -3,7 +3,7 @@ import { useState, type KeyboardEvent } from 'react';
 /** When the typed text reaches the store: every keystroke, or the end of the edit. */
 export type FieldApply = 'input' | 'commit';
 
-export interface FieldDraft {
+interface FieldDraft {
   /** the text the field shows */
   text: string;
   /** a keystroke – stores the draft and, for `apply: 'input'`, hands the text over at once */

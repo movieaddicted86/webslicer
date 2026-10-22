@@ -7,11 +7,10 @@
 import * as THREE from 'three';
 
 export type PaintKind = 'supports' | 'seam' | 'mmu';
-export const PAINT_NONE = 0;
-export const PAINT_ENFORCER = 1;
-export const PAINT_BLOCKER = 2;
+const PAINT_ENFORCER = 1;
+const PAINT_BLOCKER = 2;
 
-export const PAINT_COLORS: Record<number, [number, number, number]> = {
+const PAINT_COLORS: Record<number, [number, number, number]> = {
   [PAINT_ENFORCER]: [0.25, 0.45, 1.0],
   [PAINT_BLOCKER]: [1.0, 0.3, 0.3],
 };

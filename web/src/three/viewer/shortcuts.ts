@@ -13,7 +13,7 @@ import { viewByKey } from '../../plater/camera';
  * The Ctrl/Cmd guard a branch of the original handler carried. It was not uniform, so the four
  * spellings are kept apart instead of normalised into one rule.
  */
-export type CtrlGuard =
+type CtrlGuard =
   /** `!e.ctrlKey && !e.metaKey` – the camera keys */
   | 'no-mod'
   /** `e.ctrlKey || e.metaKey` – undo/redo */
@@ -23,7 +23,7 @@ export type CtrlGuard =
   /** `!e.ctrlKey`, `metaKey` not looked at – the plain `A` branch that `Cmd+A` falls through to */
   | 'no-ctrl';
 
-export interface Shortcut {
+interface Shortcut {
   id: string;
   /** the keys as they read in the UI; two entries with `range` are the ends of a range (`0`…`6`) */
   keys: string[];

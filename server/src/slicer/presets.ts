@@ -8,7 +8,7 @@ import { config } from '../config.js';
 import { loadBundles, findSystemPreset, type SystemPreset } from './bundles.js';
 import { parseIni, serializeIni, type IniSection } from './ini.js';
 import { evaluateCondition } from './condition.js';
-import { splitVector, unescapeStringsCstyle } from '@webslicer/shared';
+import { unescapeStringsCstyle } from '@webslicer/shared';
 import type { InstalledPrinter, PresetSummary, PresetType, ResolvedPreset, Schema } from '@webslicer/shared';
 
 function safeName(name: string): string {
@@ -264,9 +264,4 @@ export function listPresets(schema: Schema, type: PresetType, opts: ListOptions 
     });
   }
   return out;
-}
-
-/** Number of extruders defined by a printer config */
-export function extruderCount(printerCfg: IniSection): number {
-  return Math.max(1, splitVector(printerCfg.nozzle_diameter || '0.4').length);
 }

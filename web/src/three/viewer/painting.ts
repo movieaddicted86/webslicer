@@ -13,7 +13,7 @@ import { computeCentroids, trianglesInSphere, type PaintKind } from '../paint';
 import { EXTRUDER_COLORS } from './colors';
 import type { SceneRefs } from './types';
 
-export interface Painting {
+interface Painting {
   /** a press: true when it started a stroke, so the scene keeps that press away from picking */
   down(e: PointerEvent): boolean;
   /** pointer move: continues the stroke and follows the brush cursor */

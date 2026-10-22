@@ -1,11 +1,7 @@
 import * as THREE from 'three';
 import { encodeQoi, bytesToBase64 } from '../gcode/qoi';
-import { parseThumbnailSpec, type ThumbnailInput, type ThumbnailSpec } from '@webslicer/shared';
+import type { ThumbnailInput, ThumbnailSpec } from '@webslicer/shared';
 import { DEFAULT_COLOR_CSS } from '../palette';
-
-// the `thumbnails` option is read by `@webslicer/shared` (one parser for the browser and the CLI);
-// re-exported so the settings UI keeps its `../three/thumbnail` import path
-export { parseThumbnailSpec, type ThumbnailSpec };
 
 let snapshotRenderer: THREE.WebGLRenderer | undefined;
 
