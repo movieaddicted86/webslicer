@@ -39,6 +39,10 @@ to the browser. Runs as a Docker container or natively in a Proxmox LXC.
   **Klipper/Moonraker** (Mainsail/Fluidd), also over HTTPS with self-signed certificates. A host can
   be linked to a printer preset; sending G-code sliced for another printer is refused unless you
   override it with a reason (which is written to the audit log).
+- **G-code preflight**: every finished job is scanned once for commands that should not be in a print
+  file – EEPROM writes and resets, disabled endstops, changed steps/mm or currents, firmware updates,
+  absurd temperatures and moves before the first homing. Blocking findings stop the upload unless it
+  is overridden with a reason; the preview and the send dialog show them with their line.
 - **Thumbnails in G-code**: the browser renders previews in the sizes and formats of the printer profile
   (PNG, JPG, QOI for Prusa displays), the server embeds them into the G-code. Printer displays and
   Mainsail/Fluidd/OctoPrint then show the print with an image.
@@ -54,6 +58,30 @@ to the browser. Runs as a Docker container or natively in a Proxmox LXC.
 > Not included yet (see TODO.md): cut tool, text/SVG embossing, continuous layer-height profile,
 > measurement tool. The slicing result is otherwise identical to PrusaSlicer because the same engine
 > is used.
+
+### G-code preflight
+
+Custom start/end/layer G-code goes 1:1 into the output – that is the point of a custom G-code – so a
+preset or an agent-written setting can ship commands that rewrite the printer's EEPROM or disable the
+endstops. Once a job finishes, the server therefore reads the produced file once
+(`shared/src/safety/gcodePreflight.ts`, in chunks – a 60 MB file takes about 3.6 s on the development
+machine) and stores what it finds on the job. The rules of v1:
+
+| rule                      | severity | finding                                                                                |
+| ------------------------- | -------- | -------------------------------------------------------------------------------------- |
+| `gcode.forbidden_command` | block    | `M500`, `M502`, `M211 S0`, `M92`, `M997`, `M851`                                       |
+| `gcode.max_temp`          | block    | `M104`/`M109` above 450 °C, `M140`/`M190` above 150 °C                                 |
+| `gcode.no_homing`         | block    | a move with X/Y/Z before the first `G28`                                               |
+| `gcode.macro_before_move` | warn     | the same, but a printer macro (`PRINT_START`, …) came first and may home               |
+| `gcode.firmware_limit`    | warn     | `M201`/`M203`/`M204`/`M205` above the printer preset's `machine_max_*` (Normal)        |
+| `gcode.motor_current`     | warn     | `M906`/`M907` – PrusaSlicer's own presets set the extruder current in start/end G-code |
+| `gcode.not_scanned`       | warn     | binary `.bgcode`, which v1 does not read                                               |
+
+Comments (`;…`, `(…)`), lowercase and `N`/checksum line numbers are understood; a finding names its
+line and shows the line itself. The send gate merges the findings with the preset issues of S1-b: a
+block refuses the upload with 409 until it is overridden with a reason (audited), a warning is shown
+and only has to be confirmed when the print should start right away. Per-printer limits (the printer's
+own maximum temperature, for example) are S1-d; v1 uses the wide ceilings that catch typos.
 
 ## Quick start with Docker
 
@@ -351,6 +379,16 @@ the server builds a 3MF from all objects + transforms, writes the merged configu
 `POST /api/jobs/:id/send` answers **409** `{ error, issues }` when the job's printer preset is not the
 one the host is linked to; repeating the call with `{ "override": true, "reason": "…" }` sends anyway
 and records the override in `data/audit.log`.
+
+The same 409 carries the findings of the **G-code preflight** (`shared/src/safety/gcodePreflight.ts`)
+that scans the finished output once and stores the result on the job (`info.preflight`): a
+`gcode.forbidden_command` (`M500`, `M502`, `M211 S0`, `M92`, `M997`, `M851`), `gcode.max_temp` (a
+hotend above 450 °C or a bed above 150 °C) or `gcode.no_homing` (a move before the first `G28`) blocks
+and is overridable exactly like a preset mismatch, with the line behind the issue. `gcode.motor_current`
+(`M906`/`M907`), `gcode.firmware_limit` (`M201`/`M203`/`M204`/`M205` above the printer preset's
+`machine_max_*`), `gcode.macro_before_move` (a macro such as `PRINT_START` before the first move) and
+`gcode.not_scanned` (binary `.bgcode`) only warn. Each issue is `{ rule, severity, message, line, text }`
+(`line`/`text` only on preflight findings).
 
 ## More documents
 
