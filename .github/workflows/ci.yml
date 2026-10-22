@@ -24,11 +24,19 @@ jobs:
   # mock print host the send spec uploads to (a sibling container on a private network – no real
   # printer, no host port). The PrusaSlicer layer is the expensive part of the image (~3 min) – it is
   # built as its own target and cached in the GHA cache, so a normal run only rebuilds the app layers.
+  #
+  # The suite is **sharded over three jobs**: one full pass took ~24 min on a runner, i.e. over the
+  # 15-min gate. Each shard builds the (cached) image, starts its own app + mock host on its own
+  # runner and runs its share (`--shard=<n>/3`). Playwright splits by file group, and the measured
+  # balance of the three shards is in the T-030 report.
   e2e:
     runs-on: ubuntu-latest
-    # the suite alone takes ~20–25 min (software WebGL + the slicer); the image build on a cold cache
-    # adds the PrusaSlicer download. The cap is a backstop against a hung slice, not the target.
-    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ['1/3', '2/3', '3/3']
+    # a shard runs ~⅓ of the suite; the cap is a backstop against a hung slice, not the target
+    timeout-minutes: 30
     env:
       E2E_BASE_URL: http://localhost:8080
       E2E_MOCK_URL: http://mock-host:8160
@@ -41,14 +49,18 @@ jobs:
       - uses: docker/setup-buildx-action@v3
       - name: Build the image
         # `mode=max` keeps the intermediate layers too, so the PrusaSlicer stage (~3 min, the
-        # download of the AppImage) is a cache hit on every run after the first
+        # download of the AppImage) is a cache hit on every run after the first. The three shards
+        # build at the same time, so each exports to its own cache scope (one GHA cache scope cannot
+        # be written by two builds) and reads the shared scope first.
         uses: docker/build-push-action@v6
         with:
           context: .
           load: true
           tags: webslicer:e2e
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: |
+            type=gha,scope=e2e
+            type=gha,scope=e2e-${{ strategy.job-index }}
+          cache-to: type=gha,mode=max,scope=e2e-${{ strategy.job-index }}
       - name: Build the mock print host
         run: docker build -t webslicer-mock-host:e2e e2e/mock-host
       - run: npm ci
@@ -89,11 +101,11 @@ jobs:
           done
           # the app has to resolve the mock by name before the send spec runs
           docker exec e2e node -e "fetch('http://mock-host:8160/api/version').then(r=>r.json()).then(j=>console.log('mock host:',j.server)).catch(e=>{console.error(e);process.exit(1)})"
-      - name: Run the E2E suite
+      - name: Run the E2E suite (shard ${{ matrix.shard }})
         # the mock's log dir is a path on the runner; the `runner` context only exists inside a step
         env:
           E2E_MOCK_DIR: ${{ runner.temp }}/e2e/mock
-        run: npm run e2e
+        run: npm run e2e -- --shard=${{ matrix.shard }}
       - name: Server log (on failure)
         if: failure()
         run: |
@@ -102,7 +114,9 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: playwright-report
+          # one report per shard: the three jobs run on different runners, so the file sets cannot
+          # be merged and must not overwrite each other
+          name: playwright-report-shard-${{ strategy.job-index }}
           path: |
             playwright-report
             test-results

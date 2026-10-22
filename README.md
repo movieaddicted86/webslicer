@@ -284,20 +284,27 @@ npm ci
 npx playwright install chromium        # once per machine, after `npm ci`
 npm run e2e:docker          # build the image, start it + the mock print host, run everything, stop it
 npm run e2e:docker -- viewer.spec.ts   # a single spec
-npm run e2e                 # against an already running app (E2E_BASE_URL, default :8080)
+E2E_BASE_URL=http://localhost:8081 npm run e2e   # against an app you started yourself
 ```
 
 `e2e:docker` copies the fixture data to a temp dir, builds `webslicer:e2e`, starts it on the first free
 port from 8080 and adds a **mock print host** (`e2e/mock-host`, a sibling container on a private
 network). The send tests upload to that mock – a real printer is never contacted. Without the mock
-(`npm run e2e` against a hand-started app) the send tests skip.
+(the `npm run e2e` form) the send tests skip.
+
+There is **no default target**: without `E2E_BASE_URL`, `npm run e2e` stops with a message. The suite
+deletes jobs and writes presets, printers and autosave files, so it must only ever see a copy of
+`e2e/fixtures/data` – and it checks that: the fixture dir carries a marker preset
+(`E2E fixture – do not use`) that no real instance has, and the global setup refuses a target without it
+before it writes anything. A hand-started server for the suite therefore needs that data dir (or the
+marker copied into it); never point it at your working install.
 
 - Specs by area: `smoke`, `viewer`, `camera`, `sidebar`, `dialogs`, `preview`, `send`, `api-smoke`.
 - `retries: 0`, one worker: a flaky test is a failure, not a retry.
-- On failure Playwright keeps a trace, a screenshot and the error context in `test-results/`; in CI the
-  `playwright-report` artifact holds them.
-- Slicing is the slow part (software WebGL in CI); the whole suite takes about 20–30 minutes locally
-  and in CI on GitHub's runners.
+- On failure Playwright keeps a trace, a screenshot and the error context in `test-results/`; in CI each
+  shard uploads its own `playwright-report-shard-<n>` artifact.
+- Slicing is the slow part (software WebGL in CI): a full run takes ~20–25 min, so CI runs the suite
+  **sharded over three jobs** (`--shard=1/3` … `3/3`, each with its own app + mock host).
 
 ### Architecture
 

@@ -6,11 +6,13 @@
   in the repository as a Playwright suite (`e2e/`, `@playwright/test` 1.64.1 pinned, Chromium only,
   `retries: 0`, one worker). `npm run e2e:docker` builds the image, starts it with the fixture data dir
   (`e2e/fixtures/data`: an installed MK3S and no physical printers) and runs everything; `npm run e2e`
-  runs against an app that is already up. The send tests upload to a **mock print host**
-  (`e2e/mock-host`, a sibling container on a private network) – a real printer is never contacted.
-  CI gets a second job that builds the image with the GitHub cache and runs the suite. `docs/` and the
-  product code are unchanged; the suite found two pre-existing 500s on `/api/export/3mf` and
-  `/api/export/config` with an empty body, which are pinned as they are.
+  runs against an app that is already up and has **no default target** – it refuses any instance
+  without the fixture marker preset, because the suite deletes jobs and writes presets. The send tests
+  upload to a **mock print host** (`e2e/mock-host`, a sibling container on a private network) – a real
+  printer is never contacted. CI gets a second job, **sharded over three jobs**, that builds the image
+  with the GitHub cache and runs its share of the suite. `docs/` and the product code are unchanged;
+  the suite found two pre-existing 500s on `/api/export/3mf` and `/api/export/config` with an empty
+  body, which are pinned as they are.
 
 - Refactoring cleanup (R-12), no behaviour change: the web UI formats numbers, times and sizes
   through one `web/src/format.ts` instead of per-call-site helpers (the output strings are pinned
