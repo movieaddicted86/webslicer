@@ -11,7 +11,7 @@ import path from 'node:path';
 import type { Dirent } from 'node:fs';
 import { config } from '../config.js';
 import { NotFoundError, ValidationError } from '../errors.js';
-import type { LibraryEntry } from '@webslicer/shared';
+import { safeName as sharedSafeName, type LibraryEntry } from '@webslicer/shared';
 
 export const MODEL_EXT = new Set(['.stl', '.obj', '.3mf', '.amf']);
 export const GCODE_EXT = new Set(['.gcode', '.bgcode', '.gco', '.g']);
@@ -89,17 +89,10 @@ function kindOf(name: string): LibraryEntry['kind'] {
   return 'other';
 }
 
-/** A user supplied file name, reduced to a safe base name. */
+/** A user supplied file name, reduced to a safe base name; the rule itself is shared (W4). */
 export function safeName(name: string): string {
-  const n = path
-    .basename(String(name || ''))
-    .replace(
-      // eslint-disable-next-line no-control-regex -- intentional control-character stripping
-      /[<>:"/\\|?*\x00-\x1f]/g,
-      '_',
-    )
-    .trim();
-  if (!n || n === '.' || n === '..') throw new ValidationError('invalid name');
+  const n = sharedSafeName(name);
+  if (!n) throw new ValidationError('invalid name');
   return n;
 }
 

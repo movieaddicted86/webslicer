@@ -1,6 +1,7 @@
 import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
+import { PRESET_TYPES } from '@webslicer/shared';
 
 function firstExisting(candidates: string[]): string | undefined {
   for (const c of candidates) {
@@ -84,7 +85,7 @@ export function ensureDirs() {
   ]) {
     fs.mkdirSync(d, { recursive: true });
   }
-  for (const t of ['print', 'filament', 'printer', 'sla_print', 'sla_material']) {
+  for (const t of PRESET_TYPES) {
     fs.mkdirSync(path.join(config.presetsDir, t), { recursive: true });
   }
 }

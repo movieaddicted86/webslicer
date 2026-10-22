@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { config } from '../config.js';
 import { parseIni, type IniSection } from './ini.js';
-import type { PresetType, Vendor } from '@webslicer/shared';
+import { PRESET_TYPES, isPresetType, type PresetType, type Vendor } from '@webslicer/shared';
 
 export interface SystemPreset {
   type: PresetType;
@@ -30,7 +30,6 @@ export interface BundleData {
   resourcesDir?: string;
 }
 
-const PRESET_SECTION_TYPES: PresetType[] = ['print', 'filament', 'printer', 'sla_print', 'sla_material'];
 const META_KEYS = new Set(['inherits', 'alias', 'renamed_from']);
 
 function resolveSection(name: string, raw: Map<string, IniSection>, cache: Map<string, IniSection>, stack: Set<string>): IniSection {
@@ -101,12 +100,12 @@ export function parseBundle(file: string, text: string): { vendor: Vendor; prese
     const colon = section.indexOf(':');
     if (colon < 0) continue;
     const type = section.slice(0, colon) as PresetType;
-    if (!PRESET_SECTION_TYPES.includes(type)) continue;
+    if (!isPresetType(type)) continue;
     const name = section.slice(colon + 1).trim();
     byType[type].set(name, values);
   }
 
-  for (const type of PRESET_SECTION_TYPES) {
+  for (const type of PRESET_TYPES) {
     const raw = byType[type];
     const cache = new Map<string, IniSection>();
     for (const [name, sec] of raw) {
@@ -160,8 +159,8 @@ export function loadBundles(force = false): BundleData {
   if (bundleCache && !force) return bundleCache;
   const data: BundleData = {
     vendors: [],
-    presets: { print: [], filament: [], printer: [], sla_print: [], sla_material: [] },
-    keys: { print: new Set(), filament: new Set(), printer: new Set(), sla_print: new Set(), sla_material: new Set() },
+    presets: Object.fromEntries(PRESET_TYPES.map((t) => [t, [] as SystemPreset[]])) as Record<PresetType, SystemPreset[]>,
+    keys: Object.fromEntries(PRESET_TYPES.map((t) => [t, new Set<string>()])) as Record<PresetType, Set<string>>,
     resourcesDir: config.slicerResources,
   };
   const dirs = [findProfilesDir(), path.join(config.dataDir, 'vendor')].filter((d, i, a): d is string => !!d && a.indexOf(d) === i);
