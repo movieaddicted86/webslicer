@@ -5,11 +5,14 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { SHORTCUTS, aboutShortcuts, matchesShortcut } from './shortcuts';
+import { SHORTCUTS, aboutShortcuts, matchesShortcut, shortcutsBlocked } from './shortcuts';
 
 /** A `KeyboardEvent`-shaped object; `matchesShortcut` reads `key`, `code` and the three modifiers. */
 const key = (k: string, mods: { ctrl?: boolean; meta?: boolean; shift?: boolean; code?: string } = {}) =>
   ({ key: k, code: mods.code ?? '', ctrlKey: !!mods.ctrl, metaKey: !!mods.meta, shiftKey: !!mods.shift }) as KeyboardEvent;
+
+/** The same event, but delivered from an element (what `e.target` is in the browser). */
+const from = (el: Partial<HTMLElement>, k = 'Delete') => ({ ...key(k), target: el }) as unknown as KeyboardEvent;
 
 test('the table lists every shortcut the handler had, once per spelling', () => {
   const ids = SHORTCUTS.map((s) => s.id);
@@ -81,6 +84,20 @@ test('Del and Backspace both delete, Esc cancels', () => {
   assert.equal(matchesShortcut(key('Backspace'), 'delete'), true);
   assert.equal(matchesShortcut(key('Escape'), 'escape'), true);
   assert.equal(matchesShortcut(key('Escape'), 'delete'), false);
+});
+
+test('B10: the one guard blocks every shortcut while a dialog is open or an input has focus', () => {
+  // nothing in the table fires while a modal dialog owns the keyboard
+  assert.equal(shortcutsBlocked(from({ tagName: 'BODY' }, 'Delete'), true), true);
+  assert.equal(shortcutsBlocked(from({ tagName: 'BODY' }, 'z'), true), true);
+  // the fields that take typing keep their keys: a preset name must not delete the selection
+  for (const tagName of ['INPUT', 'TEXTAREA', 'SELECT']) {
+    assert.equal(shortcutsBlocked(from({ tagName }), false), true, `${tagName} keeps its keys`);
+  }
+  assert.equal(shortcutsBlocked(from({ isContentEditable: true }), false), true, 'a contenteditable keeps its keys');
+  // and the plater still gets its shortcuts
+  assert.equal(shortcutsBlocked(from({ tagName: 'CANVAS' }), false), false);
+  assert.equal(shortcutsBlocked(key('Delete'), false), false, 'an event without a target is not blocked');
 });
 
 test('the About dialog lists the shortcuts in one line, without duplicates', () => {
