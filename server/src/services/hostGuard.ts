@@ -124,9 +124,11 @@ function originPortOf(url: URL): string {
  *
  * - same-origin with the request – the name and port equal the `Host` header (a browser page served
  *   by this server), or
- * - a loopback name, a name in `ALLOWED_HOSTS` (Vite dev server, reverse proxy on another port), an
- *   own address (from `allowedHosts`), or an **IP literal** that is the request's own `Host` – which
- *   the same-origin branch above already covers.
+ * - a name in `allowed`: loopback, one of this machine's own interface addresses, or an
+ *   `ALLOWED_HOSTS` name. Those are trusted on any port – the Vite dev server and a reverse proxy in
+ *   front of the app run on another port by design.
+ *
+ * Any other IP literal is refused: `Origin: http://203.0.113.5` never passes, whatever the `Host` is.
  */
 export function originAllowed(originHeader: string | undefined, hostHeader: string | undefined, allowed: ReadonlySet<string>): boolean {
   if (!originHeader) return true;
