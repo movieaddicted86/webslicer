@@ -311,6 +311,37 @@ test.describe('send: the send gate and the upload (S1-b, T-026)', () => {
 test.describe('send: the printer dialog sees the mock host', () => {
   test.skip(!HAS_MOCK_HOST, 'the send tests need the mock print host – run them with `npm run e2e:docker`');
 
+  test('the physical printers dialog lists a configured host instead of the form', async ({ app }) => {
+    const created = [await addPrinter(app, { name: 'Listed host', presetName: E2E_PRINTER })];
+    try {
+      await app.evaluate(async () => {
+        await window.webslicer.getState().refreshPhysicalPrinters();
+      });
+      await openDialog(app, 'physicalPrinters');
+      // with a host stored the dialog opens on the list (the fixture data seeds none, so the other
+      // spec sees the empty form) – the second branch of the t18 check
+      const list = await app.evaluate(() => ({
+        title: document.querySelector('.modal-head h2')?.textContent,
+        rows: Array.from(document.querySelectorAll('.printer-list li')).map((li) => li.textContent?.trim()),
+        actions: Array.from(document.querySelectorAll('.modal-actions button')).map((b) => b.textContent),
+        form: document.querySelectorAll('.form').length,
+      }));
+      expect(list.title).toBe('Physical printers');
+      expect(list.rows).toHaveLength(1);
+      expect(list.rows[0]).toContain('Listed host');
+      expect(list.rows[0]).toContain('moonraker');
+      expect(list.actions).toEqual(['Add printer']);
+      expect(list.form).toBe(0);
+
+      // the dialog's own form is the way back in
+      await app.locator('.modal-actions button:has-text("Add printer")').click();
+      await expect(app.locator('.form label')).toHaveCount(5);
+      await app.locator('.modal-head button').click();
+    } finally {
+      await removePrinters(app, created);
+    }
+  });
+
   test('the "test connection" of a printer reaches the mock host', async ({ app }) => {
     // the fixture data seeds no host, so the dialog starts on its empty list
     const created = [await addPrinter(app, { name: 'Probe', presetName: E2E_PRINTER })];

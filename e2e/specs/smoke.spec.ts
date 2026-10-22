@@ -16,7 +16,8 @@ test.describe('smoke: the app slice chain', () => {
     expect(s.fatal).toBeUndefined();
     expect(s.presets.printer.name).toBe(E2E_PRINTER);
     // the fixture printer has one extruder, so the single-material controls are the ones shown
-    expect(s.extruderCount()).toBe(1);
+    // (`read`, not the serialised state: a store function cannot cross the process boundary)
+    expect(await read(app, (st) => st.extruderCount())).toBe(1);
     // the MK3S bed: 250 × 210 mm
     expect(s.presets.printer.current.bed_shape).toBe('0x0,250x0,250x210,0x210');
     expect(s.objects).toHaveLength(0);
