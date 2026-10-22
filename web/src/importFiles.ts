@@ -1,12 +1,16 @@
 /**
  * Import model files and 3MF projects into the plater (used by Import, drag & drop, library and
- * autosave restore). Kept outside the components so the store can import it statically.
+ * autosave restore), plus the autosave restore itself.
+ *
+ * This module imports the store, never the other way round: `restoreAutosave` used to be a job-slice
+ * action that imported this file back, which made a runtime import cycle (F-19). It lives here now.
  */
 import { useStore, VOLUME_LABELS, type NewVolumeInput } from './state/store';
+import { clientId } from './state/client';
 import { loadModelFile, load3mfBuildItems, splitGeometryByRanges, SUPPORTED_EXTENSIONS } from './three/loaders';
 import { placementFromMatrix, IDENTITY } from '@webslicer/shared';
 import { toMatrix4 } from './three/matrix';
-import { api, type LayerRangeInput, type Placement } from './api';
+import { api, autosaveApi, type LayerRangeInput, type Placement } from './api';
 
 type ImportItem = {
   name: string;
@@ -128,5 +132,18 @@ export async function importFiles(files: FileList | File[]) {
   if (items.length) {
     const fromProject = list.some((f) => f.name.toLowerCase().endsWith('.3mf'));
     await st.addObjects(items, { keepPositions: fromProject });
+  }
+}
+
+/** Replace the plater with the server-side autosave of this client, if there is one. */
+export async function restoreAutosave() {
+  const st = useStore.getState();
+  try {
+    const blob = await autosaveApi.fetch(clientId());
+    await importFiles([new File([blob], 'autosave.3mf')]);
+    useStore.setState({ autosaveInfo: undefined });
+    st.toast('success', 'Previous session restored');
+  } catch (e) {
+    st.toast('error', `Restore failed: ${(e as Error).message}`);
   }
 }

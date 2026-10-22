@@ -4,7 +4,6 @@
  */
 import type { StateCreator } from 'zustand';
 import { api, autosaveApi, type Config, type PresetType, type SliceRequest } from '../../api';
-import { importFiles } from '../../importFiles';
 import { encodeMmu, encodePaint } from '../../three/paint';
 import { decodeVector } from '../../values';
 import { parseThumbnailSpec, placementMatrix } from '@webslicer/shared';
@@ -21,7 +20,6 @@ export interface JobSlice {
   applyProjectConfig: (cfg: Config) => Promise<void>;
   autosaveState: 'idle' | 'saving' | 'saved' | 'error';
   autosaveNow: () => Promise<void>;
-  restoreAutosave: () => Promise<void>;
   discardAutosave: () => Promise<void>;
 }
 
@@ -202,16 +200,6 @@ export const createJobSlice: StateCreator<State, [], [], JobSlice> = (set, get) 
       set({ autosaveState: 'saved', autosaveInfo: { savedAt: r.savedAt, size: 0 } });
     } catch {
       set({ autosaveState: 'error' });
-    }
-  },
-  restoreAutosave: async () => {
-    try {
-      const blob = await autosaveApi.fetch(clientId());
-      await importFiles([new File([blob], 'autosave.3mf')]);
-      set({ autosaveInfo: undefined });
-      get().toast('success', 'Previous session restored');
-    } catch (e) {
-      get().toast('error', `Restore failed: ${(e as Error).message}`);
     }
   },
   discardAutosave: async () => {
