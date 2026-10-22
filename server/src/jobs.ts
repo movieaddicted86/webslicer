@@ -238,6 +238,24 @@ async function collectJobInfo(
   job.info = { sizeBytes: await fileSize(outFile), warnings, preflight };
 }
 
+/**
+ * Turn a sliced job into a finished one. The info – size, G-code estimates and the preflight scan,
+ * which is awaited and yields the event loop on its chunks – is written **first**, the `done` status
+ * after: a reader (job list, `GET /api/jobs/:id`, a send) must never see a `done` job without its
+ * `info.preflight`, and the send gate would then scan the file again on demand.
+ */
+export async function completeJob(
+  job: JobRecord,
+  outFile: string,
+  warnings: string[],
+  machineLimits: Readonly<Record<string, string>>,
+): Promise<void> {
+  await collectJobInfo(job, outFile, warnings, machineLimits);
+  job.status = 'done';
+  job.percent = 100;
+  job.message = 'Done';
+}
+
 async function runJob(job: JobRecord) {
   const dir = jobDir(job.id);
   const req = await readJobRequest(job.id);
@@ -299,10 +317,7 @@ async function runJob(job: JobRecord) {
     return;
   }
   await embedThumbnails(job, req, outFile, logLines);
-  job.status = 'done';
-  job.percent = 100;
-  job.message = 'Done';
-  await collectJobInfo(job, outFile, extractWarnings(logLines), machineLimitsOf(req.printer.config));
+  await completeJob(job, outFile, extractWarnings(logLines), machineLimitsOf(req.printer.config));
   await saveJobRecord(job);
   emit(job.id, { type: 'done', job });
 }
