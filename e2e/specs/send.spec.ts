@@ -420,7 +420,8 @@ test.describe('send: the send gate and the upload (S1-b, T-026)', () => {
     await sendDialog(app);
     await app.locator('.modal .form select').selectOption(ptfe.id);
     await settle(app, 300);
-    await expect(app.locator('.modal .warn')).toContainText('limited to 240 °C');
+    // a block and a warn: the PTFE limit is the block, the preset's own M907 lines only warn
+    await expect(app.locator('.modal .warn').first()).toContainText('limited to 240 °C');
     await expect(uploadButton(app)).toBeDisabled();
 
     // the server refuses with the same rule, and uploads nothing
@@ -480,7 +481,7 @@ test.describe('send: the printer dialog sees the mock host', () => {
 
       // the dialog's own form is the way back in
       await app.locator('.modal-actions button:has-text("Add printer")').click();
-      await expect(app.locator('.form label')).toHaveCount(5);
+      await expect(app.locator('.form label')).toHaveCount(7); // five fields, the two safety limits (S1-d)
       await app.locator('.modal-head button').click();
     } finally {
       await removePrinters(app, created);

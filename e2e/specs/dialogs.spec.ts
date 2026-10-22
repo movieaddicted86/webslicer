@@ -209,7 +209,7 @@ test.describe('dialogs: the app dialogs (S11)', () => {
     await app.locator('.form input').nth(1).fill('10.0.0.9');
     const hotend = app.locator('fieldset.safety-limits input').first();
     await expect(hotend).toHaveValue('240');
-    await app.getByRole('button', { name: 'Save' }).click();
+    await app.getByRole('button', { name: 'Save', exact: true }).click();
     await expect(app.locator('.printer-list')).toContainText('PTFE host');
     const saved = await app.evaluate(async () => {
       const res = await fetch('/api/printers');
