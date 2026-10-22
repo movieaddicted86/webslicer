@@ -1,6 +1,7 @@
 import type { Placement, Vec3 } from '../../api';
 import { NumericField } from '../common/NumericField';
-import { AXES, fmt } from './format';
+import { AXES } from './axes';
+import { fmt } from '../../format';
 
 const deg = (r: number) => (r * 180) / Math.PI;
 const rad = (d: number) => (d * Math.PI) / 180;

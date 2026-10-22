@@ -3,7 +3,7 @@ import { useStore } from '../../state/store';
 import { FEATURE_COLORS, type ParsedGcode } from '../../gcode/types';
 import { RANGE_SCHEMES, legendSteps, schemeRange, type PreviewColorMode } from '../../gcode/colorschemes';
 import { colorPrintSegments, normalizeColor } from '../../gcode/colorprint';
-import { fmtFeatureTime, fmtLayerTime } from './formats';
+import { fmtFeatureTime, fmtLayerTime, fmtZ } from '../../format';
 
 /** Gradient legend of a range colour scheme (speed, fan, temperature, …), maximum on top like PrusaSlicer. */
 export function RangeLegend({ gcode, mode, estimatedSeconds }: { gcode: ParsedGcode; mode: PreviewColorMode; estimatedSeconds?: number }) {
@@ -74,7 +74,7 @@ export function PreviewLegend({
             <span className="swatch" style={{ background: s.color }} />
             <span className="name">{i === 0 ? 'Default color' : `Color ${i}`}</span>
             <span className="muted">
-              {s.fromZ.toFixed(2)} – {s.toZ.toFixed(2)} mm
+              {fmtZ(s.fromZ)} – {fmtZ(s.toZ)} mm
             </span>
           </li>
         ))}

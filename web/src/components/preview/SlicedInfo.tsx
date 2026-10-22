@@ -1,7 +1,7 @@
 import { useStore } from '../../state/store';
 import { api } from '../../api';
 import { SectionHeader } from '../common/SectionHeader';
-import { fmtTime } from './formats';
+import { fmtMegabytes, fmtTime } from '../../format';
 
 /** PrusaSlicer's "Sliced info": the numbers of the finished job and what can be done with the G-code. */
 export function SlicedInfo() {
@@ -44,7 +44,7 @@ export function SlicedInfo() {
           </tr>
           <tr>
             <td>Size</td>
-            <td>{info ? `${(info.sizeBytes / 1048576).toFixed(1)} MB` : '–'}</td>
+            <td>{info ? fmtMegabytes(info.sizeBytes) : '–'}</td>
           </tr>
         </tbody>
       </table>

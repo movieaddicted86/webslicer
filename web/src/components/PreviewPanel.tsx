@@ -7,6 +7,7 @@ import { MoveSlider } from './preview/MoveSlider';
 import { ViewOptions } from './preview/ViewOptions';
 import { PreviewLegend } from './preview/Legend';
 import { SlicedInfo } from './preview/SlicedInfo';
+import { fmtZ } from '../format';
 import { sumTimes } from './preview/formats';
 
 /**
@@ -101,7 +102,7 @@ export function PreviewPanel() {
                 title={
                   <>
                     Layers {range[0] + 1} – {range[1] + 1} / {gcode.layerCount}
-                    <span className="muted"> (Z {gcode.layerZ[range[1]]?.toFixed(2)} mm)</span>
+                    <span className="muted"> (Z {gcode.layerZ[range[1]] !== undefined && fmtZ(gcode.layerZ[range[1]])} mm)</span>
                   </>
                 }
               />

@@ -26,26 +26,4 @@ export function layerIndexOfZ(layerZ: Float32Array, z: number): number {
   return -1;
 }
 
-/** `1m 02s` – the layer time labels of the range legend. */
-export function fmtLayerTime(s: number) {
-  if (s < 60) return `${s.toFixed(1)} s`;
-  return `${Math.floor(s / 60)}m ${String(Math.round(s % 60)).padStart(2, '0')}s`;
-}
-
-/** PrusaSlicer's feature legend: `1h 02m`, `3m 10s`, `8.4 s`. */
-export function fmtFeatureTime(s: number) {
-  if (s >= 3600) return `${Math.floor(s / 3600)}h ${String(Math.floor((s % 3600) / 60)).padStart(2, '0')}m`;
-  if (s >= 60) return `${Math.floor(s / 60)}m ${String(Math.round(s % 60)).padStart(2, '0')}s`;
-  return `${s.toFixed(1)}s`;
-}
-
 export const sumTimes = (t: Record<string, number>) => Object.values(t).reduce((a, b) => a + b, 0);
-
-/** `1h 02m 3s` for the sliced info table. */
-export function fmtTime(s?: number) {
-  if (!s) return '–';
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  const sec = Math.floor(s % 60);
-  return h ? `${h}h ${m}m ${sec}s` : m ? `${m}m ${sec}s` : `${sec}s`;
-}
