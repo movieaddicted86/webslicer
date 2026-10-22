@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **UI (T-036):** the object toolbar no longer uses the tiny Unicode glyphs. Each action has a real
+  SVG icon (`lucide-react`, web only, named imports) at 18 px with a ≥ 30 px hit area, and the tooltip
+  with the shortcut stays the `aria-label`. The toolbar is grouped (history | move/rotate/scale/place
+  on face | arrange/instances | duplicate/delete) with small separators, wraps to a second line at the
+  narrowest sidebar width instead of shrinking the icons, and Simple mode shows the same icons. The
+  same plater actions use the same icon everywhere: the object row (`+` add volume, split to
+  objects / parts), the instance rows (separate object, split, delete), the preset row (save, discard,
+  delete), the height-range rows, reset-to-preset, dialog close/remove.
+
 - **Session restore (UX):** opening WebSlicer again shows the last plater right away. After a reload –
   and after the browser was closed and reopened – the objects, instances, volumes, paint, height
   ranges, custom G-codes, the selected presets (unsaved modifications included), the plater/preview

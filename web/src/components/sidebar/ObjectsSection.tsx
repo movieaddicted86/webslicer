@@ -3,6 +3,7 @@ import { useStore } from '../../state/store';
 import { retrySession } from '../../state/session';
 import { SectionHeader } from '../common/SectionHeader';
 import { ToolbarButton } from '../common/ToolbarButton';
+import { ACTION_ICONS } from '../common/icons';
 import { ObjectRow } from './ObjectRow';
 import { ObjectManipulation } from './ObjectManipulation';
 import { VolumeManipulation } from './VolumeManipulation';
@@ -43,59 +44,62 @@ export function ObjectsSection() {
     <section className="objects">
       <SectionHeader title={`Objects (${objects.length})`}>
         <div className="tools">
-          <ToolbarButton title="Undo (Ctrl+Z)" onClick={undo} disabled={!canUndo}>
-            ↶
-          </ToolbarButton>
-          <ToolbarButton title="Redo (Ctrl+Y)" onClick={redo} disabled={!canRedo}>
-            ↷
-          </ToolbarButton>
-          <ToolbarButton title="Move (M)" active={transformMode === 'translate'} onClick={() => setTransformMode('translate')}>
-            ✥
-          </ToolbarButton>
-          <ToolbarButton title="Rotate (R)" active={transformMode === 'rotate'} onClick={() => setTransformMode('rotate')}>
-            ⟳
-          </ToolbarButton>
-          <ToolbarButton title="Scale (S)" active={transformMode === 'scale'} onClick={() => setTransformMode('scale')}>
-            ⤢
-          </ToolbarButton>
+          <ToolbarButton title="Undo (Ctrl+Z)" icon={ACTION_ICONS.undo} onClick={undo} disabled={!canUndo} />
+          <ToolbarButton title="Redo (Ctrl+Y)" icon={ACTION_ICONS.redo} onClick={redo} disabled={!canRedo} />
+          <span className="tool-sep" aria-hidden="true" />
+          <ToolbarButton
+            title="Move (M)"
+            icon={ACTION_ICONS.move}
+            active={transformMode === 'translate'}
+            onClick={() => setTransformMode('translate')}
+          />
+          <ToolbarButton
+            title="Rotate (R)"
+            icon={ACTION_ICONS.rotate}
+            active={transformMode === 'rotate'}
+            onClick={() => setTransformMode('rotate')}
+          />
+          <ToolbarButton
+            title="Scale (S)"
+            icon={ACTION_ICONS.scale}
+            active={transformMode === 'scale'}
+            onClick={() => setTransformMode('scale')}
+          />
           <ToolbarButton
             title="Place on face (F): click a face in the 3D view to lay it flat on the bed"
+            icon={ACTION_ICONS.placeOnFace}
             active={placeOnFace}
             onClick={() => setPlaceOnFace(!placeOnFace)}
             disabled={!objects.length}
-          >
-            ▱
-          </ToolbarButton>
-          <ToolbarButton title="Arrange (A)" onClick={arrange} disabled={!objects.length}>
-            ▦
-          </ToolbarButton>
-          <ToolbarButton title="Add instance (+)" onClick={addInstance} disabled={selected.length !== 1}>
-            +
-          </ToolbarButton>
+          />
+          <span className="tool-sep" aria-hidden="true" />
+          <ToolbarButton title="Arrange (A)" icon={ACTION_ICONS.arrange} onClick={arrange} disabled={!objects.length} />
+          <ToolbarButton title="Add instance (+)" icon={ACTION_ICONS.addInstance} onClick={addInstance} disabled={selected.length !== 1} />
           <ToolbarButton
             title="Remove the last instance (−)"
+            icon={ACTION_ICONS.removeInstance}
             onClick={removeOneInstance}
             disabled={selected.length !== 1 || instanceCount <= 1}
-          >
-            −
-          </ToolbarButton>
-          <ToolbarButton title="Duplicate" onClick={() => duplicate(selectedIds)} disabled={!selected.length}>
-            ⧉
-          </ToolbarButton>
+          />
+          <span className="tool-sep" aria-hidden="true" />
+          <ToolbarButton
+            title="Duplicate"
+            icon={ACTION_ICONS.duplicate}
+            onClick={() => duplicate(selectedIds)}
+            disabled={!selected.length}
+          />
           <ToolbarButton
             title="Delete the picked instance, otherwise the selected object or volume (Del)"
+            icon={ACTION_ICONS.delete}
             onClick={deleteSelection}
             disabled={!selected.length}
-          >
-            🗑
-          </ToolbarButton>
+          />
           <ToolbarButton
             title="Delete all"
+            icon={ACTION_ICONS.deleteAll}
             onClick={() => objects.length && confirm('Remove all objects?') && clear()}
             disabled={!objects.length}
-          >
-            ✕
-          </ToolbarButton>
+          />
         </div>
       </SectionHeader>
       <ul className="object-list">

@@ -356,6 +356,87 @@ test.describe('sidebar: quick settings and the mode switch', () => {
     }));
     expect(advanced).toEqual({ mode: 'advanced', rows: 1, tools: 12 });
   });
+
+  test('every toolbar action shows its own 18 px SVG icon, grouped, without overflow at 320 px (T-036)', async ({ app }) => {
+    await importFile(app, CUBE);
+    await app.evaluate(() => window.webslicer.getState().select([window.webslicer.getState().objects[0].id]));
+    await settle(app, 700);
+
+    const toolbar = await app.evaluate(() => {
+      const tools = document.querySelector('.objects .section-head .tools') as HTMLElement;
+      return {
+        buttons: Array.from(tools.querySelectorAll('button')).map((b) => ({
+          label: b.getAttribute('aria-label'),
+          title: b.getAttribute('title'),
+          // no leftover Unicode glyphs: the button shows an SVG only
+          text: (b.textContent ?? '').trim(),
+          icon: b.querySelector('svg')?.getAttribute('width'),
+          stroke: b.querySelector('svg')?.querySelectorAll('path,line,circle,rect,polyline').length,
+          size: Math.round(b.getBoundingClientRect().height),
+        })),
+        separators: tools.querySelectorAll('.tool-sep').length,
+        // the SVG path data of an icon, to prove that no two actions share a picture
+        paths: Array.from(tools.querySelectorAll('button svg')).map((s) =>
+          Array.from(s.querySelectorAll('path,line,circle,rect,polyline'))
+            .map((n) => n.getAttribute('d') ?? n.getAttribute('points') ?? n.getAttribute('x'))
+            .join('|'),
+        ),
+      };
+    });
+    expect(toolbar.buttons.map((b) => b.label)).toEqual([
+      'Undo (Ctrl+Z)',
+      'Redo (Ctrl+Y)',
+      'Move (M)',
+      'Rotate (R)',
+      'Scale (S)',
+      'Place on face (F): click a face in the 3D view to lay it flat on the bed',
+      'Arrange (A)',
+      'Add instance (+)',
+      'Remove the last instance (−)',
+      'Duplicate',
+      'Delete the picked instance, otherwise the selected object or volume (Del)',
+      'Delete all',
+    ]);
+    // the tooltip stays the shortcut line and is also the accessible name
+    expect(toolbar.buttons.every((b) => b.title === b.label)).toBe(true);
+    expect(toolbar.buttons.every((b) => b.text === '')).toBe(true);
+    expect(toolbar.buttons.map((b) => b.icon)).toEqual(Array(12).fill('18'));
+    expect(toolbar.buttons.every((b) => (b.stroke ?? 0) > 0)).toBe(true);
+    // the hit area is at least 30 px high
+    expect(toolbar.buttons.every((b) => b.size >= 30)).toBe(true);
+    // four groups: history | transform tools | arrange/instances | duplicate/delete
+    expect(toolbar.separators).toBe(3);
+    expect(new Set(toolbar.paths).size).toBe(12);
+
+    // AC-2: the narrowest sidebar width wraps the toolbar instead of shrinking it
+    const narrow = await app.evaluate(() => {
+      const sidebar = document.querySelector('.sidebar') as HTMLElement;
+      sidebar.style.width = '320px';
+      const tools = document.querySelector('.objects .section-head .tools') as HTMLElement;
+      const buttons = Array.from(tools.querySelectorAll('button')).map((b) => Math.round(b.getBoundingClientRect().width));
+      return {
+        overflow: sidebar.scrollWidth - sidebar.clientWidth,
+        toolsOverflow: tools.scrollWidth - tools.clientWidth,
+        widths: buttons,
+        lines: new Set(Array.from(tools.querySelectorAll('button')).map((b) => Math.round(b.getBoundingClientRect().top))).size,
+      };
+    });
+    expect(narrow.overflow).toBeLessThanOrEqual(0);
+    expect(narrow.toolsOverflow).toBeLessThanOrEqual(0);
+    // the icons keep their size; the toolbar uses a second line
+    expect(narrow.widths.every((w) => w >= 30)).toBe(true);
+    expect(narrow.lines).toBeGreaterThan(1);
+    await app.evaluate(() => ((document.querySelector('.sidebar') as HTMLElement).style.width = ''));
+
+    // the same icons in Simple mode
+    await app.evaluate(() => window.webslicer.getState().setMode('simple'));
+    await settle(app, 700);
+    const simple = await app.evaluate(() =>
+      Array.from(document.querySelectorAll('section.objects.simple .tools button svg')).map((s) => s.getAttribute('width')),
+    );
+    expect(simple).toEqual(Array(5).fill('18'));
+    await app.evaluate(() => window.webslicer.getState().setMode('advanced'));
+  });
 });
 
 test.describe('sidebar: the extruder palette (F-21)', () => {

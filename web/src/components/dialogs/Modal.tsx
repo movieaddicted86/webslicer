@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, type ReactNode } from 'react';
+import { ACTION_ICONS } from '../common/icons';
 
 /** Everything inside a dialog that the Tab key may reach, in DOM order. */
 const FOCUSABLE =
@@ -63,7 +64,7 @@ export function Modal({ title, children, onClose, wide }: { title: string; child
         <div className="modal-head">
           <h2 id={titleId}>{title}</h2>
           <button className="icon" aria-label="Close" onClick={onClose}>
-            ✕
+            <ACTION_ICONS.close size={16} strokeWidth={2} aria-hidden="true" focusable="false" />
           </button>
         </div>
         <div className="modal-body">{children}</div>

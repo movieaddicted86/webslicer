@@ -1,6 +1,7 @@
 import { useStore, VOLUME_LABELS, type PlaterObject } from '../../state/store';
 import { objectIsOutside } from '../../three/Viewer';
 import { fmt } from '../../format';
+import { ACTION_ICONS } from '../common/icons';
 import { VOLUME_ICONS } from './volumes';
 import { AddVolumeMenu } from './AddVolumeMenu';
 
@@ -83,7 +84,7 @@ export function ObjectRow({
             onMenu(!menuOpen);
           }}
         >
-          ＋
+          <ACTION_ICONS.addVolume size={16} strokeWidth={2} aria-hidden="true" focusable="false" />
         </button>
         <button
           className="icon split"
@@ -96,7 +97,7 @@ export function ObjectRow({
             splitToObjects(o.id);
           }}
         >
-          ⑂
+          <ACTION_ICONS.splitToObjects size={16} strokeWidth={2} aria-hidden="true" focusable="false" />
         </button>
         <button
           className="icon split"
@@ -108,7 +109,7 @@ export function ObjectRow({
             splitToParts(o.id);
           }}
         >
-          ◫
+          <ACTION_ICONS.splitToParts size={16} strokeWidth={2} aria-hidden="true" focusable="false" />
         </button>
       </div>
       {menuOpen && <AddVolumeMenu o={o} onClose={() => onMenu(false)} />}
@@ -135,7 +136,7 @@ export function ObjectRow({
                   instanceToObject(o.id, inst.id);
                 }}
               >
-                ⧉
+                <ACTION_ICONS.instanceToObject size={14} strokeWidth={2} aria-hidden="true" focusable="false" />
               </button>
               <button
                 className="icon"
@@ -147,7 +148,7 @@ export function ObjectRow({
                   splitToObjects(o.id);
                 }}
               >
-                ⑂
+                <ACTION_ICONS.splitToObjects size={14} strokeWidth={2} aria-hidden="true" focusable="false" />
               </button>
               <button
                 className="icon"
@@ -159,7 +160,7 @@ export function ObjectRow({
                   removeInstance(o.id, inst.id);
                 }}
               >
-                🗑
+                <ACTION_ICONS.delete size={14} strokeWidth={2} aria-hidden="true" focusable="false" />
               </button>
             </li>
           ))}
