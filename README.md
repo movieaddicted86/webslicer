@@ -306,7 +306,9 @@ marker copied into it); never point it at your working install.
 - Slicing is the slow part (software WebGL in CI): a full run takes ~20–25 min, so CI runs the suite
   **sharded over three jobs** (`--shard=1/3` … `3/3`, each with its own app + mock host), weighted by
   the measured time of each spec (`PWTEST_SHARD_WEIGHTS`, set in the workflow) so the shards carry
-  5 / 9 / 8 min of test time instead of 2 / 9 / 12.
+  5 / 9 / 10 min of suite time on a runner instead of 12 / 7 / 5. The Playwright browsers are cached
+  per `package-lock.json`: with a warm cache a shard job takes 6–11 min, and the first run after a
+  dependency bump pays the browser download on all three shards at once.
 
 ### Architecture
 
