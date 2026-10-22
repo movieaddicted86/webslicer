@@ -12,10 +12,9 @@
  * long as no token exists, `/mcp` answers 404, and removing `MCP_TOKEN` removes the bootstrapped
  * entry again, so the endpoint is really off and no credential stays behind.
  */
-import fs from 'node:fs';
-import path from 'node:path';
 import { createHash, scryptSync, timingSafeEqual } from 'node:crypto';
 import { config } from '../config.js';
+import { readJsonSync, writeJsonSync } from '../services/jsonStore.js';
 
 export interface McpToken {
   id: string;
@@ -90,17 +89,15 @@ function isToken(v: unknown): v is McpToken {
 }
 
 export function loadTokens(): McpToken[] {
-  try {
-    const list = JSON.parse(fs.readFileSync(config.mcpTokensFile, 'utf8')) as unknown;
-    return Array.isArray(list) ? list.filter(isToken) : [];
-  } catch {
-    return [];
-  }
+  // B7: a corrupt token file is quarantined and logged; answering "no tokens" used to let the next
+  // bootstrap write overwrite the only copy
+  const { value: list } = readJsonSync<unknown>(config.mcpTokensFile);
+  return Array.isArray(list) ? list.filter(isToken) : [];
 }
 
 export function saveTokens(list: McpToken[]): void {
-  fs.mkdirSync(path.dirname(config.mcpTokensFile), { recursive: true });
-  fs.writeFileSync(config.mcpTokensFile, JSON.stringify(list, null, 2), { mode: 0o600 });
+  // B7: temp + rename, still created with mode 0600 (no window in which the file is world-readable)
+  writeJsonSync(config.mcpTokensFile, list, 0o600);
 }
 
 /** Is the MCP endpoint configured at all? Without any token it does not exist (404). */
