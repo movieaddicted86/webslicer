@@ -7,6 +7,7 @@
 import { api } from '../../api';
 import { remapPaint, subdivideForPainting, type PaintKind } from '../../three/paint';
 import { geometryToStl } from '../../three/geometry';
+import { clampExtruder } from '../../plater/extruders';
 import type { SlicePart } from '../types';
 
 export interface PaintSlice {
@@ -55,7 +56,10 @@ export const createPaintSlice: SlicePart<PaintSlice> = (set, get) => ({
   stopPaint: () => set({ paintMode: undefined }),
   setPaintTool: (paintTool) => set({ paintTool }),
   paintExtruder: 1,
-  setPaintExtruder: (paintExtruder) => set({ paintExtruder }),
+  setPaintExtruder: (n) => {
+    const count = get().extruderCount();
+    set({ paintExtruder: clampExtruder(n, count) || 1 });
+  },
   setBrushRadius: (brushRadius) => set({ brushRadius: Math.max(0.2, Math.min(50, brushRadius)) }),
   beginPaintStroke: (objectId) => {
     // history snapshot with copied paint arrays (strokes mutate them in place)

@@ -16,6 +16,7 @@ import {
   type Schema,
 } from '../../api';
 import { presetDiff, transferChanges } from '../../plater/presetDiff';
+import { clampExtruder, clampExtruderSlot, clampObjectExtruders } from '../../plater/extruders';
 import { resizeVector, unescapeStringsCstyle } from '../../values';
 import type { PendingPresetSwitch, PresetSlot, State } from '../types';
 
@@ -73,7 +74,7 @@ export function isModified(slot: PresetSlot): boolean {
 
 /** The preset slot of one type; `undefined` for types the plater does not hold. */
 function slotOf(presets: State['presets'], type: PresetType, extruderIdx = 0): PresetSlot | undefined {
-  if (type === 'filament') return presets.filament[extruderIdx];
+  if (type === 'filament') return presets.filament[clampExtruderSlot(extruderIdx, presets.filament.length)];
   if (type === 'print' || type === 'printer') return presets[type];
   return undefined;
 }
@@ -93,7 +94,8 @@ function applySlotConfig(set: (fn: (s: State) => Partial<State>) => void, type: 
     const presets = { ...s.presets };
     if (type === 'filament') {
       const fil = [...presets.filament];
-      fil[extruderIdx] = { ...fil[extruderIdx], current: config };
+      const i = clampExtruderSlot(extruderIdx, fil.length);
+      fil[i] = { ...fil[i], current: config };
       presets.filament = fil;
     } else if (type === 'print' || type === 'printer') {
       presets[type] = { ...presets[type], current: config };
@@ -198,7 +200,7 @@ export const createPresetSlice: StateCreator<State, [], [], PresetSlice> = (set,
       await get().ensureCompatiblePresets();
     } else if (type === 'filament') {
       const fil = [...st.presets.filament];
-      fil[extruderIdx] = slot;
+      fil[clampExtruderSlot(extruderIdx, fil.length)] = slot;
       set({ presets: { ...st.presets, filament: fil }, sliceDirty: true });
     } else if (type === 'print') {
       set({ presets: { ...st.presets, print: slot }, sliceDirty: true });
@@ -258,8 +260,9 @@ export const createPresetSlice: StateCreator<State, [], [], PresetSlice> = (set,
     set((s) => {
       const presets = { ...s.presets };
       if (type === 'filament') {
+        const i = clampExtruderSlot(extruderIdx, presets.filament.length);
         const fil = [...presets.filament];
-        fil[extruderIdx] = { ...fil[extruderIdx], current: { ...fil[extruderIdx].current, [key]: value } };
+        fil[i] = { ...fil[i], current: { ...fil[i].current, [key]: value } };
         presets.filament = fil;
       } else if (type === 'print' || type === 'printer') {
         presets[type] = { ...presets[type], current: { ...presets[type].current, [key]: value } };
@@ -268,9 +271,7 @@ export const createPresetSlice: StateCreator<State, [], [], PresetSlice> = (set,
     });
   },
   resetOption: (type, key, extruderIdx = 0) => {
-    const s = get();
-    const slot =
-      type === 'filament' ? s.presets.filament[extruderIdx] : type === 'print' || type === 'printer' ? s.presets[type] : undefined;
+    const slot = slotOf(get().presets, type, extruderIdx);
     if (!slot) return;
     get().setOption(type, key, slot.saved[key] ?? '', extruderIdx);
   },
@@ -278,8 +279,9 @@ export const createPresetSlice: StateCreator<State, [], [], PresetSlice> = (set,
     set((s) => {
       const presets = { ...s.presets };
       if (type === 'filament') {
+        const i = clampExtruderSlot(extruderIdx, presets.filament.length);
         const fil = [...presets.filament];
-        fil[extruderIdx] = { ...fil[extruderIdx], current: { ...fil[extruderIdx].saved } };
+        fil[i] = { ...fil[i], current: { ...fil[i].saved } };
         presets.filament = fil;
       } else if (type === 'print' || type === 'printer') {
         presets[type] = { ...presets[type], current: { ...presets[type].saved } };
@@ -289,13 +291,14 @@ export const createPresetSlice: StateCreator<State, [], [], PresetSlice> = (set,
   },
   savePresetAs: async (type, name, extruderIdx = 0) => {
     const s = get();
-    const slot =
-      type === 'filament' ? s.presets.filament[extruderIdx] : type === 'print' || type === 'printer' ? s.presets[type] : undefined;
+    const slot = slotOf(s.presets, type, extruderIdx);
     if (!slot) return;
+    // the slot index is clamped as well: saving from a removed filament slot lands on the last one
+    const idx = type === 'filament' ? clampExtruderSlot(extruderIdx, s.presets.filament.length) : 0;
     const inherits = slot.system && !slot.name.startsWith('- default') ? slot.name : slot.inherits;
     await api.savePreset(type, name, slot.current, inherits);
     await get().refreshPresetLists();
-    await get().selectPreset(type, name, extruderIdx);
+    await get().selectPreset(type, name, idx);
     get().toast('success', `Saved ${type} preset "${name}"`);
   },
   deletePreset: async (type, name) => {
@@ -340,7 +343,14 @@ export const createPresetSlice: StateCreator<State, [], [], PresetSlice> = (set,
     const fil = [...s.presets.filament];
     while (fil.length < n) fil.push({ ...fil[fil.length - 1] });
     fil.length = n;
-    set({ presets: { ...s.presets, printer: { ...s.presets.printer, current: cur }, filament: fil }, sliceDirty: true });
+    // B2: objects, volumes, MMU paint and the paint tool may still point at a removed extruder;
+    // without this the next `filament[i]` read is a TypeError (and the value is unselectable anyway)
+    set({
+      presets: { ...s.presets, printer: { ...s.presets.printer, current: cur }, filament: fil },
+      objects: clampObjectExtruders(s.objects, n),
+      paintExtruder: clampExtruder(s.paintExtruder, n) || 1,
+      sliceDirty: true,
+    });
   },
   installPrinters: async (list) => {
     const installed = await api.setInstalledPrinters(list);
