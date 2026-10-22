@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Toolchain:** the web app runs on **React 19** (`react`/`react-dom` 19, matching `@types/react`)
+  and **Vite 7** with `@vitejs/plugin-react` 5. `eslint-plugin-react-hooks` is on 7 with the same
+  two rules as before, so no lint outcome changes. No behaviour change: the only forced code edit is
+  the ref typing in `three/viewer/useScene.ts` (`MutableRefObject` was removed in React 19, where
+  `RefObject.current` is writable). `StrictMode` stays.
 - **Safety (S1-b):** sending G-code to a print host now checks that the host is the machine the file
   was sliced for. A physical printer can be linked to a printer preset (Printers → Edit → "Printer
   preset"); `POST /api/jobs/:id/send` compares that preset with the job's own printer preset and

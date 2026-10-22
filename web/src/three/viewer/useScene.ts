@@ -6,7 +6,7 @@
  * did before.
  */
 import { useEffect } from 'react';
-import type { MutableRefObject, RefObject } from 'react';
+import type { RefObject } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
@@ -24,7 +24,7 @@ function readTransform(obj: THREE.Object3D) {
   };
 }
 
-export function useScene(refsRef: MutableRefObject<SceneRefs | null>, containerRef: RefObject<HTMLDivElement>) {
+export function useScene(refsRef: RefObject<SceneRefs | null>, containerRef: RefObject<HTMLDivElement | null>) {
   // --- init scene
   useEffect(() => {
     const container = containerRef.current!;
