@@ -84,7 +84,7 @@ jobs:
       - name: Cache the Playwright browsers
         # the browser build is a ~170 MB download per job and one shard took 12 min for it in the first
         # three-way run; the cache key is the Playwright version, so a dependency bump invalidates it
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
