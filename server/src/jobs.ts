@@ -11,6 +11,7 @@ import { config } from './config.js';
 import { runSlicer } from './slicer/cli.js';
 import { serializeIni } from './slicer/ini.js';
 import { extractWarnings, readGcodeInfo } from './slicer/gcodeInfo.js';
+import { machineLimitsOf, scanGcodeFile } from './slicer/gcodePreflight.js';
 import { injectThumbnails } from './slicer/thumbnails.js';
 import { mergeConfigs } from './services/configMerge.js';
 import { build3mfForRequest } from './services/slice.js';
@@ -217,16 +218,42 @@ async function embedThumbnails(job: JobRecord, req: SliceRequest, outFile: strin
 }
 
 /** Read size, and for FFF G-code the estimated time / filament / layers, into the job record. */
-async function collectJobInfo(job: JobRecord, outFile: string, warnings: string[]): Promise<void> {
+async function collectJobInfo(
+  job: JobRecord,
+  outFile: string,
+  warnings: string[],
+  machineLimits: Readonly<Record<string, string>>,
+): Promise<void> {
+  // S1-c: the finished file is scanned once, here; the result is stored in the record and the send
+  // gate merges its issues into the preset issues (no second scan on every send).
+  const preflight = await scanGcodeFile(outFile, machineLimits);
   if (job.technology === 'FFF' && outFile.endsWith('.gcode')) {
     try {
-      job.info = { ...readGcodeInfo(outFile), warnings };
+      job.info = { ...readGcodeInfo(outFile), warnings, preflight };
       return;
     } catch {
       /* fall through to the size-only record */
     }
   }
-  job.info = { sizeBytes: await fileSize(outFile), warnings };
+  job.info = { sizeBytes: await fileSize(outFile), warnings, preflight };
+}
+
+/**
+ * Turn a sliced job into a finished one. The info – size, G-code estimates and the preflight scan,
+ * which is awaited and yields the event loop on its chunks – is written **first**, the `done` status
+ * after: a reader (job list, `GET /api/jobs/:id`, a send) must never see a `done` job without its
+ * `info.preflight`, and the send gate would then scan the file again on demand.
+ */
+export async function completeJob(
+  job: JobRecord,
+  outFile: string,
+  warnings: string[],
+  machineLimits: Readonly<Record<string, string>>,
+): Promise<void> {
+  await collectJobInfo(job, outFile, warnings, machineLimits);
+  job.status = 'done';
+  job.percent = 100;
+  job.message = 'Done';
 }
 
 async function runJob(job: JobRecord) {
@@ -290,10 +317,7 @@ async function runJob(job: JobRecord) {
     return;
   }
   await embedThumbnails(job, req, outFile, logLines);
-  job.status = 'done';
-  job.percent = 100;
-  job.message = 'Done';
-  await collectJobInfo(job, outFile, extractWarnings(logLines));
+  await completeJob(job, outFile, extractWarnings(logLines), machineLimitsOf(req.printer.config));
   await saveJobRecord(job);
   emit(job.id, { type: 'done', job });
 }

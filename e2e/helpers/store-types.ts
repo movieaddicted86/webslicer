@@ -58,7 +58,19 @@ export interface E2EJob {
   outputName: string;
   /** the presets the G-code was sliced for – the send gate compares the printer preset */
   presets?: { printer: string; print?: string; filament?: string[] };
-  info?: { warnings?: unknown[]; estimatedTime?: unknown };
+  info?: {
+    warnings?: unknown[];
+    estimatedTime?: unknown;
+    /** the G-code preflight of the finished file (S1-c) */
+    preflight?: E2EPreflight;
+  };
+}
+
+/** The stored preflight result of a job: the issues with their line, and how often each rule fired. */
+export interface E2EPreflight {
+  version: number;
+  issues: Array<{ rule: string; severity: string; message: string; line: number; text: string }>;
+  counts: Record<string, number>;
 }
 
 export interface E2EGcode {

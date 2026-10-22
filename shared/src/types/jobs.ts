@@ -87,6 +87,26 @@ export interface SliceRequest {
   binaryGcode?: boolean;
 }
 
+/** One finding of the G-code preflight (S1-c): a send-gate issue plus the line it stands on. */
+export interface PreflightIssue extends SendIssue {
+  /** 1-based line number in the file */
+  line: number;
+  /** the line as it stands in the file (comments included, trimmed) */
+  text: string;
+}
+
+/**
+ * The stored preflight result of a job (`GcodeInfo.preflight`). `version` names the rule set that
+ * produced it, so a newer server can re-scan a stored file instead of trusting old rules.
+ */
+export interface PreflightResult {
+  version: number;
+  /** at most one cap per rule, in line order */
+  issues: PreflightIssue[];
+  /** how often each rule fired – the capped-out issues included */
+  counts: Record<string, number>;
+}
+
 /** What the server parsed out of a G-code; every field is optional because the slicer may skip it. */
 export interface GcodeInfo {
   generator?: string;
@@ -105,6 +125,8 @@ export interface GcodeInfo {
   layers?: number;
   /** warnings PrusaSlicer printed while the job still produced a G-code */
   warnings?: string[];
+  /** what the preflight found in the output (S1-c); missing means "not scanned" */
+  preflight?: PreflightResult;
   sizeBytes: number;
 }
 

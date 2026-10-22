@@ -4,3 +4,4 @@
  */
 export * from './mcpPolicy.js';
 export * from './sendCheck.js';
+export * from './gcodePreflight.js';

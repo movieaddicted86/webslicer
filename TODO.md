@@ -26,6 +26,7 @@ Priority by frequency of use in everyday printing and PrusaSlicer parity.
 
 - [x] Preview: horizontal slider and view options (retractions, seams, wipe, tool/colour changes, shells) and tool marker
 - [x] Preview: time per feature, slicer warnings (T-007)
+- [x] G-code preflight before sending: forbidden commands, absurd temperatures, moves before homing (S1-c, T-031)
 - [ ] STEP import through the CLI (`--export-stl`)
 - [ ] Merge objects; object info (volume, manifold check), rename
 - [ ] Arrange with settings (spacing, rotation) and "arrange selection"

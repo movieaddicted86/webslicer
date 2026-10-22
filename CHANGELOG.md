@@ -2,6 +2,28 @@
 
 ## Unreleased
 
+- **Safety (S1-c):** the G-code WebSlicer produces is now scanned before it can be sent. When a job
+  finishes, the server reads the output file once (chunked, no full-file string; 0.7 MB in ~56 ms,
+  60 MB in ~3.6 s) and stores the findings on the job (`info.preflight`, versioned). Five rules:
+  `gcode.forbidden_command` (**block**) – `M500`, `M502`, `M211 S0`, `M92`, `M997`, `M851`, i.e.
+  commands that store or reset the EEPROM, disable the endstops, change the steps/mm, flash firmware
+  or move the probe offset; `gcode.max_temp` (**block**) – `M104`/`M109` above 450 °C and
+  `M140`/`M190` above 150 °C (wide typo catchers; S1-d adds the per-printer limits);
+  `gcode.no_homing` (**block**) – a move with X/Y/Z before the first `G28`, with
+  `gcode.macro_before_move` (**warn**) instead when a printer macro (`PRINT_START`, …) comes first,
+  because it may home; `gcode.firmware_limit` (**warn**) – `M201`/`M203`/`M204`/`M205` above the job
+  printer preset's `machine_max_*` (Normal column, only when the preset defines them); and
+  `gcode.motor_current` (**warn**) – `M906`/`M907`. The last one is a warning rather than a block on
+  purpose: PrusaSlicer's own printer presets write `M907 E430`/`M907 E538` into their start and end
+  G-code, so blocking it would refuse every file the slicer makes for an MK3S. Comments, lowercase
+  and line numbers are understood (`M5000` is not `M500`), a finding carries its line number and the
+  offending line, and each rule keeps its first five findings (the counts keep the total). Binary
+  `.bgcode` output is not read and reports one `gcode.not_scanned` warning.
+  The send gate merges these findings with the S1-b preset issues: a blocking finding answers
+  **409** `{ error, issues }` (each issue now carries `line` and `text`), goes through with
+  `{ "override": true, "reason": "…" }` and is written to `data/audit.log` like a preset mismatch. The
+  send dialog lists the findings next to the preset issues with their line; the preview panel shows
+  "Preflight: n blocking, m warnings" with the details in a collapsible section.
 - **Testing:** the browser checks that so far lived in git-ignored `.claude/*-browser.mjs` scripts are
   in the repository as a Playwright suite (`e2e/`, `@playwright/test` 1.64.1 pinned, Chromium only,
   `retries: 0`, one worker). `npm run e2e:docker` builds the image, starts it with the fixture data dir
