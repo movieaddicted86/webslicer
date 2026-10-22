@@ -43,6 +43,12 @@ export interface PreviewSlice {
 export const createPreviewSlice: StateCreator<State, [], [], PreviewSlice> = (set, get) => {
   /** Re-slice after a colour change / pause was edited, like PrusaSlicer's background G-code export. */
   let resliceTimer: ReturnType<typeof setTimeout> | undefined;
+  /**
+   * B9: the preview load that may still apply its result. Two loads can overlap (the re-slice after a
+   * colour change plus a manual reload, a slow first request), and the *older* answer used to win by
+   * arriving last. Only the newest request is allowed to set the state; the others are dropped.
+   */
+  let previewLoad = 0;
   const scheduleReslice = () => {
     clearTimeout(resliceTimer);
     resliceTimer = setTimeout(() => {
@@ -102,11 +108,14 @@ export const createPreviewSlice: StateCreator<State, [], [], PreviewSlice> = (se
             : s.previewColorMode,
       })),
     loadGcodePreview: async (jobId) => {
+      const load = ++previewLoad;
       set({ gcodeLoading: true });
       try {
         const text = await api.gcodeText(jobId);
         const { parseGcodeInWorker } = await import('../../gcode/parserClient');
         const parsed = await parseGcodeInWorker(text);
+        // a newer request started while this one was loading; its answer is the one that counts
+        if (load !== previewLoad) return;
         const vis: Record<string, boolean> = {};
         for (const f of parsed.featureTypes) vis[f] = true;
         // keep the slider position when re-slicing (e.g. after adding a colour change)
@@ -125,7 +134,8 @@ export const createPreviewSlice: StateCreator<State, [], [], PreviewSlice> = (se
           view: 'preview',
         });
       } finally {
-        set({ gcodeLoading: false });
+        // only the newest load owns the spinner; a superseded one must not clear it for its successor
+        if (load === previewLoad) set({ gcodeLoading: false });
       }
     },
     // moving a vertical slider resets the horizontal one to "end of layer"
