@@ -1,0 +1,332 @@
+/**
+ * The send dialog and the send gate (S1-b) – ported from `.claude/t026-browser.mjs`.
+ *
+ * The "printer" is the mock print host of `e2e/mock-host`, a sibling container the app under test
+ * reaches by name; every upload it receives lands in a log file the spec reads. A real printer is
+ * never involved, and nothing is ever started on one (`startPrint` stays off).
+ *
+ * The checks are the t026 list: the dialog preselects the host that matches the job's printer preset
+ * (never the first one), a mismatch blocks, the block needs an override *with a reason*, a derived
+ * preset only warns, an unbound host warns and asks for a second confirmation before it may start a
+ * print, the upload really happens, and the server enforces the same gate on its own (409).
+ */
+import { CUBE, importFile, read, settle, sliceAndWait } from '../helpers/app';
+import { expect, test } from '../helpers/fixtures';
+import { E2E_PRINTER } from '../global-setup';
+import { dialogSnapshot, openDialog } from '../helpers/dom';
+import {
+  addPreset,
+  addPrinter,
+  clearUploads,
+  HAS_MOCK_HOST,
+  removePreset,
+  removePrinters,
+  rest,
+  uploads,
+  type TestPrinter,
+} from '../helpers/mock-host';
+import type { Page } from '@playwright/test';
+
+/** A printer preset the fixture MK3S job was *not* sliced for – the block case. */
+const OTHER_PRESET = '- default FFF -';
+/** A user preset derived from the fixture preset – the warn case. */
+const DERIVED_PRESET = 'E2E Workshop MK3S';
+
+/** The three hosts the check distinguishes, plus the exact match that has to win the preselection. */
+interface Hosts {
+  exact: TestPrinter;
+  derived: TestPrinter;
+  unbound: TestPrinter;
+  mismatch: TestPrinter;
+}
+
+test.describe('send: the send gate and the upload (S1-b, T-026)', () => {
+  test.skip(!HAS_MOCK_HOST, 'the send tests need the mock print host – run them with `npm run e2e:docker`');
+
+  let created: TestPrinter[] = [];
+
+  test.afterEach(async ({ app }) => {
+    await removePrinters(app, created);
+    await removePreset(app, DERIVED_PRESET);
+    created = [];
+    clearUploads();
+  });
+
+  /**
+   * Slice the cube for the fixture printer preset and register the hosts. The creation order is the
+   * *wrong* one on purpose (derived, unbound, mismatched before the exact match), so a dialog that
+   * falls back to the first host is caught.
+   */
+  async function prepare(app: Page, which: Array<keyof Hosts> = ['exact', 'derived', 'unbound', 'mismatch']): Promise<Partial<Hosts>> {
+    await importFile(app, CUBE);
+    await sliceAndWait(app);
+    const job = await read(app, (s) => ({ id: s.job?.id, preset: s.job?.presets?.printer }));
+    expect(job.id, 'the slice finished with a job').toBeTruthy();
+    expect(job.preset).toBe(E2E_PRINTER);
+    expect(job.id && (await read(app, (s) => s.job?.status))).toBe('done');
+
+    // a user preset that inherits the fixture printer preset: the same machine, but derived
+    await addPreset(app, DERIVED_PRESET, E2E_PRINTER);
+
+    const create = async (name: string, presetName?: string) => {
+      const printer = await addPrinter(app, { name, presetName });
+      created.push(printer);
+      return printer;
+    };
+    const hosts: Partial<Hosts> = {};
+    if (which.includes('derived')) hosts.derived = await create('Derived host', DERIVED_PRESET);
+    if (which.includes('unbound')) hosts.unbound = await create('Unbound host');
+    if (which.includes('mismatch')) hosts.mismatch = await create('Other host', OTHER_PRESET);
+    if (which.includes('exact')) hosts.exact = await create('MK3S host', E2E_PRINTER);
+
+    // the app loaded before the hosts and the derived preset existed: pick both up the way the
+    // dialog would (the preset list is what the send check reads the lineage from)
+    await app.evaluate(async () => {
+      const s = window.webslicer.getState();
+      await s.refreshPresetLists();
+      await s.refreshPhysicalPrinters();
+    });
+    await settle(app, 400);
+    return hosts;
+  }
+
+  /** Open the send dialog from the store and wait for its first render (the preselect runs once). */
+  async function sendDialog(app: Page) {
+    await openDialog(app, 'sendToPrinter');
+    await expect(app.locator('.modal .form select')).toHaveCount(1);
+  }
+
+  const uploadButton = (app: Page) => app.locator('.modal-actions button.primary');
+  const checkbox = (app: Page, label: string) => app.locator(`.modal label.checkbox:has-text("${label}") input`);
+
+  test('the dialog preselects the host set up for the job preset and shows no warning', async ({ app }) => {
+    const hosts = await prepare(app);
+    await sendDialog(app);
+
+    const dialog = await dialogSnapshot(app);
+    expect(dialog.title).toBe('Send G-code to printer');
+    expect(dialog.buttons).toEqual(['Cancel', 'Upload']);
+    // the exact match wins even though the derived, unbound and mismatched host were created first
+    await expect(app.locator('.modal .form select')).toHaveValue(hosts.exact?.id ?? '');
+    await expect(app.locator('.modal .form select option:checked')).toContainText(`MK3S host (moonraker) · ${E2E_PRINTER}`);
+    expect(await app.locator('.modal .warn').count()).toBe(0);
+    await expect(uploadButton(app)).toBeEnabled();
+    // the message names the preset the job was sliced for
+    await expect(app.locator('.modal .form .muted.small')).toContainText(`Sliced for the printer preset ${E2E_PRINTER}`);
+    // and the file name starts as the job's output name
+    const job = await read(app, (s) => s.job?.outputName);
+    await expect(app.locator('.modal .form input').first()).toHaveValue(job ?? '');
+  });
+
+  test('a mismatched host blocks the upload until an override with a written reason', async ({ app }) => {
+    const hosts = await prepare(app, ['mismatch']);
+    await sendDialog(app);
+
+    await app.locator('.modal .form select').selectOption(hosts.mismatch?.id ?? '');
+    await app.waitForTimeout(300);
+    const block = await app.locator('.modal .warn').first().textContent();
+    expect(block).toContain(`sliced for the printer preset "${E2E_PRINTER}"`);
+    expect(block).toContain(`is set up for "${OTHER_PRESET}"`);
+    // a block is not a warning: there is no second confirmation to tick, only the override
+    await expect(uploadButton(app)).toBeDisabled();
+    await expect(app.locator('.modal .warn')).toHaveCount(1);
+
+    // the override alone does not help – it needs a reason the server can audit
+    await checkbox(app, 'Send anyway').check();
+    await app.waitForTimeout(200);
+    await expect(uploadButton(app)).toBeDisabled();
+    const reason = app.locator('.modal input[placeholder*="Why this G-code"]');
+    await expect(reason).toBeVisible();
+    await reason.fill('   ');
+    await app.waitForTimeout(200);
+    await expect(uploadButton(app), 'a blank reason is no reason').toBeDisabled();
+    await reason.fill('same nozzle, same bed, checked by hand');
+    await app.waitForTimeout(200);
+    await expect(uploadButton(app)).toBeEnabled();
+
+    // switching the host drops the override again: it belonged to that printer
+    await app.locator('.modal .form select').selectOption(hosts.mismatch?.id ?? '');
+    await app.waitForTimeout(200);
+    await expect(uploadButton(app)).toBeDisabled();
+    expect(await app.locator('.modal input[placeholder*="Why this G-code"]').count()).toBe(0);
+  });
+
+  test('a derived preset only warns; an unbound host warns and asks for a second confirmation', async ({ app }) => {
+    const hosts = await prepare(app, ['derived', 'unbound']);
+    await sendDialog(app);
+
+    await app.locator('.modal .form select').selectOption(hosts.derived?.id ?? '');
+    await app.waitForTimeout(300);
+    const derived = await app.locator('.modal .warn').first().textContent();
+    expect(derived).toContain(`set up for the printer preset "${DERIVED_PRESET}"`);
+    expect(derived).toContain(`which is derived from "${E2E_PRINTER}"`);
+    await expect(uploadButton(app), 'a warning does not block the upload').toBeEnabled();
+    await expect(app.locator('.modal label.checkbox:has-text("Send anyway")')).toHaveCount(0);
+
+    await app.locator('.modal .form select').selectOption(hosts.unbound?.id ?? '');
+    await app.waitForTimeout(300);
+    const unbound = await app.locator('.modal .warn').first().textContent();
+    expect(unbound).toContain('is not linked to a printer preset');
+    await expect(uploadButton(app)).toBeEnabled();
+
+    // starting the print right away turns a warning into something the user has to confirm
+    await checkbox(app, 'Start printing after upload').check();
+    await app.waitForTimeout(200);
+    const confirm = checkbox(app, 'I understand the warning');
+    await expect(confirm).toBeVisible();
+    await expect(uploadButton(app)).toBeDisabled();
+    // `click`, not `check`: confirming removes the checkbox (the warning is acknowledged), so a
+    // `check` would wait for a checked state that never exists
+    await confirm.click();
+    await app.waitForTimeout(300);
+    await expect(uploadButton(app)).toBeEnabled();
+
+    // ... and the confirmation goes away with "start printing"
+    await checkbox(app, 'Start printing after upload').uncheck();
+    await app.waitForTimeout(200);
+    expect(await app.locator('.modal label.checkbox:has-text("I understand the warning")').count()).toBe(0);
+    await expect(uploadButton(app)).toBeEnabled();
+  });
+
+  test('a matching host uploads to the mock print host and the dialog closes', async ({ app }) => {
+    const hosts = await prepare(app, ['exact']);
+    const job = await read(app, (s) => ({ id: s.job?.id ?? '', outputName: s.job?.outputName ?? '' }));
+    clearUploads();
+
+    // the preview's own button is the way in – it is enabled because a host exists now
+    await app.evaluate(() => window.webslicer.getState().setView('preview'));
+    await settle(app, 1200);
+    const send = app.locator('.stats .actions button', { hasText: 'Send to printer' });
+    await expect(send).toBeEnabled();
+    await send.click();
+    await expect(app.locator('.modal .form select')).toHaveCount(1);
+    await expect(app.locator('.modal .form select')).toHaveValue(hosts.exact?.id ?? '');
+
+    await uploadButton(app).click();
+    await expect(app.locator('.modal'), 'the dialog closes after a successful upload').toHaveCount(0, { timeout: 60_000 });
+    await expect(app.locator('.toast.success')).toContainText('Uploaded');
+
+    const sent = uploads();
+    expect(sent).toHaveLength(1);
+    const [u] = sent;
+    // Moonraker: multipart POST on /server/files/upload, the file under `root=gcodes`, no auto start
+    expect(u.method).toBe('POST');
+    expect(u.path).toBe('/server/files/upload');
+    expect(u.filename).toBe(job.outputName);
+    expect(u.fields.root).toBe('gcodes');
+    expect(u.fields.print).toBe('false');
+    expect(u.bytes).toBeGreaterThan(1000);
+    // the G-code itself arrived, not an empty body: the mock logged the multipart size
+    expect(u.contentType).toContain('multipart/form-data');
+    expect(job.id).not.toBe('');
+  });
+
+  test('the server refuses a mismatched send on its own, and an override needs a reason', async ({ app }) => {
+    const hosts = await prepare(app, ['mismatch']);
+    clearUploads();
+    const jobId = await read(app, (s) => s.job?.id ?? '');
+    const body = { printerId: hosts.mismatch?.id, filename: 'direct.gcode' };
+
+    const refused = await rest<{ error: string; issues: Array<{ rule: string; severity: string }> }>(
+      app,
+      'POST',
+      `/api/jobs/${jobId}/send`,
+      body,
+    );
+    expect(refused.status).toBe(409);
+    expect(refused.json.error).toContain(`sliced for the printer preset "${E2E_PRINTER}"`);
+    expect(refused.json.issues.map((i) => `${i.severity}:${i.rule}`)).toEqual(['block:send.preset_mismatch']);
+    expect(uploads(), 'a refused send uploads nothing').toHaveLength(0);
+
+    const noReason = await rest<{ error: string }>(app, 'POST', `/api/jobs/${jobId}/send`, { ...body, override: true, reason: '  ' });
+    expect(noReason.status).toBe(400);
+    expect(noReason.json.error).toBe('an override needs a reason');
+    expect(uploads()).toHaveLength(0);
+
+    const overridden = await rest<{ ok: boolean; issues: Array<{ rule: string }> }>(app, 'POST', `/api/jobs/${jobId}/send`, {
+      ...body,
+      override: true,
+      reason: 'same nozzle, same bed, checked by hand',
+    });
+    expect(overridden.status).toBe(200);
+    expect(overridden.json.ok).toBe(true);
+    // the accepted override still reports the issue it went past
+    expect(overridden.json.issues.map((i) => i.rule)).toEqual(['send.preset_mismatch']);
+    const sent = uploads();
+    expect(sent).toHaveLength(1);
+    expect(sent[0].filename).toBe('direct.gcode');
+
+    // the unknown printer is a 400, not a crash
+    expect((await rest(app, 'POST', `/api/jobs/${jobId}/send`, { printerId: 'nope' })).status).toBe(400);
+  });
+
+  test('the three host types upload through their own API', async ({ app }) => {
+    await prepare(app, []);
+    const jobId = await read(app, (s) => s.job?.id ?? '');
+    clearUploads();
+
+    // octoprint: multipart on /api/files/local, `select` and `print` as form fields
+    const octo = await addPrinter(app, { name: 'Octo', type: 'octoprint', presetName: E2E_PRINTER });
+    created.push(octo);
+    const o = await rest<{ ok: boolean }>(app, 'POST', `/api/jobs/${jobId}/send`, { printerId: octo.id, filename: 'cube.gcode' });
+    expect(o.status).toBe(200);
+    expect(o.json.ok).toBe(true);
+
+    // prusalink: PUT the raw bytes to /api/v1/files/usb/<encoded name>, overwrite and print as headers
+    const prusa = await addPrinter(app, { name: 'Link', type: 'prusalink', presetName: E2E_PRINTER });
+    created.push(prusa);
+    const p = await rest<{ ok: boolean }>(app, 'POST', `/api/jobs/${jobId}/send`, {
+      printerId: prusa.id,
+      filename: 'my cube.gcode',
+      startPrint: true,
+    });
+    expect(p.status).toBe(200);
+    expect(p.json.ok).toBe(true);
+
+    const [octoUp, prusaUp] = uploads();
+    expect(octoUp.path).toBe('/api/files/local');
+    expect(octoUp.fields).toMatchObject({ select: 'false', print: 'false' });
+    expect(prusaUp.method).toBe('PUT');
+    expect(prusaUp.path).toBe('/api/v1/files/usb/my%20cube.gcode');
+    expect(prusaUp.overwrite).toBe('?1');
+    expect(prusaUp.printAfterUpload).toBe('?1');
+    expect(prusaUp.bytes).toBeGreaterThan(1000);
+    expect(prusaUp.contentType).toBe('application/octet-stream');
+  });
+
+  test('a printer without a host cannot be reached and the send reports it', async ({ app }) => {
+    await prepare(app, []);
+    const jobId = await read(app, (s) => s.job?.id ?? '');
+    // port 1 on the mock container: nothing listens, the upload fails instead of hanging or crashing
+    const broken = await rest<TestPrinter>(app, 'POST', '/api/printers', { name: 'Broken', type: 'moonraker', host: 'mock-host:1' });
+    created.push(broken.json);
+    const res = await rest<{ ok: boolean; message: string }>(app, 'POST', `/api/jobs/${jobId}/send`, { printerId: broken.json.id });
+    // a failed upload is the route's 502, with the host's answer in the body
+    expect(res.status).toBe(502);
+    expect(res.json.ok).toBe(false);
+    expect(res.json.message).toBeTruthy();
+  });
+});
+
+test.describe('send: the printer dialog sees the mock host', () => {
+  test.skip(!HAS_MOCK_HOST, 'the send tests need the mock print host – run them with `npm run e2e:docker`');
+
+  test('the "test connection" of a printer reaches the mock host', async ({ app }) => {
+    // the fixture data seeds no host, so the dialog starts on its empty list
+    const created = [await addPrinter(app, { name: 'Probe', presetName: E2E_PRINTER })];
+    try {
+      const res = await rest<{ ok: boolean; message: string }>(app, 'POST', `/api/printers/${created[0].id}/test`);
+      expect(res.status).toBe(200);
+      expect(res.json.ok).toBe(true);
+      expect(res.json.message).toContain('Moonraker reachable');
+      // and a host that cannot be reached answers with ok:false rather than an error
+      const down = await rest<{ ok: boolean; message: string }>(app, 'POST', '/api/printers/test', {
+        type: 'moonraker',
+        host: 'mock-host:1',
+      });
+      expect(down.json.ok).toBe(false);
+    } finally {
+      await removePrinters(app, created);
+    }
+  });
+});

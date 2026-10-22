@@ -56,6 +56,8 @@ export interface E2EJob {
   id: string;
   status: string;
   outputName: string;
+  /** the presets the G-code was sliced for – the send gate compares the printer preset */
+  presets?: { printer: string; print?: string; filament?: string[] };
   info?: { warnings?: unknown[]; estimatedTime?: unknown };
 }
 
@@ -145,6 +147,7 @@ export interface E2EState {
   addCustomGcode: (code: { type: string; printZ: number; color?: string; extruder?: number; extra?: string }) => void;
   setCustomGcodes: (codes: E2ECustomGcode[]) => void;
   refreshPhysicalPrinters: () => Promise<void>;
+  refreshPresetLists: () => Promise<void>;
   autosaveNow: () => Promise<void>;
   discardAutosave: () => Promise<void>;
 }

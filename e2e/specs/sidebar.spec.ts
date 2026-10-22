@@ -6,10 +6,10 @@
  * menu, the volume panel, height ranges, the paint panel, the quick settings, Simple/Advanced mode and
  * the extruder palette. The DOM outlines t18 captured are kept as a failure `diagnostic`.
  */
-import { CUBE, importFile, press, read, settle, state, waitUploads } from '../helpers/app';
+import { BRIDGE, CUBE, importFile, press, read, settle, state, waitUploads } from '../helpers/app';
 import { expect, test } from '../helpers/fixtures';
 import { click, fill, manipulationRow, outline } from '../helpers/dom';
-import { plater } from '../helpers/plater';
+import { canvasBox, plater } from '../helpers/plater';
 
 /** The first instance of the first object, rounded like the rest of the suite. */
 const instance = (app: Parameters<typeof settle>[0]) =>
@@ -243,6 +243,51 @@ test.describe('sidebar: the paint panel (UAT-09)', () => {
     await expect(app.locator('.brush span')).toHaveText(/Brush 4\.5 mm/);
 
     await click(app, '.paint-panel .section-head button', 800);
+    expect(await read(app, (s) => s.paintMode ?? null)).toBeNull();
+  });
+
+  test('a paint stroke marks triangles of the support enforcer', async ({ app }) => {
+    // the bridge's underside needs supports, and the stroke is the only way to mark them by hand
+    await importFile(app, BRIDGE);
+    await app.evaluate(() => {
+      const s = window.webslicer.getState();
+      s.select([s.objects[0].id]);
+      s.setOption('print', 'support_material', '1');
+      s.setOption('print', 'support_material_auto', '0');
+      s.setOption('print', 'support_material_enforce_layers', '0');
+    });
+    await settle(app, 700);
+    await press(app, 'l');
+    await app.waitForTimeout(1800);
+    expect(await read(app, (s) => s.paintMode)).toBe('supports');
+
+    // a short stroke over the middle of the model; the triangle mask is what changes
+    const box = await canvasBox(app);
+    const cx = box.x + box.width / 2;
+    const cy = box.y + box.height / 2;
+    await app.mouse.move(cx, cy - 30);
+    await app.mouse.down();
+    await app.mouse.move(cx + 25, cy - 10, { steps: 6 });
+    await app.mouse.up();
+    await app.waitForTimeout(1800);
+
+    const stroke = await read(app, (s) => {
+      const o = s.objects[0];
+      const arr = o.paint?.supports;
+      return {
+        painted: arr ? Array.from(arr).filter(Boolean).length : 0,
+        kinds: o.paint ? Object.keys(o.paint).sort() : [],
+        version: o.paintVersion ?? 0,
+        triangles: o.triangles,
+      };
+    });
+    expect(stroke.painted, 'the stroke marked triangles').toBeGreaterThan(0);
+    expect(stroke.painted).toBeLessThanOrEqual(stroke.triangles);
+    expect(stroke.kinds).toContain('supports');
+    expect(stroke.version).toBeGreaterThan(0);
+
+    await press(app, 'Escape');
+    await app.waitForTimeout(700);
     expect(await read(app, (s) => s.paintMode ?? null)).toBeNull();
   });
 });

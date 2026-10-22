@@ -273,6 +273,30 @@ npm test             # shared + server + web tests (builds shared first)
 For local development PrusaSlicer must be reachable (`PRUSASLICER_BIN`); on Windows the
 `prusa-slicer-console.exe` of the desktop installation is found automatically.
 
+### Running the E2E suite
+
+The browser checks live in `e2e/` (Playwright, Chromium only). They run against the **real app** –
+the server, the PrusaSlicer CLI and the built frontend – with the fixture data dir
+`e2e/fixtures/data` (an installed MK3S, no physical printers).
+
+```bash
+npm run e2e:docker          # build the image, start it + the mock print host, run everything, stop it
+npm run e2e:docker -- viewer.spec.ts   # a single spec
+npm run e2e                 # against an already running app (E2E_BASE_URL, default :8080)
+```
+
+`e2e:docker` copies the fixture data to a temp dir, builds `webslicer:e2e`, starts it on the first free
+port from 8080 and adds a **mock print host** (`e2e/mock-host`, a sibling container on a private
+network). The send tests upload to that mock – a real printer is never contacted. Without the mock
+(`npm run e2e` against a hand-started app) the send tests skip.
+
+- Specs by area: `smoke`, `viewer`, `camera`, `sidebar`, `dialogs`, `preview`, `send`, `api-smoke`.
+- `retries: 0`, one worker: a flaky test is a failure, not a retry.
+- On failure Playwright keeps a trace, a screenshot and the error context in `test-results/`; in CI the
+  `playwright-report` artifact holds them.
+- Slicing is the slow part (software WebGL in CI); the whole suite takes about 25–30 minutes locally
+  and in CI on GitHub's runners.
+
 ### Architecture
 
 ```
