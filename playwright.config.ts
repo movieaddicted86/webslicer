@@ -3,17 +3,19 @@
  * `.claude/t1x-browser.mjs` scripts, ported to `@playwright/test` so they run from the repository
  * and in CI.
  *
- * The suite always talks to a **running** app (`E2E_BASE_URL`, default `http://localhost:8080`).
- * `npm run e2e:docker` builds the image, starts it with the fixture data dir and sets the base URL;
- * against a hand-started server the fixture data has to be in place (the global setup checks that and
- * says so).
+ * The suite always talks to a **running** app and has **no default target**: without `E2E_BASE_URL`
+ * the global setup stops with a message. A default of `localhost:8080` is exactly where a developer's
+ * own compose stack runs, and this suite deletes jobs and writes presets – it may only ever see a
+ * fixture instance (the global setup checks the fixture marker before its first write).
+ * `npm run e2e:docker` builds the image, starts it with a copy of `e2e/fixtures/data` and sets the
+ * base URL; CI does the same.
  *
  * Specs share one plater and one slice queue, so they run one after the other in a single worker.
  * `retries` stays 0: a flaky test has to show up as a failure (AC-5), not be hidden by a retry.
  */
 import { defineConfig } from '@playwright/test';
 
-const baseURL = process.env.E2E_BASE_URL || 'http://localhost:8080';
+const baseURL = process.env.E2E_BASE_URL;
 
 export default defineConfig({
   testDir: './e2e/specs',

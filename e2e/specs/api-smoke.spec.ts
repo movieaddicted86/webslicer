@@ -16,7 +16,9 @@ import { CUBE } from '../helpers/app';
 import { expect, test } from '@playwright/test';
 import { E2E_PRINTER } from '../global-setup';
 
-const BASE = (process.env.E2E_BASE_URL || 'http://localhost:8080').replace(/\/+$/, '');
+// no default target: the global setup has already refused a run without E2E_BASE_URL (and this spec
+// is pure REST, so it must not reach an instance the browser specs would not)
+const BASE = (process.env.E2E_BASE_URL || '').replace(/\/+$/, '');
 
 interface Answer<T> {
   status: number;
