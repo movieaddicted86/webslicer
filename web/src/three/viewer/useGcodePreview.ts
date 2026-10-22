@@ -12,6 +12,7 @@ import { RANGE_SCHEMES, rangeColor, rangePosition, schemeRange, type PreviewColo
 import type { CustomGcode } from '../../api';
 import { colorAtZ, normalizeColor } from '../../gcode/colorprint';
 import type { View } from '../../state/types';
+import { clearAndDispose } from './dispose';
 import type { SceneRefs } from './types';
 
 interface GcodeColoring {
@@ -65,7 +66,8 @@ function coloringKey(c: GcodeColoring): string {
 }
 
 function buildGcode(refs: SceneRefs, g: ParsedGcode, coloring: GcodeColoring) {
-  refs.gcodeGroup.clear();
+  // B1: the toolpaths of the previous preview are GPU resources; `clear()` would leave them behind
+  clearAndDispose(refs.gcodeGroup);
   refs.gcodeLines = undefined;
   refs.travelLines = undefined;
   refs.wipeLines = undefined;
@@ -305,7 +307,7 @@ export function useGcodePreview(refsRef: RefObject<SceneRefs | null>, options: G
       refs.colorKey = coloringKey(coloring);
     }
     if (!gcode) {
-      refs.gcodeGroup.clear();
+      clearAndDispose(refs.gcodeGroup);
       refs.gcodeRef = undefined;
       refs.gcodeLines = undefined;
     }

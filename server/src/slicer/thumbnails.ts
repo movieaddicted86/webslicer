@@ -24,12 +24,19 @@ export function thumbnailBlock(t: ThumbnailInput): string {
   return lines.join('\n') + '\n';
 }
 
-/** Rewrite `file` with the thumbnail blocks inserted after its first line. */
+/**
+ * Rewrite `file` with the thumbnail blocks inserted after its first line.
+ *
+ * B4: this used to read the whole G-code with `readFileSync(...).slice(0, 0)` – a full read whose
+ * value was thrown away, once per thumbnail embed. Now only the first line is read, and the rest is
+ * streamed straight into the temp file, so the memory use stays constant whatever the file size.
+ */
 export async function injectThumbnails(file: string, thumbs: ThumbnailInput[]): Promise<void> {
   if (!thumbs.length) return;
   const fd = fs.openSync(file, 'r');
   let firstLineEnd = -1;
   let offset = 0;
+  // scan in chunks until the first newline, so a long header line needs no full read either
   const chunk = Buffer.alloc(8192);
   try {
     while (firstLineEnd < 0) {
@@ -44,8 +51,6 @@ export async function injectThumbnails(file: string, thumbs: ThumbnailInput[]): 
   }
   if (firstLineEnd < 0) return;
   const tmp = path.join(path.dirname(file), `.${path.basename(file)}.tmp`);
-  const header = fs.readFileSync(file, { encoding: 'utf8', flag: 'r' }).slice(0, 0); // placeholder to keep types simple
-  void header;
   const out = fs.createWriteStream(tmp);
   const head = Buffer.alloc(firstLineEnd);
   const fd2 = fs.openSync(file, 'r');

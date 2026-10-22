@@ -2,6 +2,29 @@
 
 ## Unreleased
 
+- **Fixed (T-039 – GPU and memory resources):** leaks and lost work from the external review.
+  _Preview and bed:_ clearing the G-code or the bed group disposes the geometries, materials and
+  textures it held; removing objects also frees the plater geometry that is no longer used, so
+  `renderer.info.memory.geometries` returns to its start value after load → slice → clear and after
+  adding and removing ten objects (undo still restores geometry because three re-uploads a disposed
+  buffer on the next render).
+  _Thumbnails:_ embedding the preview thumbnails no longer reads the whole G-code file into memory.
+  _Uploads:_ the "waiting for upload" loop gives up with a clear message after 60 s instead of looping
+  forever, watching a new job closes the previous event stream, and an older preview download can no
+  longer overwrite a newer one.
+  _Arc fitting:_ G2/G3 moves in the preview (emitted by PrusaSlicer's `arc_fitting`) are interpolated
+  into straight segments with a chord error of at most 0.05 mm (`I`/`J` or `R`, full circles included)
+  instead of being skipped, so fitted perimeters and infill are visible and their time and filament
+  numbers are right.
+
+- **Security (T-039 S7 – uploads and 3MF bombs):** model and library uploads are streamed to a temp
+  file and the size limit is enforced while the bytes arrive (no whole body in RAM; a body over the
+  limit answers **413** and leaves no file, an aborted upload removes its temp file). STLs are parsed
+  from the streamed file in chunks. A 3MF is checked against its central directory before anything is
+  inflated: the entry count and the declared total uncompressed size are capped (10 000 entries,
+  1 GiB), and every entry read is checked again, so a zip bomb is refused instead of exhausting
+  memory.
+
 - **Fixed (T-038 – data loss and crashes):** bugs from the external review of 2026-10-22.
   _Extruders:_ every extruder index is clamped after the count shrinks, so reducing the extruders no
   longer throws and values fall back to extruder 1 (object/volume extruder, paint, reset, discard,

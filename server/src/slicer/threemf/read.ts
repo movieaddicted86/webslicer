@@ -16,6 +16,7 @@ import {
 } from '@webslicer/shared';
 import { parseCustomGcodeXml } from './customGcode.js';
 import { xmlUnescape } from './xml.js';
+import { assertZipReasonable, readZipEntryText } from './zipLimits.js';
 
 /** Read per-triangle paint attributes of every object in 3D/3dmodel.model (by object id). */
 function readPaintFromModel(model: string): Map<string, { supports?: string; seam?: string; mmu?: string }> {
@@ -76,10 +77,12 @@ export async function read3mfProject(
   buf: Buffer,
 ): Promise<{ config: IniSection; objects: ProjectObject[]; customGcodes: CustomGcode[]; buildOrder: number[] }> {
   const zip = await JSZip.loadAsync(buf);
+  // S7: the directory is all an untrusted archive may cost before the size limits are checked
+  assertZipReasonable(zip);
   const cfg: IniSection = {};
   const cfgFile = zip.file('Metadata/Slic3r_PE.config');
   if (cfgFile) {
-    const text = await cfgFile.async('string');
+    const text = await readZipEntryText(zip, 'Metadata/Slic3r_PE.config');
     for (const line of text.split(/\r?\n/)) {
       const m = /^;\s*([A-Za-z0-9_]+)\s*=\s?(.*)$/.exec(line);
       if (m) cfg[m[1]] = m[2];
@@ -92,7 +95,7 @@ export async function read3mfProject(
   let paintById = new Map<string, { supports?: string; seam?: string; mmu?: string }>();
   const modelFile = zip.file('3D/3dmodel.model');
   if (modelFile) {
-    const model = await modelFile.async('string');
+    const model = await readZipEntryText(zip, '3D/3dmodel.model');
     if (model.includes('slic3rpe:custom_')) paintById = readPaintFromModel(model);
     buildItems = parse3mfBuild(model);
   }
@@ -100,7 +103,7 @@ export async function read3mfProject(
   const rangesById = new Map<string, LayerRangeInput[]>();
   const lrFile = zip.file('Metadata/Prusa_Slicer_layer_config_ranges.xml');
   if (lrFile) {
-    const text = await lrFile.async('string');
+    const text = await readZipEntryText(zip, 'Metadata/Prusa_Slicer_layer_config_ranges.xml');
     const objRe = /<object\s+id="([^"]+)"[^>]*>([\s\S]*?)<\/object>/g;
     let om: RegExpExecArray | null;
     while ((om = objRe.exec(text))) {
@@ -119,7 +122,7 @@ export async function read3mfProject(
   }
   const mcFile = zip.file('Metadata/Slic3r_PE_model.config');
   if (mcFile) {
-    const text = await mcFile.async('string');
+    const text = await readZipEntryText(zip, 'Metadata/Slic3r_PE_model.config');
     const objRe = /<object\b([^>]*)>([\s\S]*?)<\/object>/g;
     let m: RegExpExecArray | null;
     while ((m = objRe.exec(text))) {
@@ -191,7 +194,7 @@ export async function read3mfProject(
   }
   let customGcodes: CustomGcode[] = [];
   const cgFile = zip.file('Metadata/Prusa_Slicer_custom_gcode_per_print_z.xml');
-  if (cgFile) customGcodes = parseCustomGcodeXml(await cgFile.async('string'));
+  if (cgFile) customGcodes = parseCustomGcodeXml(await readZipEntryText(zip, 'Metadata/Prusa_Slicer_custom_gcode_per_print_z.xml'));
   // object index of every build item, in build order (a 3MF loader returns one mesh per item)
   const buildOrder = buildItems.map((b) => objectIds.indexOf(b.objectId));
   return { config: cfg, objects, customGcodes, buildOrder };

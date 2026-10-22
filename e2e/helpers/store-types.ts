@@ -145,6 +145,7 @@ export interface E2EState {
   mirror: (axis: number) => void;
   dropToBed: (objectId: string) => void;
   clearObjects: () => void;
+  removeObjects: (ids: string[]) => void;
   setOption: (type: 'print' | 'filament' | 'printer', key: string, value: string, extruderIdx?: number) => void;
   setView: (view: string) => void;
   setMode: (mode: 'simple' | 'advanced' | 'expert') => void;

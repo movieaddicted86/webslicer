@@ -11,7 +11,8 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { config } from '../config.js';
-import { writeBinaryStl, type Mesh } from '../slicer/threemf/index.js';
+import { ValidationError } from '../errors.js';
+import { parseStlFile, writeBinaryStl, type Mesh } from '../slicer/threemf/index.js';
 
 export interface StoredModel {
   id: string;
@@ -37,6 +38,27 @@ let hooks: ModelLifecycleHooks | undefined;
  */
 export function setModelLifecycleHooks(next: ModelLifecycleHooks | undefined): void {
   hooks = next;
+}
+
+/**
+ * Store a model from an already written STL file (S7: it was streamed to disk, so it is not buffered
+ * here either). The binary faces are read in chunks just to learn the counts; the bytes are moved.
+ */
+export async function saveModelFile(file: string, name: string, bytes: number): Promise<StoredModel> {
+  const id = randomUUID();
+  const [mesh] = parseStlFile(file, bytes);
+  if (!mesh.indices.length) throw new ValidationError('mesh has no triangles');
+  const info: StoredModel = {
+    id,
+    name,
+    triangles: mesh.indices.length / 3,
+    vertices: mesh.vertices.length / 3,
+    createdAt: new Date().toISOString(),
+  };
+  await fs.mkdir(config.modelsDir, { recursive: true });
+  await fs.copyFile(file, path.join(config.modelsDir, `${id}.stl`));
+  await fs.writeFile(path.join(config.modelsDir, `${id}.json`), JSON.stringify(info));
+  return info;
 }
 
 /** Store a mesh in the model directory (what `POST /api/models` and the plater use). */
