@@ -76,12 +76,12 @@ export async function preflightIssues(
 }
 
 /**
- * The `send.printer_limit` issues of a job for one host (S1-d): the temperatures the job's stored
- * request asks for against the safety profile of the physical printer.
+ * The `send.printer_limit` issues of a job for one host (S1-d): the temperatures the job asks for
+ * against the safety profile of the physical printer.
  *
- * The request is read from the job directory instead of being copied into the record: the job is done,
- * and a missing request (an old record, a deleted file) means there is nothing to compare – not a
- * reason to refuse the send.
+ * The record carries them since S1-d; a job from before has none, and its stored request – still in the
+ * job directory – is read instead. An unreadable or missing request means there is nothing to compare,
+ * not a reason to refuse the send.
  */
 export async function printerLimitSendIssues(job: JobRecord, printer: PhysicalPrinter): Promise<SendIssue[]> {
   if (!printer.safety) return [];
