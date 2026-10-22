@@ -140,12 +140,14 @@ export function cancelJob(id: string): boolean {
  * rebuilt on the next slice; only the log stays).
  */
 async function finishCancelled(job: JobRecord): Promise<void> {
+  // the temporary inputs go first: `status` is the signal the UI (and every caller) waits on, so a
+  // reader that sees `cancelled` must not still find the files of the abandoned run
+  await removeJobFile(job.id, 'config.ini');
+  await removeJobFile(job.id, 'model.3mf');
   job.status = 'cancelled';
   job.message = 'Cancelled';
   job.finishedAt = job.finishedAt || new Date().toISOString();
   await saveJobRecord(job);
-  await removeJobFile(job.id, 'config.ini');
-  await removeJobFile(job.id, 'model.3mf');
   emit(job.id, { type: 'status', job });
 }
 
