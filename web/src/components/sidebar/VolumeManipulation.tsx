@@ -1,3 +1,4 @@
+import { VOLUME_TYPES } from '@webslicer/shared';
 import { useStore, VOLUME_LABELS, type PlaterObject, type PlaterVolume } from '../../state/store';
 import { TransformInputs } from './TransformInputs';
 import type { VolumeType } from '../../api';
@@ -21,7 +22,7 @@ export function VolumeManipulation({ o, v }: { o: PlaterObject; v: PlaterVolume 
       <div className="manip-row extruder">
         <span>Type</span>
         <select value={v.type} onChange={(e) => set({ type: e.target.value as VolumeType })}>
-          {(Object.keys(VOLUME_LABELS) as VolumeType[]).map((t) => (
+          {VOLUME_TYPES.map((t) => (
             <option key={t} value={t}>
               {VOLUME_LABELS[t]}
             </option>
