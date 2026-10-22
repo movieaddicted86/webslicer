@@ -6,13 +6,15 @@
  *
  * `Viewer()` itself needs a DOM and a WebGL context, so the component is not rendered here – the
  * browser suite (`.claude/t17-browser.mjs`, run against the dev server) covers that side. What this
- * file pins is the part the refactor can silently break: `objectIsOutside` (imported by `Sidebar`),
- * `VOLUME_COLORS`, and the bed outline/toolpath helpers that must keep producing the same numbers.
+ * file pins is the part the refactor can silently break: `VOLUME_COLORS`, and the bed outline/toolpath
+ * helpers that must keep producing the same numbers. `objectIsOutside` moved to `plater/plateCheck.ts`
+ * (W3) – its cases stay here because they build a real `THREE` geometry, which is what the plater does.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
-import { VOLUME_COLORS, objectIsOutside } from './Viewer';
+import { VOLUME_COLORS } from './Viewer';
+import { objectIsOutside } from '../plater/plateCheck';
 import { bedShapeOf } from '@webslicer/shared';
 import type { PlaterObject } from '../state/types';
 

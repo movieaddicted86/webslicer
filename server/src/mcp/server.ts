@@ -14,7 +14,7 @@ import { TOOLS } from './tools.js';
 import type { ToolContext } from './toolTypes.js';
 import { authenticateHeader, mcpEnabled, type McpToken } from './tokens.js';
 import { authBlockedFor, recordAuthFailure, recordAuthSuccess } from './authLimit.js';
-import { appendAudit, sanitizeParams } from './audit.js';
+import { appendAudit, sanitizeParams } from '../services/audit.js';
 import { appVersion } from '../services/version.js';
 
 interface AuthedRequest extends Request {

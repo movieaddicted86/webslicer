@@ -2,6 +2,26 @@
 
 ## Unreleased
 
+- **Maintenance (T-040 – quick wins from the external review, Q-006):**
+  _Layers:_ the audit log lives in `server/src/services/audit.ts` (it serves the MCP tools and the
+  send overrides, not only MCP), `objectIsOutside` is a pure helper in `web/src/plater/plateCheck.ts`
+  instead of a three.js module, and the project cleanup is registered through an explicit lifecycle
+  hook (`registerProjectLifecycle`) instead of a module side effect.
+  _Duplicates:_ one preset-type list (`PRESET_TYPES`/`isPresetType`) and one `safeName` in `shared`,
+  used by the server and the web app.
+  _Configuration:_ numeric environment variables that are not a number or below their minimum fall
+  back to the default with a log warning instead of becoming `NaN`; `SIGTERM`/`SIGINT` stop the
+  server accepting requests, cancel queued and running jobs, remove their temp files and exit with
+  code 0 (a cleanup that hangs is cut off after 5 s, a failing one exits with 1).
+  _CI:_ the workflow declares read-only `permissions:`, Dependabot opens weekly grouped updates for
+  npm and GitHub Actions, linting is type-aware (`no-floating-promises`) and the server tests are
+  type-checked.
+  _Accessibility:_ toasts are announced in a polite live region; the settings tabs are a real
+  `tablist` with `role="tab"`, `aria-selected`, arrow/Home/End keys and `tabpanel`.
+  _Version and policy:_ one version source (root `package.json`, synced by `npm run version:sync` and
+  checked by `npm run version:check` in CI) – the image no longer hard-codes it – and a `SECURITY.md`
+  with the reporting channel and the supported versions.
+
 - **Fixed (T-039 – GPU and memory resources):** leaks and lost work from the external review.
   _Preview and bed:_ clearing the G-code or the bed group disposes the geometries, materials and
   textures it held; removing objects also frees the plater geometry that is no longer used, so

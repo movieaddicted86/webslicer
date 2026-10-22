@@ -8,6 +8,7 @@ import path from 'node:path';
 import { EventEmitter } from 'node:events';
 import { randomUUID } from 'node:crypto';
 import { config } from './config.js';
+import { envIntegerAtLeast } from './env.js';
 import { runSlicer } from './slicer/cli.js';
 import { serializeIni } from './slicer/ini.js';
 import { extractWarnings, readGcodeInfo } from './slicer/gcodeInfo.js';
@@ -44,6 +45,8 @@ const runningJobs = new Map<string, Promise<void>>();
 const queue: string[] = [];
 let running = 0;
 let schemaRef: Schema | undefined;
+/** set by `shutdownJobs`: no new job is queued, and what runs is cancelled (W5) */
+let shuttingDown = false;
 
 export function setSchema(s: Schema) {
   schemaRef = s;
@@ -107,6 +110,29 @@ export async function deleteJob(id: string): Promise<boolean> {
 }
 
 /**
+ * Stop the queue for a clean exit (W5): no further job is accepted, the queued ones leave the queue,
+ * the running slicers are aborted, and the returned promise settles once every runner has finished
+ * its cleanup. The caller then closes the listener and exits.
+ */
+export async function shutdownJobs(): Promise<void> {
+  shuttingDown = true;
+  for (const id of [...queue]) {
+    const j = jobs.get(id);
+    if (!j) continue;
+    j.status = 'cancelled';
+    j.message = 'Server shutdown';
+    j.finishedAt = new Date().toISOString();
+    emit(id, { type: 'status', job: j });
+    await saveJobRecord(j);
+  }
+  queue.length = 0;
+  for (const id of [...controllers.keys()]) controllers.get(id)?.abort();
+  // a job still preparing has no controller yet: mark it the way a cancel does (B6)
+  for (const [id, j] of jobs) if (j.status === 'running') cancelling.add(id);
+  await Promise.allSettled([...runningJobs.values()]);
+}
+
+/**
  * Cancel a job, whatever stage it is in.
  *
  * Queued: leave the queue. Running: abort the CLI. Still **preparing** (the model is being built and
@@ -164,6 +190,7 @@ function sanitizeFilename(name: string, ext: string): string {
 
 /** Queue a job for a validated request; the caller has already checked the request. */
 export async function createJob(req: SliceRequest, schema: Schema, configIssues: ConfigIssue[] = []): Promise<JobRecord> {
+  if (shuttingDown) throw new Error('the server is shutting down');
   const id = randomUUID();
   const tech = req.printer.config.printer_technology === 'SLA' ? 'SLA' : 'FFF';
   const binary =
@@ -347,7 +374,7 @@ async function runJob(job: JobRecord) {
   const res = await runSlicer(args, {
     cwd: dir,
     signal: controller.signal,
-    timeoutMs: Number(process.env.SLICE_TIMEOUT_MS || 60 * 60 * 1000),
+    timeoutMs: envIntegerAtLeast('SLICE_TIMEOUT_MS', 1, 60 * 60 * 1000),
     onLine: progressReporter(job, logLines),
   });
   controllers.delete(job.id);

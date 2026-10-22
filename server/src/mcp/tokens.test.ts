@@ -25,7 +25,7 @@ const {
   saveTokens,
   verifyTokenHash,
 } = await import('./tokens.js');
-const { appendAudit, readAudit, sanitizeParams } = await import('./audit.js');
+const { appendAudit, readAudit, sanitizeParams } = await import('../services/audit.js');
 
 before(() => ensureDirs());
 after(() => fs.rmSync(DATA_DIR, { recursive: true, force: true }));

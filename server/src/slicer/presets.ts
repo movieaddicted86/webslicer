@@ -10,16 +10,14 @@ import { readJsonSync, writeJsonSync, writeTextSync } from '../services/jsonStor
 import { loadBundles, findSystemPreset, type SystemPreset } from './bundles.js';
 import { parseIni, serializeIni, type IniSection } from './ini.js';
 import { evaluateCondition } from './condition.js';
-import { unescapeStringsCstyle } from '@webslicer/shared';
+import { safeName, unescapeStringsCstyle } from '@webslicer/shared';
 import type { InstalledPrinter, PresetSummary, PresetType, ResolvedPreset, Schema } from '@webslicer/shared';
 
-function safeName(name: string): string {
-  // eslint-disable-next-line no-control-regex -- intentional control-character stripping
-  return name.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').trim();
-}
-
 function userPresetFile(type: PresetType, name: string): string {
-  return path.join(config.presetsDir, type, `${safeName(name)}.ini`);
+  // W4: the one name rule of the server (shared); a name that cleans to nothing cannot be stored
+  const safe = safeName(name);
+  if (!safe) throw new ValidationError('invalid preset name');
+  return path.join(config.presetsDir, type, `${safe}.ini`);
 }
 
 export function listUserPresets(type: PresetType): Array<{ name: string; config: IniSection }> {

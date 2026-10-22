@@ -14,6 +14,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { config } from '../config.js';
+import { envNumberAtLeast } from '../env.js';
 import { NotFoundError, ValidationError } from '../errors.js';
 import { resolveInsideLibrary } from './library.js';
 import { deleteModel, saveModel, setModelLifecycleHooks } from './models.js';
@@ -41,7 +42,7 @@ import {
 } from '@webslicer/shared';
 
 /** hours a project stays alive after its last use */
-export const PROJECT_TTL_HOURS = Math.max(1, Number(process.env.PROJECT_TTL_HOURS || 24));
+export const PROJECT_TTL_HOURS = envNumberAtLeast('PROJECT_TTL_HOURS', 1, 24);
 
 export interface ProjectPresetRef {
   name: string;
@@ -296,8 +297,14 @@ export async function pruneProjects(): Promise<void> {
  * Register the project store as the model life cycle of `services/models.ts`: the pruning there has
  * to know which models a live project still needs, and an expired project has to take its models with
  * it. Both directions are async, so the whole pass stays on `fs/promises` (N-7).
+ *
+ * Explicit instead of a module side effect (W3): `index.ts` calls it while booting, and so does a
+ * test that exercises the pruning. Importing `projects.ts` alone no longer silently changes the model
+ * retention of whatever process happens to load it.
  */
-setModelLifecycleHooks({
-  keepModelIds,
-  pruneProjects,
-});
+export function registerProjectLifecycle(): void {
+  setModelLifecycleHooks({
+    keepModelIds,
+    pruneProjects,
+  });
+}

@@ -68,7 +68,7 @@ export function PhysicalPrintersDialog({ onClose }: { onClose: () => void }) {
                     onClick={async () => {
                       if (!confirm(`Delete ${p.name}?`)) return;
                       await api.deletePrinter(p.id);
-                      refresh();
+                      void refresh();
                     }}
                   >
                     Delete

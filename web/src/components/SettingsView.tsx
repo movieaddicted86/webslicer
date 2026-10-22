@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { SERVER_ONLY_KEYS } from '@webslicer/shared';
 import { useStore } from '../state/store';
 import { PresetSelect } from './PresetSelect';
@@ -19,6 +19,9 @@ export function SettingsView() {
   const [extruderIdx, setExtruderIdx] = useState(0);
   const [pageIdx, setPageIdx] = useState(0);
   const [search, setSearch] = useState('');
+  // W10: the page list is a real tablist – only the pages with a visible setting are tabs, and the
+  // arrows move between those (a page hidden in the current mode is not reachable from the keyboard)
+  const tabRefs = useRef<Array<HTMLLIElement | null>>([]);
 
   const type: PresetType = view;
   const tech = presets.printer.current.printer_technology === 'SLA' ? 'SLA' : 'FFF';
@@ -65,6 +68,23 @@ export function SettingsView() {
   if (!schema || !tab) return null;
   const page = search ? undefined : pages[Math.min(pageIdx, pages.length - 1)];
   const shownPages = search ? pages : page ? [page] : [];
+  const visibleTabs = search
+    ? []
+    : tab.pages.map((p, i) => ({ page: p, index: i })).filter(({ page: p }) => p.groups.some((g) => g.keys.some(visibleKey)));
+  const activeIndex = Math.min(pageIdx, pages.length - 1);
+
+  /** Left/Right/Home/End move the selection like a native tab list; the focus follows the selection. */
+  const onTabKeyDown = (e: KeyboardEvent<HTMLLIElement>, at: number) => {
+    let next: number | undefined;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowRight') next = (at + 1) % visibleTabs.length;
+    else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') next = (at - 1 + visibleTabs.length) % visibleTabs.length;
+    else if (e.key === 'Home') next = 0;
+    else if (e.key === 'End') next = visibleTabs.length - 1;
+    if (next === undefined) return;
+    e.preventDefault();
+    setPageIdx(visibleTabs[next].index);
+    tabRefs.current[next]?.focus();
+  };
 
   return (
     <div className="settings">
@@ -82,20 +102,39 @@ export function SettingsView() {
           <PresetSelect type={type} slot={slot} extruderIdx={extruderIdx} label={tab.title} />
         </div>
         <input className="search" placeholder="Search settings…" value={search} onChange={(e) => setSearch(e.target.value)} />
-        <ul className="pages">
-          {!search &&
-            tab.pages.map((p, i) => {
-              const anyVisible = p.groups.some((g) => g.keys.some(visibleKey));
-              if (!anyVisible) return null;
-              return (
-                <li key={i} className={pageIdx === i ? 'active' : ''} onClick={() => setPageIdx(i)}>
-                  {p.title === 'Extruder' && extruders > 1 ? `Extruders (${extruders})` : p.title}
-                </li>
-              );
-            })}
+        <ul className="pages" role={visibleTabs.length ? 'tablist' : undefined} aria-label="Settings pages">
+          {visibleTabs.map(({ page: p, index: i }, at) => {
+            const label = p.title === 'Extruder' && extruders > 1 ? `Extruders (${extruders})` : p.title;
+            const selected = activeIndex === i;
+            return (
+              <li
+                key={i}
+                ref={(el) => {
+                  tabRefs.current[at] = el;
+                }}
+                className={selected ? 'active' : ''}
+                role="tab"
+                id={`settings-tab-${i}`}
+                aria-selected={selected}
+                aria-controls="settings-tabpanel"
+                tabIndex={selected ? 0 : -1}
+                onClick={() => setPageIdx(i)}
+                onKeyDown={(e) => onTabKeyDown(e, at)}
+              >
+                {label}
+              </li>
+            );
+          })}
         </ul>
       </div>
-      <div className="settings-main">
+      <div
+        className="settings-main"
+        id="settings-tabpanel"
+        role={visibleTabs.length ? 'tabpanel' : undefined}
+        aria-labelledby={visibleTabs.length ? `settings-tab-${activeIndex}` : undefined}
+        // the panel is the scroll container; making it focusable is what lets a keyboard user scroll it
+        tabIndex={visibleTabs.length ? 0 : undefined}
+      >
         {shownPages.map((p) => (
           <div key={p.title} className="page">
             {search && <h2>{p.title}</h2>}

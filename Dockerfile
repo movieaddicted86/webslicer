@@ -102,8 +102,9 @@ COPY samples/*.stl ./samples/
 # S6: the licence and the third-party notices travel with the image
 COPY LICENSE THIRD_PARTY_NOTICES.md /usr/share/doc/webslicer/
 
+# no WEBSLICER_VERSION here: the runtime reads /app/package.json, copied from the build stage, so
+# the version has one source (root package.json, synced by `npm run version:sync`)
 ENV NODE_ENV=production \
-    WEBSLICER_VERSION=1.0.0-rc.2 \
     PORT=8080 \
     DATA_DIR=/data \
     PRUSASLICER_BIN=/opt/prusaslicer/AppRun \

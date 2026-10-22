@@ -17,7 +17,9 @@ export function App() {
   const sessionStarted = useRef(false);
 
   useEffect(() => {
-    init();
+    // `init` loads the schema and presets; a failure lands in `fatal` inside the action, so there is
+    // nothing left for this effect to report
+    void init();
   }, [init]);
 
   // The last session comes back on its own (T-035) – once the presets are loaded, so the restored

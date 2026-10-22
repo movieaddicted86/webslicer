@@ -1,6 +1,8 @@
 import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
+import { PRESET_TYPES } from '@webslicer/shared';
+import { envIntegerAtLeast } from './env.js';
 
 function firstExisting(candidates: string[]): string | undefined {
   for (const c of candidates) {
@@ -44,7 +46,8 @@ function resolveResources(bin: string): string | undefined {
 }
 
 export const config = {
-  port: Number(process.env.PORT || 8080),
+  // W5: a typo in an environment number is a logged warning and the default, never NaN
+  port: envIntegerAtLeast('PORT', 0, 8080),
   host: process.env.HOST || '0.0.0.0',
   /** host names and IPs (with or without port) a request may name in `Host`/`Origin` (SEC-2) */
   allowedHosts: String(process.env.ALLOWED_HOSTS || '')
@@ -66,9 +69,9 @@ export const config = {
   slicerBin,
   slicerResources: resolveResources(slicerBin),
   webDist: process.env.WEB_DIST || path.resolve(process.cwd(), 'web', 'dist'),
-  maxJobs: Math.max(1, Number(process.env.MAX_JOBS || Math.min(2, os.cpus().length))),
-  maxUploadBytes: Number(process.env.MAX_UPLOAD_BYTES || 500 * 1024 * 1024),
-  jobRetention: Number(process.env.JOB_RETENTION || 50),
+  maxJobs: envIntegerAtLeast('MAX_JOBS', 1, Math.min(2, os.cpus().length)),
+  maxUploadBytes: envIntegerAtLeast('MAX_UPLOAD_BYTES', 1, 500 * 1024 * 1024),
+  jobRetention: envIntegerAtLeast('JOB_RETENTION', 0, 50),
 };
 
 export function ensureDirs() {
@@ -84,7 +87,7 @@ export function ensureDirs() {
   ]) {
     fs.mkdirSync(d, { recursive: true });
   }
-  for (const t of ['print', 'filament', 'printer', 'sla_print', 'sla_material']) {
+  for (const t of PRESET_TYPES) {
     fs.mkdirSync(path.join(config.presetsDir, t), { recursive: true });
   }
 }

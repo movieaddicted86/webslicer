@@ -42,21 +42,21 @@ docs/                         Feature-Comparison (parity matrix), UAT, UAT-Repor
 
 ## 3. Toolchain and commands
 
-| Purpose                            | Command (repo root)                                                    |
-| ---------------------------------- | ---------------------------------------------------------------------- |
-| Install                            | `npm ci`                                                               |
-| Type check shared                  | `npm run typecheck -w shared`                                          |
-| Type check web                     | `npm run typecheck -w web`                                             |
-| Type check server                  | `npm run typecheck -w server`                                          |
-| Unit tests, all three workspaces   | `npm test` (node:test via tsx)                                         |
-| Unit tests, one workspace          | `npm test -w shared` · `-w server` · `-w web`                          |
-| Build shared                       | `npm run build -w shared`                                              |
-| Full build                         | `npm run build`                                                        |
-| Lint (ESLint 9, all workspaces)    | `npm run lint`                                                         |
-| Format / check formatting          | `npm run format` · `npm run format:check` (Prettier)                   |
-| Run everything (incl. PrusaSlicer) | `docker compose up -d --build` → http://localhost:8080                 |
-| Web dev server                     | `npm run dev -w web` → http://localhost:5173 (proxies `/api` to :8080) |
-| Shell scripts                      | `shellcheck -S warning proxmox/*.sh`                                   |
+| Purpose                            | Command (repo root)                                                     |
+| ---------------------------------- | ----------------------------------------------------------------------- |
+| Install                            | `npm ci`                                                                |
+| Type check shared                  | `npm run typecheck -w shared`                                           |
+| Type check web                     | `npm run typecheck -w web`                                              |
+| Type check server (incl. tests)    | `npm run typecheck -w server` (`tsconfig.test.json` covers `*.test.ts`) |
+| Unit tests, all three workspaces   | `npm test` (node:test via tsx)                                          |
+| Unit tests, one workspace          | `npm test -w shared` · `-w server` · `-w web`                           |
+| Build shared                       | `npm run build -w shared`                                               |
+| Full build                         | `npm run build`                                                         |
+| Lint (ESLint 9, all workspaces)    | `npm run lint`                                                          |
+| Format / check formatting          | `npm run format` · `npm run format:check` (Prettier)                    |
+| Run everything (incl. PrusaSlicer) | `docker compose up -d --build` → http://localhost:8080                  |
+| Web dev server                     | `npm run dev -w web` → http://localhost:5173 (proxies `/api` to :8080)  |
+| Shell scripts                      | `shellcheck -S warning proxmox/*.sh`                                    |
 
 `shared` is built first: the other two workspaces import it from `shared/dist`. Test files are
 `*.test.ts` next to the code they cover, colocated in all three workspaces (`npm test` globs
@@ -64,7 +64,9 @@ docs/                         Feature-Comparison (parity matrix), UAT, UAT-Repor
 top-level files (Docker and CI run the scripts with `/bin/sh`); Node expands the quoted pattern.
 
 CI (`.github/workflows/ci.yml`) runs on every push and pull request: `npm ci` → `npm run typecheck`
-→ `npm run lint` → `npm run format:check` → `npm test` → `npm run build`. Lint and formatting are
+(the server step also type checks its test files) → `npm run lint` → `npm run format:check` → `npm test`
+→ `npm run build`. Its token is read-only (`permissions: contents: read`); dependency updates arrive
+through Dependabot (`.github/dependabot.yml`). Lint and formatting are
 part of the definition of done, so run both before you push.
 
 The server needs the PrusaSlicer binary, so for UI work run the server in Docker and the web app
@@ -79,7 +81,9 @@ with Vite. The dev machine is Windows 11 with Git Bash/PowerShell: set `MSYS_NO_
   hand-format. `endOfLine` is `auto`, not `lf`: `.gitattributes` stores LF and `core.autocrlf=true`
   checks out CRLF on Windows, so `lf` would make `format:check` fail on every Windows checkout.
 - ESLint 9 (`.eslint.config.mjs`) is the arbiter for code smells: `typescript-eslint` recommended,
-  `react-hooks` for `web/`, `no-explicit-any` as an error. `no-non-null-assertion` is a warning
+  type-aware (`parserOptions.project`, W7) with `no-floating-promises` as an error, `react-hooks` for
+  `web/`, `no-explicit-any` as an error. A promise you mean to start and not await is written `void f()`
+  with the reason; a plain `.mjs` file is linted without types. `no-non-null-assertion` is a warning
   until R-12 removes the remaining ones. A disable comment needs a `-- <reason>` and must sit on the
   line the rule reports; prefer fixing the code.
 - Server imports use ESM with `.js` suffix (`from './slicer/threemf.js'`).

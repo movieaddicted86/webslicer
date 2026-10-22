@@ -57,10 +57,10 @@ export function useKeyboardShortcuts(onCamera: (req: CamRequest) => void, toggle
         if (st.selectedIds.length === 1) st.removeInstance(st.selectedIds[0]);
       } else if (matchesShortcut(e, 'paintSupports') && st.selectedIds.length === 1) {
         if (st.paintMode === 'supports') st.stopPaint();
-        else st.startPaint(st.selectedIds[0], 'supports');
+        else void st.startPaint(st.selectedIds[0], 'supports');
       } else if (matchesShortcut(e, 'paintSeam') && st.selectedIds.length === 1) {
         if (st.paintMode === 'seam') st.stopPaint();
-        else st.startPaint(st.selectedIds[0], 'seam');
+        else void st.startPaint(st.selectedIds[0], 'seam');
       } else if (matchesShortcut(e, 'placeOnFace')) st.setPlaceOnFace(!st.placeOnFace);
       else if (matchesShortcut(e, 'move')) st.setTransformMode('translate');
       else if (matchesShortcut(e, 'rotate')) st.setTransformMode('rotate');

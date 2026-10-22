@@ -80,7 +80,7 @@ export function TopBar() {
           accept=".stl,.obj,.3mf,.amf"
           style={{ display: 'none' }}
           onChange={(e) => {
-            if (e.target.files?.length) importFiles(e.target.files);
+            if (e.target.files?.length) void importFiles(e.target.files);
             e.target.value = '';
           }}
         />

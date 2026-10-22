@@ -23,7 +23,7 @@ const { ensureDirs, config } = await import('../config.js');
 const { createApp } = await import('../app.js');
 const { setSchema, loadJobsFromDisk } = await import('../jobs.js');
 const { setActiveSchema } = await import('../services/schema.js');
-const { readAudit } = await import('../mcp/audit.js');
+const { readAudit } = await import('../services/audit.js');
 
 /** Minimal schema: the routes here never reach the slicer schema, but the module cache is shared. */
 const SCHEMA = {

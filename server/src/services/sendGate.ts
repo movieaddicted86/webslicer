@@ -35,7 +35,7 @@ import { listUserPresets, resolvePreset } from '../slicer/presets.js';
 import { activeSchema } from './schema.js';
 import { isBinaryGcode, machineLimitsOf, scanGcodeFile } from '../slicer/gcodePreflight.js';
 import { readJobRequest } from '../jobs/persistence.js';
-import { appendAudit } from '../mcp/audit.js';
+import { appendAudit } from './audit.js';
 import { ConflictError } from '../errors.js';
 import { uploadToPrinter } from './printers.js';
 

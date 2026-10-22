@@ -5,6 +5,7 @@
  * stored selection has exactly one format.
  */
 import type { StateCreator } from 'zustand';
+import { PRESET_TYPES } from '@webslicer/shared';
 import {
   api,
   type Config,
@@ -133,7 +134,8 @@ export function saveSelection(s: State) {
 
 export const createPresetSlice: StateCreator<State, [], [], PresetSlice> = (set, get) => ({
   presets: { print: emptySlot(), filament: [emptySlot()], printer: emptySlot() },
-  presetLists: { print: [], filament: [], printer: [], sla_print: [], sla_material: [] },
+  // W4: the one preset-type list (shared) – the four copies could drift apart
+  presetLists: Object.fromEntries(PRESET_TYPES.map((t) => [t, [] as PresetSummary[]])) as Record<PresetType, PresetSummary[]>,
   refreshPresetLists: async () => {
     const s = get();
     const printerName = s.presets.printer.name;

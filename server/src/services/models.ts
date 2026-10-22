@@ -11,6 +11,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { config } from '../config.js';
+import { envNumberAtLeast } from '../env.js';
 import { ValidationError } from '../errors.js';
 import { parseStlFile, writeBinaryStl, type Mesh } from '../slicer/threemf/index.js';
 
@@ -93,7 +94,7 @@ export async function pruneModels(): Promise<void> {
   // Projects first: an expired project takes its models with it, and only what is left afterwards is
   // measured against the model retention – the same order as on `main` (`pruneProjects`, then keep).
   await hooks?.pruneProjects();
-  const days = Number(process.env.MODEL_RETENTION_DAYS || 7);
+  const days = envNumberAtLeast('MODEL_RETENTION_DAYS', 1, 7);
   const cutoff = Date.now() - days * 86400_000;
   const keep = (await hooks?.keepModelIds()) ?? new Set<string>();
   let names: string[];

@@ -10,7 +10,15 @@ import { getHelpText, getSlicerVersion } from './cli.js';
 import { LAYOUT_FFF, KNOWN_OPTIONS } from './layout/index.js';
 import { parseHelp, SHORTCUT_KEYS, type RawHelpOption } from './help.js';
 import { deriveOption } from './optionDef.js';
-import type { LayoutGroup, LayoutPage, OptionDef, PresetType, Schema, TabLayout } from '@webslicer/shared';
+import {
+  PRESET_TYPES,
+  type LayoutGroup,
+  type LayoutPage,
+  type OptionDef,
+  type PresetType,
+  type Schema,
+  type TabLayout,
+} from '@webslicer/shared';
 
 /** Build the schema from the slicer help, the vendor bundle key sets and the curated layout. */
 export function buildSchema(helpFff: string, helpSla: string, version: string, bundleKeys: Record<PresetType, Set<string>>): Schema {
@@ -25,16 +33,10 @@ export function buildSchema(helpFff: string, helpSla: string, version: string, b
   const slaKeys = new Set(rawSla.map((r) => r.key));
 
   // Determine preset type membership
-  const presetKeys: Record<PresetType, string[]> = {
-    print: [],
-    filament: [],
-    printer: [],
-    sla_print: [],
-    sla_material: [],
-  };
+  const presetKeys = Object.fromEntries(PRESET_TYPES.map((t) => [t, [] as string[]])) as Record<PresetType, string[]>;
   const options: Record<string, OptionDef> = {};
   const assigned = new Set<string>();
-  for (const t of ['print', 'filament', 'printer', 'sla_print', 'sla_material'] as PresetType[]) {
+  for (const t of PRESET_TYPES) {
     for (const k of bundleKeys[t]) {
       if (!rawByKey.has(k)) continue;
       presetKeys[t].push(k);

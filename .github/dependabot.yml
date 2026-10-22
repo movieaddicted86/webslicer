@@ -1,0 +1,41 @@
+# W6: dependency updates as small, grouped pull requests.
+#
+# npm: the three workspaces share one lock file at the root, so one entry covers the whole repo.
+# github-actions: the workflow uses checkout, setup-node, buildx, cache and upload-artifact; a bump of
+# one of them should arrive with the others.
+#
+# Minor and patch updates are grouped into one PR per ecosystem and week; a major version is its own
+# PR, because it needs a human decision (Vitest-free stack aside: React, Vite, three, Express).
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: '/'
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      npm-minor-patch:
+        applies-to: version-updates
+        update-types:
+          - minor
+          - patch
+    commit-message:
+      prefix: 'deps'
+    labels:
+      - dependencies
+  - package-ecosystem: github-actions
+    directory: '/'
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      actions-minor-patch:
+        applies-to: version-updates
+        update-types:
+          - minor
+          - patch
+    commit-message:
+      prefix: 'ci'
+    labels:
+      - dependencies

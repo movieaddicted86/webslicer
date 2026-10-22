@@ -22,7 +22,7 @@ import {
 } from '../slicer/presets.js';
 import { read3mfProject } from '../slicer/threemf/index.js';
 import { createJob, getJob, listJobs, subscribe, cancelJob, deleteJob, jobOutputPath, readJobLog } from '../jobs.js';
-import type { PhysicalPrinter, PresetType, SliceRequest } from '@webslicer/shared';
+import { isPresetType, type PhysicalPrinter, type PresetType, type SliceRequest } from '@webslicer/shared';
 import { listPrinters, upsertPrinter, deletePrinter, getPrinter, testPrinter } from '../services/printers.js';
 import { sendJobOutput } from '../services/sendGate.js';
 import { API_KEY_MASK, installedPrintersOf, jobSendSchema, parsePrinter, parsePrinterTest, printerHost } from '../validation/printers.js';
@@ -34,15 +34,13 @@ import { projectsRouter } from './projects.js';
 import { withReceivedFile } from './uploads.js';
 import type { IniSection } from '../slicer/ini.js';
 
-const PRESET_TYPES: PresetType[] = ['print', 'filament', 'printer', 'sla_print', 'sla_material'];
-
 function badRequest(res: Response, msg: string) {
   res.status(400).json({ error: msg });
 }
 
 function presetType(req: Request, res: Response): PresetType | undefined {
   const t = req.params.type as PresetType;
-  if (!PRESET_TYPES.includes(t)) {
+  if (!isPresetType(t)) {
     badRequest(res, `Unknown preset type ${t}`);
     return undefined;
   }
