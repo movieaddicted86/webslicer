@@ -35,6 +35,12 @@ const SCHEMA = {
 
 const JOB_ID = '11111111-2222-3333-4444-555555555555';
 const JOB2_ID = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
+/** A job whose G-code carries a forbidden command (S1-c). */
+const JOB_BAD_ID = 'bbbbbbbb-cccc-dddd-eeee-ffffffffffff';
+/** A job with a stored, current preflight result: the gate must use it instead of re-scanning. */
+const JOB_STORED_ID = 'cccccccc-dddd-eeee-ffff-000000000000';
+/** A binary-G-code job: v1 cannot scan it, which is one warn. */
+const JOB_BINARY_ID = 'dddddddd-eeee-ffff-0000-111111111111';
 const JOB_PRESET = 'Original Prusa MK4S HF0.4 nozzle';
 const OTHER_PRESET = 'Original Prusa MINI+ 0.4 nozzle';
 
@@ -78,7 +84,7 @@ function send(printerId: string, extra: Record<string, unknown> = {}, jobId = JO
 }
 
 /** A finished job on disk: the record plus its output file. */
-function seedJob(id: string, printerPreset: string): void {
+function seedJob(id: string, printerPreset: string, output?: { name: string; text: string; preflight?: unknown }): void {
   const dir = path.join(config.jobsDir, id);
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(
@@ -90,13 +96,14 @@ function seedJob(id: string, printerPreset: string): void {
       finishedAt: '2026-01-01T00:05:00.000Z',
       percent: 100,
       message: 'Done',
-      outputName: 'part.gcode',
+      outputName: output?.name ?? 'part.gcode',
       technology: 'FFF',
       presets: { print: '0.20mm SPEED', filaments: ['Prusament PLA'], printer: printerPreset },
       objectNames: ['cube'],
+      info: output?.preflight === undefined ? undefined : { sizeBytes: 0, preflight: output.preflight },
     }),
   );
-  fs.writeFileSync(path.join(dir, 'part.gcode'), 'G28\nG1 X10 Y10\n');
+  fs.writeFileSync(path.join(dir, output?.name ?? 'part.gcode'), output?.text ?? 'G28\nG1 X10 Y10\n');
 }
 
 before(async () => {
@@ -107,6 +114,25 @@ before(async () => {
   // finished jobs on disk: the records plus their output files
   seedJob(JOB_ID, JOB_PRESET);
   seedJob(JOB2_ID, 'Sibling A');
+  // S1-c: a forbidden command in the output, a stored scan, and a binary output
+  seedJob(JOB_BAD_ID, JOB_PRESET, { text: 'G28\nM500\nG1 X10 Y10\n' });
+  seedJob(JOB_STORED_ID, JOB_PRESET, {
+    text: 'G28\nG1 X10 Y10\n',
+    preflight: {
+      version: 1,
+      counts: { 'gcode.forbidden_command': 1 },
+      issues: [
+        {
+          rule: 'gcode.forbidden_command',
+          severity: 'block',
+          message: 'Line 1: "M500" stores the printer\'s settings in its EEPROM – a forbidden command.',
+          line: 1,
+          text: 'M500',
+        },
+      ],
+    },
+  });
+  seedJob(JOB_BINARY_ID, JOB_PRESET, { name: 'part.bgcode', text: 'not really binary' });
   await loadJobsFromDisk();
 
   // the mock print host: Moonraker's upload endpoint, recording what it gets
@@ -266,4 +292,87 @@ test('two user presets that only share an ancestor are a 409, not a match', asyn
     [['send.preset_mismatch', 'block']],
   );
   assert.equal(uploads.length, before);
+});
+
+// ---------------------------------------------------------------------------
+// S1-c: the G-code preflight in the send gate
+// ---------------------------------------------------------------------------
+
+test('a forbidden command in the output is a 409 that names the rule, the line and the line text', async () => {
+  fs.rmSync(config.auditLog, { force: true });
+  const id = await addPrinter('Preflight host', JOB_PRESET);
+  const before = uploads.length;
+  const res = await send(id, {}, JOB_BAD_ID);
+  assert.equal(res.status, 409, JSON.stringify(res.json));
+  const body = res.json as {
+    error: string;
+    issues: Array<{ rule: string; severity: string; message: string; line: number; text: string }>;
+  };
+  const issue = body.issues.find((i) => i.rule === 'gcode.forbidden_command');
+  assert.ok(issue, 'the preflight issue is in the answer');
+  assert.equal(issue.severity, 'block');
+  assert.equal(issue.line, 2);
+  assert.equal(issue.text, 'M500');
+  assert.match(issue.message, /M500/);
+  // the preset issue is absent – the host matches the job's preset
+  assert.equal(body.issues.length, 1);
+  assert.equal(uploads.length, before, 'a preflight block never reaches the printer');
+  assert.deepEqual(readAudit(), []);
+});
+
+test('a preflight block is overridable with a reason, which is audited with the issue', async () => {
+  fs.rmSync(config.auditLog, { force: true });
+  const id = await addPrinter('Preflight host 2', JOB_PRESET);
+  const before = uploads.length;
+  const res = await send(id, { override: true, reason: 'the EEPROM save is wanted here' }, JOB_BAD_ID);
+  assert.equal(res.status, 200, JSON.stringify(res.json));
+  const body = res.json as { ok: boolean; issues: Array<{ rule: string }> };
+  assert.equal(body.ok, true);
+  assert.deepEqual(
+    body.issues.map((i) => i.rule),
+    ['gcode.forbidden_command'],
+  );
+  assert.equal(uploads.length, before + 1);
+  const entries = readAudit();
+  assert.equal(entries.length, 1);
+  const params = entries[0].params as { issues: Array<{ rule: string }>; reason: string };
+  assert.deepEqual(
+    params.issues.map((i) => i.rule),
+    ['gcode.forbidden_command'],
+  );
+  assert.equal(params.reason, 'the EEPROM save is wanted here');
+});
+
+test('the stored preflight result is used instead of scanning the file again', async () => {
+  // the file itself is clean; the record carries a block – the gate must answer with the record
+  const id = await addPrinter('Stored host', JOB_PRESET);
+  const res = await send(id, {}, JOB_STORED_ID);
+  assert.equal(res.status, 409, JSON.stringify(res.json));
+  const body = res.json as { issues: Array<{ rule: string }> };
+  assert.deepEqual(
+    body.issues.map((i) => i.rule),
+    ['gcode.forbidden_command'],
+  );
+});
+
+test('binary G-code is a warn, not a silent pass and not a block', async () => {
+  fs.rmSync(config.auditLog, { force: true });
+  const id = await addPrinter('Binary host', JOB_PRESET);
+  const before = uploads.length;
+  const res = await send(id, {}, JOB_BINARY_ID);
+  assert.equal(res.status, 200, JSON.stringify(res.json));
+  const body = res.json as { issues: Array<{ rule: string; severity: string }> };
+  assert.deepEqual(
+    body.issues.map((i) => [i.rule, i.severity]),
+    [['gcode.not_scanned', 'warn']],
+  );
+  assert.equal(uploads.length, before + 1);
+});
+
+test('a clean job with a matching host uploads without any issue', async () => {
+  const id = await addPrinter('Clean host', JOB_PRESET);
+  const res = await send(id, {}, JOB_ID);
+  const body = res.json as { ok: boolean; issues: unknown[] };
+  assert.equal(res.status, 200, JSON.stringify(res.json));
+  assert.deepEqual(body.issues, [], 'a clean file and a matching preset have nothing to report');
 });

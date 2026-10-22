@@ -1,20 +1,30 @@
 /**
- * The send gate (S1-b, T-026): may the finished G-code of a job go to this print host?
+ * The send gate (S1-c adds the G-code preflight to S1-b, T-026/T-031): may the finished G-code of a
+ * job go to this print host?
  *
  * The decision itself is the pure `checkSend` of `@webslicer/shared` – the same function the send
  * dialog runs in the browser, so what the dialog shows is what the server enforces. This module adds
  * the two server-only parts: the printer presets with their aliases and inheritance (needed to tell a
  * derived preset from an unrelated one) and the audit entry of an accepted override.
  *
+ * S1-c merges the **preflight** into the same list: the issues the scanner found in the finished file
+ * (`gcode.forbidden_command`, `gcode.max_temp`, `gcode.no_homing`, …) are `SendIssue`s as well, so a
+ * forbidden command blocks, can be overridden with a reason and is audited exactly like a preset
+ * mismatch. The stored result is used when it was made with the current rule set; an older record (or
+ * one from a job finished before S1-c) is scanned once here and not written back – the file may not
+ * even exist any more.
+ *
  * A **block** issue refuses the send with a 409 that carries the issues; the client repeats the call
  * with `override: true` and a written reason, which lands in `data/audit.log` – the MCP audit writer,
  * so there is no second log format. A **warn** issue does not stop the send: the dialog asks for a
  * confirmation, the server records the accepted issue in its answer.
  */
-import { blockingIssues, checkSend, type PresetLink } from '@webslicer/shared';
+import { blockingIssues, checkSend, currentPreflight, notScannedIssue, preflightSendIssues, type PresetLink } from '@webslicer/shared';
 import type { JobRecord, PhysicalPrinter, SendIssue, SendResult } from '@webslicer/shared';
 import { loadBundles } from '../slicer/bundles.js';
-import { listUserPresets } from '../slicer/presets.js';
+import { listUserPresets, resolvePreset } from '../slicer/presets.js';
+import { activeSchema } from './schema.js';
+import { isBinaryGcode, machineLimitsOf, scanGcodeFile } from '../slicer/gcodePreflight.js';
 import { appendAudit } from '../mcp/audit.js';
 import { ConflictError } from '../errors.js';
 import { uploadToPrinter } from './printers.js';
@@ -32,6 +42,20 @@ export function printerPresetLinks(): PresetLink[] {
 /** The send issues of a job and a print host, preset equivalence included. */
 export function sendIssues(job: JobRecord, printer: PhysicalPrinter, presets: readonly PresetLink[] = printerPresetLinks()): SendIssue[] {
   return checkSend(job, printer, { presets });
+}
+
+/**
+ * The preflight issues of a finished job. The stored result is used when the current rule set made it;
+ * otherwise the output is scanned now (an old record, or a job from before S1-c). A record without an
+ * output name or a binary output is a warn – v1 does not read `.bgcode`.
+ */
+export async function preflightIssues(job: JobRecord, gcodePath: string): Promise<SendIssue[]> {
+  const stored = currentPreflight(job.info?.preflight);
+  if (stored) return preflightSendIssues(stored);
+  if (isBinaryGcode(job.outputName)) return [notScannedIssue('the output is binary G-code (.bgcode), which the preflight does not read')];
+  const schema = await activeSchema();
+  const printer = resolvePreset(schema, 'printer', job.presets.printer);
+  return preflightSendIssues(scanGcodeFile(gcodePath, machineLimitsOf(printer?.config ?? {})));
 }
 
 /** An accepted override as it goes into the audit log: job, host, the issues, the reason. */
@@ -85,7 +109,8 @@ export type { SendResult };
  */
 export async function sendJobOutput({ job, printer, gcodePath, filename, startPrint, override, reason }: SendRequest): Promise<SendResult> {
   const started = Date.now();
-  const issues = sendIssues(job, printer);
+  // S1-c: the file's own issues join the preset issues – a block from either side needs the override
+  const issues = [...sendIssues(job, printer), ...(await preflightIssues(job, gcodePath))];
   const blocking = blockingIssues(issues);
   if (blocking.length && !override) {
     throw new ConflictError(blocking[0].message, { issues });

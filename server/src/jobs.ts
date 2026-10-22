@@ -11,6 +11,7 @@ import { config } from './config.js';
 import { runSlicer } from './slicer/cli.js';
 import { serializeIni } from './slicer/ini.js';
 import { extractWarnings, readGcodeInfo } from './slicer/gcodeInfo.js';
+import { machineLimitsOf, scanGcodeFile } from './slicer/gcodePreflight.js';
 import { injectThumbnails } from './slicer/thumbnails.js';
 import { mergeConfigs } from './services/configMerge.js';
 import { build3mfForRequest } from './services/slice.js';
@@ -217,16 +218,24 @@ async function embedThumbnails(job: JobRecord, req: SliceRequest, outFile: strin
 }
 
 /** Read size, and for FFF G-code the estimated time / filament / layers, into the job record. */
-async function collectJobInfo(job: JobRecord, outFile: string, warnings: string[]): Promise<void> {
+async function collectJobInfo(
+  job: JobRecord,
+  outFile: string,
+  warnings: string[],
+  machineLimits: Readonly<Record<string, string>>,
+): Promise<void> {
+  // S1-c: the finished file is scanned once, here; the result is stored in the record and the send
+  // gate merges its issues into the preset issues (no second scan on every send).
+  const preflight = scanGcodeFile(outFile, machineLimits);
   if (job.technology === 'FFF' && outFile.endsWith('.gcode')) {
     try {
-      job.info = { ...readGcodeInfo(outFile), warnings };
+      job.info = { ...readGcodeInfo(outFile), warnings, preflight };
       return;
     } catch {
       /* fall through to the size-only record */
     }
   }
-  job.info = { sizeBytes: await fileSize(outFile), warnings };
+  job.info = { sizeBytes: await fileSize(outFile), warnings, preflight };
 }
 
 async function runJob(job: JobRecord) {
@@ -293,7 +302,7 @@ async function runJob(job: JobRecord) {
   job.status = 'done';
   job.percent = 100;
   job.message = 'Done';
-  await collectJobInfo(job, outFile, extractWarnings(logLines));
+  await collectJobInfo(job, outFile, extractWarnings(logLines), machineLimitsOf(req.printer.config));
   await saveJobRecord(job);
   emit(job.id, { type: 'done', job });
 }
