@@ -261,7 +261,10 @@ export function apiRouter(): express.Router {
     const send = (ev: unknown) => res.write(`data: ${JSON.stringify(ev)}\n\n`);
     send({ type: 'status', job: j });
     if (j.status === 'done' || j.status === 'error' || j.status === 'cancelled') {
-      send({ type: j.status === 'done' ? 'done' : 'error', job: j, message: j.error });
+      // a cancelled job is a status, not an error – the stream used to replay it as `error`, which the
+      // browser showed as "Slicing failed" after a cancel (B6)
+      if (j.status === 'cancelled') send({ type: 'status', job: j });
+      else send({ type: j.status === 'done' ? 'done' : 'error', job: j, message: j.error });
       res.end();
       return;
     }

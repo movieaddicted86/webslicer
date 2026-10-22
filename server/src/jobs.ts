@@ -25,6 +25,7 @@ import {
   loadJobRecords,
   outputExists,
   removeJobDir,
+  removeJobFile,
   readJobRequest,
   saveJobRecord,
   writeJobConfig,
@@ -36,6 +37,10 @@ import type { ConfigIssue, JobEvent, JobRecord, Schema, SliceRequest } from '@we
 const jobs = new Map<string, JobRecord>();
 const emitters = new Map<string, EventEmitter>();
 const controllers = new Map<string, AbortController>();
+/** jobs whose cancel was asked for while they were still preparing (no controller yet, B6) */
+const cancelling = new Set<string>();
+/** the in-flight `runJob` of a running job, so a delete can wait for the CLI to be gone (B6) */
+const runningJobs = new Map<string, Promise<void>>();
 const queue: string[] = [];
 let running = 0;
 let schemaRef: Schema | undefined;
@@ -88,13 +93,26 @@ async function pruneJobs(): Promise<void> {
 export async function deleteJob(id: string): Promise<boolean> {
   const j = jobs.get(id);
   if (!j) return false;
-  if (j.status === 'running' || j.status === 'queued') cancelJob(id);
+  if (j.status === 'running' || j.status === 'queued') {
+    cancelJob(id);
+    // the CLI process keeps writing into the directory until it is killed; deleting it underneath the
+    // job left a half-written dir behind (B6) – wait for the run to finish its cleanup first
+    await runningJobs.get(id);
+  }
   jobs.delete(id);
   emitters.delete(id);
+  cancelling.delete(id);
   await removeJobDir(id);
   return true;
 }
 
+/**
+ * Cancel a job, whatever stage it is in.
+ *
+ * Queued: leave the queue. Running: abort the CLI. Still **preparing** (the model is being built and
+ * the AbortController does not exist yet, B6): mark it, and `runJob` aborts as soon as the controller
+ * is created – the call used to answer 404 and the job kept slicing.
+ */
 export function cancelJob(id: string): boolean {
   const j = jobs.get(id);
   if (!j) return false;
@@ -103,15 +121,32 @@ export function cancelJob(id: string): boolean {
     if (i >= 0) queue.splice(i, 1);
     j.status = 'cancelled';
     j.finishedAt = new Date().toISOString();
+    j.message = 'Cancelled';
     void saveJobRecord(j);
     emit(id, { type: 'status', job: j });
     return true;
   }
   if (j.status === 'running') {
-    controllers.get(id)?.abort();
+    const controller = controllers.get(id);
+    if (controller) controller.abort();
+    else cancelling.add(id);
     return true;
   }
   return false;
+}
+
+/**
+ * End a cancelled run: record the state and remove the temporary inputs (the config and the 3MF are
+ * rebuilt on the next slice; only the log stays).
+ */
+async function finishCancelled(job: JobRecord): Promise<void> {
+  job.status = 'cancelled';
+  job.message = 'Cancelled';
+  job.finishedAt = job.finishedAt || new Date().toISOString();
+  await saveJobRecord(job);
+  await removeJobFile(job.id, 'config.ini');
+  await removeJobFile(job.id, 'model.3mf');
+  emit(job.id, { type: 'status', job });
 }
 
 function sanitizeFilename(name: string, ext: string): string {
@@ -163,8 +198,10 @@ function pump() {
     const job = jobs.get(id);
     if (!job || job.status !== 'queued') continue;
     running++;
-    runJob(job)
-      .catch((e) => {
+    const run = runJob(job)
+      .catch(async (e) => {
+        // a cancel that raced the preparation (B6) wins over the error the preparation then hit
+        if (job.status === 'cancelled' || cancelling.delete(job.id)) return finishCancelled(job);
         job.status = 'error';
         job.error = (e as Error).message;
         job.finishedAt = new Date().toISOString();
@@ -173,8 +210,10 @@ function pump() {
       })
       .finally(() => {
         running--;
+        runningJobs.delete(id);
         setImmediate(pump);
       });
+    runningJobs.set(id, run);
   }
 }
 
@@ -297,6 +336,9 @@ async function runJob(job: JobRecord) {
   logLines.push(`$ ${config.slicerBin} ${args.join(' ')}`);
   const controller = new AbortController();
   controllers.set(job.id, controller);
+  // a cancel that arrived during preparation (B6) aborts before the CLI is ever spawned
+  const cancelledEarly = cancelling.delete(job.id);
+  if (cancelledEarly) controller.abort();
   job.message = 'Slicing';
   emit(job.id, { type: 'progress', percent: 1, message: job.message });
 
@@ -307,16 +349,14 @@ async function runJob(job: JobRecord) {
     onLine: progressReporter(job, logLines),
   });
   controllers.delete(job.id);
+  cancelling.delete(job.id);
   await writeJobLog(job.id, logLines.join('\n') + '\n');
-  job.finishedAt = new Date().toISOString();
 
   if (controller.signal.aborted) {
-    job.status = 'cancelled';
-    job.message = 'Cancelled';
-    await saveJobRecord(job);
-    emit(job.id, { type: 'status', job });
+    await finishCancelled(job);
     return;
   }
+  job.finishedAt = new Date().toISOString();
   if (res.code !== 0 || !(await outputExists(outFile))) {
     job.status = 'error';
     job.error = failureMessage(logLines, res.stderr, res.code);

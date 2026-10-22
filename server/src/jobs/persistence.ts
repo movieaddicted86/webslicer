@@ -78,6 +78,15 @@ export async function fileSize(file: string): Promise<number> {
   return (await fs.stat(file)).size;
 }
 
+/** Remove a single file of a job (a cancelled job keeps its log, not its temporary inputs). */
+export async function removeJobFile(id: string, name: string): Promise<void> {
+  try {
+    await fs.rm(jobFile(id, name), { force: true });
+  } catch {
+    /* ignore */
+  }
+}
+
 /** Remove a whole job directory (cancelled or deleted jobs). */
 export async function removeJobDir(id: string): Promise<void> {
   try {
