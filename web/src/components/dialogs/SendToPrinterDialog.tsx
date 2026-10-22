@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { checkSend, preflightSendIssues, sendMatch, type PresetLink, type PreflightIssue } from '@webslicer/shared';
+import { checkSend, preflightSendIssues, printerLimitIssues, sendMatch, type PresetLink, type PreflightIssue } from '@webslicer/shared';
 import { Modal } from './Modal';
 import { useStore } from '../../state/store';
 import { api, type SendIssue, type SendResult } from '../../api';
@@ -76,9 +76,13 @@ export function SendToPrinterDialog({ onClose }: { onClose: () => void }) {
   const printer = printers.find((p) => p.id === printerId);
   const issues: SendIssue[] = useMemo(() => {
     if (!printer || !job) return [];
-    // S1-c: the preflight issues of the finished file join the preset issues – the server merges the
-    // same two lists, so the dialog shows what the gate will enforce.
-    return [...checkSend({ presets: { printer: jobPreset } }, printer, { presets: links }), ...preflightSendIssues(job.info?.preflight)];
+    // S1-c/S1-d: the preflight issues of the finished file and the target's own safety limits join the
+    // preset issues – the server merges the same lists, so the dialog shows what the gate will enforce
+    return [
+      ...checkSend({ presets: { printer: jobPreset } }, printer, { presets: links }),
+      ...printerLimitIssues(job.temperatures, printer.safety),
+      ...preflightSendIssues(job.info?.preflight),
+    ];
   }, [printer, job, jobPreset, links]);
 
   const blocking = issues.filter((i) => i.severity === 'block');

@@ -39,6 +39,30 @@ const apiKey = z
   .max(500, 'invalid API key')
   .optional();
 
+/**
+ * The safety limits of the machine (S1-d): the hottest hotend and bed the target printer may see.
+ *
+ * Both are optional and a limit of `0` or less means "not set" – the same way PrusaSlicer reads a
+ * temperature of 0 as off. A value above the global catcher (450 °C hotend, 150 °C bed) is itself a
+ * typo, so the schema refuses it rather than letting it disable the send gate.
+ */
+const safetyLimit = (max: number, label: string) =>
+  z
+    .number({ error: () => `invalid ${label}` })
+    .finite(`invalid ${label}`)
+    .max(max, `${label} must be at most ${max} °C`)
+    .optional();
+
+const safety = z
+  .object(
+    {
+      maxHotend: safetyLimit(450, 'maxHotend'),
+      maxBed: safetyLimit(150, 'maxBed'),
+    },
+    { error: () => 'invalid safety' },
+  )
+  .optional();
+
 /** A printer as the client sends it. */
 export const printerInputSchema = z.looseObject({
   id: z
@@ -54,6 +78,7 @@ export const printerInputSchema = z.looseObject({
     .max(200, 'invalid preset name')
     .optional(),
   ignoreTls: z.boolean({ error: () => 'invalid ignoreTls' }).optional(),
+  safety,
 });
 
 /** `POST /api/printers/test` takes the same fields, minus the ones only a stored printer has. */

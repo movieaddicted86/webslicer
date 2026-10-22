@@ -46,8 +46,16 @@ function notScanned(reason: string): PreflightResult {
  * Scan a finished job output. A missing file is reported, not thrown: the send gate must still be
  * able to answer, and a job record can outlive its files. Asynchronous – the caller awaits it and the
  * event loop stays free between the chunks (see the module doc).
+ *
+ * `limits` are the target printer's own ceilings (S1-d): the send gate passes the machine's safety
+ * profile here, so a G-code sliced for a hotter machine is caught at the temperature the file really
+ * uses. Without them the global typo catchers apply.
  */
-export async function scanGcodeFile(file: string, machineLimits: Readonly<Record<string, string>> = {}): Promise<PreflightResult> {
+export async function scanGcodeFile(
+  file: string,
+  machineLimits: Readonly<Record<string, string>> = {},
+  limits: { hotendLimit?: number; bedLimit?: number } = {},
+): Promise<PreflightResult> {
   if (isBinaryGcode(file)) return notScanned('the output is binary G-code (.bgcode), which the preflight does not read');
   let handle: fs.promises.FileHandle;
   try {
@@ -56,7 +64,7 @@ export async function scanGcodeFile(file: string, machineLimits: Readonly<Record
     return notScanned('the output file could not be read');
   }
   try {
-    const scan = new GcodePreflight({ machineLimits });
+    const scan = new GcodePreflight({ machineLimits, ...limits });
     // a decoder keeps a multi-byte character together when the 1 MiB boundary cuts through it
     const decoder = new StringDecoder('utf8');
     const buf = Buffer.alloc(SCAN_CHUNK);

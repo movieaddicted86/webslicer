@@ -11,7 +11,7 @@
  */
 import express, { type Request, type Response } from 'express';
 import { createJob } from '../jobs.js';
-import { validateSliceRequest } from '../services/slice.js';
+import { validateConfigLimits, validateSliceRequest } from '../services/slice.js';
 import { activeSchema } from '../services/schema.js';
 import { ValidationError } from '../errors.js';
 import { copiesOf, parseProjectCreate, projectModelsSchema, projectSliceSchema } from '../validation/projects.js';
@@ -79,7 +79,9 @@ export function projectsRouter(): express.Router {
     if (body.outputName !== undefined) request.outputName = body.outputName;
     // no thumbnails here: rendering them needs a browser (concept §3.5, rasterizer comes in phase 3)
     validateSliceRequest(request);
-    const job = await createJob(request, found.schema);
+    // S1-d: the project's resolved settings face the same global limits as a REST slice
+    const configIssues = validateConfigLimits(request);
+    const job = await createJob(request, found.schema, configIssues);
     await touchProject(found.project);
     res.status(202).json(job);
   });

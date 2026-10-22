@@ -57,6 +57,18 @@ export function PreviewPanel() {
           </button>
         </section>
       )}
+      {job?.configIssues?.length ? (
+        <details className="warnings" open>
+          <summary>{job.configIssues.length === 1 ? '1 setting warning' : `${job.configIssues.length} setting warnings`}</summary>
+          <ul>
+            {job.configIssues.map((i, n) => (
+              <li key={n}>
+                {i.message} <span className="muted small">({i.limit})</span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
       {job && running && (
         <section>
           <div className="progress">

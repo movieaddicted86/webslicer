@@ -66,6 +66,24 @@ test('every printer field of the wrong type is named in the message', () => {
   }
 });
 
+test('a printer body carries the optional safety limits and refuses a limit that is itself a typo (S1-d)', () => {
+  const parsed = parsePrinter({ name: 'PTFE', safety: { maxHotend: 240, maxBed: 60 } });
+  assert.equal(parsed.ok, true);
+  assert.deepEqual(parsed.ok && parsed.printer.safety, { maxHotend: 240, maxBed: 60 });
+
+  // half a block is fine – a host may limit only the hotend
+  const hotend = parsePrinter({ safety: { maxHotend: 240 } });
+  assert.deepEqual(hotend.ok && hotend.printer.safety, { maxHotend: 240 });
+
+  const cases: Array<[Record<string, unknown>, string]> = [
+    [{ safety: { maxHotend: 500 } }, 'maxHotend must be at most 450 °C'],
+    [{ safety: { maxBed: 200 } }, 'maxBed must be at most 150 °C'],
+    [{ safety: { maxHotend: '240' } }, 'invalid maxHotend'],
+    [{ safety: 'ptfe' }, 'invalid safety'],
+  ];
+  for (const [body, expected] of cases) assert.equal(messageOf(parsePrinter(body)), expected, JSON.stringify(body));
+});
+
 test('the test endpoint takes the host, type, key and TLS flag only', () => {
   assert.equal(messageOf(parsePrinterTest({ name: 1 })), '<no error>'); // a field it does not own is ignored
   assert.equal(messageOf(parsePrinterTest({ host: 10 })), 'invalid host');

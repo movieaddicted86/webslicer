@@ -398,6 +398,60 @@ test.describe('send: the send gate and the upload (S1-b, T-026)', () => {
     await expect(uploadButton(app)).toBeEnabled();
     await app.locator('.modal-actions button:has-text("Cancel")').click();
   });
+
+  test('a job hotter than the host allows is a printer-limit block with an audited override (S1-d)', async ({ app }) => {
+    await prepare(app, ['exact']);
+    // raise the hotend above a PTFE hotend's 240 °C: the value stays inside the global catcher
+    await app.evaluate(() => {
+      const s = window.webslicer.getState();
+      s.setOption('filament', 'temperature', '245', 0);
+      s.setOption('filament', 'first_layer_temperature', '245', 0);
+    });
+    await settle(app, 300);
+    await sliceAndWait(app, await read(app, (s) => s.job?.id));
+    expect(await read(app, (s) => s.job?.status)).toBe('done');
+    expect(await read(app, (s) => s.job?.temperatures)).toEqual({ hotend: 245, bed: expect.any(Number) });
+
+    // a second, identical host with a PTFE limit – the exact match is preselected, so the dialog is
+    // opened on the limited host explicitly
+    const ptfe = await addPrinter(app, { name: 'PTFE host', presetName: E2E_PRINTER, safety: { maxHotend: 240 } });
+    created.push(ptfe);
+    await app.evaluate(async () => window.webslicer.getState().refreshPhysicalPrinters());
+    await sendDialog(app);
+    await app.locator('.modal .form select').selectOption(ptfe.id);
+    await settle(app, 300);
+    // a block and a warn: the PTFE limit is the block, the preset's own M907 lines only warn
+    await expect(app.locator('.modal .warn').first()).toContainText('limited to 240 °C');
+    await expect(uploadButton(app)).toBeDisabled();
+
+    // the server refuses with the same rule, and uploads nothing
+    const jobId = await read(app, (s) => s.job?.id ?? '');
+    clearUploads();
+    const refused = await rest<{ error: string; issues: Array<{ rule: string; severity: string }> }>(
+      app,
+      'POST',
+      `/api/jobs/${jobId}/send`,
+      {
+        printerId: ptfe.id,
+        filename: 'limit.gcode',
+      },
+    );
+    expect(refused.status).toBe(409);
+    expect(refused.json.issues.map((i) => [i.rule, i.severity])).toContainEqual(['send.printer_limit', 'block']);
+    expect(uploads()).toHaveLength(0);
+
+    // the override with a reason uploads and is audited
+    const overridden = await rest<{ ok: boolean; issues: Array<{ rule: string }> }>(app, 'POST', `/api/jobs/${jobId}/send`, {
+      printerId: ptfe.id,
+      filename: 'limit.gcode',
+      override: true,
+      reason: 'the hotend was replaced with an all-metal one',
+    });
+    expect(overridden.status).toBe(200);
+    expect(overridden.json.ok).toBe(true);
+    expect(overridden.json.issues.map((i) => i.rule)).toContain('send.printer_limit');
+    expect(uploads()).toHaveLength(1);
+  });
 });
 
 test.describe('send: the printer dialog sees the mock host', () => {
@@ -427,7 +481,7 @@ test.describe('send: the printer dialog sees the mock host', () => {
 
       // the dialog's own form is the way back in
       await app.locator('.modal-actions button:has-text("Add printer")').click();
-      await expect(app.locator('.form label')).toHaveCount(5);
+      await expect(app.locator('.form label')).toHaveCount(7); // five fields, the two safety limits (S1-d)
       await app.locator('.modal-head button').click();
     } finally {
       await removePrinters(app, created);

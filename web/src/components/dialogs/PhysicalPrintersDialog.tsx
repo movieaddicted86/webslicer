@@ -3,6 +3,21 @@ import { Modal } from './Modal';
 import { useStore } from '../../state/store';
 import { api, type PhysicalPrinter } from '../../api';
 
+/** A limit field as a number: an empty or broken input means "not set". */
+function numberOrUndefined(value: string): number | undefined {
+  const n = Number(value.trim());
+  return value.trim() === '' || !Number.isFinite(n) || n <= 0 ? undefined : n;
+}
+
+/** The safety block after one edit; an empty block clears the stored limits (`{}` survives JSON, `undefined` would not). */
+function safetyOf(
+  edit: Partial<PhysicalPrinter>,
+  change: Partial<NonNullable<PhysicalPrinter['safety']>>,
+): NonNullable<PhysicalPrinter['safety']> {
+  const next = { ...edit.safety, ...change };
+  return next.maxHotend === undefined && next.maxBed === undefined ? {} : next;
+}
+
 /** The printers WebSlicer can send G-code to (PrusaLink, OctoPrint, Moonraker). */
 export function PhysicalPrintersDialog({ onClose }: { onClose: () => void }) {
   const printers = useStore((s) => s.physicalPrinters);
@@ -116,6 +131,43 @@ export function PhysicalPrintersDialog({ onClose }: { onClose: () => void }) {
               Accept self-signed certificate (skip TLS verification)
             </label>
           )}
+          {/* S1-d: the machine's own ceilings – the send gate refuses G-code that goes above them */}
+          <fieldset className="safety-limits">
+            <legend>Safety limits</legend>
+            <div className="muted small">
+              Optional. A job whose temperatures go above these is refused at the send gate (overridable with a reason).
+            </div>
+            <label>
+              Max hotend °C{' '}
+              <input
+                type="number"
+                min={0}
+                max={450}
+                placeholder="none"
+                value={edit.safety?.maxHotend ?? ''}
+                onChange={(e) => setEdit({ ...edit, safety: safetyOf(edit, { maxHotend: numberOrUndefined(e.target.value) }) })}
+              />
+            </label>
+            <label>
+              Max bed °C{' '}
+              <input
+                type="number"
+                min={0}
+                max={150}
+                placeholder="none"
+                value={edit.safety?.maxBed ?? ''}
+                onChange={(e) => setEdit({ ...edit, safety: safetyOf(edit, { maxBed: numberOrUndefined(e.target.value) }) })}
+              />
+            </label>
+            <button
+              type="button"
+              className="small"
+              title="A PTFE-lined hotend must not go above 240 °C"
+              onClick={() => setEdit({ ...edit, safety: safetyOf(edit, { maxHotend: 240 }) })}
+            >
+              PTFE hotend (max 240 °C)
+            </button>
+          </fieldset>
           {testing && <div className={`small ${testing.startsWith('✓') ? 'success' : 'error'}`}>{testing}</div>}
           <div className="modal-actions">
             <button onClick={() => setEdit(null)}>Cancel</button>

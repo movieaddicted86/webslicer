@@ -41,6 +41,10 @@ const JOB_BAD_ID = 'bbbbbbbb-cccc-dddd-eeee-ffffffffffff';
 const JOB_STORED_ID = 'cccccccc-dddd-eeee-ffff-000000000000';
 /** A binary-G-code job: v1 cannot scan it, which is one warn. */
 const JOB_BINARY_ID = 'dddddddd-eeee-ffff-0000-111111111111';
+/** A hot job (S1-d): 250 °C hotend, 90 °C bed. */
+const JOB_HOT_ID = 'ffffffff-0000-1111-2222-333333333333';
+/** A hot job from before S1-d: no stored temperatures, the stored request is the source. */
+const JOB_HOT_OLD_ID = '99999999-0000-1111-2222-333333333333';
 const JOB_PRESET = 'Original Prusa MK4S HF0.4 nozzle';
 const OTHER_PRESET = 'Original Prusa MINI+ 0.4 nozzle';
 
@@ -73,8 +77,8 @@ async function call(method: string, url: string, body?: object): Promise<Res> {
 }
 
 /** Create a print host through the API and answer its id. */
-async function addPrinter(name: string, presetName?: string): Promise<string> {
-  const res = await call('POST', '/api/printers', { name, type: 'moonraker', host: mockBase.replace('http://', ''), presetName });
+async function addPrinter(name: string, presetName?: string, safety?: { maxHotend?: number; maxBed?: number }): Promise<string> {
+  const res = await call('POST', '/api/printers', { name, type: 'moonraker', host: mockBase.replace('http://', ''), presetName, safety });
   assert.equal(res.status, 200, JSON.stringify(res.json));
   return (res.json as { id: string }).id;
 }
@@ -83,8 +87,12 @@ function send(printerId: string, extra: Record<string, unknown> = {}, jobId = JO
   return call('POST', `/api/jobs/${jobId}/send`, { printerId, filename: 'part.gcode', ...extra });
 }
 
-/** A finished job on disk: the record plus its output file. */
-function seedJob(id: string, printerPreset: string, output?: { name: string; text: string; preflight?: unknown }): void {
+/** A finished job on disk: the record plus its output file, optionally its request (S1-d). */
+function seedJob(
+  id: string,
+  printerPreset: string,
+  output?: { name?: string; text?: string; preflight?: unknown; temperatures?: { hotend: number; bed: number } },
+): void {
   const dir = path.join(config.jobsDir, id);
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(
@@ -100,6 +108,7 @@ function seedJob(id: string, printerPreset: string, output?: { name: string; tex
       technology: 'FFF',
       presets: { print: '0.20mm SPEED', filaments: ['Prusament PLA'], printer: printerPreset },
       objectNames: ['cube'],
+      temperatures: output?.temperatures,
       info: output?.preflight === undefined ? undefined : { sizeBytes: 0, preflight: output.preflight },
     }),
   );
@@ -133,6 +142,18 @@ before(async () => {
     },
   });
   seedJob(JOB_BINARY_ID, JOB_PRESET, { name: 'part.bgcode', text: 'not really binary' });
+  // S1-d: a job that asks for 250 °C / 90 °C – too hot for a PTFE hotend (240 °C)
+  seedJob(JOB_HOT_ID, JOB_PRESET, { temperatures: { hotend: 250, bed: 90 } });
+  seedJob(JOB_HOT_OLD_ID, JOB_PRESET);
+  fs.writeFileSync(
+    path.join(config.jobsDir, JOB_HOT_OLD_ID, 'request.json'),
+    JSON.stringify({
+      objects: [],
+      print: { name: 'p', config: {} },
+      printer: { name: 'pr', config: {} },
+      filaments: [{ name: 'ABS', config: { temperature: '250', bed_temperature: '90' } }],
+    }),
+  );
   await loadJobsFromDisk();
 
   // the mock print host: Moonraker's upload endpoint, recording what it gets
@@ -409,4 +430,94 @@ test('a health request is answered while the send scans a large file', async () 
   assert.ok(totalMs > 400, `the scan took ${totalMs.toFixed(0)} ms – big enough to see`);
   assert.ok(healthMs < totalMs / 2, `health answered in ${healthMs.toFixed(0)} ms of a ${totalMs.toFixed(0)} ms send`);
   assert.equal(result.status, 409, 'the file starts with a move and never homes');
+});
+
+// ---------------------------------------------------------------------------
+// S1-d: the safety profile of the target printer
+// ---------------------------------------------------------------------------
+
+test('a job hotter than the target printer is a 409 send.printer_limit, and nothing is uploaded', async () => {
+  fs.rmSync(config.auditLog, { force: true });
+  const id = await addPrinter('PTFE host', JOB_PRESET, { maxHotend: 240 });
+  const before = uploads.length;
+  const res = await send(id, {}, JOB_HOT_ID);
+  assert.equal(res.status, 409, JSON.stringify(res.json));
+  const body = res.json as { error: string; issues: Array<{ rule: string; severity: string; message: string }> };
+  assert.match(body.error, /hotend to 250 °C/);
+  assert.deepEqual(
+    body.issues.map((i) => [i.rule, i.severity]),
+    [['send.printer_limit', 'block']],
+  );
+  assert.match(body.issues[0].message, /limited to 240 °C/);
+  assert.equal(uploads.length, before, 'a limit block never reaches the printer');
+  assert.deepEqual(readAudit(), []);
+});
+
+test('a printer with a high enough limit lets the same job through', async () => {
+  const id = await addPrinter('All-metal host', JOB_PRESET, { maxHotend: 300, maxBed: 100 });
+  const res = await send(id, {}, JOB_HOT_ID);
+  assert.equal(res.status, 200, JSON.stringify(res.json));
+  assert.deepEqual((res.json as { issues: unknown[] }).issues, []);
+});
+
+test('the bed limit is checked on its own', async () => {
+  const id = await addPrinter('Small bed host', JOB_PRESET, { maxBed: 80 });
+  const res = await send(id, {}, JOB_HOT_ID);
+  assert.equal(res.status, 409, JSON.stringify(res.json));
+  const issues = (res.json as { issues: Array<{ rule: string; message: string }> }).issues;
+  assert.deepEqual(
+    issues.map((i) => i.rule),
+    ['send.printer_limit'],
+  );
+  assert.match(issues[0].message, /bed to 90 °C/);
+});
+
+test('a limit block is overridable with a reason, which is audited', async () => {
+  fs.rmSync(config.auditLog, { force: true });
+  const id = await addPrinter('PTFE host 2', JOB_PRESET, { maxHotend: 240 });
+  const before = uploads.length;
+  const res = await send(id, { override: true, reason: 'short print, hotend replaced' }, JOB_HOT_ID);
+  assert.equal(res.status, 200, JSON.stringify(res.json));
+  const body = res.json as { ok: boolean; issues: Array<{ rule: string }> };
+  assert.equal(body.ok, true);
+  assert.deepEqual(
+    body.issues.map((i) => i.rule),
+    ['send.printer_limit'],
+  );
+  assert.equal(uploads.length, before + 1);
+  const entries = readAudit();
+  assert.equal(entries.length, 1);
+  const params = entries[0].params as { issues: Array<{ rule: string }>; reason: string };
+  assert.deepEqual(
+    params.issues.map((i) => i.rule),
+    ['send.printer_limit'],
+  );
+  assert.equal(params.reason, 'short print, hotend replaced');
+});
+
+test('a job from before S1-d is judged on its stored request', async () => {
+  const id = await addPrinter('PTFE host 3', JOB_PRESET, { maxHotend: 240 });
+  const res = await send(id, {}, JOB_HOT_OLD_ID);
+  assert.equal(res.status, 409, JSON.stringify(res.json));
+  assert.deepEqual(
+    (res.json as { issues: Array<{ rule: string }> }).issues.map((i) => i.rule),
+    ['send.printer_limit'],
+  );
+});
+
+test('the printer API stores and returns the safety limits, and clears them on an empty block', async () => {
+  const id = await addPrinter('Limits host', JOB_PRESET, { maxHotend: 240, maxBed: 100 });
+  const list = (await call('GET', '/api/printers')).json as Array<{ id: string; safety?: { maxHotend?: number; maxBed?: number } }>;
+  const stored = list.find((p) => p.id === id);
+  assert.deepEqual(stored?.safety, { maxHotend: 240, maxBed: 100 });
+
+  const cleared = await call('PUT', `/api/printers/${id}`, { name: 'Limits host', host: mockBase, presetName: JOB_PRESET, safety: {} });
+  assert.equal(cleared.status, 200, JSON.stringify(cleared.json));
+  assert.equal((cleared.json as { safety?: unknown }).safety, undefined, 'an empty safety block means "no limits"');
+});
+
+test('a safety limit outside the global catcher is a 400', async () => {
+  const res = await call('POST', '/api/printers', { name: 'Bad limit', host: 'x', safety: { maxHotend: 500 } });
+  assert.equal(res.status, 400, JSON.stringify(res.json));
+  assert.match((res.json as { error: string }).error, /maxHotend/);
 });

@@ -16,6 +16,7 @@ import { injectThumbnails } from './slicer/thumbnails.js';
 import { mergeConfigs } from './services/configMerge.js';
 import { build3mfForRequest } from './services/slice.js';
 import { pruneModels } from './services/models.js';
+import { maxTemperaturesOf } from '@webslicer/shared';
 import {
   fileSize,
   initJobDir,
@@ -30,7 +31,7 @@ import {
   writeJobLog,
   writeJobModel,
 } from './jobs/persistence.js';
-import type { JobEvent, JobRecord, Schema, SliceRequest } from '@webslicer/shared';
+import type { ConfigIssue, JobEvent, JobRecord, Schema, SliceRequest } from '@webslicer/shared';
 
 const jobs = new Map<string, JobRecord>();
 const emitters = new Map<string, EventEmitter>();
@@ -125,7 +126,7 @@ function sanitizeFilename(name: string, ext: string): string {
 }
 
 /** Queue a job for a validated request; the caller has already checked the request. */
-export async function createJob(req: SliceRequest, schema: Schema): Promise<JobRecord> {
+export async function createJob(req: SliceRequest, schema: Schema, configIssues: ConfigIssue[] = []): Promise<JobRecord> {
   const id = randomUUID();
   const tech = req.printer.config.printer_technology === 'SLA' ? 'SLA' : 'FFF';
   const binary =
@@ -141,6 +142,9 @@ export async function createJob(req: SliceRequest, schema: Schema): Promise<JobR
     technology: tech,
     presets: { print: req.print.name, filaments: req.filaments.map((f) => f.name), printer: req.printer.name },
     objectNames: req.objects.map((o) => o.name),
+    configIssues: configIssues.length ? configIssues : undefined,
+    // S1-d: what the send dialog compares against the safety profile of the chosen host
+    temperatures: maxTemperaturesOf(req),
   };
   await initJobDir(id, req);
   jobs.set(id, job);

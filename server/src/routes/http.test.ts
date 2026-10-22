@@ -227,6 +227,42 @@ test('POST /api/slice reports every validation failure as a 400 with the validat
   assert.equal(errorOf(empty), 'at least one object required');
 });
 
+test('POST /api/slice refuses a configuration limit as a 400 with its issues (S1-d)', async () => {
+  const res = await call(
+    'POST',
+    '/api/slice',
+    sliceRequestTop({
+      filaments: [{ name: 'PLA', config: { temperature: '2150', filament_type: 'PLA' } }],
+    }),
+  );
+  assert.equal(res.status, 400, JSON.stringify(res.json));
+  const body = res.json as { error: string; issues: Array<{ rule: string; severity: string; key: string; value: string; limit: string }> };
+  assert.match(body.error, /2150/);
+  assert.equal(body.issues.length, 1);
+  assert.equal(body.issues[0].rule, 'config.hotend_limit');
+  assert.equal(body.issues[0].severity, 'block');
+  assert.equal(body.issues[0].key, 'temperature');
+  assert.equal(body.issues[0].value, '2150');
+  assert.equal(body.issues[0].limit, '150–450 °C (or 0)');
+});
+
+test('POST /api/slice accepts a soft-range value and carries its warning into the job (S1-d)', async () => {
+  // the mock here is the schema-less test app: the job is queued, not sliced
+  const res = await call(
+    'POST',
+    '/api/slice',
+    sliceRequestTop({
+      filaments: [{ name: 'PLA', config: { temperature: '265', bed_temperature: '60', filament_type: 'PLA' } }],
+    }),
+  );
+  assert.equal(res.status, 202, JSON.stringify(res.json));
+  const job = res.json as { id: string; configIssues?: Array<{ rule: string; severity: string; key: string }> };
+  assert.equal(job.configIssues?.length, 1);
+  assert.equal(job.configIssues?.[0].rule, 'config.filament_temperature');
+  assert.equal(job.configIssues?.[0].severity, 'warn');
+  assert.equal(job.configIssues?.[0].key, 'temperature');
+});
+
 test('GET /api/jobs/:id answers 404 for an unknown job', async () => {
   const res = await call('GET', '/api/jobs/nope');
   assert.equal(res.status, 404);

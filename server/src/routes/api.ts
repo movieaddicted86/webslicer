@@ -8,7 +8,7 @@ import { activeSchema } from '../services/schema.js';
 import { appVersion } from '../services/version.js';
 import { deleteModel, saveModel } from '../services/models.js';
 import { deleteAutosave, findAutosave, isAutosaveClientId, readAutosaveInfo, writeAutosave } from '../services/autosave.js';
-import { build3mfForRequest, validateSliceRequest } from '../services/slice.js';
+import { build3mfForRequest, validateConfigLimits, validateSliceRequest } from '../services/slice.js';
 import { mergeConfigs } from '../services/configMerge.js';
 import {
   listPresets,
@@ -234,8 +234,11 @@ export function apiRouter(): express.Router {
     } catch (e) {
       return badRequest(res, (e as Error).message);
     }
+    // S1-d: a typo in a temperature, a nozzle or the layer height is a 400 with its issues; a soft
+    // range only warns and travels with the job
+    const configIssues = validateConfigLimits(body);
     const s = await schemaOf();
-    const job = await createJob(body, s);
+    const job = await createJob(body, s, configIssues);
     res.status(202).json(job);
   });
 

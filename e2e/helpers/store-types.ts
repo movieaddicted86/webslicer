@@ -58,6 +58,8 @@ export interface E2EJob {
   outputName: string;
   /** the presets the G-code was sliced for – the send gate compares the printer preset */
   presets?: { printer: string; print?: string; filament?: string[] };
+  /** the highest temperatures the request asks for (S1-d) */
+  temperatures?: { hotend: number; bed: number };
   info?: {
     warnings?: unknown[];
     estimatedTime?: unknown;
@@ -142,7 +144,7 @@ export interface E2EState {
   mirror: (axis: number) => void;
   dropToBed: (objectId: string) => void;
   clearObjects: () => void;
-  setOption: (type: 'print' | 'filament' | 'printer', key: string, value: string) => void;
+  setOption: (type: 'print' | 'filament' | 'printer', key: string, value: string, extruderIdx?: number) => void;
   setView: (view: string) => void;
   setMode: (mode: 'simple' | 'advanced' | 'expert') => void;
   selectPreset: (type: 'print' | 'filament' | 'printer', name: string, extruderIdx?: number) => Promise<void>;

@@ -130,6 +130,12 @@ export interface GcodeInfo {
   sizeBytes: number;
 }
 
+/** The highest temperature a job asks for, per kind (S1-d) – what a printer's safety profile is compared against. */
+export interface MaxTemperatures {
+  hotend: number;
+  bed: number;
+}
+
 export type JobStatus = 'queued' | 'running' | 'done' | 'error' | 'cancelled';
 
 export interface JobRecord {
@@ -146,6 +152,14 @@ export interface JobRecord {
   info?: GcodeInfo;
   presets: { print: string; filaments: string[]; printer: string };
   objectNames: string[];
+  /** the configuration-limit warnings of the request (S1-d); a block never reaches a job */
+  configIssues?: ConfigIssue[];
+  /**
+   * The highest hotend/bed temperature the request asks for (S1-d). The send dialog compares it against
+   * the safety profile of the chosen host; a job from before S1-d has no field (the server reads its
+   * stored request instead).
+   */
+  temperatures?: MaxTemperatures;
 }
 
 /** Server-sent event of a running job (`/api/jobs/<id>/events`). */
@@ -168,6 +182,17 @@ export interface SendIssue {
   rule: string;
   severity: SendIssueSeverity;
   message: string;
+}
+
+/**
+ * One finding of the configuration limits (S1-d): a `SendIssue` that also names the setting behind it
+ * – the key (`temperature[1]`, `nozzle_diameter`), the value as it was sent and the limit it broke.
+ * The slice routes answer with these, so the client can point at the field.
+ */
+export interface ConfigIssue extends SendIssue {
+  key: string;
+  value: string;
+  limit: string;
 }
 
 /** What `POST /api/jobs/:id/send` answers when the upload was accepted. */
