@@ -8,7 +8,11 @@ import { encodeMmu, encodePaint } from '../../three/paint';
 import { decodeVector } from '../../values';
 import { parseThumbnailSpec, placementMatrix } from '@webslicer/shared';
 import { clientId } from '../client';
+import { clearCachedRequest, clearPendingFlush, markPendingFlush, writeCachedRequest } from '../sessionCache';
 import type { PlaterObject, PlaterVolume, State } from '../types';
+
+/** Keepalive requests share a 64 KiB budget per page; past it the flush goes to the local cache. */
+const KEEPALIVE_LIMIT = 60 * 1024;
 
 export interface JobSlice {
   jobLog: string[];
@@ -19,7 +23,8 @@ export interface JobSlice {
   cancelSlice: () => Promise<void>;
   applyProjectConfig: (cfg: Config) => Promise<void>;
   autosaveState: 'idle' | 'saving' | 'saved' | 'error';
-  autosaveNow: () => Promise<void>;
+  /** Write the plater to the server autosave; `keepalive` keeps the request alive while the page goes away. */
+  autosaveNow: (opts?: { keepalive?: boolean }) => Promise<boolean>;
   discardAutosave: () => Promise<void>;
 }
 
@@ -101,7 +106,8 @@ export const createJobSlice: StateCreator<State, [], [], JobSlice> = (set, get) 
     }
     try {
       const job = await api.slice(req);
-      set({ job, jobLog: [], sliceDirty: false, view: 'preview' });
+      set({ job, jobLog: [], sliceDirty: false });
+      get().setView('preview');
       api.jobEvents(job.id, (ev) => {
         const line = ev.line;
         if (ev.type === 'log' && line) set((st) => ({ jobLog: [...st.jobLog.slice(-400), line] }));
@@ -190,21 +196,36 @@ export const createJobSlice: StateCreator<State, [], [], JobSlice> = (set, get) 
     await get().refreshPresetLists();
   },
   autosaveState: 'idle',
-  autosaveNow: async () => {
+  autosaveNow: async (opts = {}) => {
     const s = get();
-    if (!s.objects.length) return;
+    if (!s.objects.length) return false;
     const req = s.buildSliceRequest();
-    if (!req.objects.length) return;
+    if (!req.objects.length) return false;
+    // A keepalive request dies with the page, and browsers cap the total keepalive body at 64 KiB.
+    // A plater past that (paint strings are long) is written to the local cache instead and replayed
+    // on the next start, which is still faster than losing it.
+    if (opts.keepalive && JSON.stringify(req).length > KEEPALIVE_LIMIT) {
+      await writeCachedRequest(Date.now(), req);
+      markPendingFlush(Date.now());
+      return false;
+    }
     set({ autosaveState: 'saving' });
+    if (opts.keepalive) markPendingFlush(Date.now());
     try {
-      const r = await autosaveApi.save(clientId(), req);
-      set({ autosaveState: 'saved', autosaveInfo: { savedAt: r.savedAt, size: 0 } });
+      await autosaveApi.save(clientId(), req, !!opts.keepalive);
+      set({ autosaveState: 'saved', autosaveError: undefined });
+      await clearCachedRequest();
+      clearPendingFlush();
+      return true;
     } catch {
       set({ autosaveState: 'error' });
+      return false;
     }
   },
   discardAutosave: async () => {
     await autosaveApi.remove(clientId()).catch(() => undefined);
-    set({ autosaveInfo: undefined });
+    await clearCachedRequest();
+    clearPendingFlush();
+    set({ autosaveError: undefined });
   },
 });

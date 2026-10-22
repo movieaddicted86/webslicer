@@ -1,5 +1,5 @@
 import { useStore } from '../../state/store';
-import { restoreAutosave } from '../../importFiles';
+import { retrySession } from '../../state/session';
 import { SectionHeader } from '../common/SectionHeader';
 import { ToolbarButton } from '../common/ToolbarButton';
 import { useDeleteSelection, useInstanceActions, useSelectedObjects } from './selection';
@@ -9,7 +9,7 @@ export function SimpleObjects() {
   const objects = useStore((s) => s.objects);
   const arrange = useStore((s) => s.arrange);
   const clear = useStore((s) => s.clearObjects);
-  const autosaveInfo = useStore((s) => s.autosaveInfo);
+  const autosaveError = useStore((s) => s.autosaveError);
   const discardAutosave = useStore((s) => s.discardAutosave);
   const openDialog = useStore((s) => s.openDialog);
 
@@ -50,18 +50,18 @@ export function SimpleObjects() {
           </ToolbarButton>
         </div>
       </SectionHeader>
-      {!objects.length && autosaveInfo && (
+      {!objects.length && autosaveError && (
         <div className="restore">
-          <div>Unsaved session from {new Date(autosaveInfo.savedAt).toLocaleString()} found.</div>
+          <div>Restoring the previous session failed: {autosaveError}</div>
           <div className="manip-actions">
-            <button className="primary" onClick={restoreAutosave}>
-              Restore
+            <button className="primary" onClick={retrySession}>
+              Retry
             </button>
             <button onClick={discardAutosave}>Discard</button>
           </div>
         </div>
       )}
-      {!objects.length && !autosaveInfo && (
+      {!objects.length && !autosaveError && (
         <div className="muted small">
           Drop STL / OBJ / 3MF / AMF files onto the 3D view, use Import or{' '}
           <a

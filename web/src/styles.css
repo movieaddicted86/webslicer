@@ -1047,6 +1047,9 @@ table.changes td.mono {
 .toast.success {
   border-left-color: var(--green);
 }
+.toast-action {
+  margin-left: 10px;
+}
 
 /* ---- object tree / volumes */
 .object-item {

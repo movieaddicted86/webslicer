@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useStore } from '../../state/store';
-import { restoreAutosave } from '../../importFiles';
+import { retrySession } from '../../state/session';
 import { SectionHeader } from '../common/SectionHeader';
 import { ToolbarButton } from '../common/ToolbarButton';
 import { ObjectRow } from './ObjectRow';
@@ -27,7 +27,7 @@ export function ObjectsSection() {
   const redo = useStore((s) => s.redo);
   const canUndo = useStore((s) => s.undoStack.length > 0);
   const canRedo = useStore((s) => s.redoStack.length > 0);
-  const autosaveInfo = useStore((s) => s.autosaveInfo);
+  const autosaveError = useStore((s) => s.autosaveError);
   const discardAutosave = useStore((s) => s.discardAutosave);
   const openDialog = useStore((s) => s.openDialog);
   const [addMenuFor, setAddMenuFor] = useState<string | null>(null);
@@ -109,18 +109,18 @@ export function ObjectsSection() {
             onToggleInstances={() => setInstancesOpen((m) => ({ ...m, [o.id]: !m[o.id] }))}
           />
         ))}
-        {!objects.length && autosaveInfo && (
+        {!objects.length && autosaveError && (
           <li className="empty restore">
-            <div>Unsaved session from {new Date(autosaveInfo.savedAt).toLocaleString()} found.</div>
+            <div>Restoring the previous session failed: {autosaveError}</div>
             <div className="manip-actions">
-              <button className="primary" onClick={restoreAutosave}>
-                Restore
+              <button className="primary" onClick={retrySession}>
+                Retry
               </button>
               <button onClick={discardAutosave}>Discard</button>
             </div>
           </li>
         )}
-        {!objects.length && !autosaveInfo && (
+        {!objects.length && !autosaveError && (
           <li className="empty">
             Drop STL / OBJ / 3MF / AMF files onto the 3D view, use Import or{' '}
             <a

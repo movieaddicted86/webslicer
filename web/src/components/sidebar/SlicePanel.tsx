@@ -26,7 +26,7 @@ export function SlicePanel() {
       {anyOutside && <div className="warn">An object is outside the print volume.</div>}
       {anyModified && <div className="muted small">Using modified (unsaved) settings.</div>}
       {objects.length > 0 && autosaveState !== 'idle' && (
-        <div className="muted small" title="The plater is autosaved on the server and offered for restore after a reload.">
+        <div className="muted small" title="The plater is autosaved on the server and restored automatically after a reload.">
           {autosaveState === 'saving' ? 'Autosaving…' : autosaveState === 'saved' ? 'Autosaved' : 'Autosave failed'}
         </div>
       )}
