@@ -6,7 +6,7 @@ import { getSlicerVersion } from '../slicer/cli.js';
 import { loadBundles, resolveModelAsset } from '../slicer/bundles.js';
 import { activeSchema } from '../services/schema.js';
 import { appVersion } from '../services/version.js';
-import { deleteModel, saveModel } from '../services/models.js';
+import { deleteModel, saveModelFile } from '../services/models.js';
 import { deleteAutosave, findAutosave, isAutosaveClientId, readAutosaveInfo, writeAutosave } from '../services/autosave.js';
 import { build3mfForRequest, validateConfigLimits, validateSliceRequest } from '../services/slice.js';
 import { mergeConfigs } from '../services/configMerge.js';
@@ -20,7 +20,7 @@ import {
   defaultPresetName,
   userPresetExists,
 } from '../slicer/presets.js';
-import { parseStl, read3mfProject } from '../slicer/threemf/index.js';
+import { read3mfProject } from '../slicer/threemf/index.js';
 import { createJob, getJob, listJobs, subscribe, cancelJob, deleteJob, jobOutputPath, readJobLog } from '../jobs.js';
 import type { PhysicalPrinter, PresetType, SliceRequest } from '@webslicer/shared';
 import { listPrinters, upsertPrinter, deletePrinter, getPrinter, testPrinter } from '../services/printers.js';
@@ -31,6 +31,7 @@ import { firstIssueMessage } from '../validation/common.js';
 import { ValidationError } from '../errors.js';
 import { libraryRouter } from './library.js';
 import { projectsRouter } from './projects.js';
+import { withReceivedFile } from './uploads.js';
 import type { IniSection } from '../slicer/ini.js';
 
 const PRESET_TYPES: PresetType[] = ['print', 'filament', 'printer', 'sla_print', 'sla_material'];
@@ -167,18 +168,9 @@ export function apiRouter(): express.Router {
   });
 
   // ---- models --------------------------------------------------------------
-  const raw = express.raw({ type: () => true, limit: config.maxUploadBytes });
-
-  r.post('/models', raw, async (req, res) => {
-    const buf = req.body as Buffer;
-    if (!buf || !buf.length) return badRequest(res, 'empty body');
-    let mesh;
-    try {
-      mesh = parseStl(buf);
-    } catch (e) {
-      return badRequest(res, `cannot parse STL: ${(e as Error).message}`);
-    }
-    if (!mesh.indices.length) return badRequest(res, 'mesh has no triangles');
+  // S7: no `express.raw` here – the body is streamed to a temp file and the size limit is enforced
+  // while streaming, so a large upload never sits in RAM (and an oversize one is a 413 right away)
+  r.post('/models', async (req, res) => {
     // B11: `decodeURIComponent` throws a URIError on a lone `%` escape, which became a 500
     let filename: string;
     try {
@@ -186,8 +178,16 @@ export function apiRouter(): express.Router {
     } catch {
       return badRequest(res, 'invalid file name');
     }
-    const { id, name, triangles, vertices } = await saveModel(mesh, filename);
-    res.json({ id, name, triangles, vertices });
+    const stored = await withReceivedFile(req, config.modelsDir, async (file, bytes) => {
+      if (!bytes) throw new ValidationError('empty body');
+      try {
+        return await saveModelFile(file, filename, bytes);
+      } catch (e) {
+        if (e instanceof ValidationError) throw e;
+        throw new ValidationError(`cannot parse STL: ${(e as Error).message}`);
+      }
+    });
+    res.json(stored);
   });
 
   r.get('/models/:id', async (req, res) => {
@@ -203,6 +203,8 @@ export function apiRouter(): express.Router {
   });
 
   // ---- projects (3MF) ----------------------------------------------------
+  // A 3MF is read by JSZip, which needs the whole archive; `express.raw` keeps its limit (413).
+  const raw = express.raw({ type: () => true, limit: config.maxUploadBytes });
   r.post('/projects/parse', raw, async (req, res) => {
     const buf = req.body as Buffer;
     if (!buf || !buf.length) return badRequest(res, 'empty body');

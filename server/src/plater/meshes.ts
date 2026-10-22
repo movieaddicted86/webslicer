@@ -12,6 +12,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import JSZip from 'jszip';
 import { parse3mfBuild, parseStl, type Mesh } from '../slicer/threemf/index.js';
+import { assertZipReasonable, readZipEntryText } from '../slicer/threemf/zipLimits.js';
 import { IDENTITY, type Matrix4 } from '@webslicer/shared';
 import { ValidationError } from '../errors.js';
 
@@ -54,9 +55,11 @@ async function read3mfMeshes(buf: Buffer): Promise<LoadedModel[]> {
   } catch (e) {
     throw new ValidationError(`Cannot read 3MF: ${(e as Error).message}`);
   }
+  // S7: an untrusted 3MF may not unpack a zip bomb – the central directory is checked first
+  assertZipReasonable(zip);
   const modelFile = zip.file('3D/3dmodel.model');
   if (!modelFile) throw new ValidationError('3MF has no 3D/3dmodel.model');
-  const model = await modelFile.async('string');
+  const model = await readZipEntryText(zip, '3D/3dmodel.model');
   const items = parse3mfBuild(model);
   const out: LoadedModel[] = [];
   // Split on the closing tag: the object that tag closes is the *last* opening tag in the chunk,

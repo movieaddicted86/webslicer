@@ -1,10 +1,72 @@
 /** Triangle meshes: binary/ASCII STL parsing and writing, plus a matrix transform. */
 
+import fs from 'node:fs';
+
 export interface Mesh {
   /** flat xyz positions */
   vertices: Float32Array;
   /** triangle indices */
   indices: Uint32Array;
+}
+
+/**
+ * S7: parse a binary or ASCII STL from a file, without reading it into memory first. `size` is the
+ * file's length (the callers streamed it to disk and know it); the binary path yields one `Mesh`
+ * whose faces were read in chunks.
+ */
+export function* parseStlFile(file: string, size: number): Generator<Mesh> {
+  const fd = fs.openSync(file, 'r');
+  try {
+    const head = Buffer.alloc(Math.min(512, size));
+    fs.readSync(fd, head, 0, head.length, 0);
+    if (isBinaryStl(head, size)) yield* readBinaryFaces(fd, size);
+    else yield parseAsciiStl(fs.readFileSync(file).toString('latin1'));
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
+/** The format sniff `parseStl` uses, on the first bytes plus the announced count. */
+function isBinaryStl(head: Buffer, size: number): boolean {
+  if (size < 84) return false;
+  const n = head.length >= 84 ? head.readUInt32LE(80) : -1;
+  if (n >= 0 && 84 + n * 50 === size) return true;
+  const text = head.toString('latin1');
+  return !/^\s*solid/i.test(text) || !/facet/i.test(text);
+}
+
+/** The faces of a binary STL, 10 000 at a time, so a 500 MiB mesh never sits in RAM as records. */
+function* readBinaryFaces(fd: number, size: number): Generator<Mesh> {
+  const total = Math.max(0, Math.floor((size - 84) / 50));
+  const perChunk = 10_000;
+  const chunk = Buffer.alloc(perChunk * 50);
+  // one vertex map across the chunks: the same corner in two chunks is the same vertex
+  const map = new Map<string, number>();
+  const verts: number[] = [];
+  const indices: number[] = [];
+  for (let first = 0; first < total; first += perChunk) {
+    const count = Math.min(perChunk, total - first);
+    const offset = 84 + first * 50;
+    fs.readSync(fd, chunk, 0, count * 50, offset);
+    for (let i = 0; i < count; i++) {
+      let o = i * 50 + 12; // skip the normal
+      for (let v = 0; v < 3; v++) {
+        const x = chunk.readFloatLE(o);
+        const y = chunk.readFloatLE(o + 4);
+        const z = chunk.readFloatLE(o + 8);
+        o += 12;
+        const key = `${x},${y},${z}`;
+        let idx = map.get(key);
+        if (idx === undefined) {
+          idx = verts.length / 3;
+          map.set(key, idx);
+          verts.push(x, y, z);
+        }
+        indices.push(idx);
+      }
+    }
+  }
+  yield { vertices: Float32Array.from(verts), indices: Uint32Array.from(indices) };
 }
 
 export function parseStl(buf: Buffer): Mesh {

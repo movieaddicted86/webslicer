@@ -6,6 +6,7 @@
  * and sliced G-code next to them.
  */
 import express from 'express';
+import fsp from 'node:fs/promises';
 import path from 'node:path';
 import { config } from '../config.js';
 import { getJob, jobOutputPath } from '../jobs.js';
@@ -17,20 +18,21 @@ import { firstIssueMessage } from '../validation/common.js';
 import {
   copyIntoLibrary,
   deleteLibraryEntry,
+  libraryRelativePath,
   libraryTargetChecked,
   listLibrary,
   makeLibraryDir,
+  resolveInsideLibrary,
   resolveLibraryFile,
   writeLibraryData,
-  writeLibraryFile,
 } from '../services/library.js';
+import { receiveToFile } from './uploads.js';
 import type { SliceRequest } from '@webslicer/shared';
 
 /** The routes of this router are `async` throughout: Express 5 answers a rejected promise itself. */
 export function libraryRouter(): express.Router {
   const r = express.Router();
   const json = express.json({ limit: '64mb' });
-  const raw = express.raw({ type: () => true, limit: config.maxUploadBytes });
 
   r.get('/', async (req, res) => {
     res.json({ root: config.libraryDir, ...(await listLibrary(String(req.query.path || ''))) });
@@ -44,10 +46,19 @@ export function libraryRouter(): express.Router {
   });
 
   // upload from the browser into the library (raw body)
-  r.put('/file', raw, async (req, res) => {
-    const buf = req.body as Buffer;
-    if (!buf || !buf.length) return res.status(400).json({ error: 'empty body' });
-    res.json({ ok: true, ...(await writeLibraryFile(String(req.query.path || ''), buf)) });
+  // S7: streamed to a temp file next to the target, size limit enforced while streaming, then renamed
+  r.put('/file', async (req, res) => {
+    const target = await resolveInsideLibrary(String(req.query.path || ''));
+    const tmp = `${target}.upload-${process.pid}-${Date.now()}`;
+    let bytes = 0;
+    try {
+      bytes = await receiveToFile(req, tmp);
+      if (!bytes) return res.status(400).json({ error: 'empty body' });
+      await fsp.rename(tmp, target);
+    } finally {
+      await fsp.rm(tmp, { force: true }).catch(() => undefined);
+    }
+    res.json({ ok: true, path: libraryRelativePath(target), size: bytes });
   });
 
   r.post('/mkdir', json, async (req, res) => {
