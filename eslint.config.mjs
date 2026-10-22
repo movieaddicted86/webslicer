@@ -22,6 +22,22 @@ export default tseslint.config(
     },
   },
   {
+    // The E2E suite (T-030): `@playwright/test` specs plus the Node runner script. Both are Node
+    // modules with browser code inside `page.evaluate`, so the two global sets meet here.
+    files: ['e2e/**/*.{ts,mjs}', 'playwright.config.ts'],
+    languageOptions: {
+      sourceType: 'module',
+      globals: {
+        process: 'readonly',
+        console: 'readonly',
+        fetch: 'readonly',
+        AbortSignal: 'readonly',
+        setTimeout: 'readonly',
+        clearTimeout: 'readonly',
+      },
+    },
+  },
+  {
     // The v7 `recommended` presets switch on a whole React Compiler rule set (static-components, purity,
     // refs, …). T-027 keeps the rule set of v5 – the two rules – so the upgrade changes nothing here;
     // the extra rules are a separate task (R-12).

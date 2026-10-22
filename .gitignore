@@ -6,3 +6,7 @@ data/
 .DS_Store
 .env
 webslicer-src.tar.gz
+# Playwright output (T-030): traces, videos, the HTML report and the JSON results
+test-results/
+playwright-report/
+blob-report/
