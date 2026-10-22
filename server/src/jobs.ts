@@ -195,11 +195,16 @@ function progressReporter(job: JobRecord, logLines: string[]) {
   };
 }
 
-/** Last few meaningful log lines, as the error message of a failed job. */
-function failureMessage(logLines: string[], stderr: string, code: number | null): string {
+/**
+ * Last few meaningful log lines, as the error message of a failed job. The plate checks of T-034
+ * catch most of these in the browser, but when the slicer itself refuses a plate its own wording has
+ * to reach the user instead of a generic "Slicing failed" – "All objects are outside of the print
+ * volume." carries none of the usual error keywords, hence the explicit pattern.
+ */
+export function failureMessage(logLines: string[], stderr: string, code: number | null): string {
   return (
     logLines
-      .filter((l) => /error|exception|failed|invalid/i.test(l))
+      .filter((l) => /error|exception|failed|invalid|conflicts? found|outside of the print volume/i.test(l))
       .slice(-3)
       .join(' | ') ||
     stderr.trim().split(/\r?\n/).slice(-3).join(' | ') ||
