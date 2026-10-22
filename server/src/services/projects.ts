@@ -14,6 +14,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { config } from '../config.js';
+import { envNumberAtLeast } from '../env.js';
 import { NotFoundError, ValidationError } from '../errors.js';
 import { resolveInsideLibrary } from './library.js';
 import { deleteModel, saveModel, setModelLifecycleHooks } from './models.js';
@@ -41,7 +42,7 @@ import {
 } from '@webslicer/shared';
 
 /** hours a project stays alive after its last use */
-export const PROJECT_TTL_HOURS = Math.max(1, Number(process.env.PROJECT_TTL_HOURS || 24));
+export const PROJECT_TTL_HOURS = envNumberAtLeast('PROJECT_TTL_HOURS', 1, 24);
 
 export interface ProjectPresetRef {
   name: string;

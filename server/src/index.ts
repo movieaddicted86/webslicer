@@ -7,6 +7,7 @@ import { createApp } from './app.js';
 import { bootstrapEnvToken } from './mcp/tokens.js';
 import { registerProjectLifecycle } from './services/projects.js';
 import { loadJobsFromDisk, setSchema } from './jobs.js';
+import { installShutdownHandlers } from './shutdown.js';
 import { seedSamples } from './samples.js';
 
 async function main() {
@@ -48,9 +49,11 @@ async function main() {
 
   const app = createApp();
 
-  app.listen(config.port, config.host, () => {
+  const server = app.listen(config.port, config.host, () => {
     console.log(`[webslicer] listening on http://${config.host}:${config.port}`);
   });
+
+  installShutdownHandlers(server);
 }
 
 main().catch((e) => {
