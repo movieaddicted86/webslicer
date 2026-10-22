@@ -41,6 +41,19 @@ function update<T>(fn: () => Promise<T>): Promise<T> {
   return next;
 }
 
+/**
+ * Normalize the safety limits of a printer: a missing, negative, non-finite or zero limit is "not
+ * set", and an empty object is no safety block at all.
+ */
+function cleanSafety(safety: Partial<PhysicalPrinter>['safety']): PhysicalPrinter['safety'] {
+  const limit = (v: number | undefined) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : undefined);
+  const maxHotend = limit(safety?.maxHotend);
+  const maxBed = limit(safety?.maxBed);
+  return maxHotend === undefined && maxBed === undefined
+    ? undefined
+    : { ...(maxHotend !== undefined && { maxHotend }), ...(maxBed !== undefined && { maxBed }) };
+}
+
 export async function upsertPrinter(p: Partial<PhysicalPrinter>): Promise<PhysicalPrinter> {
   return update(async () => {
     const list = await listPrinters();
@@ -53,6 +66,8 @@ export async function upsertPrinter(p: Partial<PhysicalPrinter>): Promise<Physic
       apiKey: p.apiKey || undefined,
       presetName: p.presetName || undefined,
       ignoreTls: !!p.ignoreTls,
+      // S1-d: only a positive limit is stored; 0/undefined means "this machine has none"
+      safety: cleanSafety(p.safety),
     };
     const i = list.findIndex((x) => x.id === full.id);
     if (i >= 0) list[i] = full;

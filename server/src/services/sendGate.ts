@@ -19,12 +19,22 @@
  * so there is no second log format. A **warn** issue does not stop the send: the dialog asks for a
  * confirmation, the server records the accepted issue in its answer.
  */
-import { blockingIssues, checkSend, currentPreflight, notScannedIssue, preflightSendIssues, type PresetLink } from '@webslicer/shared';
+import {
+  blockingIssues,
+  checkSend,
+  currentPreflight,
+  maxTemperaturesOf,
+  notScannedIssue,
+  preflightSendIssues,
+  printerLimitIssues,
+  type PresetLink,
+} from '@webslicer/shared';
 import type { JobRecord, PhysicalPrinter, SendIssue, SendResult } from '@webslicer/shared';
 import { loadBundles } from '../slicer/bundles.js';
 import { listUserPresets, resolvePreset } from '../slicer/presets.js';
 import { activeSchema } from './schema.js';
 import { isBinaryGcode, machineLimitsOf, scanGcodeFile } from '../slicer/gcodePreflight.js';
+import { readJobRequest } from '../jobs/persistence.js';
 import { appendAudit } from '../mcp/audit.js';
 import { ConflictError } from '../errors.js';
 import { uploadToPrinter } from './printers.js';
@@ -48,14 +58,41 @@ export function sendIssues(job: JobRecord, printer: PhysicalPrinter, presets: re
  * The preflight issues of a finished job. The stored result is used when the current rule set made it;
  * otherwise the output is scanned now (an old record, or a job from before S1-c). A record without an
  * output name or a binary output is a warn – v1 does not read `.bgcode`.
+ *
+ * The re-scan uses the target printer's ceilings when the send knows them (S1-d): the stored result
+ * keeps the global catchers, the send gate judges the same file against the machine it goes to.
  */
-export async function preflightIssues(job: JobRecord, gcodePath: string): Promise<SendIssue[]> {
+export async function preflightIssues(
+  job: JobRecord,
+  gcodePath: string,
+  limits: { hotendLimit?: number; bedLimit?: number } = {},
+): Promise<SendIssue[]> {
   const stored = currentPreflight(job.info?.preflight);
   if (stored) return preflightSendIssues(stored);
   if (isBinaryGcode(job.outputName)) return [notScannedIssue('the output is binary G-code (.bgcode), which the preflight does not read')];
   const schema = await activeSchema();
   const printer = resolvePreset(schema, 'printer', job.presets.printer);
-  return preflightSendIssues(await scanGcodeFile(gcodePath, machineLimitsOf(printer?.config ?? {})));
+  return preflightSendIssues(await scanGcodeFile(gcodePath, machineLimitsOf(printer?.config ?? {}), limits));
+}
+
+/**
+ * The `send.printer_limit` issues of a job for one host (S1-d): the temperatures the job's stored
+ * request asks for against the safety profile of the physical printer.
+ *
+ * The request is read from the job directory instead of being copied into the record: the job is done,
+ * and a missing request (an old record, a deleted file) means there is nothing to compare – not a
+ * reason to refuse the send.
+ */
+export async function printerLimitSendIssues(job: JobRecord, printer: PhysicalPrinter): Promise<SendIssue[]> {
+  if (!printer.safety) return [];
+  // a job from before S1-d has no stored temperatures; its request is still on disk
+  const temperatures =
+    job.temperatures ??
+    (await readJobRequest(job.id)
+      .then(maxTemperaturesOf)
+      .catch(() => undefined));
+  if (!temperatures) return [];
+  return printerLimitIssues(temperatures, printer.safety);
 }
 
 /** An accepted override as it goes into the audit log: job, host, the issues, the reason. */
@@ -109,8 +146,16 @@ export type { SendResult };
  */
 export async function sendJobOutput({ job, printer, gcodePath, filename, startPrint, override, reason }: SendRequest): Promise<SendResult> {
   const started = Date.now();
+  // S1-d: the target machine's own limits, both on the sliced temperatures and (for an older record
+  // without a stored preflight) on the file's `M104`/`M140` lines
+  const safety = printer.safety;
+  const limits = { hotendLimit: safety?.maxHotend, bedLimit: safety?.maxBed };
   // S1-c: the file's own issues join the preset issues – a block from either side needs the override
-  const issues = [...sendIssues(job, printer), ...(await preflightIssues(job, gcodePath))];
+  const issues = [
+    ...sendIssues(job, printer),
+    ...(await printerLimitSendIssues(job, printer)),
+    ...(await preflightIssues(job, gcodePath, limits)),
+  ];
   const blocking = blockingIssues(issues);
   if (blocking.length && !override) {
     throw new ConflictError(blocking[0].message, { issues });

@@ -10,7 +10,8 @@ import { config } from '../config.js';
 import { activeSchema } from './schema.js';
 import { parseStl, transformMesh, build3mf, type ThreeMfObject, type ThreeMfVolume } from '../slicer/threemf/index.js';
 import { parseSliceRequest } from '../validation/slice.js';
-import { splitVector, type Schema, type SliceRequest } from '@webslicer/shared';
+import { blockingConfigIssues, checkConfigLimits, splitVector, type ConfigIssue, type Schema, type SliceRequest } from '@webslicer/shared';
+import { ValidationError } from '../errors.js';
 import type { IniSection } from '../slicer/ini.js';
 
 /**
@@ -33,6 +34,28 @@ export function validateSliceRequest(body: SliceRequest) {
     objects[i].transform = o.transform;
   });
   body.filaments = parsed.request.filaments as SliceRequest['filaments'];
+}
+
+/** The configuration-limit issues of a validated request (S1-d): the slice and MCP paths read these. */
+export { checkConfigLimits };
+
+/**
+ * Refuse a request whose settings break a global typo catcher (S1-d).
+ *
+ * A block is a `ValidationError` (400) whose `details` carry the issues, so the client shows the same
+ * list the check produced – the shape the send gate already uses for its 409. Warnings do not stop the
+ * slice; they are handed back with the job (and shown in the preview's warning list).
+ *
+ * Separate from `validateSliceRequest` on purpose: that one keeps its contract (`Error`, 400, 500 on
+ * the routes that never mapped it), while this rule is new and belongs to every route that queues a job.
+ */
+export function validateConfigLimits(body: SliceRequest): ConfigIssue[] {
+  const issues = checkConfigLimits(body);
+  const blocking = blockingConfigIssues(issues);
+  if (blocking.length) {
+    throw new ValidationError(blocking[0].message, { issues });
+  }
+  return issues;
 }
 
 /**

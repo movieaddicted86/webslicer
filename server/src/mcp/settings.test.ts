@@ -198,6 +198,26 @@ test('check_settings reports ok without changing the project', async () => {
   assert.match(bad.issues[0].allowed, /190–240 °C/);
 });
 
+test('set_settings also reports the global limits, and the S1-a bands stay as they are (S1-d)', async () => {
+  const project = await newProject();
+  // the test schema has no filament_type, so no soft range fires – but a value that is a typo and
+  // still inside the band (a preset of 0 has no band, see mcpBandIssue) is caught by the limit
+  const inBandTypo = checkSettings(schema, project, 'filament', { temperature: '215' });
+  assert.deepEqual(inBandTypo.issues, [], '215 °C is a normal value');
+
+  // the print scope checks layer_height against the nozzle: 0 is a typo whatever the band says
+  const check = checkSettings(schema, project, 'print', { layer_height: '0' });
+  assert.equal(check.issues.length, 1);
+  assert.equal(check.issues[0].key, 'layer_height');
+  assert.match(check.issues[0].reason, /greater than 0/);
+  assert.equal(check.issues[0].scope, 'print');
+  assert.deepEqual(check.changed, {}, 'a limit issue rejects the call like a band issue');
+  assert.throws(() => applySettings(schema, project, 'print', { layer_height: '0' }), /greater than 0/);
+
+  // a value inside the band and inside the limit is applied as before
+  assert.deepEqual(applySettings(schema, project, 'print', { layer_height: '0.24' }), { layer_height: '0.24' });
+});
+
 test('a project is only visible to the owner of the token', async () => {
   const mine = await newProject('robert');
   const other = await newProject('haus');

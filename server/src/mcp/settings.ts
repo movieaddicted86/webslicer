@@ -16,7 +16,15 @@
  * (or `ok`) and writes nothing.
  */
 import { z } from 'zod';
-import { mcpAllowlistOf, mcpBandIssue, mcpKeyVerdict, type McpSettingIssue, type PresetType, type Schema } from '@webslicer/shared';
+import {
+  checkConfigValues,
+  mcpAllowlistOf,
+  mcpBandIssue,
+  mcpKeyVerdict,
+  type McpSettingIssue,
+  type PresetType,
+  type Schema,
+} from '@webslicer/shared';
 import { ValidationError } from '../errors.js';
 import { touchProject, type Project, type ProjectPresetRef } from '../services/projects.js';
 import { activeSchema } from '../services/schema.js';
@@ -109,6 +117,12 @@ function issuesOf(
  *
  * Every key is checked, and every issue is reported – an agent that sent three bad values learns all
  * three in one answer. The coerced values come back only when nothing failed.
+ *
+ * S1-d adds the **global limits** on top of the allowlist and the band: `2150 °C` is inside no band but
+ * an agent may set a temperature in a scope whose base is `0` (a band measured against "off" does not
+ * judge it). The limit issues are reported with the same `key`/`value`/`reason` shape, `reason` naming
+ * the limit, so a model corrects itself the same way. They join `issues` only – the bands of S1-a are
+ * unchanged.
  */
 export function checkSettings(schema: Schema, project: Project, scope: string, values: SettingValues): SettingsCheck {
   const { type, index } = scopeOf(scope);
@@ -121,6 +135,15 @@ export function checkSettings(schema: Schema, project: Project, scope: string, v
     const found = issuesOf(schema, type, key, values[key], base);
     if (found.length) issues.push(...found.map((i) => ({ ...i, scope })));
     else changed[key] = coerceOptionValue(schema, type, key, values[key]);
+  }
+  if (!issues.length) {
+    // the value the project would end up with: the slot's own config plus this call's changes
+    const slot =
+      type === 'filament' ? (project.filaments[index] ?? project.filaments[0]) : type === 'print' ? project.print : project.printer;
+    const willBe = { ...(slot?.config ?? {}), ...changed };
+    for (const issue of checkConfigValues(type, willBe)) {
+      issues.push({ key: issue.key, value: issue.value, reason: issue.message, allowed: issue.limit, scope });
+    }
   }
   return { issues, changed: issues.length ? {} : changed };
 }

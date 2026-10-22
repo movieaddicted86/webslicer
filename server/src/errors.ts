@@ -23,8 +23,9 @@ export class HttpError extends Error {
 
 /** Bad input from the client (400). */
 export class ValidationError extends HttpError {
-  constructor(message: string) {
-    super(400, message);
+  /** `details` is what the error handler adds to the `{ error }` body – e.g. the refused limit issues. */
+  constructor(message: string, details?: Record<string, unknown>) {
+    super(400, message, details);
   }
 }
 
