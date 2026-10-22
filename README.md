@@ -296,7 +296,7 @@ network). The send tests upload to that mock – a real printer is never contact
 - `retries: 0`, one worker: a flaky test is a failure, not a retry.
 - On failure Playwright keeps a trace, a screenshot and the error context in `test-results/`; in CI the
   `playwright-report` artifact holds them.
-- Slicing is the slow part (software WebGL in CI); the whole suite takes about 25–30 minutes locally
+- Slicing is the slow part (software WebGL in CI); the whole suite takes about 20–30 minutes locally
   and in CI on GitHub's runners.
 
 ### Architecture
