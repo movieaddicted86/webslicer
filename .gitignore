@@ -2,6 +2,8 @@ node_modules/
 dist/
 *.tsbuildinfo
 data/
+# the E2E fixture data dir is the server's DATA_DIR for the suite and belongs in the repo
+!e2e/fixtures/data/
 *.log
 .DS_Store
 .env
