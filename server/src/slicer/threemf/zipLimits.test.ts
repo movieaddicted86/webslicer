@@ -34,7 +34,7 @@ test('an archive that declares more uncompressed bytes than the budget is refuse
   // shrinking the budget is not possible (it is a constant), so the test lies in the directory
   zip.file('3D/3dmodel.model', 'x'.repeat(1024 * 1024));
   const loaded = await JSZip.loadAsync(await zip.generateAsync({ type: 'nodebuffer' }));
-  for (const entry of Object.values(loaded.files) as Array<{ _data: { uncompressedSize: number } }>) {
+  for (const entry of Object.values(loaded.files) as unknown as Array<{ _data: { uncompressedSize: number } }>) {
     entry._data.uncompressedSize = MAX_3MF_BYTES + 1;
   }
   assert.throws(() => assertZipReasonable(loaded), /too large uncompressed/);
@@ -66,7 +66,7 @@ test('the limits are decided by the central directory, without inflating anythin
   assert.equal(inflations, 0, 'assertZipReasonable must not decompress an entry');
 
   // over budget: still no decompression, and the archive is refused
-  for (const entry of Object.values(loaded.files) as Array<{ _data: { uncompressedSize: number } }>) {
+  for (const entry of Object.values(loaded.files) as unknown as Array<{ _data: { uncompressedSize: number } }>) {
     entry._data.uncompressedSize = MAX_3MF_BYTES + 1;
   }
   assert.throws(() => assertZipReasonable(loaded), /too large uncompressed/);

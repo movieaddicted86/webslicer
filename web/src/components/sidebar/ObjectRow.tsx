@@ -94,7 +94,7 @@ export function ObjectRow({
           onClick={(e) => {
             e.stopPropagation();
             select([o.id]);
-            splitToObjects(o.id);
+            void splitToObjects(o.id);
           }}
         >
           <ACTION_ICONS.splitToObjects size={16} strokeWidth={2} aria-hidden="true" focusable="false" />
@@ -106,7 +106,7 @@ export function ObjectRow({
           onClick={(e) => {
             e.stopPropagation();
             select([o.id]);
-            splitToParts(o.id);
+            void splitToParts(o.id);
           }}
         >
           <ACTION_ICONS.splitToParts size={16} strokeWidth={2} aria-hidden="true" focusable="false" />
@@ -145,7 +145,7 @@ export function ObjectRow({
                 onClick={(e) => {
                   e.stopPropagation();
                   selectInstance(o.id, inst.id);
-                  splitToObjects(o.id);
+                  void splitToObjects(o.id);
                 }}
               >
                 <ACTION_ICONS.splitToObjects size={14} strokeWidth={2} aria-hidden="true" focusable="false" />

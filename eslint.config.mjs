@@ -3,6 +3,10 @@
 import js from '@eslint/js';
 import reactHooks from 'eslint-plugin-react-hooks';
 import tseslint from 'typescript-eslint';
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
+
+const rootDir = path.dirname(fileURLToPath(import.meta.url));
 
 export default tseslint.config(
   {
@@ -11,7 +15,29 @@ export default tseslint.config(
   js.configs.recommended,
   tseslint.configs.recommended,
   {
+    // W7: type-aware linting. The projects below cover every linted file – `*.test.ts` is excluded
+    // from the build configs, so the `tsconfig.test.json` of a workspace is the one that includes it.
+    languageOptions: {
+      parserOptions: {
+        project: ['./shared/tsconfig.test.json', './server/tsconfig.test.json', './web/tsconfig.json', './e2e/tsconfig.json'],
+        tsconfigRootDir: rootDir,
+      },
+    },
     rules: {
+      // a promise nobody awaits is a lost error or a race: the bug class B9 was made of. `test()`
+      // and its siblings return a promise by definition and are the test runner's job to await.
+      '@typescript-eslint/no-floating-promises': [
+        'error',
+        {
+          allowForKnownSafeCalls: [
+            {
+              from: 'package',
+              package: 'node:test',
+              name: ['test', 'it', 'describe', 'before', 'after', 'beforeEach', 'afterEach'],
+            },
+          ],
+        },
+      ],
       // CONVENTIONS.md §4: strict TypeScript, no `any`.
       '@typescript-eslint/no-explicit-any': 'error',
       // R-12 removes the remaining non-null assertions; until then they are warnings.
@@ -20,6 +46,13 @@ export default tseslint.config(
       // (Express error handlers, callbacks).
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
     },
+  },
+  {
+    // Plain Node modules (`e2e/run-docker.mjs`, the mock host) are not part of a TypeScript project,
+    // so the type-aware parser has nothing to check them against; they keep the non-typed rules.
+    files: ['**/*.mjs', '**/*.cjs'],
+    languageOptions: { parserOptions: { project: false } },
+    rules: { '@typescript-eslint/no-floating-promises': 'off' },
   },
   {
     // The E2E suite (T-030): `@playwright/test` specs plus the Node runner script. Both are Node

@@ -54,13 +54,13 @@ export function LibraryDialog({ onClose, mode }: { onClose: () => void; mode: Li
       }
     } catch (e) {
       setError((e as Error).message);
-      if (p) load('');
+      if (p) void load('');
     } finally {
       setLoading(false);
     }
   }, []);
   useEffect(() => {
-    load(path);
+    void load(path);
     // the initial listing only: the dialog is remounted per open, later loads come from `open`/`up`
     // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount
   }, []);
@@ -109,7 +109,7 @@ export function LibraryDialog({ onClose, mode }: { onClose: () => void; mode: Li
     if (!n) return;
     try {
       await libraryApi.mkdir(path, n);
-      load(path);
+      void load(path);
     } catch (err) {
       toast('error', (err as Error).message);
     }
@@ -118,7 +118,7 @@ export function LibraryDialog({ onClose, mode }: { onClose: () => void; mode: Li
     if (!confirm(`Delete ${e.name}?`)) return;
     try {
       await libraryApi.remove(e.path);
-      load(path);
+      void load(path);
     } catch (err) {
       toast('error', (err as Error).message);
     }
@@ -127,7 +127,7 @@ export function LibraryDialog({ onClose, mode }: { onClose: () => void; mode: Li
     setBusy(true);
     try {
       for (const f of Array.from(files)) await libraryApi.upload(path ? `${path}/${f.name}` : f.name, await f.arrayBuffer());
-      load(path);
+      void load(path);
     } catch (err) {
       toast('error', (err as Error).message);
     } finally {

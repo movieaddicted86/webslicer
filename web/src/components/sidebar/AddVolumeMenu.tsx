@@ -90,7 +90,7 @@ export function AddVolumeMenu({ o, onClose }: { o: PlaterObject; onClose: () => 
         style={{ display: 'none' }}
         onChange={(e) => {
           const f = e.target.files?.[0];
-          if (f) addFromFile(f);
+          if (f) void addFromFile(f);
           e.target.value = '';
         }}
       />

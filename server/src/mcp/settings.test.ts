@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import type { OptionDef, PresetType, Schema } from '../slicer/schema.js';
+import type { OptionDef, PresetType, Schema } from '@webslicer/shared';
 
 // the data directory has to be redirected before anything reads it (config is evaluated once)
 const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'webslicer-mcp-tools-'));

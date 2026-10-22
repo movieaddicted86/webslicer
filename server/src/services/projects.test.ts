@@ -41,7 +41,7 @@ const schema = {
   options: {},
   layout: [],
   presetKeys: { print: [], filament: [], printer: [], sla_print: [], sla_material: [] },
-} as never as import('../slicer/schema.js').Schema;
+} as never as import('@webslicer/shared').Schema;
 
 const CUBE = {
   vertices: Float32Array.from([0, 0, 0, 20, 0, 0, 20, 20, 0, 0, 20, 0, 0, 0, 20, 20, 0, 20, 20, 20, 20, 0, 20, 20]),
@@ -73,7 +73,7 @@ const newProject = (overrides: Record<string, unknown> = {}) =>
 test('createProject stores the presets and rejects unknown ones', async () => {
   const project = await newProject();
   assert.equal(project.printer.name, DEFAULT_PRINTER);
-  assert.equal(project.objectCount, undefined); // no derived fields leak into the file
+  assert.equal((project as unknown as Record<string, unknown>).objectCount, undefined, 'no derived fields leak into the file');
   assert.deepEqual(project.objects, []);
   assert.equal(project.owner, 'admin');
   assert.ok(Date.parse(project.expiresAt) > Date.now(), 'a fresh project is alive');

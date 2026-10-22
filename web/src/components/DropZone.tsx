@@ -14,7 +14,7 @@ export function DropZone({ children }: { children: ReactNode }) {
       onDrop={(e) => {
         e.preventDefault();
         setOver(false);
-        if (e.dataTransfer.files?.length) importFiles(e.dataTransfer.files);
+        if (e.dataTransfer.files?.length) void importFiles(e.dataTransfer.files);
       }}
     >
       {children}

@@ -54,7 +54,7 @@ export const createPreviewSlice: StateCreator<State, [], [], PreviewSlice> = (se
     resliceTimer = setTimeout(() => {
       const s = get();
       const running = s.job && (s.job.status === 'running' || s.job.status === 'queued');
-      if (s.view === 'preview' && s.objects.length && !running) s.slice();
+      if (s.view === 'preview' && s.objects.length && !running) void s.slice();
     }, 900);
   };
   return {

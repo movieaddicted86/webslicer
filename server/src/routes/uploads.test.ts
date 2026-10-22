@@ -60,13 +60,14 @@ async function call(
   body?: Buffer,
   headers: Record<string, string> = {},
 ): Promise<{ status: number; text: string }> {
-  const res = await fetch(`${base}${url}`, { method, headers, body });
+  // `Buffer` is not a `BodyInit` in the undici types (T-040, W7); the bytes are all that matter
+  const res = await fetch(`${base}${url}`, { method, headers, body: body && new Uint8Array(body) });
   return { status: res.status, text: await res.text() };
 }
 
 before(async () => {
   ensureDirs();
-  setActiveSchema(() => SCHEMA);
+  setActiveSchema(SCHEMA);
   const app: express.Express = createApp();
   server = await new Promise<Server>((resolve) => {
     const s = app.listen(0, () => resolve(s));
