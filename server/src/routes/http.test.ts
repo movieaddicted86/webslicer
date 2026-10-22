@@ -9,6 +9,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import type { Server } from 'node:http';
@@ -18,6 +19,8 @@ import type express from 'express';
 const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'webslicer-http-'));
 process.env.DATA_DIR = DATA_DIR;
 process.env.LIBRARY_DIR = path.join(DATA_DIR, 'library');
+// one allowed extra host, so the SEC-2 tests below can prove ALLOWED_HOSTS works (config is read once)
+process.env.ALLOWED_HOSTS = 'webslicer.lan';
 
 const { ensureDirs, config } = await import('../config.js');
 const { createApp } = await import('../app.js');
@@ -63,6 +66,48 @@ async function call(method: string, url: string, body?: BodyInit | object, heade
 /** The message of an `{ error }` body – the stable half of the contract. */
 function errorOf(res: Res): string | undefined {
   return (res.json as { error?: string } | undefined)?.error;
+}
+
+/**
+ * One request with a chosen `Host` header.
+ *
+ * `fetch` (undici) ignores a `Host` it is given and always sends the URL's, so the SEC-2 tests use
+ * the plain `node:http` client – which is also what a browser on a rebound name sends.
+ */
+async function callWithHost(method: string, url: string, host: string, body?: object, headers: Record<string, string> = {}): Promise<Res> {
+  const urlObj = new URL(`${base}${url}`);
+  const payload = body === undefined ? undefined : JSON.stringify(body);
+  return new Promise((resolve, reject) => {
+    const req = http.request(
+      {
+        hostname: urlObj.hostname,
+        port: urlObj.port,
+        path: urlObj.pathname,
+        method,
+        headers: {
+          host,
+          ...(payload ? { 'content-type': 'application/json', 'content-length': String(Buffer.byteLength(payload)) } : {}),
+          ...headers,
+        },
+      },
+      (res) => {
+        let text = '';
+        res.on('data', (c) => (text += c));
+        res.on('end', () => {
+          let json: unknown;
+          try {
+            json = JSON.parse(text);
+          } catch {
+            json = undefined;
+          }
+          resolve({ status: res.statusCode ?? 0, body: text, json, headers: new Headers() });
+        });
+      },
+    );
+    req.on('error', reject);
+    if (payload) req.write(payload);
+    req.end();
+  });
 }
 
 before(async () => {
@@ -225,6 +270,83 @@ test('POST /api/slice reports every validation failure as a 400 with the validat
   // as `{}` for a request with a JSON content type and no payload.
   const empty = await call('POST', '/api/slice', {});
   assert.equal(errorOf(empty), 'at least one object required');
+});
+
+test('POST /api/slice refuses an injected config key with 400 and the key in the message (SEC-2)', async () => {
+  for (const key of ['x\npost_process = echo pwned', ' post_process', 'post_process=x', 'post_process\r']) {
+    const res = await call('POST', '/api/slice', sliceRequestTop({ print: { name: 'p', config: { [key]: 'echo pwned' } } }));
+    assert.equal(res.status, 400, JSON.stringify(key));
+    assert.equal(errorOf(res), `invalid config key ${JSON.stringify(key)}`, JSON.stringify(key));
+  }
+  // an object override and a height range config are the same rule
+  const object = await call('POST', '/api/slice', sliceRequest({ config: { 'post_process=1': 'x' } }));
+  assert.equal(object.status, 400);
+  assert.match(errorOf(object) ?? '', /invalid config key/);
+  const range = await call('POST', '/api/slice', sliceRequest({ ranges: [{ minZ: 0, maxZ: 1, config: { 'a\nb': 'x' } }] }));
+  assert.equal(range.status, 400);
+  assert.match(errorOf(range) ?? '', /invalid config key/);
+});
+
+test('PUT /api/presets/:type/:name refuses an injected config key with 400 (SEC-2)', async () => {
+  const res = await call('PUT', '/api/presets/print/sec2-key', { config: { 'x\npost_process = echo pwned': 'x' } });
+  assert.equal(res.status, 400);
+  assert.equal(errorOf(res), 'invalid config key "x\\npost_process = echo pwned"');
+  // nothing was written
+  assert.equal((await call('GET', '/api/presets/print/sec2-key')).status, 404);
+});
+
+test('POST /api/projects and /api/library/project refuse an injected slot key with 400 (SEC-2)', async () => {
+  const project = await call('POST', '/api/projects', {
+    printer: '- default FFF -',
+    print: { name: '- default FFF -', config: { ' post_process': 'x' } },
+  });
+  assert.equal(project.status, 400);
+  assert.equal(errorOf(project), 'print: invalid config key " post_process"');
+
+  const library = await call('POST', '/api/library/project', {
+    objects: [{ modelId: '11111111-1111-1111-1111-111111111111', transform: IDENTITY, config: { 'a\nb': 'x' } }],
+  });
+  assert.equal(library.status, 400);
+  assert.match(errorOf(library) ?? '', /invalid config key/);
+});
+
+// ---------------------------------------------------------------------------
+// Host / Origin guard (SEC-2, DNS rebinding)
+// ---------------------------------------------------------------------------
+
+test('a foreign Host is refused with 403 on /api and /mcp', async () => {
+  const api = await callWithHost('GET', '/api/info', 'evil.example');
+  assert.equal(api.status, 403);
+  assert.equal(errorOf(api), 'host not allowed');
+
+  // /mcp answers 403 before it decides whether MCP is even enabled – the rebound page learns nothing
+  const mcp = await callWithHost('POST', '/mcp', 'rebind.evil.example', {});
+  assert.equal(mcp.status, 403);
+  assert.equal(errorOf(mcp), 'host not allowed');
+});
+
+test('a request by IP (the LAN case) and by an ALLOWED_HOSTS name are answered', async () => {
+  const ip = await callWithHost('GET', '/api/health', '192.168.1.42:8080');
+  assert.equal(ip.status, 200);
+  assert.deepEqual(ip.json, { ok: true });
+
+  const named = await callWithHost('GET', '/api/health', 'webslicer.lan:8080');
+  assert.equal(named.status, 200);
+
+  const loopback = await callWithHost('GET', '/api/health', `localhost:${new URL(base).port}`);
+  assert.equal(loopback.status, 200);
+});
+
+test('a foreign Origin is refused, the app origin and a missing Origin pass', async () => {
+  const bad = await call('GET', '/api/health', undefined, { origin: 'https://evil.example' });
+  assert.equal(bad.status, 403);
+  assert.equal(errorOf(bad), 'origin not allowed');
+
+  const good = await call('GET', '/api/health', undefined, { origin: base });
+  assert.equal(good.status, 200);
+
+  const dev = await call('GET', '/api/health', undefined, { origin: 'http://localhost:5173' });
+  assert.equal(dev.status, 200);
 });
 
 test('GET /api/jobs/:id answers 404 for an unknown job', async () => {
