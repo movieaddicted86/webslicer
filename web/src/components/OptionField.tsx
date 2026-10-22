@@ -137,7 +137,8 @@ function BedShapeEditor({ value, onChange }: { value: string; onChange: (v: stri
         />
       )}
       <label className="checkbox small">
-        <input type="checkbox" checked={custom} onChange={(e) => setState({ ...state, custom: e.target.checked })} /> Custom shape (polygon points "XxY,…")
+        <input type="checkbox" checked={custom} onChange={(e) => setState({ ...state, custom: e.target.checked })} /> Custom shape (polygon
+        points "XxY,…")
       </label>
     </div>
   );
