@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+- **Plater:** a plate is checked before it is sliced, the way PrusaSlicer's GUI does it, instead of
+  failing after a long job. The new pure `web/src/plater/plateCheck.ts` tests every printable
+  instance's footprint against the **real bed polygon** (an object in the cut corner of an L-shaped
+  bed is outside now, not only past the polygon's bounding box), adds the **brim** (`brim_width`)
+  and the **skirt** (distance plus loop widths over all objects) and reports what leaves the print
+  area, a too-tall object, a toolpath conflict between two instances and – with
+  `complete_objects` – a pair closer than `extruder_clearance_radius`. The slice panel lists the
+  issues; a blocking one disables **Slice now** with the reason in its tooltip, and the affected
+  objects keep the red row. The rules were measured against PrusaSlicer 2.9.6: the slicer refuses
+  an off-bed object ("All objects are outside of the print volume.") and colliding toolpaths
+  ("gcode path conflicts found between …", a penetration of more than about 2 × the first-layer
+  extrusion width), while it accepts overlapping objects in normal mode and sequential printing
+  below the clearance radius – those stay allowed or warn. A job the slicer still fails now shows
+  the slicer's own wording instead of a generic failure.
+
 - **Security:** a slicer option key is now validated instead of filtered by name. SEC-1 dropped
   `post_process` and `output_filename_format` by an exact match on the raw client key, while the INI
   writer wrote the key unescaped – a key such as `"x\npost_process = echo pwned"` therefore wrote a

@@ -399,3 +399,70 @@ test.describe('sidebar: the DOM outline stays a diagnostic', () => {
     await press(app, 'Escape');
   });
 });
+
+test.describe('sidebar: the plate checks before slicing (T-034)', () => {
+  test.beforeEach(async ({ app }) => {
+    await importFile(app, CUBE);
+    // a 20 mm cube: start from the preset's own skirt/brim settings
+    await app.evaluate(() => {
+      const s = window.webslicer.getState();
+      s.select([s.objects[0].id]);
+      s.updateInstance(s.objects[0].id, s.objects[0].instances[0].id, { position: [125, 105, 0] });
+    });
+    await settle(app, 700);
+  });
+
+  test('an object at the edge with a skirt disables Slice with the reason, back inside it is enabled', async ({ app }) => {
+    // skirts on, so a cube next to the bed edge prints its skirt over the border
+    await app.evaluate(() => {
+      const s = window.webslicer.getState();
+      s.setOption('print', 'skirts', '1');
+      s.setOption('print', 'skirt_distance', '5');
+      s.setOption('print', 'brim_type', 'none');
+      const o = s.objects[0];
+      s.updateInstance(o.id, o.instances[0].id, { position: [10, 105, 0] });
+    });
+    await settle(app, 800);
+
+    const button = app.locator('.slice-panel button.primary.big');
+    await expect(button).toBeDisabled();
+    await expect(button).toHaveAttribute('title', /skirt .* outside the print volume/);
+    await expect(app.locator('.plate-issues li')).toHaveCount(1);
+    await expect(app.locator('.object-row')).not.toHaveClass(/outside/, { timeout: 2000 });
+
+    // back to the middle: the skirt fits and Slice is enabled again
+    await app.evaluate(() => {
+      const s = window.webslicer.getState();
+      const o = s.objects[0];
+      s.updateInstance(o.id, o.instances[0].id, { position: [125, 105, 0] });
+    });
+    await settle(app, 800);
+    await expect(button).toBeEnabled();
+    await expect(app.locator('.plate-issues li')).toHaveCount(0);
+  });
+
+  test('two overlapping objects block the slice and mark both rows', async ({ app }) => {
+    await app.evaluate(() => {
+      const s = window.webslicer.getState();
+      s.setOption('print', 'skirts', '0');
+      s.setOption('print', 'brim_type', 'none');
+      const o = s.objects[0];
+      s.addInstances(o.id, 1);
+    });
+    await settle(app, 1200);
+    // the copy is arranged next to the original, then pushed onto it
+    await app.evaluate(() => {
+      const s = window.webslicer.getState();
+      const o = s.objects[0];
+      s.updateInstance(o.id, o.instances[1].id, { position: [o.instances[0].position[0] + 5, o.instances[0].position[1], 0] });
+    });
+    await settle(app, 800);
+
+    const button = app.locator('.slice-panel button.primary.big');
+    await expect(button).toBeDisabled();
+    await expect(button).toHaveAttribute('title', /G-code path conflict/);
+    // nothing is off the bed, so no row is red – the issue list carries the reason
+    await expect(app.locator('.object-row.outside')).toHaveCount(0);
+    await expect(app.locator('.plate-issues li')).toHaveCount(1);
+  });
+});

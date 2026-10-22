@@ -1,6 +1,7 @@
 import { useRef } from 'react';
 import { useStore, instanceBounds, type PlaterObject } from '../state/store';
 import { bedShapeOf } from '@webslicer/shared';
+import { boxOutside } from '../plater/plateCheck';
 import { VIEWS } from '../plater/camera';
 import { useKeyboardShortcuts } from './viewer/useKeyboardShortcuts';
 import type { SceneRefs } from './viewer/types';
@@ -135,17 +136,11 @@ export function Viewer() {
   );
 }
 
-/** True when at least one instance of the object leaves the print volume. */
+/**
+ * True when at least one instance of the object leaves the print volume. Since T-034 the bed is the
+ * real polygon, not its bounding box, so an object in the notch of an L-shaped bed is outside too.
+ */
 export function objectIsOutside(o: PlaterObject, bedShape: string, maxHeight: number): boolean {
   const bed = bedShapeOf({ bed_shape: bedShape });
-  return o.instances.some((inst) => {
-    const box = instanceBounds(o, inst);
-    return (
-      box.min.x < bed.min[0] - 0.01 ||
-      box.min.y < bed.min[1] - 0.01 ||
-      box.max.x > bed.max[0] + 0.01 ||
-      box.max.y > bed.max[1] + 0.01 ||
-      box.max.z > maxHeight + 0.01
-    );
-  });
+  return o.instances.some((inst) => boxOutside(instanceBounds(o, inst), bed.points, maxHeight));
 }

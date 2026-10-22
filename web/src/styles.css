@@ -517,6 +517,27 @@ kbd {
 .manip-row.extruder .full {
   grid-column: 1 / -1;
 }
+/* Plate checks before slicing (T-034): blocking issues in the warning colour, hints muted */
+.plate-issues {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.plate-issues li {
+  border-left: 3px solid var(--muted);
+  padding-left: 6px;
+}
+.plate-issues li.warn {
+  background: none;
+  border: none;
+  border-left: 3px solid #7a5d1a;
+  color: #f0d080;
+  margin: 0;
+  padding: 0 0 0 6px;
+}
 .slice-panel {
   display: flex;
   flex-direction: column;

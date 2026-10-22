@@ -86,3 +86,10 @@ Priority by frequency of use in everyday printing and PrusaSlicer parity.
 - [x] Proxmox helper on a real PVE host – tested 2026-10-19
 - [x] Re-test the reworked Proxmox helper (Default and Advanced settings) – tested 2026-10-19
 - [x] Approve the MCP integration per docs/MCP-Concept.md – approved 2026-10-19
+
+## Done – T-034
+
+- [x] Plate checks before slicing: bed polygon, skirt/brim, toolpath conflicts, sequential printing
+      clearance in the slice panel, blocking "Slice now" (`.ai/reports/T-034.md`)
+- [ ] Follow-up: exact skirt geometry (PrusaSlicer's convex-hull offset instead of the union box)
+- [ ] Follow-up: sequential-print collision with the gantry height (`extruder_clearance_height` in Z)

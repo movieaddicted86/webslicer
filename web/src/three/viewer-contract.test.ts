@@ -62,19 +62,19 @@ test('objectIsOutside is true when an instance leaves the bed, false when it fit
   assert.equal(objectIsOutside(cubeObject([125, 105, 195]), bed, 200), true);
 });
 
-test("objectIsOutside compares against the bed polygon's bounding box, not the polygon", () => {
-  // The L-shaped bed of UAT-05: the notch at the back right is not printable.
+test('objectIsOutside tests the bed polygon, not its bounding box (T-034)', () => {
+  // The L-shaped bed of UAT-05: the cut corner at the back left is not printable.
   const bed = '0x0,200x0,200x200,100x200,0x120';
   const shape = bedShapeOf({ bed_shape: bed });
-  // `bedShapeOf` hands back min/max, so the check below sees the 200x200 box the polygon fits in
   assert.deepEqual(shape.min, [0, 0]);
   assert.deepEqual(shape.max, [200, 200]);
   assert.equal(shape.points.length, 5, 'the outline itself keeps all five corners');
-  // an object sitting in the notch (x 150…170, y 150…170) is inside that box, so it is *not* marked
-  // off-bed – a known limitation of the check, pinned here so the refactor does not change it
-  assert.equal(objectIsOutside(cubeObject([160, 160, 0]), bed, 200), false);
-  // past the box's right edge it is marked, wherever the notch is
-  assert.equal(objectIsOutside(cubeObject([195, 160, 0]), bed, 200), true);
+  // an object in the cut corner (x 20…40, y 160…180) is inside the bounding box but off the bed
+  assert.equal(objectIsOutside(cubeObject([30, 170, 0]), bed, 200), true);
+  // at the same height the bed does reach x = 150, so there it is on the bed
+  assert.equal(objectIsOutside(cubeObject([150, 170, 0]), bed, 200), false);
+  // past the box's right edge it is marked as before
+  assert.equal(objectIsOutside(cubeObject([195, 100, 0]), bed, 200), true);
 });
 
 test('objectIsOutside looks at every instance, not only the first', () => {

@@ -1,13 +1,15 @@
 import { useStore, isModified } from '../../state/store';
-import { objectIsOutside } from '../../three/Viewer';
+import { plateIssues } from '../../plater/plateCheck';
 import { toBool } from '../../values';
 
-/** Warnings, the autosave state, the binary-G-code switch and the Slice button. */
+/**
+ * The plate checks in front of the slice (T-034): the issues PrusaSlicer would fail on (or that its
+ * GUI warns about) are listed, and a blocking one disables "Slice now" with the reason as tooltip.
+ * The server keeps its own error path – if the slicer still fails, its message is shown below.
+ */
 export function SlicePanel() {
   const objects = useStore((s) => s.objects);
   const presets = useStore((s) => s.presets);
-  const bedShape = useStore((s) => s.presets.printer.current.bed_shape || '');
-  const maxHeight = useStore((s) => Number(s.presets.printer.current.max_print_height || 200));
   const printerBinary = useStore((s) => s.presets.printer.current.binary_gcode);
   const binaryGcode = useStore((s) => s.binaryGcode);
   const autosaveState = useStore((s) => s.autosaveState);
@@ -17,13 +19,23 @@ export function SlicePanel() {
   const sliceDirty = useStore((s) => s.sliceDirty);
   const setView = useStore((s) => s.setView);
 
-  const anyOutside = objects.some((o) => objectIsOutside(o, bedShape, maxHeight));
+  const issues = plateIssues(objects, presets.printer.current, presets.print.current);
+  const blocking = issues.filter((i) => i.severity === 'block');
+  const blockReason = blocking.map((i) => i.message).join(' ');
   const running = job && (job.status === 'running' || job.status === 'queued');
   const anyModified = isModified(presets.print) || isModified(presets.printer) || presets.filament.some(isModified);
 
   return (
     <section className="slice-panel">
-      {anyOutside && <div className="warn">An object is outside the print volume.</div>}
+      {issues.length > 0 && (
+        <ul className={`plate-issues ${blocking.length ? 'blocking' : ''}`}>
+          {issues.map((i) => (
+            <li key={`${i.code}:${i.objectIds.join(',')}`} className={i.severity === 'block' ? 'warn' : 'muted small'} title={i.message}>
+              {i.message}
+            </li>
+          ))}
+        </ul>
+      )}
       {anyModified && <div className="muted small">Using modified (unsaved) settings.</div>}
       {objects.length > 0 && autosaveState !== 'idle' && (
         <div className="muted small" title="The plater is autosaved on the server and offered for restore after a reload.">
@@ -53,7 +65,7 @@ export function SlicePanel() {
           </button>
         </>
       ) : (
-        <button className="primary big" onClick={slice} disabled={!objects.length}>
+        <button className="primary big" onClick={slice} disabled={!objects.length || blocking.length > 0} title={blockReason || undefined}>
           {sliceDirty || !job ? 'Slice now' : job.status === 'done' ? 'Slice again' : 'Slice now'}
         </button>
       )}

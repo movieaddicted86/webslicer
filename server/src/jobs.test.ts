@@ -19,7 +19,7 @@ const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'webslicer-jobs-'));
 process.env.DATA_DIR = DATA_DIR;
 process.env.LIBRARY_DIR = path.join(DATA_DIR, 'library');
 
-const { completeJob } = await import('./jobs.js');
+const { completeJob, failureMessage } = await import('./jobs.js');
 
 test.after(() => fs.rmSync(DATA_DIR, { recursive: true, force: true }));
 
@@ -86,4 +86,19 @@ test('a job without an FFF G-code output still gets its info before it is done',
   assert.equal(job.status, 'done');
   assert.equal(job.info?.sizeBytes, 'SLA output'.length);
   assert.deepEqual(job.info?.preflight, { version: 1, issues: [], counts: {} }, 'still scanned once, no findings here');
+});
+
+test("the slicer's plate refusal reaches the user instead of a generic failure", () => {
+  // T-034: PrusaSlicer 2.9 refuses these two plates without any of the usual error keywords
+  assert.equal(
+    failureMessage(['10 => Processing triangulated mesh', 'All objects are outside of the print volume.'], '', 0),
+    'All objects are outside of the print volume.',
+  );
+  assert.match(
+    failureMessage(['88 => Generating skirt and brim', 'gcode path conflicts found between b and a'], '', 139),
+    /gcode path conflicts found between b and a/,
+  );
+  // and the generic path stays as it was
+  assert.equal(failureMessage(['not useful'], 'boom\nrest', 1), 'boom | rest');
+  assert.equal(failureMessage([], '', 3), 'Slicer exited with code 3');
 });
