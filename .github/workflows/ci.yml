@@ -73,18 +73,20 @@ jobs:
             if curl -fsS http://localhost:8080/api/health >/dev/null 2>&1; then
               echo "the app answered after ~$((i * 2)) s"
               curl -fsS http://localhost:8080/api/health
-              exit 0
+              break
             fi
             if [ "$(docker inspect -f '{{.State.Running}}' e2e 2>/dev/null || echo false)" != "true" ]; then
               echo "the app container exited:"
               docker logs e2e || true
               exit 1
             fi
+            if [ "$i" = 120 ]; then
+              echo "the app did not answer within 240 s:"
+              docker logs --tail 100 e2e || true
+              exit 1
+            fi
             sleep 2
           done
-          echo "the app did not answer within 240 s:"
-          docker logs --tail 100 e2e || true
-          exit 1
           # the app has to resolve the mock by name before the send spec runs
           docker exec e2e node -e "fetch('http://mock-host:8160/api/version').then(r=>r.json()).then(j=>console.log('mock host:',j.server)).catch(e=>{console.error(e);process.exit(1)})"
       - name: Run the E2E suite
