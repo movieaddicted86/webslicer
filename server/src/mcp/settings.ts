@@ -141,7 +141,9 @@ export function checkSettings(schema: Schema, project: Project, scope: string, v
     const slot =
       type === 'filament' ? (project.filaments[index] ?? project.filaments[0]) : type === 'print' ? project.print : project.printer;
     const willBe = { ...(slot?.config ?? {}), ...changed };
-    for (const issue of checkConfigValues(type, willBe)) {
+    // only the blocks: a soft-range warning ("265 °C is unusual for PLA") is a fact worth showing but no
+    // reason to refuse a call, exactly as on the slice routes
+    for (const issue of checkConfigValues(type, willBe).filter((i) => i.severity === 'block')) {
       issues.push({ key: issue.key, value: issue.value, reason: issue.message, allowed: issue.limit, scope });
     }
   }
