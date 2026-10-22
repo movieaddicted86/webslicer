@@ -121,6 +121,8 @@ export interface E2EState {
   select: (ids: string[]) => void;
   selectVolume: (objectId: string, volumeId: string) => void;
   selectInstance: (objectId: string, instanceId: string) => void;
+  updateInstance: (objectId: string, instanceId: string, patch: Partial<Pick<E2EPlacement, 'position' | 'rotation' | 'scale'>>) => void;
+  setInstanceCount: (objectId: string, n: number) => void;
   addInstances: (objectId: string, count: number) => void;
   addVolume: (objectId: string, volume: { name: string; type: string; geometry: unknown }) => void;
   mirror: (axis: number) => void;
