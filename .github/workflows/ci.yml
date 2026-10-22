@@ -64,6 +64,14 @@ jobs:
       - name: Build the mock print host
         run: docker build -t webslicer-mock-host:e2e e2e/mock-host
       - run: npm ci
+      - name: Cache the Playwright browsers
+        # the browser build is a ~170 MB download per job and one shard took 12 min for it in the first
+        # three-way run; the cache key is the Playwright version, so a dependency bump invalidates it
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: playwright-${{ runner.os }}-
       - run: npx playwright install --with-deps chromium
       - name: Start the app and the mock print host
         run: |
