@@ -99,7 +99,7 @@ test.describe('send: the send gate and the upload (S1-b, T-026)', () => {
   const uploadButton = (app: Page) => app.locator('.modal-actions button.primary');
   const checkbox = (app: Page, label: string) => app.locator(`.modal label.checkbox:has-text("${label}") input`);
 
-  test('the dialog preselects the host set up for the job preset and shows no warning', async ({ app }) => {
+  test('the dialog preselects the host set up for the job preset and blocks nothing', async ({ app }) => {
     const hosts = await prepare(app);
     await sendDialog(app);
 
@@ -109,10 +109,16 @@ test.describe('send: the send gate and the upload (S1-b, T-026)', () => {
     // the exact match wins even though the derived, unbound and mismatched host were created first
     await expect(app.locator('.modal .form select')).toHaveValue(hosts.exact?.id ?? '');
     await expect(app.locator('.modal .form select option:checked')).toContainText(`MK3S host (moonraker) · ${E2E_PRINTER}`);
-    expect(await app.locator('.modal .warn').count()).toBe(0);
+    // no block – but the MK3S preset's own start/end G-code writes "M907 E430"/"M907 E538", so the
+    // preflight of S1-c warns for both lines (one warn box with two findings)
+    await expect(app.locator('.modal .warn')).toHaveCount(1);
+    await expect(app.locator('.modal .warn .gcode-line')).toHaveCount(2);
+    await expect(app.locator('.modal .warn')).toContainText('M907');
+    await expect(app.locator('.modal label.checkbox:has-text("Send anyway")')).toHaveCount(0);
     await expect(uploadButton(app)).toBeEnabled();
-    // the message names the preset the job was sliced for
-    await expect(app.locator('.modal .form .muted.small')).toContainText(`Sliced for the printer preset ${E2E_PRINTER}`);
+    // the message names the preset the job was sliced for (`.first()`: the preflight findings below
+    // use the same muted small style for their line)
+    await expect(app.locator('.modal .form .muted.small').first()).toContainText(`Sliced for the printer preset ${E2E_PRINTER}`);
     // and the file name starts as the job's output name
     const job = await read(app, (s) => s.job?.outputName);
     await expect(app.locator('.modal .form input').first()).toHaveValue(job ?? '');
@@ -127,9 +133,11 @@ test.describe('send: the send gate and the upload (S1-b, T-026)', () => {
     const block = await app.locator('.modal .warn').first().textContent();
     expect(block).toContain(`sliced for the printer preset "${E2E_PRINTER}"`);
     expect(block).toContain(`is set up for "${OTHER_PRESET}"`);
-    // a block is not a warning: there is no second confirmation to tick, only the override
+    // a block is not a warning: there is no second confirmation to tick, only the override. One warn
+    // box for the block, one for the MK3S preset's own M907 lines (S1-c)
     await expect(uploadButton(app)).toBeDisabled();
-    await expect(app.locator('.modal .warn')).toHaveCount(1);
+    await expect(app.locator('.modal .warn.issue-list')).toHaveCount(2);
+    await expect(app.locator('.modal .warn.issue-list').first()).toContainText('sliced for the printer preset');
 
     // the override alone does not help – it needs a reason the server can audit
     await checkbox(app, 'Send anyway').check();
@@ -235,7 +243,10 @@ test.describe('send: the send gate and the upload (S1-b, T-026)', () => {
     );
     expect(refused.status).toBe(409);
     expect(refused.json.error).toContain(`sliced for the printer preset "${E2E_PRINTER}"`);
-    expect(refused.json.issues.map((i) => `${i.severity}:${i.rule}`)).toEqual(['block:send.preset_mismatch']);
+    // the block first, then the preflight warnings of the MK3S preset's own M907 lines (S1-c)
+    const [firstIssue, ...preflightWarnings] = refused.json.issues.map((i) => `${i.severity}:${i.rule}`);
+    expect(firstIssue).toBe('block:send.preset_mismatch');
+    expect(preflightWarnings).toEqual(['warn:gcode.motor_current', 'warn:gcode.motor_current']);
     expect(uploads(), 'a refused send uploads nothing').toHaveLength(0);
 
     const noReason = await rest<{ error: string }>(app, 'POST', `/api/jobs/${jobId}/send`, { ...body, override: true, reason: '  ' });
@@ -250,8 +261,8 @@ test.describe('send: the send gate and the upload (S1-b, T-026)', () => {
     });
     expect(overridden.status).toBe(200);
     expect(overridden.json.ok).toBe(true);
-    // the accepted override still reports the issue it went past
-    expect(overridden.json.issues.map((i) => i.rule)).toEqual(['send.preset_mismatch']);
+    // the accepted override still reports the issues it went past – the block and the two preflight warnings
+    expect(overridden.json.issues.map((i) => i.rule)).toEqual(['send.preset_mismatch', 'gcode.motor_current', 'gcode.motor_current']);
     const sent = uploads();
     expect(sent).toHaveLength(1);
     expect(sent[0].filename).toBe('direct.gcode');
@@ -305,6 +316,87 @@ test.describe('send: the send gate and the upload (S1-b, T-026)', () => {
     expect(res.status).toBe(502);
     expect(res.json.ok).toBe(false);
     expect(res.json.message).toBeTruthy();
+  });
+
+  /**
+   * S1-c: a custom G-code at a layer puts a forbidden command into the real output. The preflight of
+   * the finished job finds it, the preview panel states it, the send dialog lists it with its line and
+   * the server refuses the send until it is overridden with a reason (which the audit log takes).
+   */
+  test('a forbidden command in the sliced G-code blocks the send until an override with a reason', async ({ app }) => {
+    await prepare(app, ['exact']);
+    // a custom G-code at 5 mm: PrusaSlicer writes "M500" into the layer between the toolpaths
+    await app.evaluate(() => window.webslicer.getState().addCustomGcode({ type: 'custom', printZ: 5, extra: 'M500 ; T-031' }));
+    await settle(app, 300);
+    await sliceAndWait(app, await read(app, (s) => s.job?.id));
+    expect(await read(app, (s) => s.job?.status)).toBe('done');
+
+    // the job record carries the scan of the finished file: the M500 blocks, the printer preset's own
+    // M907 lines (start/end G-code) only warn – the case the rule set was adjusted for
+    const preflight = await read(app, (s) => s.job?.info?.preflight);
+    expect(preflight?.version).toBe(1);
+    const forbidden = preflight?.issues.filter((i) => i.rule === 'gcode.forbidden_command') ?? [];
+    expect(forbidden).toHaveLength(1);
+    expect(forbidden[0]).toMatchObject({ severity: 'block' });
+    expect(forbidden[0]?.text).toContain('M500');
+    expect(forbidden[0]?.line).toBeGreaterThan(0);
+    expect(preflight?.issues.filter((i) => i.rule === 'gcode.motor_current').every((i) => i.severity === 'warn')).toBe(true);
+
+    // the preview panel states the count and lists the finding with its line
+    await app.evaluate(() => window.webslicer.getState().setView('preview'));
+    await settle(app, 1200);
+    const panel = app.locator('.preview-panel .preflight');
+    await expect(panel).toHaveCount(1);
+    await expect(panel.locator('summary')).toContainText('1 blocking');
+    await expect(panel.locator('li.error').first()).toContainText('M500');
+    await expect(panel.locator('li.error .gcode-line').first()).toContainText(`Line ${forbidden[0]?.line}:`);
+
+    // the send dialog shows the same block – and it belongs to the file, not the host, so the exact
+    // match is preselected and the upload is still disabled
+    const hosts = { exact: created.find((p) => p.name === 'MK3S host') };
+    await sendDialog(app);
+    await expect(app.locator('.modal .form select')).toHaveValue(hosts.exact?.id ?? '');
+    const block = await app.locator('.modal .warn').first().textContent();
+    expect(block).toContain('M500');
+    await expect(app.locator('.modal .warn .gcode-line').first()).toContainText(`Line ${forbidden[0]?.line}:`);
+    await expect(uploadButton(app)).toBeDisabled();
+
+    // the server refuses it with the same issue, line and text included, and uploads nothing
+    const jobId = await read(app, (s) => s.job?.id ?? '');
+    const exactId = hosts.exact?.id;
+    clearUploads();
+    const refused = await rest<{ error: string; issues: Array<{ rule: string; severity: string; line: number; text: string }> }>(
+      app,
+      'POST',
+      `/api/jobs/${jobId}/send`,
+      { printerId: exactId, filename: 'preflight.gcode' },
+    );
+    expect(refused.status).toBe(409);
+    const issue = refused.json.issues.find((i) => i.rule === 'gcode.forbidden_command');
+    expect(issue?.severity).toBe('block');
+    expect(issue?.text).toContain('M500');
+    expect(issue?.line).toBeGreaterThan(0);
+    expect(uploads(), 'a preflight block uploads nothing').toHaveLength(0);
+
+    // the override with a reason goes through and lands in the audit log
+    const overridden = await rest<{ ok: boolean; issues: Array<{ rule: string }> }>(app, 'POST', `/api/jobs/${jobId}/send`, {
+      printerId: exactId,
+      filename: 'preflight.gcode',
+      override: true,
+      reason: 'the EEPROM save is wanted for this test',
+    });
+    expect(overridden.status).toBe(200);
+    expect(overridden.json.ok).toBe(true);
+    expect(overridden.json.issues.map((i) => i.rule)).toContain('gcode.forbidden_command');
+    expect(uploads()).toHaveLength(1);
+    // the dialog's own button follows the same rule: the override needs its reason there too
+    await app.locator('.modal label.checkbox:has-text("Send anyway") input').check();
+    await app.waitForTimeout(200);
+    await expect(uploadButton(app)).toBeDisabled();
+    await app.locator('.modal input[placeholder*="Why this G-code"]').fill('checked by hand');
+    await app.waitForTimeout(200);
+    await expect(uploadButton(app)).toBeEnabled();
+    await app.locator('.modal-actions button:has-text("Cancel")').click();
   });
 });
 
