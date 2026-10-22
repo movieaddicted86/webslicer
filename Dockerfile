@@ -99,6 +99,8 @@ COPY --from=build /app/server/package.json ./server/
 COPY --from=build /app/server/dist ./server/dist
 COPY --from=build /app/web/dist ./web/dist
 COPY samples/*.stl ./samples/
+# S6: the licence and the third-party notices travel with the image
+COPY LICENSE THIRD_PARTY_NOTICES.md /usr/share/doc/webslicer/
 
 ENV NODE_ENV=production \
     WEBSLICER_VERSION=1.0.0-rc.2 \

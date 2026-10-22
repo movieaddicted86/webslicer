@@ -184,6 +184,13 @@ fi
 VERSION="$(sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' "${WEBSLICER_DIR}/package.json" | head -n1)"
 ok "WebSlicer ${VERSION:-sources}"
 
+# --- Licence ---------------------------------------------------------------------
+# S6: the licence and the third-party notices stay with the installed sources and in the doc dir
+mkdir -p /usr/share/doc/webslicer
+for doc in LICENSE THIRD_PARTY_NOTICES.md; do
+  [ -f "${WEBSLICER_DIR}/${doc}" ] && cp "${WEBSLICER_DIR}/${doc}" /usr/share/doc/webslicer/
+done
+
 # --- Build -------------------------------------------------------------------------
 msg "Building WebSlicer (takes a few minutes)"
 cd "$WEBSLICER_DIR"

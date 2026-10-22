@@ -8,3 +8,5 @@ data
 .git
 proxmox
 *.md
+# … except the compliance files the runtime stage copies in (S6)
+!THIRD_PARTY_NOTICES.md
