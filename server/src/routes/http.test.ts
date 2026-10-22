@@ -193,6 +193,15 @@ test('POST /api/models rejects a body that is not an STL with 400', async () => 
   assert.equal(errorOf(res), 'mesh has no triangles');
 });
 
+test('B11: a malformed X-Filename is a 400, not an unhandled URIError', async () => {
+  // decodeURIComponent throws on a lone `%` escape; the route used to let it reach the 500 handler
+  const stl = Buffer.alloc(84 + 50);
+  stl.writeUInt32LE(1, 80);
+  const res = await call('POST', '/api/models', new Uint8Array(stl), { 'X-Filename': '%E0%A4%A' });
+  assert.equal(res.status, 400);
+  assert.equal(errorOf(res), 'invalid file name');
+});
+
 test('GET /api/models/:id answers 404 for a missing model', async () => {
   const res = await call('GET', '/api/models/does-not-exist');
   assert.equal(res.status, 404);
@@ -230,13 +239,22 @@ function sliceRequestTop(overrides: Record<string, unknown> = {}): Record<string
   return { ...sliceRequest(), ...overrides };
 }
 
-test('POST /api/export/3mf answers 500 with a generic body (S10)', async () => {
-  // `validateSliceRequest` throws a plain Error, and this route does not map it, so the error
-  // handler answers 500. The message itself is not sent any more (S10: a 500 must not leak the
-  // internals); it goes to the server log only.
-  const res = await call('POST', '/api/export/3mf', { objects: [] });
-  assert.equal(res.status, 500);
-  assert.equal(errorOf(res), 'Internal error');
+test('B11: both export routes answer an empty body with 400 and a message', async () => {
+  // used to be a 500 (a plain validation Error fell through the error handler, and `/export/config`
+  // did not look at the body at all and died on `body.objects`)
+  for (const route of ['/api/export/3mf', '/api/export/config']) {
+    const res = await call('POST', route, { objects: [] });
+    assert.equal(res.status, 400, route);
+    assert.equal(errorOf(res), 'at least one object required', route);
+  }
+});
+
+test('B11: an invalid export request is a 400 with the validator message, not a generic 500', async () => {
+  for (const route of ['/api/export/3mf', '/api/export/config']) {
+    const res = await call('POST', route, sliceRequest({ modelId: 'not-a-uuid' }));
+    assert.equal(res.status, 400, route);
+    assert.match(errorOf(res) ?? '', /invalid modelId/, route);
+  }
 });
 
 // ---------------------------------------------------------------------------
@@ -651,6 +669,14 @@ test('project routes answer 404 for an unknown project id', async () => {
     assert.equal(res.status, 404, route);
     assert.equal(errorOf(res), 'project not found', route);
   }
+});
+
+test('B11: a ZodError in a route body is answered 400 with the first issue, not 500', async () => {
+  // `presetListSchema.parse` throws; the error handler used to know only HttpError, so a bad body
+  // shape was reported as an internal error
+  const res = await call('POST', '/api/presets/print/list', { printerConfig: [] });
+  assert.equal(res.status, 400);
+  assert.ok((errorOf(res) ?? '').length > 0, 'the 400 names the problem');
 });
 
 test('POST /api/projects/:id/models requires a libraryPath', async () => {

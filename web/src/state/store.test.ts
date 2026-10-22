@@ -492,3 +492,92 @@ test('deletePreset removes the preset and falls back to a compatible one', async
   );
   assert.equal(st().toasts[st().toasts.length - 1].text, 'Deleted print preset "0.20mm NORMAL"');
 });
+
+// ---------------------------------------------------------------------------
+// B2: extruder indices after the extruder count shrinks
+// ---------------------------------------------------------------------------
+
+/** A minimal schema with the thrice-repeated per-extruder keys the real one has. */
+const B2_SCHEMA = {
+  slicerVersion: 'test',
+  layout: [],
+  presetKeys: { print: [], filament: [], printer: ['nozzle_diameter'], sla_print: [], sla_material: [] },
+  options: { nozzle_diameter: { key: 'nozzle_diameter', label: 'Nozzle', tooltip: '', type: 'floats', default: '0.4', perExtruder: true } },
+} as never;
+
+test('B2: shrinking the extruder count clamps objects, volumes, MMU paint and the paint tool', async () => {
+  await importOne(twoCubes());
+  const o = st().objects[0];
+  useStore.setState({ schema: B2_SCHEMA });
+  st().setOption('printer', 'nozzle_diameter', '0.4,0.4,0.4');
+  assert.equal(st().extruderCount(), 3);
+  st().updateObject(o.id, { extruder: 3 });
+  await st().addVolume(o.id, { name: 'part', type: 'ModelPart', geometry: box(5) });
+  const volId = st().objects[0].volumes[0].id;
+  st().updateVolume(o.id, volId, { extruder: 3 });
+  st().updateObject(o.id, { paint: { mmu: Uint8Array.from([0, 3, 2, 1]) } });
+  st().setPaintExtruder(3);
+  assert.equal(st().paintExtruder, 3);
+
+  st().setExtruderCount(1);
+  const after = st().objects[0];
+  assert.equal(st().extruderCount(), 1);
+  assert.equal(after.extruder, 1, 'the object falls back to extruder 1');
+  assert.equal(after.volumes[0].extruder, 1, 'so does its volume');
+  assert.deepEqual([...(after.paint?.mmu ?? [])], [0, 1, 1, 1], 'MMU paint above the count becomes extruder 1');
+  assert.equal(st().paintExtruder, 1, 'the paint tool cannot stay on a removed extruder');
+  assert.equal(st().presets.filament.length, 1);
+});
+
+test('B2: the slot actions stay on a filament slot that still exists', async () => {
+  useStore.setState({ schema: B2_SCHEMA });
+  st().setExtruderCount(3);
+  assert.equal(st().presets.filament.length, 3);
+  st().setExtruderCount(1);
+  // every one of these used to read `filament[2]` and throw
+  assert.doesNotThrow(() => st().setOption('filament', 'filament_colour', '#00FF00', 2));
+  assert.equal(st().presets.filament[0].current.filament_colour, '#00FF00', 'the edit lands on the last slot');
+  assert.doesNotThrow(() => st().resetOption('filament', 'filament_colour', 2));
+  assert.doesNotThrow(() => st().discardChanges('filament', 2));
+  await assert.doesNotReject(() => st().savePresetAs('filament', 'B2 filament', 2));
+  assert.ok(server.saved['filament:B2 filament'], 'saving from a removed slot works');
+  assert.equal(st().presets.filament[0].name, 'B2 filament');
+});
+
+// ---------------------------------------------------------------------------
+// B3: undo/redo keep the MMU paint (and the support/seam paint) of a stroke
+// ---------------------------------------------------------------------------
+
+test('B3: undo after a paint stroke restores exactly the previous paint', async () => {
+  await importOne(box(10));
+  const o = st().objects[0];
+  st().updateObject(o.id, { paint: { supports: Uint8Array.from([1, 0, 0, 0]), mmu: Uint8Array.from([0, 2, 0, 0]) } });
+  const before = { supports: [...(st().objects[0].paint?.supports ?? [])], mmu: [...(st().objects[0].paint?.mmu ?? [])] };
+
+  st().beginPaintStroke(o.id);
+  st().applyPaint(o.id, 'mmu', [1, 2], 3);
+  st().applyPaint(o.id, 'supports', [2], 2);
+  assert.deepEqual([...(st().objects[0].paint?.mmu ?? [])], [0, 3, 3, 0], 'the stroke painted');
+
+  st().undo();
+  const restored = st().objects[0].paint;
+  assert.deepEqual([...(restored?.mmu ?? [])], before.mmu, 'undo keeps the MMU paint untouched before the stroke');
+  assert.deepEqual([...(restored?.supports ?? [])], before.supports, 'and the support paint');
+
+  // redo puts the stroke back – and a second undo still finds the original paint (no aliasing)
+  st().redo();
+  assert.deepEqual([...(st().objects[0].paint?.mmu ?? [])], [0, 3, 3, 0], 'redo repeats the stroke');
+  st().undo();
+  assert.deepEqual([...(st().objects[0].paint?.mmu ?? [])], before.mmu, 'the second undo is not aliased to the live arrays');
+});
+
+test('B3: a snapshot never shares paint arrays with the live objects', async () => {
+  await importOne(box(10));
+  const o = st().objects[0];
+  st().updateObject(o.id, { paint: { mmu: Uint8Array.from([1, 1, 1, 0]) } });
+  st().recordHistory();
+  const snapshot = st().undoStack[st().undoStack.length - 1];
+  // painting mutates the live array in place, so the snapshot must not be the same object
+  st().applyPaint(o.id, 'mmu', [0, 1, 2], 0);
+  assert.deepEqual([...(snapshot[0].paint?.mmu ?? [])], [1, 1, 1, 0], 'the recorded paint is a copy');
+});

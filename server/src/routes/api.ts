@@ -179,7 +179,14 @@ export function apiRouter(): express.Router {
       return badRequest(res, `cannot parse STL: ${(e as Error).message}`);
     }
     if (!mesh.indices.length) return badRequest(res, 'mesh has no triangles');
-    const { id, name, triangles, vertices } = await saveModel(mesh, decodeURIComponent(String(req.header('x-filename') || 'model.stl')));
+    // B11: `decodeURIComponent` throws a URIError on a lone `%` escape, which became a 500
+    let filename: string;
+    try {
+      filename = decodeURIComponent(String(req.header('x-filename') || 'model.stl'));
+    } catch {
+      return badRequest(res, 'invalid file name');
+    }
+    const { id, name, triangles, vertices } = await saveModel(mesh, filename);
     res.json({ id, name, triangles, vertices });
   });
 
@@ -208,8 +215,14 @@ export function apiRouter(): express.Router {
 
   r.post('/export/3mf', json, async (req, res) => {
     const body = req.body as SliceRequest;
+    // B11: this used to fall through to the 500 handler; the request is client input, so its
+    // validation failure is a 400 carrying the validator's message
+    try {
+      validateSliceRequest(body);
+    } catch (e) {
+      return badRequest(res, (e as Error).message);
+    }
     const s = await schemaOf();
-    validateSliceRequest(body);
     const merged = mergeConfigs(s, body, { forProject: true });
     const buf = await build3mfForRequest(body, merged);
     const name = (body.outputName || 'project').replace(/[^A-Za-z0-9._ -]/g, '_') + '.3mf';
@@ -219,6 +232,12 @@ export function apiRouter(): express.Router {
 
   r.post('/export/config', json, async (req, res) => {
     const body = req.body as SliceRequest;
+    // B11: the body was not checked at all – `{}` died on `body.objects` as a 500
+    try {
+      validateSliceRequest(body);
+    } catch (e) {
+      return badRequest(res, (e as Error).message);
+    }
     const s = await schemaOf();
     const merged = mergeConfigs(s, { ...body, objects: body.objects || [] });
     const { serializeIni } = await import('../slicer/ini.js');
@@ -261,7 +280,10 @@ export function apiRouter(): express.Router {
     const send = (ev: unknown) => res.write(`data: ${JSON.stringify(ev)}\n\n`);
     send({ type: 'status', job: j });
     if (j.status === 'done' || j.status === 'error' || j.status === 'cancelled') {
-      send({ type: j.status === 'done' ? 'done' : 'error', job: j, message: j.error });
+      // a cancelled job is a status, not an error – the stream used to replay it as `error`, which the
+      // browser showed as "Slicing failed" after a cancel (B6)
+      if (j.status === 'cancelled') send({ type: 'status', job: j });
+      else send({ type: j.status === 'done' ? 'done' : 'error', job: j, message: j.error });
       res.end();
       return;
     }

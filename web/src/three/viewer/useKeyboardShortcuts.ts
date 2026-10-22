@@ -9,7 +9,7 @@
  */
 import { useEffect, useRef } from 'react';
 import { useStore, pickedInstanceId } from '../../state/store';
-import { matchesShortcut } from './shortcuts';
+import { matchesShortcut, shortcutsBlocked } from './shortcuts';
 import { viewByKey } from '../../plater/camera';
 import type { CamRequest } from './types';
 
@@ -22,9 +22,9 @@ export function useKeyboardShortcuts(onCamera: (req: CamRequest) => void, toggle
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const t = e.target as HTMLElement;
-      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
       const st = useStore.getState();
+      // B10: the single guard – a modal dialog or a focused field means no shortcut at all
+      if (shortcutsBlocked(e, !!st.dialog)) return;
       // the camera keys work in the plater and in the preview
       if (matchesShortcut(e, 'views')) {
         e.preventDefault();

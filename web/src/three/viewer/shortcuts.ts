@@ -65,6 +65,18 @@ export const SHORTCUTS: Shortcut[] = [
   { id: 'escape', keys: ['Esc'], match: ['Escape'], label: 'cancel' },
 ];
 
+/**
+ * The one guard every shortcut runs through (B10). A modal dialog owns the keyboard while it is
+ * open, and a focused input/textarea/select/contenteditable keeps its keys – otherwise typing a
+ * preset name in the save dialog would delete the selected object behind it. It lives here, next to
+ * the table, so a new shortcut cannot forget it.
+ */
+export function shortcutsBlocked(e: KeyboardEvent, dialogOpen: boolean): boolean {
+  if (dialogOpen) return true;
+  const t = e.target as HTMLElement | null;
+  return !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || !!t.isContentEditable);
+}
+
 /** The entries the About dialog lists, in the order it prints them. */
 export const aboutShortcuts = (): Shortcut[] =>
   SHORTCUTS.filter((s) => s.aboutAt !== undefined).sort((a, b) => (a.aboutAt as number) - (b.aboutAt as number));

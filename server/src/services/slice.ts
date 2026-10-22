@@ -20,11 +20,9 @@ import type { IniSection } from '../slicer/ini.js';
  * place* (`instances` overwrites the legacy `transform`, a missing `filaments` becomes an empty array)
  * and it throws a plain `Error`, not a typed one.
  *
- * That last point is deliberate: the routes that map the error (`/api/slice`, `/api/autosave/:client`,
- * the MCP tools) answer 400 with this message, while the routes that do *not* map it
- * (`/api/export/3mf`, `/api/projects/:id/slice`) fall through to the error handler and answer 500 –
- * exactly as before the refactoring, and the status codes are part of the contract
- * (`routes/http.test.ts` pins the 500).
+ * That last point is deliberate: every route that calls it maps the error to 400 with this message
+ * (`/api/slice`, `/api/autosave/:client`, both export routes, the project slice and the MCP tools);
+ * a plain `Error` here never reaches the 500 handler as an "internal error".
  */
 export function validateSliceRequest(body: SliceRequest) {
   const parsed = parseSliceRequest(body);

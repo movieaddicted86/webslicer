@@ -113,6 +113,13 @@ export const createJobSlice: StateCreator<State, [], [], JobSlice> = (set, get) 
         if (ev.type === 'log' && line) set((st) => ({ jobLog: [...st.jobLog.slice(-400), line] }));
         if (ev.type === 'progress')
           set((st) => (st.job ? { job: { ...st.job, percent: ev.percent ?? st.job.percent, message: ev.message ?? st.job.message } } : {}));
+        if (ev.type === 'status' && ev.job?.status === 'cancelled') {
+          // the single cancel toast (B6): the server reports the cancelled status, and the SSE stream
+          // used to answer an aborted job with a generic "Slicing failed" error event
+          set({ job: ev.job });
+          get().toast('info', 'Slicing cancelled');
+          return;
+        }
         if (ev.job) set({ job: ev.job });
         if (ev.type === 'done' && ev.job) {
           get().toast('success', `Slicing finished: ${ev.job.outputName}`);
@@ -121,7 +128,8 @@ export const createJobSlice: StateCreator<State, [], [], JobSlice> = (set, get) 
               .loadGcodePreview(ev.job.id)
               .catch((e) => get().toast('error', e.message));
         }
-        if (ev.type === 'error') get().toast('error', `Slicing failed: ${ev.message || 'unknown error'}`);
+        // a cancelled job that arrives as an error event (an older server, or a race) is not a failure
+        if (ev.type === 'error' && ev.job?.status !== 'cancelled') get().toast('error', `Slicing failed: ${ev.message || 'unknown error'}`);
       });
     } catch (e) {
       get().toast('error', `Slice request failed: ${(e as Error).message}`);
@@ -130,7 +138,14 @@ export const createJobSlice: StateCreator<State, [], [], JobSlice> = (set, get) 
   cancelSlice: async () => {
     const j = get().job;
     if (!j) return;
-    await api.cancelJob(j.id).catch(() => undefined);
+    try {
+      await api.cancelJob(j.id);
+    } catch (e) {
+      // a cancel that arrives too late (the job already finished) is not an error worth a toast of its
+      // own; the job's own event says how it ended
+      if (!get().job || get().job?.id !== j.id) return;
+      get().toast('error', `Cancel failed: ${(e as Error).message}`);
+    }
   },
   applyProjectConfig: async (cfg) => {
     const s = get();

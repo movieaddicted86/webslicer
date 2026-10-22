@@ -18,6 +18,9 @@ export interface RunOptions {
 
 /** Spawn the PrusaSlicer binary with the given arguments. */
 export function runSlicer(args: string[], opts: RunOptions = {}): Promise<RunResult> {
+  // a signal that was aborted before the call must not start a process that nobody stops (B6: a
+  // cancel during preparation aborts the controller before the CLI is spawned)
+  if (opts.signal?.aborted) return Promise.resolve({ code: null, stdout: '', stderr: '', signal: 'SIGKILL' });
   return new Promise((resolve, reject) => {
     const env: NodeJS.ProcessEnv = {
       ...process.env,
@@ -35,16 +38,40 @@ export function runSlicer(args: string[], opts: RunOptions = {}): Promise<RunRes
     } catch {
       /* ignore */
     }
-    const child = spawn(config.slicerBin, args, {
-      cwd: opts.cwd,
-      env,
-      stdio: ['ignore', 'pipe', 'pipe'],
-      windowsHide: true,
-    });
+    // A `.cmd`/`.bat` wrapper (common for AppImage or portable installs on Windows) cannot be spawned
+    // directly – Node refuses with EINVAL; it has to go through the command interpreter, which needs
+    // the quoting Node does for every other argument.
+    const script = process.platform === 'win32' && /\.(cmd|bat)$/i.test(config.slicerBin);
+    const child = spawn(
+      script ? process.env.ComSpec || 'cmd.exe' : config.slicerBin,
+      script ? ['/d', '/c', config.slicerBin, ...args] : args,
+      {
+        cwd: opts.cwd,
+        env,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        windowsHide: true,
+      },
+    );
     let stdout = '';
     let stderr = '';
-    const timer = opts.timeoutMs ? setTimeout(() => child.kill('SIGKILL'), opts.timeoutMs) : undefined;
-    const abort = () => child.kill('SIGKILL');
+    // a wrapper script runs the real slicer as a child of `cmd.exe`, so killing only the shell leaves
+    // the process (and its pipes) alive – the tree has to go, and it has to go *before* the shell is
+    // killed (afterwards `taskkill` no longer finds the children)
+    const kill = () => {
+      if (script && child.pid) {
+        try {
+          const tk = spawn('taskkill', ['/pid', String(child.pid), '/t', '/f'], { windowsHide: true });
+          tk.on('error', () => child.kill('SIGKILL'));
+          tk.on('close', () => child.kill('SIGKILL'));
+          return;
+        } catch {
+          /* fall back to the direct kill below */
+        }
+      }
+      child.kill('SIGKILL');
+    };
+    const timer = opts.timeoutMs ? setTimeout(kill, opts.timeoutMs) : undefined;
+    const abort = () => kill();
     opts.signal?.addEventListener('abort', abort, { once: true });
 
     const lineBuffer = (stream: 'stdout' | 'stderr') => {

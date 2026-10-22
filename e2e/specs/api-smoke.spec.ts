@@ -189,9 +189,9 @@ test.describe('api: the REST contract the app depends on', () => {
     expect(ini.headers.get('content-type')).toContain('text/plain');
     expect(ini.bytes.toString()).toContain(`bed_shape = ${configs.printer.bed_shape}`);
 
-    // a body without objects is refused – currently as a 500 (the validation runs after the route's
-    // own try/catch); pinned here so a change is visible, reported in the T-030 report
-    expect((await api('POST', '/api/export/3mf', {})).status).toBe(500);
+    // a body without objects is refused with a 4xx (B11; it used to surface as a 500)
+    expect((await api('POST', '/api/export/3mf', {})).status).toBe(400);
+    expect((await api('POST', '/api/export/config', {})).status).toBe(400);
     expect((await api('POST', '/api/projects/parse', Buffer.from('not a 3mf'))).status).toBe(400);
   });
 

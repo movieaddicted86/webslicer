@@ -80,5 +80,5 @@ test('validateSliceRequest still throws a plain Error, so the callers keep their
     thrown = e;
   }
   assert.ok(thrown instanceof Error);
-  assert.ok(!(thrown instanceof HttpError), 'not typed: /api/slice maps it to 400, /api/export/3mf falls through to 500');
+  assert.ok(!(thrown instanceof HttpError), 'not typed: every route maps it itself (/api/slice, the export routes)');
 });

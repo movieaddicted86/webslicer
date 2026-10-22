@@ -7,6 +7,7 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { Agent, fetch as undiciFetch, FormData as UndiciFormData } from 'undici';
 import { config } from '../config.js';
+import { readJson, writeJson } from './jsonStore.js';
 import type { HostType, PhysicalPrinter } from '@webslicer/shared';
 
 function file(): string {
@@ -14,16 +15,14 @@ function file(): string {
 }
 
 export async function listPrinters(): Promise<PhysicalPrinter[]> {
-  try {
-    return JSON.parse(await fs.readFile(file(), 'utf8')) as PhysicalPrinter[];
-  } catch {
-    return [];
-  }
+  // B7: a corrupt file is moved aside by the store instead of answering "no printers" and letting the
+  // next save overwrite the only copy
+  const { value } = await readJson<PhysicalPrinter[]>(file());
+  return Array.isArray(value) ? value : [];
 }
 
 async function save(list: PhysicalPrinter[]): Promise<void> {
-  await fs.mkdir(config.dataDir, { recursive: true });
-  await fs.writeFile(file(), JSON.stringify(list, null, 2));
+  await writeJson(file(), list); // B7: temp + rename, never a truncated file
 }
 
 /**

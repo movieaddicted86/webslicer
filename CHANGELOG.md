@@ -2,6 +2,31 @@
 
 ## Unreleased
 
+- **Fixed (T-038 – data loss and crashes):** bugs from the external review of 2026-10-22.
+  _Extruders:_ every extruder index is clamped after the count shrinks, so reducing the extruders no
+  longer throws and values fall back to extruder 1 (object/volume extruder, paint, reset, discard,
+  save-as).
+  _Undo/redo:_ history snapshots deep-copy the MMU, support and seam paint arrays; undoing a stroke
+  restores exactly the previous paint instead of dropping the object's MMU paint.
+  _Presets:_ an `inherits` cycle (a preset inheriting itself or a longer loop) is detected while
+  resolving, refused with **400** when saved, and a cycle already on disk is skipped with a log
+  warning instead of taking the whole preset list down with a 500.
+  _Jobs:_ cancelling works in every stage – including while the model is still being prepared – and
+  deleting a running job waits for the slicer to stop and for its temporary files to be removed; the
+  UI shows one "Slicing cancelled" toast instead of a red "Slicing failed". On Windows a `.cmd`/`.bat`
+  slicer wrapper is killed as a process tree, so the real slicer cannot keep running.
+  _Data files:_ every JSON store (printers, projects, MCP tokens, installed printers) and the user
+  preset files are written to a temp file and renamed; an unparseable file is moved aside as
+  `<name>.corrupt-<timestamp>` and logged instead of being read as empty and overwritten by the next
+  save. The token file keeps mode 0600.
+  _Keyboard:_ shortcuts do nothing while a modal dialog is open or an input has focus (previously
+  Delete, Ctrl+Z or A acted on the plater behind a dialog).
+  _HTTP and UI:_ `POST /api/export/3mf` and `/api/export/config` answer **400** with the validator
+  message on an empty or invalid body (was 500 / an unchecked body), any zod validation failure is a
+  400, a malformed `X-Filename` no longer escapes as a 500, the job queue is loaded before the server
+  listens, and the bed shape editor re-reads the current printer's shape after a printer switch
+  instead of writing the old one back.
+
 - **Security (T-037 S3–S10):** hardening from the external review of 2026-10-22.
   _S3 – print hosts:_ a printer test gives up after 5 s, an upload after 60 s plus 1 s per 50 kB with
   a 10 min maximum; error bodies of OctoPrint/Moonraker/PrusaLink are no longer echoed to the client

@@ -13,6 +13,7 @@ import { apiRouter } from './routes/api.js';
 import { hostGuard } from './routes/hostGuardMiddleware.js';
 import { mcpRouter } from './mcp/server.js';
 import { statusOf } from './errors.js';
+import { ZodError } from 'zod';
 
 function serveFrontend(app: express.Express): void {
   if (fs.existsSync(config.webDist)) {
@@ -55,11 +56,18 @@ export function createApp(): express.Express {
       res: express.Response,
       _next: express.NextFunction,
     ) => {
-      const status = statusOf(err) ?? err.status ?? (err.type === 'entity.too.large' ? 413 : 500);
+      // B11: a body that fails its zod schema is client input, not an internal error – without this,
+      // a bad shape reached the catch-all as a plain ZodError and was answered 500
+      const status = err instanceof ZodError ? 400 : (statusOf(err) ?? err.status ?? (err.type === 'entity.too.large' ? 413 : 500));
       // S10: an unexpected error is logged in full, but a 500 body never carries its message – those
       // come from the file system, the slicer or undici and may name paths and hosts
       if (status >= 500) console.error(err);
-      const message = status >= 500 ? 'Internal error' : err.message || 'Internal error';
+      const message =
+        status >= 500
+          ? 'Internal error'
+          : err instanceof ZodError
+            ? err.issues[0]?.message || 'invalid request'
+            : err.message || 'Internal error';
       // typed errors may carry fields the client needs to decide (the issues of a refused send);
       // `error` stays the message so every existing reader keeps working
       res.status(status).json({ error: message, ...(status < 500 ? err.details : undefined) });

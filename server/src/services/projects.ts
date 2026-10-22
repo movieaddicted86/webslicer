@@ -18,6 +18,7 @@ import { NotFoundError, ValidationError } from '../errors.js';
 import { resolveInsideLibrary } from './library.js';
 import { deleteModel, saveModel, setModelLifecycleHooks } from './models.js';
 import { stripServerOnly } from './serverOnly.js';
+import { readJson, writeJson } from './jsonStore.js';
 import { defaultPresetName, resolvePreset } from '../slicer/presets.js';
 import type { IniSection } from '../slicer/ini.js';
 import { loadModelFile } from '../plater/meshes.js';
@@ -124,8 +125,8 @@ export function projectFile(id: string): string {
 }
 
 export async function saveProject(project: Project): Promise<Project> {
-  await fs.mkdir(config.projectsDir, { recursive: true });
-  await fs.writeFile(projectFile(project.id), JSON.stringify(project, null, 2));
+  // B7: temp + rename; a crash mid-write cannot leave a half project that the next start drops
+  await writeJson(projectFile(project.id), project);
   return project;
 }
 
@@ -139,12 +140,9 @@ export async function touchProject(project: Project): Promise<Project> {
 
 export async function loadProject(id: string): Promise<Project | undefined> {
   if (!/^[0-9a-f-]{36}$/i.test(String(id || ''))) return undefined;
-  try {
-    const p = JSON.parse(await fs.readFile(projectFile(id), 'utf8')) as Project;
-    return p?.id ? p : undefined;
-  } catch {
-    return undefined;
-  }
+  // B7: an unparseable project is set aside (*.corrupt-<ts>) and logged instead of silently vanishing
+  const { value: p } = await readJson<Project>(projectFile(id));
+  return p?.id ? p : undefined;
 }
 
 export async function listProjects(): Promise<Project[]> {

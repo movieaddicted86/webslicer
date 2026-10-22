@@ -131,7 +131,7 @@ export const api = {
       try {
         const ev = JSON.parse(m.data) as JobEvent;
         onEvent(ev);
-        if (ev.type === 'done' || ev.type === 'error') es.close();
+        if (ev.type === 'done' || ev.type === 'error' || (ev.type === 'status' && ev.job?.status === 'cancelled')) es.close();
       } catch {
         /* ignore */
       }
