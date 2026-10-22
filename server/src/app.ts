@@ -10,6 +10,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { config } from './config.js';
 import { apiRouter } from './routes/api.js';
+import { hostGuard } from './routes/hostGuardMiddleware.js';
 import { mcpRouter } from './mcp/server.js';
 import { statusOf } from './errors.js';
 
@@ -35,12 +36,14 @@ function serveFrontend(app: express.Express): void {
   }
 }
 
-/** Build the app: API + MCP + static frontend + the error handler (must stay the last middleware). */
+/** Build the app: the host guard, API + MCP + static frontend + the error handler (must stay the last middleware). */
 export function createApp(): express.Express {
   const app = express();
   app.disable('x-powered-by');
-  app.use('/api', apiRouter());
-  app.use('/mcp', mcpRouter());
+  // Before the routers and their body parsers: a rebound `Host` must not reach a handler at all (SEC-2).
+  const guard = hostGuard();
+  app.use('/api', guard, apiRouter());
+  app.use('/mcp', guard, mcpRouter());
   serveFrontend(app);
 
   // The one place where a thrown error becomes an HTTP response: typed errors carry their status,

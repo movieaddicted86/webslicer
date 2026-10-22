@@ -32,6 +32,7 @@ import { defaultPresetName, resolvePreset } from '../slicer/presets.js';
 import { coerceOptionValue } from './optionValues.js';
 import { loadOwnedProject } from './projectAccess.js';
 import { defineTool, type AnyTool } from './toolTypes.js';
+import { configKeySchema } from '../validation/config.js';
 
 const schemaOf = activeSchema;
 
@@ -172,7 +173,7 @@ const settingsInput = z.object({
   project_id: z.string(),
   scope: z.string().describe('"print", "filament" or "filament[<index>]" (0-based)'),
   values: z
-    .record(z.string(), z.union([z.string(), z.number(), z.boolean()]))
+    .record(configKeySchema, z.union([z.string(), z.number(), z.boolean()]))
     .describe('option key -> value, e.g. { "fill_density": "30%" }'),
 });
 

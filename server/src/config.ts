@@ -46,6 +46,11 @@ function resolveResources(bin: string): string | undefined {
 export const config = {
   port: Number(process.env.PORT || 8080),
   host: process.env.HOST || '0.0.0.0',
+  /** host names and IPs (with or without port) a request may name in `Host`/`Origin` (SEC-2) */
+  allowedHosts: String(process.env.ALLOWED_HOSTS || '')
+    .split(',')
+    .map((h) => h.trim().toLowerCase())
+    .filter(Boolean),
   dataDir,
   modelsDir: path.join(dataDir, 'models'),
   jobsDir: path.join(dataDir, 'jobs'),

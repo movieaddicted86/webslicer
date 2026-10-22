@@ -6,6 +6,8 @@
  * shown since the routes were written (`routes/http.test.ts` pins three of them).
  */
 import { z } from 'zod';
+import { invalidConfigKeyMessage } from '@webslicer/shared';
+import { invalidKeyOf } from './config.js';
 import { firstIssueMessage, ordered } from './common.js';
 import type { IniSection } from '../slicer/ini.js';
 import type { ProjectPresetRef } from '../services/projects.js';
@@ -17,7 +19,8 @@ export type SlotLabel = string;
  * A preset slot: `"MK4S"` or `{ name, config }`.
  *
  * The rule and the order are those of the old `presetRef`: a string is a name, an object may carry a
- * config – which has to be an object, not an array – and anything else is neither.
+ * config – which has to be an object, not an array – and anything else is neither. The config keys are
+ * a rule since SEC-2: a project config is written into the INI/3MF the slicer loads.
  */
 export function presetSlotSchema(label: SlotLabel) {
   return z.unknown().superRefine((v, ctx) => {
@@ -26,6 +29,8 @@ export function presetSlotSchema(label: SlotLabel) {
       const config = (v as { config?: unknown }).config;
       if (config !== undefined && (typeof config !== 'object' || config === null || Array.isArray(config)))
         ctx.addIssue({ code: 'custom', message: `${label}.config must be an object` });
+      const key = invalidKeyOf(config);
+      if (key !== undefined) ctx.addIssue({ code: 'custom', message: `${label}: ${invalidConfigKeyMessage(key)}` });
       return;
     }
     ctx.addIssue({ code: 'custom', message: `${label} must be a preset name or { name, config }` });

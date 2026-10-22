@@ -16,7 +16,8 @@
  * parsed copy, and `services/slice.ts` writes the two fields back into the caller's request.
  */
 import { z } from 'zod';
-import { CUSTOM_GCODE_TYPES, VOLUME_TYPES } from '@webslicer/shared';
+import { CUSTOM_GCODE_TYPES, VOLUME_TYPES, invalidConfigKeyMessage } from '@webslicer/shared';
+import { invalidKeyInRequest } from './config.js';
 import { firstIssueMessage, ordered } from './common.js';
 
 // The messages are the API contract – pinned by `services/slice.test.ts`.
@@ -241,6 +242,12 @@ export const sliceRequestSchema = ordered(
     },
     { error: () => OBJECT_REQUIRED },
   ),
+  // SEC-2: the config keys are part of the INI file the slicer loads, so they are validated as input.
+  // Last stage: the messages above keep precedence, and a body without configs is caught there.
+  z.unknown().superRefine((v, ctx) => {
+    const key = invalidKeyInRequest(v as Parameters<typeof invalidKeyInRequest>[0]);
+    if (key !== undefined) ctx.addIssue({ code: 'custom', message: invalidConfigKeyMessage(key) });
+  }),
 );
 
 export interface ParsedSliceRequest {

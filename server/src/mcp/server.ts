@@ -4,7 +4,8 @@
  * Stateless: every request carries its own `McpServer` bound to the token's owner, so no session
  * state has to be kept and a restart never leaves a client with a dangling session. Authentication
  * happens before the MCP layer sees anything: without a configured token the endpoint answers 404,
- * with a wrong or missing token 401, and a browser origin that is not the app's own 403.
+ * with a wrong or missing token 401. The Host/Origin allowlist runs before the router (`app.ts`,
+ * SEC-2) and refuses a rebound name with 403.
  */
 import express, { type Request } from 'express';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
@@ -17,20 +18,6 @@ import { appVersion } from '../services/version.js';
 
 interface AuthedRequest extends Request {
   mcpToken?: McpToken;
-}
-
-/**
- * DNS-rebinding guard: a browser sends `Origin`, and only the app's own origin is welcome. MCP
- * clients (Claude Desktop, Claude Code, Home Assistant) send no `Origin` at all and pass.
- */
-export function originAllowed(req: Request): boolean {
-  const origin = req.header('origin');
-  if (!origin) return true;
-  try {
-    return new URL(origin).host === req.header('host');
-  } catch {
-    return false;
-  }
 }
 
 /** The tools of one request, wrapped in the audit log. */
@@ -87,7 +74,8 @@ export function mcpRouter(): express.Router {
   r.use((req, res, next) => {
     // no token configured -> the endpoint does not exist (concept §5)
     if (!mcpEnabled()) return res.status(404).json({ error: 'MCP is not enabled' });
-    if (!originAllowed(req)) return res.status(403).json({ error: 'origin not allowed' });
+    // The Host/Origin allowlist already ran in `app.ts` for /api and /mcp (SEC-2): it replaced the
+    // old `Origin == Host` check, which a rebound name always passed.
     const token = authenticateHeader(req.header('authorization'));
     if (!token) {
       res.setHeader('WWW-Authenticate', 'Bearer realm="webslicer"');

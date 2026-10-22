@@ -6,30 +6,26 @@
  */
 import { escapeStringsCstyle, splitVector, unescapeStringsCstyle, type Schema, type SliceRequest } from '@webslicer/shared';
 import type { IniSection } from '../slicer/ini.js';
-import { SERVER_ONLY_KEYS } from './serverOnly.js';
+import { isAllowedConfigKey } from './configKeys.js';
 
 /**
  * Merge print + printer + filament presets into one flat PrusaSlicer config.
  * Filament options are per-extruder vectors; one filament preset per extruder.
  *
- * The server-only keys (SEC-1) are dropped here and not at the call sites: this is the one place
- * every path to the slicer goes through – the REST slice route, the project slice, the MCP `slice`
- * tool, the 3MF and config exports and the autosave – so a new caller cannot forget the rule.
+ * Every key is filtered through `isAllowedConfigKey` (SEC-2): a well-formed key the schema knows and
+ * that is not server-only. SEC-1's exact-name drop lives on in that rule. This is the one place every
+ * path to the slicer goes through – the REST slice route, the project slice, the MCP `slice` tool, the
+ * 3MF and config exports and the autosave – so a new caller cannot forget the rule. `serializeIni`
+ * guards the same thing again on the way out (defence in depth).
  */
 export function mergeConfigs(schema: Schema, req: SliceRequest, opts: { forProject?: boolean } = {}): IniSection {
   const merged: IniSection = {};
-  const skip = new Set([
-    'inherits',
-    'compatible_printers',
-    'compatible_printers_condition',
-    'compatible_prints',
-    'compatible_prints_condition',
-    ...SERVER_ONLY_KEYS,
-  ]);
+  const allowed = (key: string) => isAllowedConfigKey(schema, key);
+  const skip = (key: string) => !allowed(key) || FIXED_KEYS.has(key);
   // Printer first, then print: a few keys occur in both preset types in vendor bundles
   // (e.g. elefant_foot_compensation on SLA printers) and the print preset owns them.
-  for (const [k, v] of Object.entries(req.printer.config)) if (!skip.has(k)) merged[k] = v;
-  for (const [k, v] of Object.entries(req.print.config)) if (!skip.has(k)) merged[k] = v;
+  for (const [k, v] of Object.entries(req.printer.config)) if (!skip(k)) merged[k] = v;
+  for (const [k, v] of Object.entries(req.print.config)) if (!skip(k)) merged[k] = v;
 
   const nExtruders = Math.max(1, splitVector(req.printer.config.nozzle_diameter || '0.4').length);
   const filaments = req.filaments.length ? req.filaments : [{ name: '- default FFF -', config: {} }];
@@ -37,7 +33,7 @@ export function mergeConfigs(schema: Schema, req: SliceRequest, opts: { forProje
   const filamentKeys = new Set<string>();
   for (const f of filaments) for (const k of Object.keys(f.config)) filamentKeys.add(k);
   for (const k of filamentKeys) {
-    if (skip.has(k)) continue;
+    if (skip(k)) continue;
     const opt = schema.options[k];
     const isStrings = opt?.type === 'strings' || k === 'filament_settings_id';
     const vector = opt ? ['floats', 'ints', 'bools', 'strings', 'percents', 'floats_or_percents', 'points'].includes(opt.type) : true;
@@ -60,3 +56,20 @@ export function mergeConfigs(schema: Schema, req: SliceRequest, opts: { forProje
   if (merged.binary_gcode !== undefined && !opts.forProject) merged.binary_gcode = req.binaryGcode ? '1' : '0';
   return merged;
 }
+
+/**
+ * Keys the merged config sets itself (the preset ids, the technology). A client config may not set
+ * them: the preset name is the one the job reports, not a value a request picks. `binary_gcode` is
+ * *not* here – it is copied like before and only then turned into the request's flag.
+ */
+const FIXED_KEYS: ReadonlySet<string> = new Set([
+  'inherits',
+  'compatible_printers',
+  'compatible_printers_condition',
+  'compatible_prints',
+  'compatible_prints_condition',
+  'print_settings_id',
+  'printer_settings_id',
+  'filament_settings_id',
+  'printer_technology',
+]);
