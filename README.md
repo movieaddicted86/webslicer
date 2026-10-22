@@ -280,6 +280,8 @@ the server, the PrusaSlicer CLI and the built frontend – with the fixture data
 `e2e/fixtures/data` (an installed MK3S, no physical printers).
 
 ```bash
+npm ci
+npx playwright install chromium        # once per machine, after `npm ci`
 npm run e2e:docker          # build the image, start it + the mock print host, run everything, stop it
 npm run e2e:docker -- viewer.spec.ts   # a single spec
 npm run e2e                 # against an already running app (E2E_BASE_URL, default :8080)
