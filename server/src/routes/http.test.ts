@@ -349,6 +349,27 @@ test('a foreign Origin is refused, the app origin and a missing Origin pass', as
   assert.equal(dev.status, 200);
 });
 
+test('an Origin from a foreign IP is refused while the same Host is answered (review round 1)', async () => {
+  const host = '192.168.1.42:8080';
+  // a page served from a public IP: its Host passes (Docker port mapping) but its Origin must not
+  const foreign = await callWithHost('GET', '/api/health', host, undefined, { origin: 'http://203.0.113.5' });
+  assert.equal(foreign.status, 403);
+  assert.equal(errorOf(foreign), 'origin not allowed');
+
+  // the app's own origin (same name and port as Host) passes
+  const same = await callWithHost('GET', '/api/health', host, undefined, { origin: `http://${host}` });
+  assert.equal(same.status, 200);
+
+  // the Vite dev server on another port is a trusted origin
+  const dev = await callWithHost('GET', '/api/health', host, undefined, { origin: 'http://localhost:5173' });
+  assert.equal(dev.status, 200);
+
+  // a body-less POST is a simple request (no preflight) – the guard has to stop it, not CORS
+  const cancel = await callWithHost('POST', '/api/jobs/nope/cancel', host, undefined, { origin: 'http://203.0.113.5' });
+  assert.equal(cancel.status, 403);
+  assert.equal(errorOf(cancel), 'origin not allowed');
+});
+
 test('GET /api/jobs/:id answers 404 for an unknown job', async () => {
   const res = await call('GET', '/api/jobs/nope');
   assert.equal(res.status, 404);

@@ -17,9 +17,14 @@
  * - the interface addresses of this machine (an install opened by its own LAN name/IP),
  * - and whatever `ALLOWED_HOSTS` lists (NAS/LXC host names, a reverse-proxy name).
  *
- * A request with an `Origin` header must have an allowed origin too. Only browsers send one, and only
- * for a cross-origin or a state-changing request; an MCP client (Claude Desktop, Claude Code, Home
- * Assistant) sends none and passes, exactly as before.
+ * A request with an `Origin` header must come from an origin this install trusts. Only browsers send
+ * one, and only for a cross-origin or a state-changing request; an MCP client (Claude Desktop, Claude
+ * Code, Home Assistant) sends none and passes, exactly as before. An `Origin` has to be **same-origin
+ * with the request** (`Origin` host:port equals the `Host` header) **or** name a loopback name, an own
+ * interface address, or an `ALLOWED_HOSTS` name (Vite dev server, reverse proxy on another port). The
+ * IP-literal rule of `Host` deliberately does **not** apply to `Origin`: a page served from an
+ * attacker's public IP (`http://203.0.113.5/`) would otherwise pass and reach the simple-request
+ * routes (raw-body `/api/models`, `/api/projects/parse`, body-less POSTs) without a preflight.
  *
  * Pure: address lists in, a verdict out – the rules are unit-tested without a socket, and the same
  * verdict drives `/api` and `/mcp`.
@@ -91,14 +96,55 @@ export function hostAllowed(hostHeader: string | undefined, allowed: ReadonlySet
   return allowed.has(name) || isIpLiteral(name);
 }
 
-/** Whether an `Origin` header (absolute, or `null` from a sandboxed page) names an allowed host. */
-export function originAllowed(originHeader: string | undefined, allowed: ReadonlySet<string>): boolean {
+/**
+ * The port a `Host` header names, or `undefined` when it carries none.
+ *
+ * `[::1]:8080` → `8080`; a bare `fe80::1` has no port (its colons belong to the address).
+ */
+function hostPortOf(hostHeader: string | undefined): string | undefined {
+  const host = String(hostHeader ?? '')
+    .trim()
+    .toLowerCase();
+  if (!host) return undefined;
+  if (!host.startsWith('[') && host.split(':').length > 2) return undefined;
+  const colon = host.startsWith('[') ? host.indexOf(':', host.indexOf(']')) : host.indexOf(':');
+  return colon < 0 ? undefined : host.slice(colon + 1) || undefined;
+}
+
+/** The port an origin URL means, including the scheme's default. */
+function originPortOf(url: URL): string {
+  return url.port || (url.protocol === 'https:' ? '443' : '80');
+}
+
+/**
+ * Whether an `Origin` header (absolute, or `null` from a sandboxed page) is one this install trusts.
+ *
+ * Unlike `Host`, an arbitrary **IP literal is not accepted**: the pin is `Host: 192.168.1.42:8080` +
+ * `Origin: http://203.0.113.5` → 403. An origin passes when it is
+ *
+ * - same-origin with the request – the name and port equal the `Host` header (a browser page served
+ *   by this server), or
+ * - a loopback name, a name in `ALLOWED_HOSTS` (Vite dev server, reverse proxy on another port), an
+ *   own address (from `allowedHosts`), or an **IP literal** that is the request's own `Host` – which
+ *   the same-origin branch above already covers.
+ */
+export function originAllowed(originHeader: string | undefined, hostHeader: string | undefined, allowed: ReadonlySet<string>): boolean {
   if (!originHeader) return true;
   if (originHeader === 'null') return false;
+  let url: URL;
   try {
-    const name = hostNameOf(new URL(originHeader).host);
-    return !!name && (allowed.has(name) || isIpLiteral(name));
+    url = new URL(originHeader);
   } catch {
     return false;
   }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return false;
+  const name = hostNameOf(url.host);
+  if (!name) return false;
+  if (allowed.has(name)) return true;
+  if (name !== hostNameOf(hostHeader)) return false;
+  const requestPort = hostPortOf(hostHeader);
+  const originPort = originPortOf(url);
+  // a `Host` without a port names a scheme default – the header has no scheme, so both count
+  // (80 direct, 443 behind a TLS reverse proxy that forwards the Host unchanged)
+  return requestPort === undefined ? originPort === '80' || originPort === '443' : requestPort === originPort;
 }

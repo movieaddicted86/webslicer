@@ -13,11 +13,12 @@ import { allowedHostNames, hostAllowed, originAllowed } from '../services/hostGu
 export function hostGuard() {
   const allowed = allowedHostNames(config.allowedHosts);
   return (req: Request, res: Response, next: NextFunction): void => {
-    if (!hostAllowed(req.header('host'), allowed)) {
+    const host = req.header('host');
+    if (!hostAllowed(host, allowed)) {
       res.status(403).json({ error: 'host not allowed' });
       return;
     }
-    if (!originAllowed(req.header('origin'), allowed)) {
+    if (!originAllowed(req.header('origin'), host, allowed)) {
       res.status(403).json({ error: 'origin not allowed' });
       return;
     }

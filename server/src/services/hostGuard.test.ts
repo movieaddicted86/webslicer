@@ -54,18 +54,52 @@ test('a foreign host name is refused, an own address in ALLOWED_HOSTS is accepte
 });
 
 test('Origin has to name an allowed host – but missing Origin still passes (MCP clients)', () => {
-  assert.equal(originAllowed(undefined, allowed()), true);
-  assert.equal(originAllowed('http://localhost:8080', allowed()), true);
-  assert.equal(originAllowed('http://localhost:5173', allowed()), true, 'the Vite dev port differs from the API port');
-  assert.equal(originAllowed('http://192.168.0.10:8080', allowed()), true);
-  assert.equal(originAllowed('https://evil.example', allowed()), false);
-  assert.equal(originAllowed('http://evil.example:8080', allowed()), false);
-  assert.equal(originAllowed('null', allowed()), false, 'a sandboxed page has no origin to trust');
-  assert.equal(originAllowed('not a url', allowed()), false);
+  const host = '192.168.1.42:8080';
+  assert.equal(originAllowed(undefined, host, allowed()), true);
+  assert.equal(originAllowed('http://localhost:8080', host, allowed()), true);
+  assert.equal(originAllowed('http://localhost:5173', host, allowed()), true, 'the Vite dev port differs from the API port');
+  // the machine's own address, on the app's own port (same name+port as Host)
+  assert.equal(originAllowed('http://192.168.1.42:8080', host, allowed()), true);
+  assert.equal(originAllowed('http://192.168.0.10:8080', host, allowed()), false, 'a foreign IP is not an own address');
+  assert.equal(originAllowed('https://evil.example', host, allowed()), false);
+  assert.equal(originAllowed('http://evil.example:8080', host, allowed()), false);
+  assert.equal(originAllowed('null', host, allowed()), false, 'a sandboxed page has no origin to trust');
+  assert.equal(originAllowed('not a url', host, allowed()), false);
+  assert.equal(originAllowed('file:///tmp/x.html', host, allowed()), false, 'only http(s) origins exist for a request');
 });
 
-test('a rebinding request (foreign Host with the same Origin) is refused by both checks', () => {
+test('a foreign IP-literal Origin is refused even when the Host is the LAN IP', () => {
+  // the review's pin: a page from a public IP must not reach the simple-request routes
+  const host = '192.168.1.42:8080';
+  assert.equal(originAllowed('http://203.0.113.5', host, allowed()), false);
+  assert.equal(originAllowed('http://203.0.113.5:8080', host, allowed()), false);
+  // the same public IP as a Host is still fine (Docker port mapping), only Origin is strict
+  assert.equal(hostAllowed('203.0.113.5:8080', allowed()), true);
+});
+
+test('an own address is trusted on any port; a same-name origin on another port is not same-origin', () => {
+  // own interface address: the Vite dev server / a second app port on the same box
+  assert.equal(originAllowed('http://192.168.1.42:5173', '192.168.1.42:8080', allowed()), true);
+  // an IP that is only the request's Host (not an own address) has to match name *and* port
+  const host = '203.0.113.5:8080';
+  assert.equal(originAllowed('http://203.0.113.5:5173', host, allowed()), false, 'other port');
+  assert.equal(originAllowed('http://203.0.113.5:8080', host, allowed()), true);
+  // a Host without a port: the origin's scheme default is what it means
+  assert.equal(originAllowed('http://203.0.113.5', '203.0.113.5', allowed()), true);
+  assert.equal(originAllowed('http://203.0.113.5:8080', '203.0.113.5', allowed()), false);
+  assert.equal(originAllowed('https://203.0.113.5', '203.0.113.5', allowed()), true, 'a TLS proxy forwards Host without a port');
+});
+
+test('an ALLOWED_HOSTS name is a trusted Origin on any port (reverse proxy, dev server)', () => {
+  const withEnv = allowedHostNames(['webslicer.lan', 'proxy.example'], LOCAL);
+  assert.equal(originAllowed('https://webslicer.lan', 'localhost:8080', withEnv), true);
+  assert.equal(originAllowed('http://proxy.example:8008', 'localhost:8080', withEnv), true);
+});
+
+test('a rebinding request (foreign Host with the same Origin) is refused', () => {
+  // the Host check is the one that has to catch this: under rebinding Origin == Host, so the Origin
+  // check alone can never see the difference – it only has to not *widen* what the Host check allows
   const set = allowed();
   assert.equal(hostAllowed('rebind.evil.example:8080', set), false);
-  assert.equal(originAllowed('http://rebind.evil.example:8080', set), false);
+  assert.equal(originAllowed('http://rebind.evil.example', 'rebind.evil.example:8080', set), false);
 });
