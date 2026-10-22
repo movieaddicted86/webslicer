@@ -40,6 +40,91 @@ class GrowArray<T extends Float32Array | Uint8Array | Uint32Array> {
   }
 }
 
+/** Maximum chord error of an arc when it is interpolated into straight segments (mm). */
+export const ARC_CHORD_ERROR = 0.05;
+
+/**
+ * Number of straight segments an arc of `radius` and `sweep` radians needs for a chord error of at
+ * most `maxError`. The sagitta of one segment is `r * (1 - cos(step / 2))`, so
+ * `step = 2 * acos(1 - maxError / r)`; at least one segment is returned.
+ */
+export function arcSegments(radius: number, sweep: number, maxError = ARC_CHORD_ERROR): number {
+  if (!(radius > 0) || !(Math.abs(sweep) > 0)) return 1;
+  const step = maxError >= radius ? Math.PI : 2 * Math.acos(1 - maxError / radius);
+  return Math.max(1, Math.ceil(Math.abs(sweep) / step));
+}
+
+/** One interpolated point of an arc: the end of one straight piece and that piece's chord length. */
+interface ArcPoint {
+  x: number;
+  y: number;
+  /** chord length of this piece, in mm */
+  length: number;
+}
+
+/**
+ * The points of a G2 (clockwise) / G3 (counter-clockwise) arc from `(x, y)` to `(nx, ny)` around the
+ * centre `(cx, cy)`, start point excluded. G-code's plane is XY with Z up, so a positive sweep is
+ * counter-clockwise for G3.
+ */
+export function arcPoints(x: number, y: number, nx: number, ny: number, cx: number, cy: number, clockwise: boolean): ArcPoint[] {
+  const radius = Math.hypot(x - cx, y - cy);
+  if (!(radius > 0)) return [{ x: nx, y: ny, length: Math.hypot(nx - x, ny - y) }];
+  const start = Math.atan2(y - cy, x - cx);
+  const end = Math.atan2(ny - cy, nx - cx);
+  let sweep = end - start;
+  // a full circle has start === end; a zero-length arc would otherwise draw nothing
+  if (Math.abs(sweep) < 1e-12) sweep = (clockwise ? -1 : 1) * Math.PI * 2;
+  else if (clockwise && sweep > 0) sweep -= Math.PI * 2;
+  else if (!clockwise && sweep < 0) sweep += Math.PI * 2;
+  const n = arcSegments(radius, sweep);
+  const points: ArcPoint[] = [];
+  let px = x;
+  let py = y;
+  for (let i = 1; i <= n; i++) {
+    const a = start + (sweep * i) / n;
+    const qx = cx + radius * Math.cos(a);
+    const qy = cy + radius * Math.sin(a);
+    points.push({ x: qx, y: qy, length: Math.hypot(qx - px, qy - py) });
+    px = qx;
+    py = qy;
+  }
+  // the G-code's end point is authoritative (the radius may be rounded), so the last piece ends there
+  const before = points.length > 1 ? points[points.length - 2] : { x, y };
+  points[points.length - 1] = { x: nx, y: ny, length: Math.hypot(nx - before.x, ny - before.y) };
+  return points;
+}
+
+/**
+ * The absolute centre of an arc given as `R` (the radius) instead of `I`/`J`. Two circles of that
+ * radius touch both end points; the one that makes the arc the *shorter* way round is the one
+ * G-code means (a sweep of more than 180° needs the other centre). Falls back to the midpoint when
+ * the radius cannot reach from start to end.
+ */
+export function arcCentreFromRadius(x: number, y: number, nx: number, ny: number, r: number, clockwise: boolean): [number, number] {
+  const dx = nx - x;
+  const dy = ny - y;
+  const d = Math.hypot(dx, dy);
+  if (!(r > 0) || d === 0 || d > 2 * r) return [(x + nx) / 2, (y + ny) / 2];
+  const mx = (x + nx) / 2;
+  const my = (y + ny) / 2;
+  const h = Math.sqrt(Math.max(0, r * r - (d / 2) ** 2));
+  // the centre left of the start→end direction; the sign picks the side that gives the shorter arc
+  const ux = -dy / d;
+  const uy = dx / d;
+  const left: [number, number] = [mx + ux * h, my + uy * h];
+  const right: [number, number] = [mx - ux * h, my - uy * h];
+  const sweepAt = (cx: number, cy: number) => {
+    const a0 = Math.atan2(y - cy, x - cx);
+    const a1 = Math.atan2(ny - cy, nx - cx);
+    let s = a1 - a0;
+    if (clockwise && s > 0) s -= Math.PI * 2;
+    if (!clockwise && s < 0) s += Math.PI * 2;
+    return Math.abs(s);
+  };
+  return sweepAt(...left) <= Math.PI ? left : right;
+}
+
 /** Value of "; key = value" from the config block PrusaSlicer appends to the G-code. */
 function configValue(text: string, key: string): string | undefined {
   const i = text.lastIndexOf(`\n; ${key} = `);
@@ -192,11 +277,18 @@ export function parseGcode(text: string): ParsedGcode {
     if (sc >= 0) line = line.slice(0, sc);
     const parts = line.trim().split(/\s+/);
     const cmd = parts[0];
-    if (cmd === 'G0' || cmd === 'G1') {
+    if (cmd === 'G0' || cmd === 'G1' || cmd === 'G2' || cmd === 'G3') {
+      // B8: G2/G3 (only emitted with `arc_fitting`) are interpolated into straight segments; G0/G1
+      // stay one segment. Both paths end in the same "one move" handling below.
+      const isArc = cmd === 'G2' || cmd === 'G3';
+      const clockwise = cmd === 'G2';
       let nx = x,
         ny = y,
         nz = z,
         ne = e;
+      let ci = NaN;
+      let cj = NaN;
+      let radius = NaN;
       let hasE = false;
       for (let i = 1; i < parts.length; i++) {
         const p = parts[i];
@@ -219,23 +311,63 @@ export function parseGcode(text: string): ParsedGcode {
           case 'F':
             feed = v / 60;
             break;
+          case 'I':
+            ci = v;
+            break;
+          case 'J':
+            cj = v;
+            break;
+          case 'R':
+            radius = v;
+            break;
         }
       }
       const de = hasE ? ne - e : 0;
       const moved = nx !== x || ny !== y || nz !== z;
-      if (moved) {
-        const dist = Math.hypot(nx - x, ny - y, nz - z);
+      // the arc's centre is either the I/J offset from the start (relative, as Marlin reads them) or
+      // derived from R; both are normalised to an absolute centre here. An arc that ends where it
+      // starts is a full circle when a centre is given, so it is drawn even though `moved` is false.
+      let targets: Array<{ x: number; y: number; length: number }> = [];
+      if (isArc && (moved || Number.isFinite(ci) || Number.isFinite(cj) || Number.isFinite(radius))) {
+        let cx: number;
+        let cy: number;
+        if (Number.isFinite(ci) || Number.isFinite(cj)) {
+          cx = x + (Number.isFinite(ci) ? ci : 0);
+          cy = y + (Number.isFinite(cj) ? cj : 0);
+        } else if (Number.isFinite(radius)) {
+          const c = arcCentreFromRadius(x, y, nx, ny, radius, clockwise);
+          cx = c[0];
+          cy = c[1];
+        } else {
+          // no centre information (a broken G2/G3): draw the straight line it spans
+          cx = NaN;
+          cy = NaN;
+        }
+        if (Number.isFinite(cx)) targets = arcPoints(x, y, nx, ny, cx, cy, clockwise);
+        else if (moved) targets = [{ x: nx, y: ny, length: Math.hypot(nx - x, ny - y) }];
+      }
+      if (!isArc) targets = [{ x: nx, y: ny, length: Math.hypot(nx - x, ny - y, nz - z) }];
+      const total = targets.reduce((s, t) => s + t.length, 0);
+      // a full circle ends where it starts, so `moved` is false even though the arc draws a whole loop
+      const drawing = moved || (isArc && total > 0);
+      if (drawing) {
         if (layer < 0) newLayer(nz);
-        if (feed > 0) layerTime[layer] += dist / feed;
+        if (feed > 0) layerTime[layer] += total / feed;
         if (feed > 0) {
           const tname = de > 0 || wiping ? featureTypes[curType] : 'Travel';
-          featureTime[tname] = (featureTime[tname] || 0) + dist / feed;
+          featureTime[tname] = (featureTime[tname] || 0) + total / feed;
         }
-        if (de > 0) {
+      }
+      let px = x;
+      let py = y;
+      for (const t of drawing ? targets : []) {
+        // the arc's E is shared out by arc length, so every piece gets its proportional share
+        const pieceE = isArc ? (de * t.length) / (total || 1) : de;
+        if (pieceE > 0) {
           const atMove = move++;
-          positions.push(x, y, z, nx, ny, nz);
+          positions.push(px, py, z, t.x, t.y, nz);
           types.push(curType);
-          layers.push(layer);
+          layers.push(layer < 0 ? 0 : layer);
           tools.push(curTool);
           speeds.push(feed);
           fans.push(fan);
@@ -243,33 +375,35 @@ export function parseGcode(text: string): ParsedGcode {
           widths.push(width);
           heights.push(height);
           // E is rounded in the G-code, so very short moves give noisy ratios
-          if (dist >= 0.2 || mm3PerMm === 0) mm3PerMm = (de * filamentArea) / dist;
+          if (t.length >= 0.2 || mm3PerMm === 0) mm3PerMm = (pieceE * filamentArea) / (t.length || 1);
           flows.push(mm3PerMm * feed);
           moveIndex.push(atMove);
           segCount++;
           const fname = featureTypes[curType];
-          featureLength[fname] = (featureLength[fname] || 0) + dist;
-          if (externalPerimeter && !sawExtrusionSinceType && !wiping) addMarker('seam', x, y, z, atMove);
+          featureLength[fname] = (featureLength[fname] || 0) + t.length;
+          if (externalPerimeter && !sawExtrusionSinceType && !wiping) addMarker('seam', px, py, z, atMove);
           sawExtrusionSinceType = true;
-          for (const [i, v] of [nx, ny, nz].entries()) {
+          for (const [i, v] of [t.x, t.y, nz].entries()) {
             if (v < bmin[i]) bmin[i] = v;
             if (v > bmax[i]) bmax[i] = v;
           }
         } else if (wiping) {
           // wipe moves are their own kind: neither extrusion nor travel
-          wipePositions.push(x, y, z, nx, ny, nz);
+          wipePositions.push(px, py, z, t.x, t.y, nz);
           wipeLayers.push(layer < 0 ? 0 : layer);
           wipeMove.push(move++);
           wipeCount++;
         } else {
-          travelPositions.push(x, y, z, nx, ny, nz);
+          travelPositions.push(px, py, z, t.x, t.y, nz);
           travelLayers.push(layer);
           travelMove.push(move++);
           travelCount++;
         }
+        px = t.x;
+        py = t.y;
       }
-      if (de < 0 && !moved) addMarker('retract', x, y, z);
-      else if (de > 0 && !moved && lastEMove <= 0) addMarker('deretract', x, y, z);
+      if (de < 0 && !drawing) addMarker('retract', x, y, z);
+      else if (de > 0 && !drawing && lastEMove <= 0) addMarker('deretract', x, y, z);
       lastEMove = de;
       x = nx;
       y = ny;

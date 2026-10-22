@@ -213,3 +213,77 @@ test('a wipe counts towards its feature, not towards travel', () => {
   const travel = 0.2 / 130 + Math.hypot(10, 10) / 130 + Math.hypot(21, 10) / 150;
   assert.ok(Math.abs(g.featureTime['Travel'] - travel) < 1e-5, `${g.featureTime['Travel']} != ${travel}`);
 });
+
+/**
+ * B8: `arc_fitting` (off by default) makes PrusaSlicer emit G2/G3 instead of a run of G1 moves. The
+ * parser used to skip them, so a fitted file lost whole perimeters from the preview.
+ */
+test('B8: a G2 arc is interpolated into segments that follow the circle', () => {
+  // a quarter circle of radius 10 around (10, 0): from (0, 0) clockwise to (10, 10), over the top
+  const g = parseGcode(
+    ['M83', ';LAYER_CHANGE', ';Z:0.2', 'G1 X0 Y0 F6000', ';TYPE:External perimeter', 'G2 X10 Y10 I10 J0 E1.5', ''].join('\n'),
+  );
+  assert.ok(g.segmentCount > 1, 'the arc became several segments');
+  // every vertex of the chain lies on the circle (the last one snaps to the rounded end point)
+  for (let i = 0; i < g.segmentCount - 1; i++) {
+    const x = g.positions[i * 6];
+    const y = g.positions[i * 6 + 1];
+    assert.ok(Math.abs(Math.hypot(x - 10, y) - 10) < 1e-3, `start ${i} on the circle`);
+  }
+  const end = g.positions[(g.segmentCount - 1) * 6 + 3];
+  assert.equal(end, 10);
+  // the chain is connected: each piece starts where the previous one ended
+  for (let i = 1; i < g.segmentCount; i++) {
+    assert.equal(g.positions[i * 6], g.positions[i * 6 - 3]);
+    assert.equal(g.positions[i * 6 + 1], g.positions[i * 6 - 2]);
+  }
+  // the arc length of the quarter circle is ~15.71 mm, and the extrusion belongs to the perimeter
+  assert.ok(Math.abs(g.featureLength['External perimeter'] - (Math.PI / 2) * 10) < 0.2);
+});
+
+test('B8: the chord error of an interpolated arc stays below 0.05 mm', () => {
+  // a full circle at R=10 needs a fine step: no vertex may sit far off the circle
+  const g = parseGcode(['M83', ';Z:0.2', 'G1 X0 Y0', ';TYPE:Perimeter', 'G3 X0.0 Y0.0 I10 J0 E8', ''].join('\n'));
+  assert.ok(g.segmentCount > 30, `the full circle became ${g.segmentCount} segments`);
+  let worst = 0;
+  for (let i = 0; i < g.segmentCount; i++) {
+    const x = g.positions[i * 6 + 3];
+    const y = g.positions[i * 6 + 4];
+    worst = Math.max(worst, Math.abs(Math.hypot(x - 10, y) - 10));
+  }
+  assert.ok(worst <= 0.05 + 1e-6, `worst deviation ${worst}`);
+  // the whole extrusion lands in the layer and in the perimeter, none is lost at the wrap-around
+  assert.ok(Math.abs(g.featureLength.Perimeter - 2 * Math.PI * 10) < 0.2);
+});
+
+test('B8: a G2 goes clockwise and a G3 counter-clockwise', () => {
+  const cw = parseGcode(['M83', ';Z:0.2', 'G1 X0 Y0', ';TYPE:Perimeter', 'G2 X10 Y10 I10 J0 E1.5', ''].join('\n'));
+  const ccw = parseGcode(['M83', ';Z:0.2', 'G1 X0 Y0', ';TYPE:Perimeter', 'G3 X10 Y10 I10 J0 E1.5', ''].join('\n'));
+  // both end at the same point, but they take different ways round the centre (10, 0)
+  assert.equal(cw.positions[(cw.segmentCount - 1) * 6 + 3], 10);
+  assert.equal(ccw.positions[(ccw.segmentCount - 1) * 6 + 3], 10);
+  // from the start at angle 180° to the end at 90° around (10, 0): clockwise is the quarter arc
+  // through 135° (above the centre), counter-clockwise the three-quarter one through 0° (below it)
+  const first = (p: typeof cw) => p.positions[4];
+  assert.ok(first(cw) > 0, `clockwise goes above the centre (y ${first(cw)})`);
+  assert.ok(first(ccw) < 0, `counter-clockwise goes below the centre (y ${first(ccw)})`);
+  // the shorter arc is a quarter; the longer one is three quarters
+  assert.ok(Math.abs(cw.featureLength.Perimeter - (Math.PI / 2) * 10) < 0.2, 'clockwise takes the short way');
+  assert.ok(Math.abs(ccw.featureLength.Perimeter - ((3 * Math.PI) / 2) * 10) < 0.3, 'counter-clockwise takes the long way');
+});
+
+test('B8: an R arc picks the centre that gives the shorter sweep', () => {
+  // from (0,0) to (10,0) with R=10 clockwise: the short 60° arc bulges ~1.34 mm up
+  const g = parseGcode(['M83', ';Z:0.2', 'G1 X0 Y0', ';TYPE:Perimeter', 'G2 X10 Y0 R10 E2', ''].join('\n'));
+  let maxY = -Infinity;
+  for (let i = 0; i < g.segmentCount; i++) maxY = Math.max(maxY, g.positions[i * 6 + 4]);
+  assert.ok(Math.abs(maxY - (10 - Math.sqrt(100 - 25))) < 0.2, `max y ${maxY}`);
+  // the short arc is a sixth of the circle; the long one would be 5/6
+  assert.ok(Math.abs(g.featureLength.Perimeter - (Math.PI / 3) * 10) < 0.2);
+});
+
+test('B8: a G2/G3 without a centre is drawn as the straight line it spans', () => {
+  const g = parseGcode(['M83', ';Z:0.2', 'G1 X0 Y0', ';TYPE:Perimeter', 'G3 X10 Y0 E1', ''].join('\n'));
+  assert.equal(g.segmentCount, 1);
+  assert.equal(g.positions[3], 10);
+});
