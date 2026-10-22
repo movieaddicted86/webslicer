@@ -71,7 +71,14 @@ export function plater(page: Page): Promise<PlaterSnapshot> {
               mmu: o.paint.mmu ? Array.from(o.paint.mmu).filter(Boolean).length : 0,
             }
           : null,
-        volumes: o.volumes.map((v) => ({ id: v.id, name: v.name, type: v.type, extruder: v.extruder, position: v.position.map(r), size: v.size.map(r) })),
+        volumes: o.volumes.map((v) => ({
+          id: v.id,
+          name: v.name,
+          type: v.type,
+          extruder: v.extruder,
+          position: v.position.map(r),
+          size: v.size.map(r),
+        })),
         ranges: o.ranges.map((x) => ({ minZ: x.minZ, maxZ: x.maxZ, layerHeight: x.config.layer_height ?? null })),
         instances: o.instances.map((i) => ({ id: i.id, position: i.position.map(r), rotation: i.rotation.map(r), scale: i.scale.map(r) })),
       })),

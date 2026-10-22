@@ -324,7 +324,9 @@ test.describe('sidebar: the extruder palette (F-21)', () => {
 
     await click(app, '.paint-panel button:has-text("Extruder")', 900);
     const palette = await app.evaluate(() => ({
-      swatches: Array.from(document.querySelectorAll('.paint-tools .tool.extruder .swatch')).map((s) => getComputedStyle(s).backgroundColor),
+      swatches: Array.from(document.querySelectorAll('.paint-tools .tool.extruder .swatch')).map(
+        (s) => getComputedStyle(s).backgroundColor,
+      ),
       labels: Array.from(document.querySelectorAll('.paint-tools .tool.extruder')).map((t) => t.textContent?.trim()),
     }));
     expect(palette.swatches).toHaveLength(6);

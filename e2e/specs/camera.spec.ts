@@ -38,7 +38,10 @@ test.describe('camera: the seven views', () => {
       const objects = frame.objects as [number, number, number, number] | null;
       expect(objects, `view ${key}: the object is projected`).not.toBeNull();
       if (!objects) continue;
-      expect(objects.every((v) => Math.abs(v) < 1), `view ${key}: the object is inside the picture`).toBe(true);
+      expect(
+        objects.every((v) => Math.abs(v) < 1),
+        `view ${key}: the object is inside the picture`,
+      ).toBe(true);
       expect(Math.abs((objects[0] + objects[2]) / 2), `view ${key}: horizontal centre`).toBeLessThan(0.25);
       expect(Math.abs((objects[1] + objects[3]) / 2), `view ${key}: vertical centre`).toBeLessThan(0.25);
 
@@ -64,10 +67,18 @@ test.describe('camera: the seven views', () => {
 
     await press(app, 'k');
     await app.waitForTimeout(900);
-    const ortho = { button: await projection(), frame: await frameProbe(app), stored: await app.evaluate(() => localStorage.getItem('webslicer.camera.ortho')) };
+    const ortho = {
+      button: await projection(),
+      frame: await frameProbe(app),
+      stored: await app.evaluate(() => localStorage.getItem('webslicer.camera.ortho')),
+    };
     await press(app, 'k');
     await app.waitForTimeout(900);
-    const persp = { button: await projection(), frame: await frameProbe(app), stored: await app.evaluate(() => localStorage.getItem('webslicer.camera.ortho')) };
+    const persp = {
+      button: await projection(),
+      frame: await frameProbe(app),
+      stored: await app.evaluate(() => localStorage.getItem('webslicer.camera.ortho')),
+    };
 
     expect(ortho.button).toBe('Ortho');
     expect(persp.button).toBe('Persp');
@@ -146,7 +157,11 @@ test.describe('camera: the bed', () => {
     await app.waitForTimeout(1500);
     await press(app, '1');
     await app.waitForTimeout(1400);
-    const rect = { shape: await read(app, (s) => s.presets.printer.current.bed_shape), ...(await bedOutline(app)), grid: (await shot(app)).grid };
+    const rect = {
+      shape: await read(app, (s) => s.presets.printer.current.bed_shape),
+      ...(await bedOutline(app)),
+      grid: (await shot(app)).grid,
+    };
     expect(rect.shape).toBe('0x0,250x0,250x210,0x210');
     expect(rect.outline).toHaveLength(4);
     expect(rect.plateVerts).toBe(4);
@@ -155,12 +170,18 @@ test.describe('camera: the bed', () => {
     await app.evaluate(() => {
       const s = window.webslicer.getState();
       const bed_shape = '0x0,200x0,200x200,100x200,0x120';
-      window.webslicer.setState({ presets: { ...s.presets, printer: { ...s.presets.printer, current: { ...s.presets.printer.current, bed_shape } } } });
+      window.webslicer.setState({
+        presets: { ...s.presets, printer: { ...s.presets.printer, current: { ...s.presets.printer.current, bed_shape } } },
+      });
     });
     await app.waitForTimeout(2600);
     await press(app, '1');
     await app.waitForTimeout(1600);
-    const l = { shape: await read(app, (s) => s.presets.printer.current.bed_shape), ...(await bedOutline(app)), grid: (await shot(app)).grid };
+    const l = {
+      shape: await read(app, (s) => s.presets.printer.current.bed_shape),
+      ...(await bedOutline(app)),
+      grid: (await shot(app)).grid,
+    };
     expect(l.shape.startsWith('0x0,200x0')).toBe(true);
     expect(l.outline).toHaveLength(5);
     expect(l.outline?.[3]).toEqual([100, 200]);

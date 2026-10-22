@@ -157,7 +157,14 @@ test.describe('dialogs: the app dialogs (S11)', () => {
       disabled: (document.querySelector('.custom-printer .modal-actions button') as HTMLButtonElement | null)?.disabled,
       name: (document.querySelector('.custom-printer input') as HTMLInputElement | null)?.value,
     }));
-    expect(custom.labels).toEqual(['Name', 'Bed size X (mm)', 'Bed size Y (mm)', 'Max print height (mm)', 'Nozzle diameter (mm)', 'Firmware flavor']);
+    expect(custom.labels).toEqual([
+      'Name',
+      'Bed size X (mm)',
+      'Bed size Y (mm)',
+      'Max print height (mm)',
+      'Nozzle diameter (mm)',
+      'Firmware flavor',
+    ]);
     expect(custom.flavors).toHaveLength(11);
     expect(custom.action).toBe('Create printer');
     // the form starts on a default name; an empty name cannot create a printer
@@ -175,9 +182,13 @@ test.describe('dialogs: the app dialogs (S11)', () => {
       title: document.querySelector('.modal-head h2')?.textContent,
       // the label text before the control only – a select's options are part of its textContent
       labels: Array.from(document.querySelectorAll('.form label')).map((l) => l.firstChild?.textContent?.trim()),
-      hostTypes: Array.from(document.querySelectorAll('.form select')).map((s) => Array.from((s as HTMLSelectElement).options).map((o) => o.value)),
+      hostTypes: Array.from(document.querySelectorAll('.form select')).map((s) =>
+        Array.from((s as HTMLSelectElement).options).map((o) => o.value),
+      ),
       placeholders: Array.from(document.querySelectorAll('.form input')).map((i) => i.getAttribute('placeholder')),
-      actions: Array.from(document.querySelectorAll('.modal-actions button')).map((b) => `${b.textContent}${(b as HTMLButtonElement).disabled ? ' (disabled)' : ''}`),
+      actions: Array.from(document.querySelectorAll('.modal-actions button')).map(
+        (b) => `${b.textContent}${(b as HTMLButtonElement).disabled ? ' (disabled)' : ''}`,
+      ),
     }));
     expect(form.title).toBe('Physical printers');
     expect(form.labels).toEqual(['Name', 'Host type', 'Hostname / IP', 'API key', 'Printer preset']);
@@ -273,10 +284,18 @@ test.describe('dialogs: the app dialogs (S11)', () => {
     // the switch goes through the preset select: its change handler asks the dialog
     const target = await app.evaluate(() => {
       const sel = document.querySelector('.presets .preset-select select') as HTMLSelectElement;
-      return { from: sel.value, target: Array.from(sel.options).map((o) => o.value).find((v) => v !== sel.value && v !== '__add_printer__') };
+      return {
+        from: sel.value,
+        target: Array.from(sel.options)
+          .map((o) => o.value)
+          .find((v) => v !== sel.value && v !== '__add_printer__'),
+      };
     });
     expect(target.target).toBeTruthy();
-    await app.locator('.presets .preset-select select').first().selectOption(target.target as string);
+    await app
+      .locator('.presets .preset-select select')
+      .first()
+      .selectOption(target.target as string);
     await app.waitForSelector('.changes tbody tr', { timeout: 20_000 });
 
     const unsaved = await app.evaluate(() => ({

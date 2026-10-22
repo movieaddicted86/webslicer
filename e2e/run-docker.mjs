@@ -62,7 +62,19 @@ async function main() {
   fs.mkdirSync(LIBRARY, { recursive: true });
 
   log(`starting ${CONTAINER} on port ${PORT} …`);
-  const run = docker(['run', '-d', '--name', CONTAINER, '-p', `${PORT}:8080`, '-v', mount(DATA, '/data'), '-v', mount(LIBRARY, '/library'), IMAGE]);
+  const run = docker([
+    'run',
+    '-d',
+    '--name',
+    CONTAINER,
+    '-p',
+    `${PORT}:8080`,
+    '-v',
+    mount(DATA, '/data'),
+    '-v',
+    mount(LIBRARY, '/library'),
+    IMAGE,
+  ]);
   if (run.status !== 0) throw new Error('docker run failed');
 
   // the first start reads the vendor bundles and builds the option schema (~10 s locally)
@@ -94,7 +106,7 @@ let exitCode = 1;
 try {
   exitCode = await main();
 } catch (e) {
-  console.error(`[e2e] ${(e as Error).message}`);
+  console.error(`[e2e] ${e.message}`);
   docker(['logs', '--tail', '50', CONTAINER]);
 } finally {
   cleanup();

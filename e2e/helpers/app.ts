@@ -83,13 +83,18 @@ export async function press(page: Page, key: string): Promise<void> {
 export async function sliceAndWait(page: Page, previousJobId: string | undefined = undefined): Promise<void> {
   const before = previousJobId ?? (await page.evaluate(() => window.webslicer.getState().job?.id));
   await page.evaluate(() => window.webslicer.getState().slice());
+  await waitSliceDone(page, before);
+}
+
+/** Wait until a job other than `beforeId` finished and its toolpaths are loaded. */
+export async function waitSliceDone(page: Page, beforeId: string | undefined, timeout = 600_000): Promise<void> {
   await page.waitForFunction(
     (prev) => {
       const j = window.webslicer.getState().job;
       return !!j && j.id !== prev && ['done', 'error'].includes(j.status);
     },
-    before,
-    { timeout: 600_000 },
+    beforeId,
+    { timeout },
   );
   await page.waitForFunction(
     () => {
