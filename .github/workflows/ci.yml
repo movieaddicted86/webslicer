@@ -19,3 +19,126 @@ jobs:
       - run: npm run format:check
       - run: npm test
       - run: npm run build
+
+  # The browser net (T-030): the real image, the real PrusaSlicer CLI, the fixture data dir, and the
+  # mock print host the send spec uploads to (a sibling container on a private network – no real
+  # printer, no host port). The PrusaSlicer layer is the expensive part of the image (~3 min) – it is
+  # built as its own target and cached in the GHA cache, so a normal run only rebuilds the app layers.
+  #
+  # The suite is **sharded over three jobs**: one full pass took ~24 min on a runner, i.e. over the
+  # 15-min gate. Each shard builds the (cached) image, starts its own app + mock host on its own
+  # runner and runs its share (`--shard=<n>/3`). Playwright splits by file group, and the measured
+  # balance of the three shards is in the T-030 report.
+  #
+  # The shard sizes are **weighted by the measured test time**, not by the test count: `preview`
+  # (one real slice per test, ~5 min) and `dialogs` (~3 min) are the heavy files, and the count-based
+  # split put all four files before it in shard 1 (40 tests, 11.8 min) and left shard 3 with 19 tests
+  # (5.3 min). The weights give 27 / 22 / 33 tests, i.e. 5.3 / 8.7 / 8.3 min of test time locally.
+  # `PWTEST_SHARD_WEIGHTS` is read by Playwright's own sharding; if a later version drops it, the
+  # split falls back to the equal (count-based) one, which still fits the gate with a cached browser.
+  e2e:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ['1/3', '2/3', '3/3']
+    # a shard runs ~⅓ of the suite; the cap is a backstop against a hung slice, not the target
+    timeout-minutes: 30
+    env:
+      E2E_BASE_URL: http://localhost:8080
+      E2E_MOCK_URL: http://mock-host:8160
+      PWTEST_SHARD_WEIGHTS: 27:22:33
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: docker/setup-buildx-action@v3
+      - name: Build the image
+        # `mode=max` keeps the intermediate layers too, so the PrusaSlicer stage (~3 min, the
+        # download of the AppImage) is a cache hit on every run after the first. The three shards
+        # build at the same time, so each exports to its own cache scope (one GHA cache scope cannot
+        # be written by two builds) and reads the shared scope first.
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: webslicer:e2e
+          cache-from: |
+            type=gha,scope=e2e
+            type=gha,scope=e2e-${{ strategy.job-index }}
+          cache-to: type=gha,mode=max,scope=e2e-${{ strategy.job-index }}
+      - name: Build the mock print host
+        run: docker build -t webslicer-mock-host:e2e e2e/mock-host
+      - run: npm ci
+      - name: Cache the Playwright browsers
+        # the browser build is a ~170 MB download per job and one shard took 12 min for it in the first
+        # three-way run; the cache key is the Playwright version, so a dependency bump invalidates it
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: playwright-${{ runner.os }}-
+      - run: npx playwright install --with-deps chromium
+      - name: Start the app and the mock print host
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/e2e/library" "$RUNNER_TEMP/e2e/mock"
+          cp -r e2e/fixtures/data "$RUNNER_TEMP/e2e/data"
+          # both images run as `node` (uid 1000), the runner's temp dirs belong to the runner user:
+          # without this the server cannot write its data dir and exits before it listens
+          chmod -R a+rwX "$RUNNER_TEMP/e2e"
+          docker network create e2e-net
+          docker run -d --name mock-host --network e2e-net --network-alias mock-host \
+            -v "$RUNNER_TEMP/e2e/mock:/mock-data" webslicer-mock-host:e2e
+          docker run -d --name e2e --network e2e-net \
+            -p 8080:8080 \
+            -v "$RUNNER_TEMP/e2e/data:/data" \
+            -v "$RUNNER_TEMP/e2e/library:/library" \
+            webslicer:e2e
+          for i in $(seq 1 120); do
+            if curl -fsS http://localhost:8080/api/health >/dev/null 2>&1; then
+              echo "the app answered after ~$((i * 2)) s"
+              curl -fsS http://localhost:8080/api/health
+              break
+            fi
+            if [ "$(docker inspect -f '{{.State.Running}}' e2e 2>/dev/null || echo false)" != "true" ]; then
+              echo "the app container exited:"
+              docker logs e2e || true
+              exit 1
+            fi
+            if [ "$i" = 120 ]; then
+              echo "the app did not answer within 240 s:"
+              docker logs --tail 100 e2e || true
+              exit 1
+            fi
+            sleep 2
+          done
+          # the app has to resolve the mock by name before the send spec runs
+          docker exec e2e node -e "fetch('http://mock-host:8160/api/version').then(r=>r.json()).then(j=>console.log('mock host:',j.server)).catch(e=>{console.error(e);process.exit(1)})"
+      - name: Run the E2E suite (shard ${{ matrix.shard }})
+        # the mock's log dir is a path on the runner; the `runner` context only exists inside a step
+        env:
+          E2E_MOCK_DIR: ${{ runner.temp }}/e2e/mock
+        run: npm run e2e -- --shard=${{ matrix.shard }}
+      - name: Server log (on failure)
+        if: failure()
+        run: |
+          docker logs e2e --tail 200 || true
+          docker logs mock-host --tail 100 || true
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          # one report per shard: the three jobs run on different runners, so the file sets cannot
+          # be merged and must not overwrite each other
+          name: playwright-report-shard-${{ strategy.job-index }}
+          path: |
+            playwright-report
+            test-results
+          retention-days: 14
+      - name: Stop the containers
+        if: always()
+        run: |
+          docker rm -f e2e mock-host || true
+          docker network rm e2e-net || true

@@ -43,7 +43,8 @@ const SSE_TIMEOUT_MS = 180_000;
 
 /** The library is seeded with these samples on first start (`server/src/samples.ts`). */
 const SAMPLE_CUBE = 'samples/calibration_cube_20mm.stl';
-const SAMPLE_3MF = 'samples/prusaslicer_export.3mf';
+/** A 3MF for the project-import check, written by the server itself – no sample file is needed. */
+const SAMPLE_3MF = 'smoke-tmp/project.3mf';
 
 /** Fixed presets, so both runs slice exactly the same thing. */
 const PRINTER_PRESET = 'Original Prusa MK4S HF0.4 nozzle';
@@ -1112,6 +1113,30 @@ async function projectEndpoints(): Promise<void> {
 
 /** `POST /api/projects/parse`: the browser's 3MF import, available without a browser. */
 async function projectParse(): Promise<void> {
+  // The repo has no ready-made 3MF sample (the four `samples/` files are STLs), so the archive is
+  // written by the server itself: export the uploaded model as a project, store it in the library,
+  // and let the import route parse that file. A sample checked in just for this would age.
+  const request = await sliceRequest('smoke_project', 'smoke_project');
+  setup.sample3mf = 'unavailable';
+  if (request) {
+    const res = await fetch(`${BASE}/api/export/3mf`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(request),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+    if (res.ok) {
+      const buf = Buffer.from(await res.arrayBuffer());
+      const put = await fetch(`${BASE}/api/library/file?path=${encodeURIComponent(SAMPLE_3MF)}`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/octet-stream' },
+        body: buf as unknown as BodyInit,
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      });
+      if (put.ok) setup.sample3mf = 'written by the server';
+    }
+  }
+
   const threeMf = await fetchSample(SAMPLE_3MF);
   const parsed = await call('/api/projects/parse', {
     method: 'POST',

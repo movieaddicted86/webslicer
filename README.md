@@ -273,6 +273,43 @@ npm test             # shared + server + web tests (builds shared first)
 For local development PrusaSlicer must be reachable (`PRUSASLICER_BIN`); on Windows the
 `prusa-slicer-console.exe` of the desktop installation is found automatically.
 
+### Running the E2E suite
+
+The browser checks live in `e2e/` (Playwright, Chromium only). They run against the **real app** –
+the server, the PrusaSlicer CLI and the built frontend – with the fixture data dir
+`e2e/fixtures/data` (an installed MK3S, no physical printers).
+
+```bash
+npm ci
+npx playwright install chromium        # once per machine, after `npm ci`
+npm run e2e:docker          # build the image, start it + the mock print host, run everything, stop it
+npm run e2e:docker -- viewer.spec.ts   # a single spec
+E2E_BASE_URL=http://localhost:8081 npm run e2e   # against an app you started yourself
+```
+
+`e2e:docker` copies the fixture data to a temp dir, builds `webslicer:e2e`, starts it on the first free
+port from 8080 and adds a **mock print host** (`e2e/mock-host`, a sibling container on a private
+network). The send tests upload to that mock – a real printer is never contacted. Without the mock
+(the `npm run e2e` form) the send tests skip.
+
+There is **no default target**: without `E2E_BASE_URL`, `npm run e2e` stops with a message. The suite
+deletes jobs and writes presets, printers and autosave files, so it must only ever see a copy of
+`e2e/fixtures/data` – and it checks that: the fixture dir carries a marker preset
+(`E2E fixture – do not use`) that no real instance has, and the global setup refuses a target without it
+before it writes anything. A hand-started server for the suite therefore needs that data dir (or the
+marker copied into it); never point it at your working install.
+
+- Specs by area: `smoke`, `viewer`, `camera`, `sidebar`, `dialogs`, `preview`, `send`, `api-smoke`.
+- `retries: 0`, one worker: a flaky test is a failure, not a retry.
+- On failure Playwright keeps a trace, a screenshot and the error context in `test-results/`; in CI each
+  shard uploads its own `playwright-report-shard-<n>` artifact.
+- Slicing is the slow part (software WebGL in CI): a full run takes ~20–25 min, so CI runs the suite
+  **sharded over three jobs** (`--shard=1/3` … `3/3`, each with its own app + mock host), weighted by
+  the measured time of each spec (`PWTEST_SHARD_WEIGHTS`, set in the workflow) so the shards carry
+  5 / 9 / 10 min of suite time on a runner instead of 12 / 7 / 5. The Playwright browsers are cached
+  per `package-lock.json`: with a warm cache a shard job takes 6–11 min, and the first run after a
+  dependency bump pays the browser download on all three shards at once.
+
 ### Architecture
 
 ```
