@@ -226,7 +226,7 @@ async function collectJobInfo(
 ): Promise<void> {
   // S1-c: the finished file is scanned once, here; the result is stored in the record and the send
   // gate merges its issues into the preset issues (no second scan on every send).
-  const preflight = scanGcodeFile(outFile, machineLimits);
+  const preflight = await scanGcodeFile(outFile, machineLimits);
   if (job.technology === 'FFF' && outFile.endsWith('.gcode')) {
     try {
       job.info = { ...readGcodeInfo(outFile), warnings, preflight };

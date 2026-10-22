@@ -376,3 +376,37 @@ test('a clean job with a matching host uploads without any issue', async () => {
   assert.equal(res.status, 200, JSON.stringify(res.json));
   assert.deepEqual(body.issues, [], 'a clean file and a matching preset have nothing to report');
 });
+
+/**
+ * The send request scans a record without a stored result (the pre-S1-c case). That read is async, so
+ * the server keeps answering while the ~20 MB file is parsed: a `GET /api/health` sent during the
+ * scan is answered quickly instead of after it.
+ */
+test('a health request is answered while the send scans a large file', async () => {
+  fs.rmSync(config.auditLog, { force: true });
+  const bigId = 'eeeeeeee-ffff-0000-1111-222222222222';
+  const dir = path.join(config.jobsDir, bigId);
+  fs.mkdirSync(dir, { recursive: true });
+  const template = fs.readFileSync(path.join(config.jobsDir, JOB_ID, 'job.json'), 'utf8');
+  fs.writeFileSync(path.join(dir, 'job.json'), template.replaceAll(JOB_ID, bigId));
+  // no stored preflight in the record: the gate has to scan this file itself
+  const line = 'G1 X12.345 Y67.890 E0.01234\n';
+  fs.writeFileSync(path.join(dir, 'part.gcode'), line.repeat(Math.ceil((20 * 1024 * 1024) / line.length)));
+  await loadJobsFromDisk();
+
+  const id = await addPrinter('Big host', JOB_PRESET);
+  const started = performance.now();
+  const sending = send(id, {}, bigId);
+  // let the scan start, then ask the same server for its health
+  await new Promise((r) => setTimeout(r, 150));
+  const healthStarted = performance.now();
+  const health = await fetch(`${base}/api/health`);
+  const healthMs = performance.now() - healthStarted;
+  const result = await sending;
+  const totalMs = performance.now() - started;
+
+  assert.equal(health.status, 200);
+  assert.ok(totalMs > 400, `the scan took ${totalMs.toFixed(0)} ms – big enough to see`);
+  assert.ok(healthMs < totalMs / 2, `health answered in ${healthMs.toFixed(0)} ms of a ${totalMs.toFixed(0)} ms send`);
+  assert.equal(result.status, 409, 'the file starts with a move and never homes');
+});

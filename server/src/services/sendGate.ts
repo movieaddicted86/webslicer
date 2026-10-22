@@ -55,7 +55,7 @@ export async function preflightIssues(job: JobRecord, gcodePath: string): Promis
   if (isBinaryGcode(job.outputName)) return [notScannedIssue('the output is binary G-code (.bgcode), which the preflight does not read')];
   const schema = await activeSchema();
   const printer = resolvePreset(schema, 'printer', job.presets.printer);
-  return preflightSendIssues(scanGcodeFile(gcodePath, machineLimitsOf(printer?.config ?? {})));
+  return preflightSendIssues(await scanGcodeFile(gcodePath, machineLimitsOf(printer?.config ?? {})));
 }
 
 /** An accepted override as it goes into the audit log: job, host, the issues, the reason. */
