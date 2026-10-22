@@ -205,17 +205,22 @@ test.describe('dialogs: the app dialogs (S11)', () => {
   test('the PTFE preset fills the hotend limit and the limits travel with the saved host (S1-d)', async ({ app }) => {
     await openDialog(app, 'physicalPrinters');
     await app.getByRole('button', { name: 'PTFE hotend (max 240 °C)' }).click();
-    await app.getByLabel('Name', { exact: true }).fill('PTFE host');
-    await app.getByLabel('Hostname / IP', { exact: true }).fill('10.0.0.9');
-    const hotend = app.getByLabel('Max hotend °C', { exact: true });
-    expect(await hotend.inputValue()).toBe('240');
+    await app.locator('.form input').nth(0).fill('PTFE host');
+    await app.locator('.form input').nth(1).fill('10.0.0.9');
+    const hotend = app.locator('fieldset.safety-limits input').first();
+    await expect(hotend).toHaveValue('240');
     await app.getByRole('button', { name: 'Save' }).click();
-    expect(await app.locator('.printer-list').textContent()).toContain('PTFE host');
+    await expect(app.locator('.printer-list')).toContainText('PTFE host');
     const saved = await app.evaluate(async () => {
       const res = await fetch('/api/printers');
-      return (await res.json()) as Array<{ name: string; safety?: { maxHotend?: number } }>;
+      return (await res.json()) as Array<{ id: string; name: string; safety?: { maxHotend?: number } }>;
     });
-    expect(saved.find((p) => p.name === 'PTFE host')?.safety).toEqual({ maxHotend: 240 });
+    const host = saved.find((p) => p.name === 'PTFE host');
+    expect(host?.safety).toEqual({ maxHotend: 240 });
+    // the fixture data seeds no host; leave it that way for the other specs
+    await app.evaluate(async (id) => {
+      await fetch(`/api/printers/${id}`, { method: 'DELETE' });
+    }, host?.id);
     await closeDialog(app, 'escape');
   });
 
