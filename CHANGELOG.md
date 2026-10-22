@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+- **Safety (S1-d):** settings are now checked before the slicer runs, and a print host can carry its
+  own limits. `POST /api/slice` (and the project slice, and the MCP `slice` tool) run the new
+  `shared/src/safety/configLimits.ts` over the request: a hotend temperature outside `0` or
+  150–450 °C, a bed outside 0–150 °C, a chamber outside 0–100 °C, a nozzle outside 0.1–2.0 mm or a
+  layer height that is not a number, ≤ 0 or more than 2× the nozzle answers **400** with the issues
+  (`{ error, issues }`, each with `rule`, `severity`, `message`, `key`, `value`, `limit`). Per-extruder
+  vectors are checked element-wise (`temperature = 215,2150` names the second one), `nil` and missing
+  keys are skipped, and `0` stays allowed as PrusaSlicer's "off". Values outside the _usual_ window of
+  the `filament_type` (PLA, PETG, ABS/ASA, TPU, PA, PC – the ranges come from the 2.9.6 system
+  profiles) only **warn**; the warnings are returned with the job (`configIssues`) and listed in the
+  preview. The MCP `set_settings`/`check_settings` report the same limit issues on top of their S1-a
+  bands. A physical printer has a new optional `safety: { maxHotend, maxBed }` (zod-validated, editable
+  in the dialog with a "PTFE hotend (max 240 °C)" button); the send gate compares the job's
+  temperatures with it (`send.printer_limit`, **block**, overridable with a reason and audited) and
+  passes the limits to the preflight when an older job has to be re-scanned. A job from before this
+  change is judged on its stored request. `server/scripts/limits-sweep.ts` checks every bundled
+  PrusaSlicer 2.9.6 system preset with the same rules – 0 blocking findings.
 - **Safety (S1-c):** the G-code WebSlicer produces is now scanned before it can be sent. When a job
   finishes, the server reads the output file once (chunked, no full-file string; 0.7 MB in ~56 ms,
   60 MB in ~3.6 s) and stores the findings on the job (`info.preflight`, versioned). Five rules:

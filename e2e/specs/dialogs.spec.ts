@@ -189,13 +189,33 @@ test.describe('dialogs: the app dialogs (S11)', () => {
       actions: Array.from(document.querySelectorAll('.modal-actions button')).map(
         (b) => `${b.textContent}${(b as HTMLButtonElement).disabled ? ' (disabled)' : ''}`,
       ),
+      limitLegend: document.querySelector('.form fieldset legend')?.textContent,
     }));
     expect(form.title).toBe('Physical printers');
-    expect(form.labels).toEqual(['Name', 'Host type', 'Hostname / IP', 'API key', 'Printer preset']);
+    // S1-d: the safety limits of the machine are part of the form
+    expect(form.labels).toEqual(['Name', 'Host type', 'Hostname / IP', 'API key', 'Printer preset', 'Max hotend °C', 'Max bed °C']);
+    expect(form.limitLegend).toBe('Safety limits');
     expect(form.hostTypes[0]).toEqual(['prusalink', 'octoprint', 'moonraker']);
     // the host field names an example; the form may only be saved with a name and a host
     expect(form.placeholders[1]).toBe('192.168.1.50 or http://printer.local');
     expect(form.actions).toEqual(['Cancel', 'Test connection (disabled)', 'Save (disabled)']);
+    await closeDialog(app, 'escape');
+  });
+
+  test('the PTFE preset fills the hotend limit and the limits travel with the saved host (S1-d)', async ({ app }) => {
+    await openDialog(app, 'physicalPrinters');
+    await app.getByRole('button', { name: 'PTFE hotend (max 240 °C)' }).click();
+    await app.getByLabel('Name', { exact: true }).fill('PTFE host');
+    await app.getByLabel('Hostname / IP', { exact: true }).fill('10.0.0.9');
+    const hotend = app.getByLabel('Max hotend °C', { exact: true });
+    expect(await hotend.inputValue()).toBe('240');
+    await app.getByRole('button', { name: 'Save' }).click();
+    expect(await app.locator('.printer-list').textContent()).toContain('PTFE host');
+    const saved = await app.evaluate(async () => {
+      const res = await fetch('/api/printers');
+      return (await res.json()) as Array<{ name: string; safety?: { maxHotend?: number } }>;
+    });
+    expect(saved.find((p) => p.name === 'PTFE host')?.safety).toEqual({ maxHotend: 240 });
     await closeDialog(app, 'escape');
   });
 

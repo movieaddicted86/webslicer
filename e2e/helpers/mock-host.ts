@@ -70,6 +70,7 @@ export interface TestPrinter {
   name: string;
   type: string;
   presetName?: string;
+  safety?: { maxHotend?: number; maxBed?: number };
 }
 
 /**
@@ -78,13 +79,19 @@ export interface TestPrinter {
  */
 export async function addPrinter(
   app: Page,
-  printer: { name: string; type?: 'octoprint' | 'moonraker' | 'prusalink'; presetName?: string },
+  printer: {
+    name: string;
+    type?: 'octoprint' | 'moonraker' | 'prusalink';
+    presetName?: string;
+    safety?: { maxHotend?: number; maxBed?: number };
+  },
 ): Promise<TestPrinter> {
   const res = await rest<TestPrinter>(app, 'POST', '/api/printers', {
     name: printer.name,
     type: printer.type ?? 'moonraker',
     host: mockHost(),
     presetName: printer.presetName,
+    safety: printer.safety,
   });
   if (res.status !== 200) throw new Error(`creating the printer "${printer.name}" failed: ${res.status} ${JSON.stringify(res.json)}`);
   return res.json;
