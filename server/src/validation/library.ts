@@ -7,6 +7,8 @@
  * root", exactly as before.
  */
 import { z } from 'zod';
+import { invalidConfigKeyMessage } from '@webslicer/shared';
+import { invalidKeyInRequest } from './config.js';
 
 /** A string field of a library body: `String(value || '')`, the way the routes read them by hand. */
 const text = () =>
@@ -36,8 +38,15 @@ export const libraryGcodeSchema = z.looseObject({
  * `POST /api/library/project`: the plater state that is stored as a 3MF.
  *
  * Only the object list is a rule – the rest of the body is a slice request that `build3mfForRequest`
- * reads, so the schema keeps it. A body without objects is the route's 400 `no objects`.
+ * reads, so the schema keeps it. A body without objects is the route's 400 `no objects`. Since SEC-2
+ * the config keys of the request are validated here too: they become the project config and the
+ * per-object metadata of the 3MF, the same keys a slice validates.
  */
-export const libraryProjectSchema = z.looseObject({
-  objects: z.array(z.unknown(), { error: () => 'no objects' }).min(1, 'no objects'),
-});
+export const libraryProjectSchema = z
+  .looseObject({
+    objects: z.array(z.unknown(), { error: () => 'no objects' }).min(1, 'no objects'),
+  })
+  .superRefine((body, ctx) => {
+    const key = invalidKeyInRequest(body as Parameters<typeof invalidKeyInRequest>[0]);
+    if (key !== undefined) ctx.addIssue({ code: 'custom', message: invalidConfigKeyMessage(key) });
+  });

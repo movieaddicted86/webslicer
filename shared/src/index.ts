@@ -7,6 +7,7 @@
  * shape and arrangement spacing (`src/plater`); R-5 adds the rest of the PrusaSlicer value codecs
  * (`src/values.ts`) and the thumbnail spec.
  */
+export * from './configKeys.js';
 export * from './math/index.js';
 export * from './plater/index.js';
 export * from './safety/index.js';

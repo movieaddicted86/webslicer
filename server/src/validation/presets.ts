@@ -6,6 +6,8 @@
  * route. The message is pinned by `routes/http.test.ts`.
  */
 import { z } from 'zod';
+import { invalidConfigKeyMessage } from '@webslicer/shared';
+import { invalidKeyOf } from './config.js';
 import type { IniSection } from '../slicer/ini.js';
 
 /**
@@ -14,11 +16,18 @@ import type { IniSection } from '../slicer/ini.js';
  * `config` must be there and be an object – *any* object, an array included, as the route allowed. The
  * values, however, are read as INI strings: a key whose value is not a string is dropped, exactly as
  * the route dropped it. Unknown keys survive (`inherits`, and whatever else a client sends).
+ *
+ * The *keys* are a rule since SEC-2: a config key becomes a line of the preset INI, so a key that is
+ * not `^[a-z][a-z0-9_]*$` (a newline, `=`, whitespace, …) is a 400 naming the key.
  */
 export const presetBodySchema = z.looseObject({
   config: z
     .unknown()
     .refine((v) => !!v && typeof v === 'object', { error: () => 'config required' })
+    .superRefine((v, ctx) => {
+      const key = invalidKeyOf(v);
+      if (key !== undefined) ctx.addIssue({ code: 'custom', message: invalidConfigKeyMessage(key) });
+    })
     .transform((v) => {
       const cfg: IniSection = {};
       for (const [k, val] of Object.entries(v as Record<string, unknown>)) if (typeof val === 'string') cfg[k] = val;
