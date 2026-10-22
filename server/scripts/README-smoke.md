@@ -43,7 +43,8 @@ docker run -d --name smoke-b -p 8082:8080 \
 `/data` holds settings, installed printers, uploaded models, jobs and autosaves; `/library` is the
 mounted file library. Both directories are created by Docker on first start, and the library is **seeded
 with the bundled samples on first start** as long as it is still empty – the script relies on
-`samples/calibration_cube_20mm.stl` and `samples/prusaslicer_export.3mf` being listed. `samples/` itself
+`samples/calibration_cube_20mm.stl` being listed. The 3MF for the project-import check is not a sample:
+the script writes it through `/api/export/3mf` and stores it in the library itself. `samples/` itself
 is copied into the image at `/app/samples` by the `Dockerfile` and is served through `/api/library/file`.
 
 The first start also reads the PrusaSlicer vendor bundles, so give the containers a few seconds before
