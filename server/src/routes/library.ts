@@ -17,7 +17,7 @@ import { firstIssueMessage } from '../validation/common.js';
 import {
   copyIntoLibrary,
   deleteLibraryEntry,
-  libraryTarget,
+  libraryTargetChecked,
   listLibrary,
   makeLibraryDir,
   resolveLibraryFile,
@@ -66,7 +66,7 @@ export function libraryRouter(): express.Router {
     if (!parsed.success) return res.status(400).json({ error: firstIssueMessage(parsed.error, 'no objects') });
     const body = req.body as SliceRequest;
     const buf = await build3mfForRequest(body, mergeConfigs(await activeSchema(), body, { forProject: true }));
-    const target = libraryTarget(String(req.query.path || ''), String(req.query.name || 'project'), '.3mf');
+    const target = await libraryTargetChecked(String(req.query.path || ''), String(req.query.name || 'project'), '.3mf');
     res.json({ ok: true, ...(await writeLibraryData(target, buf)) });
   });
 
@@ -75,7 +75,7 @@ export function libraryRouter(): express.Router {
     const body = libraryGcodeSchema.parse(req.body ?? {});
     const job = getJob(body.jobId);
     if (!job || job.status !== 'done') return res.status(404).json({ error: 'job output not available' });
-    const target = libraryTarget(body.path, body.name || job.outputName, path.extname(job.outputName));
+    const target = await libraryTargetChecked(body.path, body.name || job.outputName, path.extname(job.outputName));
     res.json({ ok: true, ...(await copyIntoLibrary(jobOutputPath(job), target)) });
   });
 
