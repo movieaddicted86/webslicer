@@ -36,6 +36,7 @@ Priority by frequency of use in everyday printing and PrusaSlicer parity.
 - [ ] Update vendor profiles online (PrusaSlicer-settings)
 - [ ] Extend the configuration wizard (filaments per vendor, temperatures)
 - [x] Camera: views (iso/top/front/…), orthographic, zoom to selection
+- [x] Object toolbar with real SVG icons (lucide), grouped, 18 px, readable tooltips (T-036)
 - [ ] Printer status / upload queue (needs hardware test)
 - [x] Session survives reload and browser close: automatic restore, flush on hide/close, "Start empty" (T-035)
 - [ ] Localized UI (German, …)

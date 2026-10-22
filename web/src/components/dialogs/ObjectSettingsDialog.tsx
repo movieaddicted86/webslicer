@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Modal } from './Modal';
 import { useStore } from '../../state/store';
 import { OptionField } from '../OptionField';
+import { ACTION_ICONS } from '../common/icons';
 import { MODE_RANK } from '../../values';
 
 /** Print settings that never make sense per object (they describe the whole plate or the output). */
@@ -165,7 +166,7 @@ export function ObjectSettingsDialog({
                     setConfig(c);
                   }}
                 >
-                  ✕
+                  <ACTION_ICONS.remove size={14} strokeWidth={2} aria-hidden="true" focusable="false" />
                 </button>
               </div>
             );

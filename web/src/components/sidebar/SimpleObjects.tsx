@@ -2,6 +2,7 @@ import { useStore } from '../../state/store';
 import { retrySession } from '../../state/session';
 import { SectionHeader } from '../common/SectionHeader';
 import { ToolbarButton } from '../common/ToolbarButton';
+import { ACTION_ICONS } from '../common/icons';
 import { useDeleteSelection, useInstanceActions, useSelectedObjects } from './selection';
 
 /** The reduced objects section of Simple mode: the five actions, no list, no manipulation panel. */
@@ -21,33 +22,28 @@ export function SimpleObjects() {
     <section className="objects simple">
       <SectionHeader title={`Objects (${objects.length})`}>
         <div className="tools">
-          <ToolbarButton title="Arrange (A)" onClick={arrange} disabled={!objects.length}>
-            ▦
-          </ToolbarButton>
-          <ToolbarButton title="Add instance (+)" onClick={addInstance} disabled={selected.length !== 1}>
-            +
-          </ToolbarButton>
+          <ToolbarButton title="Arrange (A)" icon={ACTION_ICONS.arrange} onClick={arrange} disabled={!objects.length} />
+          <span className="tool-sep" aria-hidden="true" />
+          <ToolbarButton title="Add instance (+)" icon={ACTION_ICONS.addInstance} onClick={addInstance} disabled={selected.length !== 1} />
           <ToolbarButton
             title="Remove the last instance (−)"
+            icon={ACTION_ICONS.removeInstance}
             onClick={removeOneInstance}
             disabled={selected.length !== 1 || instanceCount <= 1}
-          >
-            −
-          </ToolbarButton>
+          />
+          <span className="tool-sep" aria-hidden="true" />
           <ToolbarButton
             title="Delete the picked instance, otherwise the selected object (Del)"
+            icon={ACTION_ICONS.delete}
             onClick={deleteSelection}
             disabled={!selected.length}
-          >
-            🗑
-          </ToolbarButton>
+          />
           <ToolbarButton
             title="Delete all"
+            icon={ACTION_ICONS.deleteAll}
             onClick={() => objects.length && confirm('Remove all objects?') && clear()}
             disabled={!objects.length}
-          >
-            ✕
-          </ToolbarButton>
+          />
         </div>
       </SectionHeader>
       {!objects.length && autosaveError && (

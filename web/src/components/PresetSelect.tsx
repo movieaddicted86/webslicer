@@ -1,5 +1,6 @@
 import { useStore, isModified, type PresetSlot } from '../state/store';
 import type { PresetSummary, PresetType } from '../api';
+import { ACTION_ICONS } from './common/icons';
 
 interface Props {
   type: PresetType;
@@ -96,11 +97,11 @@ export function PresetSelect({ type, slot, extruderIdx = 0, label }: Props) {
           aria-label="Save preset"
           onClick={() => openDialog('savePreset', { type, extruderIdx })}
         >
-          💾
+          <ACTION_ICONS.save size={14} strokeWidth={2} aria-hidden="true" focusable="false" />
         </button>
         {modified && (
           <button className="icon" title="Discard changes" aria-label="Discard changes" onClick={() => discard(type, extruderIdx)}>
-            ↶
+            <ACTION_ICONS.reset size={14} strokeWidth={2} aria-hidden="true" focusable="false" />
           </button>
         )}
         {current && !current.system && (
@@ -112,7 +113,7 @@ export function PresetSelect({ type, slot, extruderIdx = 0, label }: Props) {
               confirm(`Delete preset "${slot.name}"?`) && deletePreset(type, slot.name).catch((e) => toast('error', e.message))
             }
           >
-            🗑
+            <ACTION_ICONS.delete size={14} strokeWidth={2} aria-hidden="true" focusable="false" />
           </button>
         )}
       </div>
