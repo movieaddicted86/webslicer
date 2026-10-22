@@ -32,7 +32,6 @@ jobs:
     env:
       E2E_BASE_URL: http://localhost:8080
       E2E_MOCK_URL: http://mock-host:8160
-      E2E_MOCK_DIR: ${{ runner.temp }}/e2e/mock
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -75,6 +74,9 @@ jobs:
           # the app has to resolve the mock by name before the send spec runs
           docker exec e2e node -e "fetch('http://mock-host:8160/api/version').then(r=>r.json()).then(j=>console.log('mock host:',j.server)).catch(e=>{console.error(e);process.exit(1)})"
       - name: Run the E2E suite
+        # the mock's log dir is a path on the runner; the `runner` context only exists inside a step
+        env:
+          E2E_MOCK_DIR: ${{ runner.temp }}/e2e/mock
         run: npm run e2e
       - name: Server log (on failure)
         if: failure()
