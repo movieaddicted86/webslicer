@@ -5,6 +5,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { config } from '../config.js';
+import { ValidationError } from '../errors.js';
 import { loadBundles, findSystemPreset, type SystemPreset } from './bundles.js';
 import { parseIni, serializeIni, type IniSection } from './ini.js';
 import { evaluateCondition } from './condition.js';
@@ -66,8 +67,32 @@ function technologyOf(cfg: IniSection): 'FFF' | 'SLA' {
   return cfg.printer_technology === 'SLA' ? 'SLA' : 'FFF';
 }
 
-/** Resolve a preset by name into its full config. */
-export function resolvePreset(schema: Schema, type: PresetType, name: string): ResolvedPreset | undefined {
+/**
+ * Walk the `inherits` chain of a user preset (B5). Returns the chain up to and including the name
+ * that closes the loop, or `undefined` when the chain ends at a system preset / a missing file.
+ */
+function inheritanceCycle(type: PresetType, name: string, inherits?: string): string[] | undefined {
+  if (!inherits) return undefined;
+  const chain = [name];
+  const seen = new Set([name]);
+  let next: string | undefined = inherits;
+  while (next) {
+    if (seen.has(next)) return [...chain, next];
+    seen.add(next);
+    chain.push(next);
+    next = listUserPresets(type).find((p) => p.name === next)?.config.inherits || undefined;
+  }
+  return undefined;
+}
+
+/**
+ * Resolve a preset by name into its full config.
+ *
+ * `chain` lists the user presets already being resolved. An `inherits` that points back into that
+ * chain is a cycle (B5): the resolver ignores the parent instead of recursing forever, so even a
+ * stored cycle can be read, and `listPresets` can skip it with a warning instead of a 500.
+ */
+export function resolvePreset(schema: Schema, type: PresetType, name: string, chain: readonly string[] = []): ResolvedPreset | undefined {
   const base = defaultConfig(schema, type);
   if (name === DEFAULT_NAMES[type]) {
     if (type === 'printer' || type === 'sla_print' || type === 'sla_material') {
@@ -103,7 +128,11 @@ export function resolvePreset(schema: Schema, type: PresetType, name: string): R
     const allowed = new Set(schema.presetKeys[type]);
     for (const k of Object.keys(user.config)) if (k !== 'inherits' && !allowed.has(k)) delete user.config[k];
     const inherits = user.config.inherits || '';
-    const parent = inherits ? resolvePreset(schema, type, inherits) : undefined;
+    const cyclic = !!inherits && (inherits === name || chain.includes(inherits));
+    if (cyclic) {
+      console.warn(`[webslicer] preset '${type}/${name}' has a cyclic inherits chain ('${inherits}'); ignoring the parent`);
+    }
+    const parent = inherits && !cyclic ? resolvePreset(schema, type, inherits, [...chain, name]) : undefined;
     const parentCfg = parent?.config || base;
     const cfg = { ...parentCfg, ...user.config };
     delete cfg.inherits;
@@ -130,6 +159,9 @@ export function resolvePreset(schema: Schema, type: PresetType, name: string): R
 }
 
 export function saveUserPreset(type: PresetType, name: string, cfg: IniSection, inherits?: string): void {
+  // B5: a stored cycle would make every later resolve recurse forever; refuse it up front (400)
+  const cycle = inheritanceCycle(type, name, inherits);
+  if (cycle) throw new ValidationError(`preset inheritance cycle: ${cycle.join(' -> ')}`);
   const file = userPresetFile(type, name);
   const out: IniSection = { ...cfg };
   delete out.inherits;
@@ -248,6 +280,12 @@ export function listPresets(schema: Schema, type: PresetType, opts: ListOptions 
     });
   }
   for (const u of listUserPresets(type)) {
+    // B5: a cycle left on disk by an older version is skipped, so one broken file cannot take the
+    // whole preset list down with it
+    if (inheritanceCycle(type, u.name, u.config.inherits)) {
+      console.warn(`[webslicer] skipping preset '${type}/${u.name}' with an inheritance cycle`);
+      continue;
+    }
     const r = resolvePreset(schema, type, u.name);
     if (!r) continue;
     out.push({
