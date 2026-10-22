@@ -73,8 +73,10 @@ test('a large file does not block the event loop while it is scanned', async () 
   assert.deepEqual(result.counts, { 'gcode.no_homing': 1 }, 'the first move has no G28 before it');
 
   assert.ok(size > 15 * 1024 * 1024, `the fixture is ${size} bytes`);
-  // at least ~a tenth of the scan time spent yielding: a blocking read would leave single digits
-  assert.ok(ticks >= ms / 20, `${ticks} timer ticks in ${ms.toFixed(0)} ms`);
+  // Many ticks mean the scan kept yielding; a blocking read leaves single digits. The threshold is
+  // generous because the suite runs many files in parallel and timer callbacks then arrive late – the
+  // distinction under test is "yields at all" vs "blocks for 20 MB", not the tick rate.
+  assert.ok(ticks >= 10 && ticks >= ms / 40, `${ticks} timer ticks in ${ms.toFixed(0)} ms`);
 });
 
 test('a multi-byte character on a chunk boundary is decoded correctly', async () => {
