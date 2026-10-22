@@ -6,6 +6,7 @@ import { LayerSlider } from './preview/LayerSlider';
 import { MoveSlider } from './preview/MoveSlider';
 import { ViewOptions } from './preview/ViewOptions';
 import { PreviewLegend } from './preview/Legend';
+import { Preflight } from './preview/Preflight';
 import { SlicedInfo } from './preview/SlicedInfo';
 import { fmtZ } from '../format';
 import { sumTimes } from './preview/formats';
@@ -96,6 +97,7 @@ export function PreviewPanel() {
             </details>
           ) : null}
           <SlicedInfo />
+          <Preflight />
           {gcode && (
             <section className="layers">
               <SectionHeader

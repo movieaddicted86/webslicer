@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { checkSend, sendMatch, type PresetLink } from '@webslicer/shared';
+import { checkSend, preflightSendIssues, sendMatch, type PresetLink, type PreflightIssue } from '@webslicer/shared';
 import { Modal } from './Modal';
 import { useStore } from '../../state/store';
 import { api, type SendIssue, type SendResult } from '../../api';
@@ -8,6 +8,26 @@ import { api, type SendIssue, type SendResult } from '../../api';
 function issuesOf(error: unknown): SendIssue[] {
   const issues = (error as { issues?: unknown })?.issues;
   return Array.isArray(issues) ? (issues as SendIssue[]) : [];
+}
+
+/** A preflight finding carries the line it stands on; a preset issue does not. */
+function isPreflight(issue: SendIssue): issue is PreflightIssue {
+  return typeof (issue as PreflightIssue).line === 'number';
+}
+
+/** One issue as the dialog lists it: the message, and for a preflight finding the line behind it. */
+function IssueLine({ issue }: { issue: SendIssue }) {
+  if (!isPreflight(issue)) return <div>{issue.message}</div>;
+  return (
+    <div>
+      {issue.message}
+      {issue.text ? (
+        <div className="muted small gcode-line">
+          Line {issue.line}: {issue.text}
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 /**
@@ -56,7 +76,9 @@ export function SendToPrinterDialog({ onClose }: { onClose: () => void }) {
   const printer = printers.find((p) => p.id === printerId);
   const issues: SendIssue[] = useMemo(() => {
     if (!printer || !job) return [];
-    return checkSend({ presets: { printer: jobPreset } }, printer, { presets: links });
+    // S1-c: the preflight issues of the finished file join the preset issues – the server merges the
+    // same two lists, so the dialog shows what the gate will enforce.
+    return [...checkSend({ presets: { printer: jobPreset } }, printer, { presets: links }), ...preflightSendIssues(job.info?.preflight)];
   }, [printer, job, jobPreset, links]);
 
   const blocking = issues.filter((i) => i.severity === 'block');
@@ -107,16 +129,16 @@ export function SendToPrinterDialog({ onClose }: { onClose: () => void }) {
           File name <input value={filename} onChange={(e) => setFilename(e.target.value)} />
         </label>
         {blocking.length > 0 && (
-          <div className="warn">
-            {blocking.map((i) => (
-              <div key={i.rule}>{i.message}</div>
+          <div className="warn issue-list">
+            {blocking.map((i, index) => (
+              <IssueLine key={`${i.rule}-${index}`} issue={i} />
             ))}
           </div>
         )}
         {warnings.length > 0 && (
-          <div className="warn">
-            {warnings.map((i) => (
-              <div key={i.rule}>{i.message}</div>
+          <div className="warn issue-list">
+            {warnings.map((i, index) => (
+              <IssueLine key={`${i.rule}-${index}`} issue={i} />
             ))}
           </div>
         )}
