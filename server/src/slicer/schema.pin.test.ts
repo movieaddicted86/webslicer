@@ -9,7 +9,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildSchema, parseHelp } from './schema.js';
+import { buildSchema } from './schema.js';
+import { parseHelp } from './help.js';
 
 const DIR = path.join(import.meta.dirname, 'fixtures');
 
