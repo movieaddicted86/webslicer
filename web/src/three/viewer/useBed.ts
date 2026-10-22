@@ -10,6 +10,7 @@ import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
 import { bedShapeOf } from '@webslicer/shared';
 import { viewDirection } from '../../plater/camera';
 import { bedBox, frameBox } from './camera';
+import { clearAndDispose } from './dispose';
 import type { BedAsset, SceneRefs } from './types';
 
 let bedLoadGeneration = 0;
@@ -24,7 +25,8 @@ function loadBedAssets(group: THREE.Group, bedShape: string, asset: BedAsset, hi
     new STLLoader().load(
       `/api/vendors/${encodeURIComponent(asset.vendor)}/asset/${encodeURIComponent(asset.model)}`,
       (geo) => {
-        if (gen !== bedLoadGeneration) return;
+        // a bed rebuilt while the asset was in flight: the mesh would never be shown, so release it
+        if (gen !== bedLoadGeneration) return void geo.dispose();
         geo.computeVertexNormals();
         const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: 0x3a3f49, roughness: 0.8, metalness: 0.1 }));
         // PrusaSlicer moves the model origin to the bed centre, slightly below z=0
@@ -40,7 +42,7 @@ function loadBedAssets(group: THREE.Group, bedShape: string, asset: BedAsset, hi
     new THREE.TextureLoader().load(
       `/api/vendors/${encodeURIComponent(asset.vendor)}/asset/${encodeURIComponent(asset.texture)}`,
       (tex) => {
-        if (gen !== bedLoadGeneration) return;
+        if (gen !== bedLoadGeneration) return void tex.dispose();
         tex.colorSpace = THREE.SRGBColorSpace;
         tex.anisotropy = 4;
         const w = bed.max[0] - bed.min[0];
@@ -61,7 +63,8 @@ function loadBedAssets(group: THREE.Group, bedShape: string, asset: BedAsset, hi
 }
 
 function buildBed(group: THREE.Group, bedShape: string, asset?: BedAsset) {
-  group.clear();
+  // B1: `clear()` alone left the previous bed's geometries, materials and the vendor texture on the GPU
+  clearAndDispose(group);
   bedLoadGeneration++;
   const bed = bedShapeOf({ bed_shape: bedShape });
   const shape = new THREE.Shape(bed.points.map((p) => new THREE.Vector2(p[0], p[1])));

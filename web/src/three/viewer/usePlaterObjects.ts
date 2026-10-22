@@ -14,7 +14,8 @@ import { paintToColors, type PaintKind } from '../paint';
 import type { ParsedGcode } from '../../gcode/types';
 import type { View } from '../../state/types';
 import { EXTRUDER_COLORS, OBJECT_COLOR, OUTSIDE_COLOR, SELECTED_COLOR, VOLUME_COLORS } from './colors';
-import type { SceneRefs } from './types';
+import { disposeRemovedGeometries } from './dispose';
+import type { InstanceNode, SceneRefs } from './types';
 
 function makeVolumeMesh(v: PlaterVolume): THREE.Mesh {
   const c = VOLUME_COLORS[v.type];
@@ -35,6 +36,21 @@ function makeVolumeMesh(v: PlaterVolume): THREE.Mesh {
     mat.depthTest = false;
   }
   return mesh;
+}
+
+/**
+ * The geometries the plater still uses (B1). Object and volume geometries belong to the store, not to
+ * the scene node, so a removed object has to release them here – but only if no remaining object
+ * shares them: duplicates and split copies point at the same `BufferGeometry`. Undo restores the
+ * objects with the same references, and three.js re-uploads a disposed geometry on the next frame.
+ */
+function liveGeometries(objects: PlaterObject[]): Set<THREE.BufferGeometry> {
+  const live = new Set<THREE.BufferGeometry>();
+  for (const o of objects) {
+    live.add(o.geometry);
+    for (const v of o.volumes) live.add(v.geometry);
+  }
+  return live;
 }
 
 interface PlaterObjectsOptions {
@@ -236,6 +252,10 @@ export function usePlaterObjects(refsRef: RefObject<SceneRefs | null>, options: 
         }
       }
     }
+    // B1 (the +1 plater leak): a removed object's geometry stayed on the GPU. The store owns object
+    // and volume geometries, so they are released here – unless a remaining object shares them.
+    const live = liveGeometries(objects);
+    const removedInstances = new Set<InstanceNode>();
     for (const [id, node] of refs.nodes) {
       if (!seen.has(id)) {
         refs.objectsGroup.remove(node.group);
@@ -243,11 +263,13 @@ export function usePlaterObjects(refsRef: RefObject<SceneRefs | null>, options: 
           (inode.mesh.material as THREE.Material).dispose();
           for (const vm of inode.volumes.values()) (vm.material as THREE.Material).dispose();
           inode.slabs?.traverse((c) => (c as THREE.Mesh).geometry?.dispose());
+          removedInstances.add(inode);
         }
         refs.nodes.delete(id);
         if (refs.transform.object && refs.transform.object.parent === node.group) refs.transform.detach();
       }
     }
+    disposeRemovedGeometries(removedInstances, live);
     // `refsRef` is a stable ref object owned by the Viewer; its content changes without a re-render
     // eslint-disable-next-line react-hooks/exhaustive-deps -- stable ref, not a dependency
   }, [objects, selectedIds, selectedVolumeId, selectedInstanceId, view, bedShape, maxHeight, gcode, paintMode, shells]);

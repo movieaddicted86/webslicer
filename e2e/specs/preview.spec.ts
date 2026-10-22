@@ -399,15 +399,70 @@ test.describe('preview: the WebGL resources', () => {
     expect(textures('after2')).toBe(textures('after3'));
     expect(textures('after3')).toBe(textures('empty'));
 
-    // `main` leaks at most one GPU geometry per import → delete cycle; the suite pins that behaviour
+    // B1: dispose the plater geometry with its object, so a cycle gives everything back (no +1)
     const geometries = (k: string) => snapshots[k].rendererMemory?.geometries ?? -1;
     for (const round of [1, 2, 3]) {
       const previous = round === 1 ? 'empty' : `delete${round - 1}`;
-      expect(geometries(`delete${round}`) - geometries(previous), `cycle ${round}`).toBeLessThanOrEqual(1);
+      expect(geometries(`delete${round}`) - geometries(previous), `cycle ${round}`).toBe(0);
     }
     // deleting an object empties the scene graph again, and the shader programs do not grow
     const drawables = (k: string) => snapshots[k].scene.drawables;
     for (const round of [1, 2, 3]) expect(drawables(`delete${round}`), `drawables after ${round}`).toBe(drawables('empty'));
     expect(snapshots.after3.programs).toBe(snapshots.after1.programs);
+  });
+
+  test('B1: load, slice and clear returns the GPU geometries to their start value', async ({ app }) => {
+    // the first import of a page builds resources the renderer keeps, so this cycle is a warm-up only
+    await app.evaluate(() => window.webslicer.getState().setView('plater'));
+    await importFile(app, CUBE);
+    await sliceAndWait(app);
+    await app.evaluate(() => window.webslicer.getState().setView('preview'));
+    await settle(app, 1200);
+    await app.evaluate(() => {
+      window.webslicer.getState().clearObjects();
+      window.webslicer.getState().setView('plater');
+    });
+    await app.waitForTimeout(1800);
+
+    const start = await census(app);
+    await importFile(app, CUBE);
+    await sliceAndWait(app);
+    await app.evaluate(() => window.webslicer.getState().setView('preview'));
+    await settle(app, 1500);
+    const sliced = await census(app);
+    // the preview and the plater really did allocate geometry
+    expect(sliced.rendererMemory?.geometries ?? 0).toBeGreaterThan(start.rendererMemory?.geometries ?? 0);
+
+    // clearObjects drops the G-code and the objects: both groups have to give their GPU resources back
+    await app.evaluate(() => {
+      window.webslicer.getState().clearObjects();
+      window.webslicer.getState().setView('plater');
+    });
+    await app.waitForTimeout(1800);
+    const cleared = await census(app);
+    expect(cleared.rendererMemory?.geometries).toBe(start.rendererMemory?.geometries);
+  });
+
+  test('B1: adding and removing ten objects leaves no GPU geometry behind', async ({ app }) => {
+    await app.evaluate(() => window.webslicer.getState().setView('plater'));
+    await app.evaluate(() => window.webslicer.getState().clearObjects());
+    // one warm-up import: the first model of a page builds resources the renderer keeps
+    await importFile(app, CUBE);
+    await app.evaluate(() => window.webslicer.getState().clearObjects());
+    await app.waitForTimeout(1800);
+    const start = await census(app);
+
+    await importFile(app, CUBE);
+    for (let i = 1; i < 10; i++) await importFile(app, CUBE, { clear: false });
+    const ids = await read(app, (s) => s.objects.map((o) => o.id));
+    expect(ids.length).toBe(10);
+    const loaded = await census(app);
+    expect(loaded.rendererMemory?.geometries ?? 0).toBeGreaterThan(start.rendererMemory?.geometries ?? 0);
+
+    await app.evaluate((list) => window.webslicer.getState().removeObjects(list), ids);
+    await app.waitForTimeout(1800);
+    const removed = await census(app);
+    expect(await read(app, (s) => s.objects.length)).toBe(0);
+    expect(removed.rendererMemory?.geometries).toBe(start.rendererMemory?.geometries);
   });
 });
