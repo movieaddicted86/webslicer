@@ -11,7 +11,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import JSZip from 'jszip';
-import { parse3mfBuild, parseStl, type Mesh } from '../slicer/threemf.js';
+import { parse3mfBuild, parseStl, type Mesh } from '../slicer/threemf/index.js';
 import { IDENTITY, type Matrix4 } from '@webslicer/shared';
 import { ValidationError } from '../errors.js';
 

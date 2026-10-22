@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- Refactoring of the slicer modules (R-11), no behaviour change: the three oversized files in
+  `server/src/slicer/` are split by responsibility. `layout.ts` (1003 lines) became
+  `slicer/layout/` – the curated tab table (`fff.data.ts`), the option metadata
+  (`knownOptions.data.ts`), the vector key sets (`keySets.ts`) and the types. `threemf.ts`
+  (596 lines) became `slicer/threemf/` – `mesh.ts` (STL parsing/writing, `transformMesh`),
+  `read.ts`, `write.ts`, the custom G-codes and the shared XML helpers. `schema.ts` (424 lines)
+  keeps the builder and hands the help parser (`help.ts`) and the per-option derivation
+  (`optionDef.ts`) over. The code was moved, not rewritten: every function body is unchanged and
+  two new pin tests (a `buildSchema` snapshot from the checked-in 2.9.6 help output and a written
+  3MF compared entry by entry) hold the output byte-identical. The settings UI, `/api/schema` and
+  every written 3MF are the same files as before.
 - **Toolchain:** the web app runs on **React 19** (`react`/`react-dom` 19, matching `@types/react`)
   and **Vite 7** with `@vitejs/plugin-react` 5. `eslint-plugin-react-hooks` is on 7 with the same
   two rules as before, so no lint outcome changes. No behaviour change: the only forced code edit is
