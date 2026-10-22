@@ -1,5 +1,5 @@
 import { useStore, VOLUME_LABELS, type PlaterObject } from '../../state/store';
-import { objectIsOutside } from '../../three/Viewer';
+import { objectIsOutside } from '../../plater/plateCheck';
 import { fmt } from '../../format';
 import { ACTION_ICONS } from '../common/icons';
 import { VOLUME_ICONS } from './volumes';

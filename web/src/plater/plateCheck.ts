@@ -306,3 +306,15 @@ export function footprintsOf(objects: PlaterObject[]): InstanceFootprint[] {
 export function plateIssues(objects: PlaterObject[], printerCfg: Config, printCfg: Config): PlateIssue[] {
   return checkFootprints(footprintsOf(objects), plateRulesOf(printerCfg, printCfg));
 }
+
+/**
+ * True when at least one instance of the object leaves the print volume. Since T-034 the bed is the
+ * real polygon, not its bounding box, so an object in the notch of an L-shaped bed is outside too.
+ *
+ * Lives here instead of in `three/Viewer.tsx` (W3): the object list badges a row with it and the
+ * plate checks use the same `boxOutside`, and no renderer is involved.
+ */
+export function objectIsOutside(o: PlaterObject, bedShape: string, maxHeight: number): boolean {
+  const bed = bedShapeOf({ bed_shape: bedShape });
+  return o.instances.some((inst) => boxOutside(instanceBounds(o, inst), bed.points, maxHeight));
+}

@@ -296,8 +296,14 @@ export async function pruneProjects(): Promise<void> {
  * Register the project store as the model life cycle of `services/models.ts`: the pruning there has
  * to know which models a live project still needs, and an expired project has to take its models with
  * it. Both directions are async, so the whole pass stays on `fs/promises` (N-7).
+ *
+ * Explicit instead of a module side effect (W3): `index.ts` calls it while booting, and so does a
+ * test that exercises the pruning. Importing `projects.ts` alone no longer silently changes the model
+ * retention of whatever process happens to load it.
  */
-setModelLifecycleHooks({
-  keepModelIds,
-  pruneProjects,
-});
+export function registerProjectLifecycle(): void {
+  setModelLifecycleHooks({
+    keepModelIds,
+    pruneProjects,
+  });
+}

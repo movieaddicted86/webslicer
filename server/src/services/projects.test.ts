@@ -24,6 +24,7 @@ const {
   listProjects,
   loadProject,
   pruneProjects,
+  registerProjectLifecycle,
   toSliceRequest,
   touchProject,
 } = await import('./projects.js');
@@ -61,6 +62,8 @@ function libraryFile(name: string, mesh = CUBE): string {
 before(() => {
   ensureDirs();
   setActiveSchema(schema);
+  // W3: the model life cycle is an explicit registration now, not an import side effect
+  registerProjectLifecycle();
 });
 after(() => fs.rmSync(DATA_DIR, { recursive: true, force: true }));
 

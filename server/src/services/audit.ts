@@ -1,7 +1,11 @@
 /**
- * Audit log of the MCP endpoint (`docs/MCP-Concept.md` §5): one JSON line per tool call in
- * `data/audit.log`. Parameters go in as they came in, minus anything that looks like a secret and
- * with long values cut off, so the log can be handed to a human without leaking credentials.
+ * Audit log of the server (`docs/MCP-Concept.md` §5): one JSON line per security-relevant action in
+ * `data/audit.log` – the MCP tool calls and the accepted send overrides (S1-b/S1-c). Parameters go in
+ * as they came in, minus anything that looks like a secret and with long values cut off, so the log
+ * can be handed to a human without leaking credentials.
+ *
+ * Moved out of `mcp/` (W3): `services/sendGate.ts` writes here too, so the writer belongs to the
+ * service layer instead of the MCP transport.
  */
 import fs from 'node:fs';
 import path from 'node:path';

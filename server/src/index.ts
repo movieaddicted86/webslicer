@@ -5,6 +5,7 @@ import { getSchema } from './slicer/schema.js';
 import { setActiveSchema } from './services/schema.js';
 import { createApp } from './app.js';
 import { bootstrapEnvToken } from './mcp/tokens.js';
+import { registerProjectLifecycle } from './services/projects.js';
 import { loadJobsFromDisk, setSchema } from './jobs.js';
 import { seedSamples } from './samples.js';
 
@@ -30,6 +31,9 @@ async function main() {
   } catch (e) {
     console.error(`[webslicer] could not build option schema: ${(e as Error).message}`);
   }
+  // W3: the model life cycle is registered here instead of by importing `services/projects.ts`, so
+  // the pruning that `loadJobsFromDisk` starts below already knows about live projects
+  registerProjectLifecycle();
   // B11: without the await the server accepted requests before the queue had the jobs of the last
   // run, so a client could see an empty `/api/jobs` and a restart's cleanup ran behind the listener
   await loadJobsFromDisk();
