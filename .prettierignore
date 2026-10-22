@@ -9,3 +9,5 @@ package-lock.json
 webslicer-src.tar.gz
 # captured slicer output and the pins built from it (T-028) – compared byte for byte, not formatted
 server/src/slicer/fixtures/
+# captured G-code of the preflight sweep (T-031) – real slicer output, compared byte for byte
+shared/src/safety/fixtures/
