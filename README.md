@@ -304,7 +304,9 @@ marker copied into it); never point it at your working install.
 - On failure Playwright keeps a trace, a screenshot and the error context in `test-results/`; in CI each
   shard uploads its own `playwright-report-shard-<n>` artifact.
 - Slicing is the slow part (software WebGL in CI): a full run takes ~20–25 min, so CI runs the suite
-  **sharded over three jobs** (`--shard=1/3` … `3/3`, each with its own app + mock host).
+  **sharded over three jobs** (`--shard=1/3` … `3/3`, each with its own app + mock host), weighted by
+  the measured time of each spec (`PWTEST_SHARD_WEIGHTS`, set in the workflow) so the shards carry
+  5 / 9 / 8 min of test time instead of 2 / 9 / 12.
 
 ### Architecture
 
