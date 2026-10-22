@@ -29,6 +29,13 @@ jobs:
   # 15-min gate. Each shard builds the (cached) image, starts its own app + mock host on its own
   # runner and runs its share (`--shard=<n>/3`). Playwright splits by file group, and the measured
   # balance of the three shards is in the T-030 report.
+  #
+  # The shard sizes are **weighted by the measured test time**, not by the test count: `preview`
+  # (one real slice per test, ~5 min) and `dialogs` (~3 min) are the heavy files, and the count-based
+  # split put all four files before it in shard 1 (40 tests, 11.8 min) and left shard 3 with 19 tests
+  # (5.3 min). The weights give 27 / 22 / 33 tests, i.e. 5.3 / 8.7 / 8.3 min of test time locally.
+  # `PWTEST_SHARD_WEIGHTS` is read by Playwright's own sharding; if a later version drops it, the
+  # split falls back to the equal (count-based) one, which still fits the gate with a cached browser.
   e2e:
     runs-on: ubuntu-latest
     strategy:
@@ -40,6 +47,7 @@ jobs:
     env:
       E2E_BASE_URL: http://localhost:8080
       E2E_MOCK_URL: http://mock-host:8160
+      PWTEST_SHARD_WEIGHTS: 27:22:33
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
