@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { config } from '../config.js';
 import { getHelpText, getSlicerVersion } from './cli.js';
-import { LAYOUT_FFF, KNOWN_OPTIONS, PRINT_VECTOR_KEYS, PRINTER_VECTOR_KEYS, PRINTER_STRING_VECTOR_KEYS } from './layout.js';
+import { LAYOUT_FFF, KNOWN_OPTIONS, PRINT_VECTOR_KEYS, PRINTER_VECTOR_KEYS, PRINTER_STRING_VECTOR_KEYS } from './layout/index.js';
 import type { LayoutGroup, LayoutPage, OptionDef, OptionType, PresetType, Schema, TabLayout } from '@webslicer/shared';
 
 interface RawHelpOption {
