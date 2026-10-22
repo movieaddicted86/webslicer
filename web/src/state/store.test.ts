@@ -543,3 +543,41 @@ test('B2: the slot actions stay on a filament slot that still exists', async () 
   assert.ok(server.saved['filament:B2 filament'], 'saving from a removed slot works');
   assert.equal(st().presets.filament[0].name, 'B2 filament');
 });
+
+// ---------------------------------------------------------------------------
+// B3: undo/redo keep the MMU paint (and the support/seam paint) of a stroke
+// ---------------------------------------------------------------------------
+
+test('B3: undo after a paint stroke restores exactly the previous paint', async () => {
+  await importOne(box(10));
+  const o = st().objects[0];
+  st().updateObject(o.id, { paint: { supports: Uint8Array.from([1, 0, 0, 0]), mmu: Uint8Array.from([0, 2, 0, 0]) } });
+  const before = { supports: [...(st().objects[0].paint?.supports ?? [])], mmu: [...(st().objects[0].paint?.mmu ?? [])] };
+
+  st().beginPaintStroke(o.id);
+  st().applyPaint(o.id, 'mmu', [1, 2], 3);
+  st().applyPaint(o.id, 'supports', [2], 2);
+  assert.deepEqual([...(st().objects[0].paint?.mmu ?? [])], [0, 3, 3, 0], 'the stroke painted');
+
+  st().undo();
+  const restored = st().objects[0].paint;
+  assert.deepEqual([...(restored?.mmu ?? [])], before.mmu, 'undo keeps the MMU paint untouched before the stroke');
+  assert.deepEqual([...(restored?.supports ?? [])], before.supports, 'and the support paint');
+
+  // redo puts the stroke back – and a second undo still finds the original paint (no aliasing)
+  st().redo();
+  assert.deepEqual([...(st().objects[0].paint?.mmu ?? [])], [0, 3, 3, 0], 'redo repeats the stroke');
+  st().undo();
+  assert.deepEqual([...(st().objects[0].paint?.mmu ?? [])], before.mmu, 'the second undo is not aliased to the live arrays');
+});
+
+test('B3: a snapshot never shares paint arrays with the live objects', async () => {
+  await importOne(box(10));
+  const o = st().objects[0];
+  st().updateObject(o.id, { paint: { mmu: Uint8Array.from([1, 1, 1, 0]) } });
+  st().recordHistory();
+  const snapshot = st().undoStack[st().undoStack.length - 1];
+  // painting mutates the live array in place, so the snapshot must not be the same object
+  st().applyPaint(o.id, 'mmu', [0, 1, 2], 0);
+  assert.deepEqual([...(snapshot[0].paint?.mmu ?? [])], [1, 1, 1, 0], 'the recorded paint is a copy');
+});

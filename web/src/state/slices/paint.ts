@@ -62,12 +62,9 @@ export const createPaintSlice: SlicePart<PaintSlice> = (set, get) => ({
   },
   setBrushRadius: (brushRadius) => set({ brushRadius: Math.max(0.2, Math.min(50, brushRadius)) }),
   beginPaintStroke: (objectId) => {
-    // history snapshot with copied paint arrays (strokes mutate them in place)
-    const s = get();
-    const snap = s.objects.map((o) =>
-      o.id === objectId && o.paint ? { ...o, paint: { supports: o.paint.supports?.slice(), seam: o.paint.seam?.slice() } } : o,
-    );
-    s.recordHistory(snap);
+    // history snapshot with copied paint arrays (strokes mutate them in place); the copy is what
+    // `recordHistory` does for every snapshot, so all three paint kinds survive (B3)
+    if (get().objects.some((o) => o.id === objectId)) get().recordHistory();
   },
   applyPaint: (objectId, kind, triangles, value) => {
     const o = get().objects.find((x) => x.id === objectId);
