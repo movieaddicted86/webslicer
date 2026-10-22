@@ -9,7 +9,7 @@ If a work package contradicts this file, the work package wins for that package 
 WebSlicer is PrusaSlicer in the browser. The **server** (`server/`, Node 22, Express, TypeScript, ESM)
 wraps the PrusaSlicer 2.9 CLI: it builds a PrusaSlicer-style 3MF from the plater, runs
 `--export-gcode`, streams job progress over SSE and serves presets, library files and print hosts.
-The **web app** (`web/`, React 18, Zustand, three.js, Vite) is the plater, settings editor and
+The **web app** (`web/`, React 19, Zustand, three.js, Vite 7) is the plater, settings editor and
 G-code preview. Target behaviour, labels and file formats follow **PrusaSlicer 2.9** – when in
 doubt, do what PrusaSlicer does and name it the way PrusaSlicer names it.
 
