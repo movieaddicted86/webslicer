@@ -8,7 +8,7 @@ import { encodeMmu, encodePaint } from '../../three/paint';
 import { decodeVector } from '../../values';
 import { parseThumbnailSpec, placementMatrix } from '@webslicer/shared';
 import { clientId } from '../client';
-import type { State } from '../types';
+import type { PlaterObject, PlaterVolume, State } from '../types';
 
 export interface JobSlice {
   jobLog: string[];
@@ -32,9 +32,9 @@ export const createJobSlice: StateCreator<State, [], [], JobSlice> = (set, get) 
     const n = s.extruderCount();
     const filaments = s.presets.filament.slice(0, n).map((f) => ({ name: f.name, config: f.current }));
     const objects = s.objects
-      .filter((o) => o.visible && o.modelId)
+      .filter((o): o is PlaterObject & { modelId: string } => o.visible && !!o.modelId)
       .map((o) => ({
-        modelId: o.modelId!,
+        modelId: o.modelId,
         name: o.name,
         transform: placementMatrix(o.instances[0]),
         instances: o.instances.length > 1 ? o.instances.map((i) => placementMatrix(i)) : undefined,
@@ -45,9 +45,9 @@ export const createJobSlice: StateCreator<State, [], [], JobSlice> = (set, get) 
         mmuPaint: o.paint?.mmu && o.paint.mmu.some((x) => x) ? encodeMmu(o.paint.mmu) : undefined,
         ranges: o.ranges.filter((r) => r.maxZ > r.minZ).map((r) => ({ minZ: r.minZ, maxZ: r.maxZ, config: r.config })),
         volumes: o.volumes
-          .filter((v) => v.modelId)
+          .filter((v): v is PlaterVolume & { modelId: string } => !!v.modelId)
           .map((v) => ({
-            modelId: v.modelId!,
+            modelId: v.modelId,
             name: v.name,
             type: v.type,
             transform: placementMatrix(v),
@@ -103,7 +103,8 @@ export const createJobSlice: StateCreator<State, [], [], JobSlice> = (set, get) 
       const job = await api.slice(req);
       set({ job, jobLog: [], sliceDirty: false, view: 'preview' });
       api.jobEvents(job.id, (ev) => {
-        if (ev.type === 'log' && ev.line) set((st) => ({ jobLog: [...st.jobLog.slice(-400), ev.line!] }));
+        const line = ev.line;
+        if (ev.type === 'log' && line) set((st) => ({ jobLog: [...st.jobLog.slice(-400), line] }));
         if (ev.type === 'progress')
           set((st) => (st.job ? { job: { ...st.job, percent: ev.percent ?? st.job.percent, message: ev.message ?? st.job.message } } : {}));
         if (ev.job) set({ job: ev.job });

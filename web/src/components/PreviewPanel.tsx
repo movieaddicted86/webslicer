@@ -56,12 +56,12 @@ export function PreviewPanel() {
           </button>
         </section>
       )}
-      {running && (
+      {job && running && (
         <section>
           <div className="progress">
-            <div className="bar" style={{ width: `${job!.percent}%` }} />
+            <div className="bar" style={{ width: `${job.percent}%` }} />
             <span>
-              {job!.percent}% · {job!.message}
+              {job.percent}% · {job.message}
             </span>
           </div>
           <button className="secondary" onClick={cancelSlice}>

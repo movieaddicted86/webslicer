@@ -9,16 +9,24 @@
 import * as THREE from 'three';
 import { shellPositions } from '../plater/split';
 
+/** The bounding box of a geometry, computing it when needed; throws on a mesh without positions. */
+function boundsOf(g: THREE.BufferGeometry): THREE.Box3 {
+  if (!g.boundingBox) g.computeBoundingBox();
+  const bb = g.boundingBox;
+  if (!bb) throw new Error('geometry has no bounding box');
+  return bb;
+}
+
 /** Base (unscaled) size of a mesh: the extent of its bounding box, computing it when needed. */
 export function geometrySize(g: THREE.BufferGeometry): [number, number, number] {
-  if (!g.boundingBox) g.computeBoundingBox();
-  const bb = g.boundingBox!;
+  const bb = boundsOf(g);
   return [bb.max.x - bb.min.x, bb.max.y - bb.min.y, bb.max.z - bb.min.z];
 }
 
 /** Triangles of a mesh, indexed or not (the index decides, not the position count). */
 export function triangleCount(g: THREE.BufferGeometry): number {
-  return g.getIndex() ? g.getIndex()!.count / 3 : g.getAttribute('position').count / 3;
+  const index = g.getIndex();
+  return index ? index.count / 3 : g.getAttribute('position').count / 3;
 }
 
 /**
@@ -28,8 +36,7 @@ export function triangleCount(g: THREE.BufferGeometry): number {
  * derives a volume's position from its geometry, so a part built from a shell keeps its place.
  */
 export function objectFrameOffset(o: { geometry: THREE.BufferGeometry }): [number, number, number] {
-  if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
-  const bb = o.geometry.boundingBox!;
+  const bb = boundsOf(o.geometry);
   return [-(bb.min.x + bb.max.x) / 2, -(bb.min.y + bb.max.y) / 2, -bb.min.z];
 }
 

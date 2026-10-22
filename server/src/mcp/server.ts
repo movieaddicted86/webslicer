@@ -99,7 +99,8 @@ export function mcpRouter(): express.Router {
 
   // Express 5 answers a rejected promise of this handler itself, so it is a plain `async` function.
   r.post('/', json, async (req, res) => {
-    const token = (req as AuthedRequest).mcpToken!;
+    const token = (req as AuthedRequest).mcpToken;
+    if (!token) return res.status(401).json({ error: 'missing bearer token' });
     const server = await createServer({ owner: token.owner, tokenId: token.id });
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
     res.on('close', () => {

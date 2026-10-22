@@ -28,7 +28,8 @@ export function useKeyboardShortcuts(onCamera: (req: CamRequest) => void, toggle
       // the camera keys work in the plater and in the preview
       if (matchesShortcut(e, 'views')) {
         e.preventDefault();
-        cameraRef.current({ mode: 'view', view: viewByKey(e.key)! });
+        const view = viewByKey(e.key);
+        if (view) cameraRef.current({ mode: 'view', view });
         return;
       }
       if (matchesShortcut(e, 'projection')) {

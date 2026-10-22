@@ -186,11 +186,12 @@ export async function build3mf(
     zip.file('Metadata/Prusa_Slicer_layer_config_ranges.xml', lr.join('\n'));
   }
 
-  if (opts.projectConfig) {
+  const projectConfig = opts.projectConfig;
+  if (projectConfig) {
     // Values are already in their INI-serialized form (newlines escaped), write them verbatim.
-    const lines = Object.keys(opts.projectConfig)
+    const lines = Object.keys(projectConfig)
       .sort()
-      .map((k) => `; ${k} = ${opts.projectConfig![k]}`);
+      .map((k) => `; ${k} = ${projectConfig[k]}`);
     zip.file('Metadata/Slic3r_PE.config', lines.join('\n') + '\n');
   }
 

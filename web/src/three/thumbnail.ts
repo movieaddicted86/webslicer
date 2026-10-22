@@ -40,7 +40,9 @@ export function renderThumbnails(
     }
     if (!vis) return;
     if (!m.geometry.boundingBox) m.geometry.computeBoundingBox();
-    box.union(m.geometry.boundingBox!.clone().applyMatrix4(m.matrixWorld));
+    const bounds = m.geometry.boundingBox;
+    if (!bounds) return;
+    box.union(bounds.clone().applyMatrix4(m.matrixWorld));
   });
   if (box.isEmpty()) return [];
   const center = box.getCenter(new THREE.Vector3());
@@ -96,7 +98,8 @@ export function renderThumbnails(
         const c2 = document.createElement('canvas');
         c2.width = width;
         c2.height = height;
-        const ctx = c2.getContext('2d')!;
+        const ctx = c2.getContext('2d');
+        if (!ctx) continue;
         if (spec.format === 'JPG') {
           ctx.fillStyle = '#ffffff';
           ctx.fillRect(0, 0, width, height);

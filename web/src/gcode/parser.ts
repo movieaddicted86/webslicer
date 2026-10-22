@@ -135,7 +135,7 @@ export function parseGcode(text: string): ParsedGcode {
 
   const kindIdx = new Map<MarkerKind, number>(MARKER_KINDS.map((k, i) => [k, i]));
   const addMarker = (kind: MarkerKind, mx: number, my: number, mz: number, atMove = move) => {
-    markerKind.push(kindIdx.get(kind)!);
+    markerKind.push(kindIdx.get(kind) ?? 0);
     markerPositions.push(mx, my, mz);
     markerLayer.push(layer < 0 ? 0 : layer);
     markerMove.push(atMove);

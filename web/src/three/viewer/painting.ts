@@ -54,7 +54,8 @@ export function createPainting(refs: SceneRefs): Painting {
     const p = pickPaintHit(e);
     if (!p) return;
     const { hit, st } = p;
-    const o = st.objects.find((x) => x.id === paintStroke!.objectId);
+    const strokeId = paintStroke.objectId;
+    const o = st.objects.find((x) => x.id === strokeId);
     if (!o) return;
     const selInst = selectedInstance(st, o);
     let centroids = centroidCache.get(o.geometry);

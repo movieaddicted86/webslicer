@@ -68,7 +68,11 @@ function tokenize(src: string): Token[] {
       continue;
     }
     if (/[0-9]/.test(c) || (c === '.' && /[0-9]/.test(src[i + 1] || ''))) {
-      const m = /^[0-9]*\.?[0-9]+(?:[eE][+-]?[0-9]+)?|^[0-9]+/.exec(src.slice(i))!;
+      const m = /^[0-9]*\.?[0-9]+(?:[eE][+-]?[0-9]+)?|^[0-9]+/.exec(src.slice(i));
+      if (!m) {
+        i++;
+        continue;
+      }
       tokens.push({ t: 'num', v: Number(m[0]) });
       i += m[0].length;
       continue;
@@ -107,7 +111,11 @@ function tokenize(src: string): Token[] {
       }
     }
     if (/[A-Za-z_]/.test(c)) {
-      const m = /^[A-Za-z_][A-Za-z0-9_]*/.exec(src.slice(i))!;
+      const m = /^[A-Za-z_][A-Za-z0-9_]*/.exec(src.slice(i));
+      if (!m) {
+        i++;
+        continue;
+      }
       tokens.push({ t: 'id', v: m[0] });
       i += m[0].length;
       continue;

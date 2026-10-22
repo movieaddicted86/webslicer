@@ -124,7 +124,8 @@ export const createPlaterSlice: StateCreator<State, [], [], PlaterSlice> = (set,
       g.computeBoundingBox();
       // Snapshot the box as numbers: `g.boundingBox` is the geometry's live Box3, and the recompute
       // below would overwrite what the offset has to be measured against.
-      const box = g.boundingBox!;
+      const box = g.boundingBox;
+      if (!box) continue;
       const lo: [number, number, number] = [box.min.x, box.min.y, box.min.z];
       const hi: [number, number, number] = [box.max.x, box.max.y, box.max.z];
       // normalize: center XY at origin, min Z at 0
@@ -134,7 +135,8 @@ export const createPlaterSlice: StateCreator<State, [], [], PlaterSlice> = (set,
       g.computeVertexNormals();
       const size: [number, number, number] = [hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]];
       const pos = g.getAttribute('position');
-      const tri = g.getIndex() ? g.getIndex()!.count / 3 : pos.count / 3;
+      const index = g.getIndex();
+      const tri = index ? index.count / 3 : pos.count / 3;
       const id = mintObjectId();
       const offset: [number, number, number] = [-c[0], -c[1], -c[2]];
       created.push({
@@ -580,27 +582,30 @@ export const createPlaterSlice: StateCreator<State, [], [], PlaterSlice> = (set,
       if (o.paint?.[kind] && !remap(o.paint[kind])) dropped = true;
     }
     const offset = objectFrameOffset(o);
-    const volumes: PlaterVolume[] = rest.map((tris, i) => {
+    const volumes: PlaterVolume[] = rest.flatMap((tris, i) => {
       // a volume is centred at its own origin and placed at its centre in the object frame
       const geometry = shellGeometry(positions, tris);
       geometry.computeBoundingBox();
-      const bb = geometry.boundingBox!;
+      const bb = geometry.boundingBox;
+      if (!bb) return [];
       const centre: [number, number, number] = [(bb.min.x + bb.max.x) / 2, (bb.min.y + bb.max.y) / 2, (bb.min.z + bb.max.z) / 2];
       geometry.translate(-centre[0], -centre[1], -centre[2]);
       geometry.computeVertexNormals();
-      return {
-        id: mintVolumeId(),
-        name: `Part ${i + 2}`,
-        type: 'ModelPart',
-        geometry,
-        position: [centre[0] + offset[0], centre[1] + offset[1], centre[2] + offset[2]],
-        rotation: [0, 0, 0],
-        scale: [1, 1, 1],
-        size: geometrySize(geometry),
-        config: {},
-        extruder: 0,
-        triangles: tris.length,
-      };
+      return [
+        {
+          id: mintVolumeId(),
+          name: `Part ${i + 2}`,
+          type: 'ModelPart',
+          geometry,
+          position: [centre[0] + offset[0], centre[1] + offset[1], centre[2] + offset[2]],
+          rotation: [0, 0, 0],
+          scale: [1, 1, 1],
+          size: geometrySize(geometry),
+          config: {},
+          extruder: 0,
+          triangles: tris.length,
+        },
+      ];
     });
     const paint = o.paint ? { supports: remap(o.paint.supports), seam: remap(o.paint.seam), mmu: remap(o.paint.mmu) } : undefined;
     set((st) => ({

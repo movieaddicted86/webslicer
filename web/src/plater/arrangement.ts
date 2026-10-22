@@ -54,7 +54,8 @@ export function placementUpdates(items: ArrangedInstance[], packed: PackedItem[]
   const byKey = new Map(items.map((it) => [it.key, it]));
   const updates = new Map<string, [number, number, number]>();
   for (const p of packed) {
-    const it = byKey.get(p.id)!;
+    const it = byKey.get(p.id);
+    if (!it) continue;
     const curCx = (it.box.min.x + it.box.max.x) / 2;
     const curCy = (it.box.min.y + it.box.max.y) / 2;
     updates.set(it.key, [it.inst.position[0] + (p.x - curCx), it.inst.position[1] + (p.y - curCy), it.inst.position[2] - it.box.min.z]);
@@ -68,7 +69,10 @@ export function withPlacements(objects: PlaterObject[], updates: Map<string, [nu
     if (!o.instances.some((i) => updates.has(`${o.id}:${i.id}`))) return o;
     return {
       ...o,
-      instances: o.instances.map((i) => (updates.has(`${o.id}:${i.id}`) ? { ...i, position: updates.get(`${o.id}:${i.id}`)! } : i)),
+      instances: o.instances.map((i) => {
+        const position = updates.get(`${o.id}:${i.id}`);
+        return position ? { ...i, position } : i;
+      }),
     };
   });
 }

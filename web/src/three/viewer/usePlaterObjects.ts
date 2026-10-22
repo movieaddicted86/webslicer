@@ -111,7 +111,8 @@ export function usePlaterObjects(refsRef: RefObject<SceneRefs | null>, options: 
       const paintingThis = paintMode && selected;
       const base = o.extruder > 0 ? EXTRUDER_COLORS[(o.extruder - 1) % EXTRUDER_COLORS.length] : OBJECT_COLOR;
       for (const [iid, inode] of node.instances) {
-        const inst = o.instances.find((i) => i.id === iid)!;
+        const inst = o.instances.find((i) => i.id === iid);
+        if (!inst) continue;
         // outside-bed highlight is per instance (each copy can sit off the bed on its own)
         const box = instanceBounds(o, inst);
         const outside =
@@ -163,7 +164,8 @@ export function usePlaterObjects(refsRef: RefObject<SceneRefs | null>, options: 
         if (wantSlabs && !inode.slabs) {
           const slabs = new THREE.Group();
           if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
-          const bb = o.geometry.boundingBox!;
+          const bb = o.geometry.boundingBox;
+          if (!bb) continue;
           const w = (bb.max.x - bb.min.x) * 1.1 + 2;
           const d = (bb.max.y - bb.min.y) * 1.1 + 2;
           const cx = (bb.min.x + bb.max.x) / 2;

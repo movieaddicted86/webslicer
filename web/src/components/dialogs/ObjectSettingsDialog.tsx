@@ -82,7 +82,7 @@ export function ObjectSettingsDialog({
   rangeId?: string;
 }) {
   const o = useStore((s) => s.objects.find((x) => x.id === objectId));
-  const schema = useStore((s) => s.schema)!;
+  const schema = useStore((s) => s.schema);
   const updateObject = useStore((s) => s.updateObject);
   const updateVolume = useStore((s) => s.updateVolume);
   const updateRange = useStore((s) => s.updateRange);
@@ -92,18 +92,18 @@ export function ObjectSettingsDialog({
   const vol = volumeId ? o?.volumes.find((v) => v.id === volumeId) : undefined;
   const range = rangeId ? o?.ranges.find((r) => r.id === rangeId) : undefined;
   const forVolume = !!vol;
-  const candidates = useMemo(
-    () =>
-      schema.presetKeys.print
-        .filter(
-          (k) => !OBJECT_SETTING_EXCLUDES.has(k) && schema.options[k] && MODE_RANK[schema.options[k].mode || 'expert'] <= MODE_RANK[mode],
-        )
-        .filter((k) => !forVolume || !OBJECT_ONLY_PREFIXES.some((p) => k.startsWith(p)))
-        .filter((k) => !search || k.includes(search.toLowerCase()) || schema.options[k].label.toLowerCase().includes(search.toLowerCase()))
-        .sort((a, b) => schema.options[a].label.localeCompare(schema.options[b].label)),
-    [schema, search, mode, forVolume],
-  );
-  if (!o) return null;
+  const candidates = useMemo(() => {
+    if (!schema) return [];
+    return schema.presetKeys.print
+      .filter(
+        (k) => !OBJECT_SETTING_EXCLUDES.has(k) && schema.options[k] && MODE_RANK[schema.options[k].mode || 'expert'] <= MODE_RANK[mode],
+      )
+      .filter((k) => !forVolume || !OBJECT_ONLY_PREFIXES.some((p) => k.startsWith(p)))
+      .filter((k) => !search || k.includes(search.toLowerCase()) || schema.options[k].label.toLowerCase().includes(search.toLowerCase()))
+      .sort((a, b) => schema.options[a].label.localeCompare(schema.options[b].label));
+  }, [schema, search, mode, forVolume]);
+  // the schema is loaded before a dialog can open (App waits for `ready`)
+  if (!o || !schema) return null;
   const config = vol ? vol.config : range ? range.config : o.config;
   const setConfig = (c: Record<string, string>) => {
     if (range) {

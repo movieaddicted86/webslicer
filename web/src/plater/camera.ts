@@ -42,7 +42,7 @@ export function viewByKey(key: string): CameraView | undefined {
 }
 
 export function viewDef(view: CameraView): ViewDef {
-  return VIEWS.find((v) => v.id === view)!;
+  return VIEWS.find((v) => v.id === view) ?? VIEWS[0];
 }
 
 /** Orthonormal camera basis: screen right, screen up and the direction towards the camera. */

@@ -40,12 +40,12 @@ export function SlicePanel() {
           Export binary G-code (.bgcode) – no preview
         </label>
       )}
-      {running ? (
+      {job && running ? (
         <>
           <div className="progress">
-            <div className="bar" style={{ width: `${job!.percent}%` }} />
+            <div className="bar" style={{ width: `${job.percent}%` }} />
             <span>
-              {job!.percent}% · {job!.message}
+              {job.percent}% · {job.message}
             </span>
           </div>
           <button className="secondary" onClick={cancelSlice}>
