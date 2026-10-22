@@ -13,6 +13,7 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import { TOOLS } from './tools.js';
 import type { ToolContext } from './toolTypes.js';
 import { authenticateHeader, mcpEnabled, type McpToken } from './tokens.js';
+import { authBlockedFor, recordAuthFailure, recordAuthSuccess } from './authLimit.js';
 import { appendAudit, sanitizeParams } from './audit.js';
 import { appVersion } from '../services/version.js';
 
@@ -76,11 +77,20 @@ export function mcpRouter(): express.Router {
     if (!mcpEnabled()) return res.status(404).json({ error: 'MCP is not enabled' });
     // The Host/Origin allowlist already ran in `app.ts` for /api and /mcp (SEC-2): it replaced the
     // old `Origin == Host` check, which a rebound name always passed.
+    const client = req.ip || req.socket.remoteAddress || 'unknown';
+    // S9: an address that keeps sending wrong tokens is answered with 429 for a minute
+    const blockedFor = authBlockedFor(client);
+    if (blockedFor) {
+      res.setHeader('Retry-After', String(Math.ceil(blockedFor / 1000)));
+      return res.status(429).json({ error: 'too many failed authentication attempts, try again later' });
+    }
     const token = authenticateHeader(req.header('authorization'));
     if (!token) {
+      recordAuthFailure(client);
       res.setHeader('WWW-Authenticate', 'Bearer realm="webslicer"');
       return res.status(401).json({ error: 'missing or invalid bearer token' });
     }
+    recordAuthSuccess(client);
     (req as AuthedRequest).mcpToken = token;
     next();
   });

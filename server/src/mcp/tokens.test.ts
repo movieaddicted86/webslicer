@@ -38,21 +38,38 @@ function resetTokens(env?: string): number {
   return bootstrapEnvToken(env);
 }
 
-test('a token is stored as a salted scrypt hash and checked in constant time', () => {
+test('a token is stored as a SHA-256 and checked in constant time (S9)', () => {
   const a = hashToken(USER_TOKEN);
-  const b = hashToken(USER_TOKEN);
-  assert.match(a, /^scrypt\$[0-9a-f]{32}\$[0-9a-f]{128}$/);
-  assert.notEqual(a, b, 'every hash gets its own salt');
+  assert.match(a, /^sha256\$[0-9a-f]{64}$/);
+  assert.equal(a, hashToken(USER_TOKEN), 'the same token gives the same record – a plain lookup');
   assert.ok(!a.includes(USER_TOKEN), 'the hash never contains the token');
   assert.equal(verifyTokenHash(USER_TOKEN, a), true);
-  assert.equal(verifyTokenHash(USER_TOKEN, b), true);
   assert.equal(verifyTokenHash('other', a), false);
   assert.equal(verifyTokenHash('', a), false);
   // malformed and truncated records must not throw
   assert.equal(verifyTokenHash(USER_TOKEN, ''), false);
   assert.equal(verifyTokenHash(USER_TOKEN, 'plain-text'), false);
+  assert.equal(verifyTokenHash(USER_TOKEN, 'sha256$abc'), false);
+  assert.equal(verifyTokenHash(USER_TOKEN, `sha256$${'0'.repeat(10)}`), false);
   assert.equal(verifyTokenHash(USER_TOKEN, 'scrypt$abc$00'), false);
-  assert.equal(verifyTokenHash(USER_TOKEN, `scrypt$abc$${'0'.repeat(10)}`), false);
+});
+
+test('S9: scrypt records of older versions keep working and are migrated on first use', async () => {
+  const { scryptSync } = await import('node:crypto');
+  const salt = 'a'.repeat(32);
+  const legacy = `scrypt$${salt}$${scryptSync(USER_TOKEN, salt, 64).toString('hex')}`;
+  assert.equal(verifyTokenHash(USER_TOKEN, legacy), true, 'the legacy form still verifies');
+  assert.equal(verifyTokenHash('wrong', legacy), false);
+
+  resetTokens(ENV_TOKEN);
+  const list = loadTokens();
+  list.push({ id: 'legacy-1', name: 'Old client', owner: 'robert', hash: legacy, createdAt: new Date().toISOString() });
+  saveTokens(list);
+
+  const found = authenticate(USER_TOKEN);
+  assert.equal(found?.id, 'legacy-1', 'the old token authenticates');
+  assert.match(loadTokens().find((t) => t.id === 'legacy-1')?.hash ?? '', /^sha256\$/, 'and the record is upgraded');
+  assert.equal(authenticate(USER_TOKEN)?.id, 'legacy-1', 'the migrated record still works');
 });
 
 test('the token file holds hashes only', () => {
@@ -63,7 +80,7 @@ test('the token file holds hashes only', () => {
   assert.equal(list.length, 1);
   assert.equal(list[0].id, ENV_TOKEN_ID);
   assert.equal(list[0].owner, 'admin');
-  assert.match(list[0].hash, /^scrypt\$/);
+  assert.match(list[0].hash, /^sha256\$/);
 });
 
 test('MCP_TOKEN is bootstrapped, updated in place and removed again', () => {
