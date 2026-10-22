@@ -104,10 +104,45 @@ function hostFetch(p: PhysicalPrinter, url: string, init: Parameters<typeof undi
   return undiciFetch(url, p.ignoreTls ? { ...init, dispatcher: insecureAgent } : init);
 }
 
-export async function testPrinter(p: PhysicalPrinter): Promise<{ ok: boolean; message: string }> {
+/** How long a printer test may take (S3): a host that does not answer quickly is down for us. */
+export const PRINTER_TEST_TIMEOUT_MS = 5_000;
+
+/**
+ * Upload budget by file size (S3): one minute plus a second per 50 kB, capped at ten minutes.
+ * A G-code of 10 MB gets ≈ 4.5 min, anything beyond ≈ 29 MB the hard maximum.
+ */
+export function uploadTimeoutMs(bytes: number): number {
+  const size = Number.isFinite(bytes) && bytes > 0 ? bytes : 0;
+  return Math.min(10 * 60_000, 60_000 + Math.ceil(size / 50_000) * 1_000);
+}
+
+/**
+ * The client-facing result of a failed host call. Only the fact that it timed out is named – the
+ * remote detail (DNS text, TLS error, connection refused) goes to the server log (S3).
+ */
+function hostFailure(action: string, printer: PhysicalPrinter, e: unknown, timeoutMs: number): { ok: false; message: string } {
+  const timedOut = (e as Error)?.name === 'AbortError';
+  const detail = timedOut ? 'timed out' : ((e as Error)?.message ?? String(e));
+  console.error(`[webslicer] ${action} ${printer.type} at ${printer.host} failed: ${detail}`);
+  return {
+    ok: false,
+    message: timedOut ? `${action} failed: ${printer.type} did not answer within ${Math.round(timeoutMs / 1000)} s` : `${action} failed`,
+  };
+}
+
+/**
+ * Read and discard an error body. Its content may name internal hosts or paths (S3); it goes to the
+ * server log only, never into the response.
+ */
+async function drain(res: { text: () => Promise<string> }): Promise<void> {
+  const body = await res.text().catch(() => '');
+  if (body) console.error(`[webslicer] printer host answered with a body: ${body.slice(0, 2_000)}`);
+}
+
+export async function testPrinter(p: PhysicalPrinter, timeoutMs = PRINTER_TEST_TIMEOUT_MS): Promise<{ ok: boolean; message: string }> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
-    const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), 10_000);
     let url: string;
     switch (p.type) {
       case 'octoprint':
@@ -121,8 +156,10 @@ export async function testPrinter(p: PhysicalPrinter): Promise<{ ok: boolean; me
         break;
     }
     const res = await hostFetch(p, url, { headers: headers(p), signal: ctrl.signal });
-    clearTimeout(t);
-    if (!res.ok) return { ok: false, message: `HTTP ${res.status} ${res.statusText}` };
+    if (!res.ok) {
+      await drain(res);
+      return { ok: false, message: `Connection failed: HTTP ${res.status}` };
+    }
     const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
     const text =
       (json.text as string) ||
@@ -131,7 +168,9 @@ export async function testPrinter(p: PhysicalPrinter): Promise<{ ok: boolean; me
       (json.api ? `API ${json.api}` : 'reachable');
     return { ok: true, message: `Connected: ${text}` };
   } catch (e) {
-    return { ok: false, message: (e as Error).message };
+    return hostFailure('Connection test', p, e, timeoutMs);
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -140,9 +179,16 @@ export async function uploadToPrinter(
   gcodePath: string,
   filename: string,
   startPrint: boolean,
+  /** overrides the size-derived budget (a test passes a short one) */
+  overrideTimeoutMs?: number,
 ): Promise<{ ok: boolean; message: string }> {
   const data = await fs.readFile(gcodePath);
   const blob = new Blob([data], { type: 'application/octet-stream' });
+  // S3: every host call gets a hard deadline; a host that hangs must not keep the job open
+  const timeoutMs = overrideTimeoutMs ?? uploadTimeoutMs(data.length);
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  const signal = ctrl.signal;
   try {
     switch (p.type) {
       case 'octoprint': {
@@ -150,8 +196,11 @@ export async function uploadToPrinter(
         fd.append('file', blob, filename);
         fd.append('select', startPrint ? 'true' : 'false');
         fd.append('print', startPrint ? 'true' : 'false');
-        const res = await hostFetch(p, `${p.host}/api/files/local`, { method: 'POST', headers: headers(p), body: fd });
-        if (!res.ok) return { ok: false, message: `OctoPrint upload failed: HTTP ${res.status} ${await res.text().catch(() => '')}` };
+        const res = await hostFetch(p, `${p.host}/api/files/local`, { method: 'POST', headers: headers(p), body: fd, signal });
+        if (!res.ok) {
+          await drain(res);
+          return { ok: false, message: `OctoPrint upload failed: HTTP ${res.status}` };
+        }
         return { ok: true, message: `Uploaded ${filename} to OctoPrint${startPrint ? ' and started print' : ''}` };
       }
       case 'moonraker': {
@@ -159,8 +208,11 @@ export async function uploadToPrinter(
         fd.append('file', blob, filename);
         fd.append('root', 'gcodes');
         fd.append('print', startPrint ? 'true' : 'false');
-        const res = await hostFetch(p, `${p.host}/server/files/upload`, { method: 'POST', headers: headers(p), body: fd });
-        if (!res.ok) return { ok: false, message: `Moonraker upload failed: HTTP ${res.status} ${await res.text().catch(() => '')}` };
+        const res = await hostFetch(p, `${p.host}/server/files/upload`, { method: 'POST', headers: headers(p), body: fd, signal });
+        if (!res.ok) {
+          await drain(res);
+          return { ok: false, message: `Moonraker upload failed: HTTP ${res.status}` };
+        }
         return { ok: true, message: `Uploaded ${filename} to Moonraker${startPrint ? ' and started print' : ''}` };
       }
       case 'prusalink': {
@@ -174,21 +226,29 @@ export async function uploadToPrinter(
             'Print-After-Upload': startPrint ? '?1' : '?0',
           }),
           body: data,
+          signal,
         });
         if (res.ok) return { ok: true, message: `Uploaded ${filename} to PrusaLink${startPrint ? ' and started print' : ''}` };
-        if (res.status !== 404)
-          return { ok: false, message: `PrusaLink upload failed: HTTP ${res.status} ${await res.text().catch(() => '')}` };
+        if (res.status !== 404) {
+          await drain(res);
+          return { ok: false, message: `PrusaLink upload failed: HTTP ${res.status}` };
+        }
         // Fallback: legacy OctoPrint-compatible API
         const fd = new UndiciFormData();
         fd.append('file', blob, filename);
         fd.append('print', startPrint ? 'true' : 'false');
-        const res2 = await hostFetch(p, `${p.host}/api/files/local`, { method: 'POST', headers: headers(p), body: fd });
-        if (!res2.ok) return { ok: false, message: `PrusaLink upload failed: HTTP ${res2.status} ${await res2.text().catch(() => '')}` };
+        const res2 = await hostFetch(p, `${p.host}/api/files/local`, { method: 'POST', headers: headers(p), body: fd, signal });
+        if (!res2.ok) {
+          await drain(res2);
+          return { ok: false, message: `PrusaLink upload failed: HTTP ${res2.status}` };
+        }
         return { ok: true, message: `Uploaded ${filename} to PrusaLink (legacy API)` };
       }
     }
   } catch (e) {
-    return { ok: false, message: (e as Error).message };
+    return hostFailure('Upload', p, e, timeoutMs);
+  } finally {
+    clearTimeout(timer);
   }
   return { ok: false, message: 'Unsupported host type' };
 }

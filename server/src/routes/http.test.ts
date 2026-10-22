@@ -230,14 +230,13 @@ function sliceRequestTop(overrides: Record<string, unknown> = {}): Record<string
   return { ...sliceRequest(), ...overrides };
 }
 
-test('POST /api/export/3mf answers 500 for an invalid slice request (pre-existing, preserved)', async () => {
+test('POST /api/export/3mf answers 500 with a generic body (S10)', async () => {
   // `validateSliceRequest` throws a plain Error, and this route does not map it, so the error
-  // handler answers 500. That is inconsistent with `/api/slice` (400) but it is the behaviour on
-  // `main`, and T-021 is a refactoring: the status codes must not change here. R-10 (typed validation
-  // errors for REST and MCP) is where this becomes a 400.
+  // handler answers 500. The message itself is not sent any more (S10: a 500 must not leak the
+  // internals); it goes to the server log only.
   const res = await call('POST', '/api/export/3mf', { objects: [] });
   assert.equal(res.status, 500);
-  assert.equal(errorOf(res), 'at least one object required');
+  assert.equal(errorOf(res), 'Internal error');
 });
 
 // ---------------------------------------------------------------------------

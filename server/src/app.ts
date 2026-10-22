@@ -56,10 +56,13 @@ export function createApp(): express.Express {
       _next: express.NextFunction,
     ) => {
       const status = statusOf(err) ?? err.status ?? (err.type === 'entity.too.large' ? 413 : 500);
+      // S10: an unexpected error is logged in full, but a 500 body never carries its message – those
+      // come from the file system, the slicer or undici and may name paths and hosts
       if (status >= 500) console.error(err);
+      const message = status >= 500 ? 'Internal error' : err.message || 'Internal error';
       // typed errors may carry fields the client needs to decide (the issues of a refused send);
       // `error` stays the message so every existing reader keeps working
-      res.status(status).json({ error: err.message || 'Internal error', ...(status < 500 ? err.details : undefined) });
+      res.status(status).json({ error: message, ...(status < 500 ? err.details : undefined) });
     },
   );
 

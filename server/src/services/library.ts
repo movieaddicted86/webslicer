@@ -16,7 +16,15 @@ import type { LibraryEntry } from '@webslicer/shared';
 export const MODEL_EXT = new Set(['.stl', '.obj', '.3mf', '.amf']);
 export const GCODE_EXT = new Set(['.gcode', '.bgcode', '.gco', '.g']);
 
-/** Resolve a user supplied relative path inside the library; rejects escapes. */
+/**
+ * Resolve a user supplied relative path inside the library; rejects escapes.
+ *
+ * The lexical check alone is not enough on a NAS share: a symlink inside the library can point
+ * outside it (S10). `resolveLibraryPath` therefore also returns the *resolved* path when the target
+ * (or its closest existing ancestor) leaves the library root, and `assertInsideLibrary` refuses it.
+ * Paths that do not exist yet are compared through their deepest existing ancestor, so a write
+ * cannot create a file behind a symlinked directory either.
+ */
 export function resolveLibraryPath(rel: string | undefined): string {
   const clean = String(rel || '')
     .replace(/\\/g, '/')
@@ -25,6 +33,46 @@ export function resolveLibraryPath(rel: string | undefined): string {
   const abs = path.resolve(config.libraryDir, clean);
   const root = path.resolve(config.libraryDir);
   if (abs !== root && !abs.startsWith(root + path.sep)) throw new ValidationError('invalid path');
+  return abs;
+}
+
+/** The real path of `target`, or of its deepest existing ancestor plus the rest of the name. */
+async function realTarget(target: string): Promise<string> {
+  let current = path.resolve(target);
+  const rest: string[] = [];
+  for (;;) {
+    try {
+      const real = await fs.realpath(current);
+      return path.join(real, ...rest);
+    } catch {
+      const parent = path.dirname(current);
+      if (parent === current) return path.resolve(target);
+      rest.unshift(path.basename(current));
+      current = parent;
+    }
+  }
+}
+
+/**
+ * Refuse a path whose real location is outside the library root (S10). Without this a symlink on the
+ * share – or a symlinked library root itself – lets a request read or write anywhere the service
+ * user may.
+ */
+export async function assertInsideLibrary(abs: string): Promise<void> {
+  const [realRoot, realAbs] = await Promise.all([
+    fs.realpath(config.libraryDir).catch(() => path.resolve(config.libraryDir)),
+    realTarget(abs),
+  ]);
+  if (realAbs !== realRoot && !realAbs.startsWith(realRoot + path.sep)) {
+    // the path itself is not echoed: a 400 has to be enough to refuse it (S10)
+    throw new ValidationError('invalid path');
+  }
+}
+
+/** Resolve and check a library path in one step. */
+export async function resolveInsideLibrary(rel: string | undefined): Promise<string> {
+  const abs = resolveLibraryPath(rel);
+  await assertInsideLibrary(abs);
   return abs;
 }
 
@@ -57,7 +105,7 @@ export function safeName(name: string): string {
 
 /** Files and folders of one library directory. */
 export async function listLibrary(rel: string): Promise<{ path: string; entries: LibraryEntry[] }> {
-  const abs = resolveLibraryPath(rel);
+  const abs = await resolveInsideLibrary(rel);
   const relPath = libraryRelativePath(abs);
   let names: Dirent[];
   try {
@@ -88,7 +136,7 @@ export async function listLibrary(rel: string): Promise<{ path: string; entries:
 
 /** Absolute path of a library file, or a 404 if it is not a regular file. */
 export async function resolveLibraryFile(rel: string | undefined): Promise<string> {
-  const abs = resolveLibraryPath(rel);
+  const abs = await resolveInsideLibrary(rel);
   let st;
   try {
     st = await fs.stat(abs);
@@ -101,7 +149,7 @@ export async function resolveLibraryFile(rel: string | undefined): Promise<strin
 
 /** Write an uploaded body into the library. */
 export async function writeLibraryFile(rel: string | undefined, buf: Buffer): Promise<{ path: string; size: number }> {
-  return writeLibraryData(resolveLibraryPath(rel), buf);
+  return writeLibraryData(await resolveInsideLibrary(rel), buf);
 }
 
 /**
@@ -116,7 +164,8 @@ export async function writeLibraryData(abs: string, buf: Buffer): Promise<{ path
 
 /** Create a directory inside the library. */
 export async function makeLibraryDir(parentRel: string | undefined, name: string): Promise<{ path: string }> {
-  const abs = path.join(resolveLibraryPath(parentRel), safeName(name));
+  const abs = path.join(await resolveInsideLibrary(parentRel), safeName(name));
+  await assertInsideLibrary(abs);
   await fs.mkdir(abs, { recursive: true });
   return { path: libraryRelativePath(abs) };
 }
@@ -126,7 +175,7 @@ export async function makeLibraryDir(parentRel: string | undefined, name: string
  * cannot wipe the mounted share with one request.
  */
 export async function deleteLibraryEntry(rel: string | undefined): Promise<void> {
-  const abs = resolveLibraryPath(rel);
+  const abs = await resolveInsideLibrary(rel);
   if (abs === path.resolve(config.libraryDir)) throw new ValidationError('cannot delete the library root');
   let st;
   try {
@@ -140,10 +189,20 @@ export async function deleteLibraryEntry(rel: string | undefined): Promise<void>
   await fs.rmdir(abs);
 }
 
-/** Target file of a write into the library: `<dir>/<safeName><ext>`. */
+/**
+ * Target file of a write into the library: `<dir>/<safeName><ext>`. The target is checked against
+ * the root in its real form (`libraryTargetChecked`) before anything is written.
+ */
 export function libraryTarget(dirRel: string | undefined, name: string, ext: string): string {
   const base = safeName(name).replace(new RegExp(`${ext.replace('.', '\\.')}$`, 'i'), '');
   return path.join(resolveLibraryPath(dirRel), `${base}${ext}`);
+}
+
+/** `libraryTarget` with the symlink check of S10 – what every write route uses. */
+export async function libraryTargetChecked(dirRel: string | undefined, name: string, ext: string): Promise<string> {
+  const target = libraryTarget(dirRel, name, ext);
+  await assertInsideLibrary(target);
+  return target;
 }
 
 /** Copy a file into the library at an already resolved target path. */

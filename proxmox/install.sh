@@ -10,6 +10,7 @@
 #   WEBSLICER_PORT      HTTP port (default: 8080)
 #   PRUSASLICER_VERSION PrusaSlicer version (default: installer default)
 #   PRUSASLICER_URL     explicit AppImage URL (overrides version/arch detection)
+#   PRUSASLICER_SHA256  SHA-256 of that AppImage (required for a custom URL or version)
 # Not persisted:
 #   WEBSLICER_SRC       use a local source tree instead of git (dir or .tar.gz)
 #   WEBSLICER_DIR       install dir (default: /opt/webslicer)
@@ -28,13 +29,17 @@ export DEBIAN_FRONTEND=noninteractive
 export NPM_CONFIG_UPDATE_NOTIFIER=false NPM_CONFIG_FUND=false NPM_CONFIG_AUDIT=false
 
 DEFAULT_PRUSASLICER_VERSION="2.9.6"
+# SHA-256 of the default AppImage of DEFAULT_PRUSASLICER_VERSION (S4); a different version or a
+# custom PRUSASLICER_URL needs PRUSASLICER_SHA256, otherwise the installer warns.
+DEFAULT_PRUSASLICER_SHA256_x86_64="903765126127d99144f06bbac58857d4cc684d9b30c2884a4cc7e2ecb7a7fab8"
+DEFAULT_PRUSASLICER_SHA256_aarch64="8c4fa98ad9b07878b3ebfbb7e2ccdfd1bdf6fa307b87ba74dde3d07b4103b19a"
 SETTINGS=/etc/webslicer/installer.env
 
 # Settings of a previous install (only for variables not given explicitly)
 if [ -f "$SETTINGS" ]; then
   while IFS='=' read -r key value; do
     case "$key" in
-      WEBSLICER_REPO | WEBSLICER_BRANCH | WEBSLICER_PORT | PRUSASLICER_VERSION | PRUSASLICER_URL)
+      WEBSLICER_REPO | WEBSLICER_BRANCH | WEBSLICER_PORT | PRUSASLICER_VERSION | PRUSASLICER_URL | PRUSASLICER_SHA256)
         [ -z "${!key:-}" ] && export "$key=$value" ;;
     esac
   done <"$SETTINGS"
@@ -95,17 +100,39 @@ ok "Node.js $(node -v)"
 
 # --- PrusaSlicer -----------------------------------------------------------------
 ARCH="$(uname -m)"
-if [ -z "$PRUSASLICER_URL" ]; then
+CUSTOM_URL=0
+if [ -n "$PRUSASLICER_URL" ]; then
+  CUSTOM_URL=1
+else
   case "$ARCH" in
     x86_64) PRUSASLICER_URL="https://github.com/gneiss15/PrusaSlicer.AppImage/releases/download/${PRUSASLICER_VERSION}/PrusaSlicer-${PRUSASLICER_VERSION}-x86_64_GN.AppImage" ;;
     aarch64) PRUSASLICER_URL="https://github.com/davidk/PrusaSlicer-ARM.AppImage/releases/download/version_${PRUSASLICER_VERSION}/PrusaSlicer-${PRUSASLICER_VERSION}-aarch64-full.AppImage" ;;
     *) die "Unsupported architecture $ARCH" ;;
   esac
 fi
+# S4: pin the checksum of the default release; an explicit PRUSASLICER_SHA256 wins, anything else
+# (other version, custom URL) is downloaded unverified with a warning in the log.
+if [ -n "${PRUSASLICER_SHA256:-}" ]; then
+  EXPECTED_SHA="$PRUSASLICER_SHA256"
+elif [ "$CUSTOM_URL" = 0 ] && [ "$PRUSASLICER_VERSION" = "$DEFAULT_PRUSASLICER_VERSION" ]; then
+  case "$ARCH" in
+    x86_64) EXPECTED_SHA="$DEFAULT_PRUSASLICER_SHA256_x86_64" ;;
+    aarch64) EXPECTED_SHA="$DEFAULT_PRUSASLICER_SHA256_aarch64" ;;
+    *) EXPECTED_SHA="" ;;
+  esac
+else
+  EXPECTED_SHA=""
+  msg "WARNING: AppImage download without PRUSASLICER_SHA256 – it is not verified"
+fi
 if [ ! -f "${PRUSASLICER_DIR}/VERSION" ] || [ "$(cat "${PRUSASLICER_DIR}/VERSION")" != "${PRUSASLICER_VERSION}" ]; then
   msg "Downloading PrusaSlicer ${PRUSASLICER_VERSION}"
   TMP="$(mktemp -d)"
   curl -fsSL --retry 3 -o "${TMP}/PrusaSlicer.AppImage" "$PRUSASLICER_URL" || die "Download of ${PRUSASLICER_URL} failed"
+  if [ -n "$EXPECTED_SHA" ]; then
+    ACTUAL_SHA="$(sha256sum "${TMP}/PrusaSlicer.AppImage" | cut -d' ' -f1)"
+    [ "$ACTUAL_SHA" = "$EXPECTED_SHA" ] || die "PrusaSlicer checksum mismatch: expected ${EXPECTED_SHA}, got ${ACTUAL_SHA}"
+    ok "PrusaSlicer checksum verified"
+  fi
   chmod +x "${TMP}/PrusaSlicer.AppImage"
   (cd "$TMP" && ./PrusaSlicer.AppImage --appimage-extract >/dev/null)
   rm -rf "${PRUSASLICER_DIR}"
@@ -157,6 +184,13 @@ fi
 VERSION="$(sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' "${WEBSLICER_DIR}/package.json" | head -n1)"
 ok "WebSlicer ${VERSION:-sources}"
 
+# --- Licence ---------------------------------------------------------------------
+# S6: the licence and the third-party notices stay with the installed sources and in the doc dir
+mkdir -p /usr/share/doc/webslicer
+for doc in LICENSE THIRD_PARTY_NOTICES.md; do
+  [ -f "${WEBSLICER_DIR}/${doc}" ] && cp "${WEBSLICER_DIR}/${doc}" /usr/share/doc/webslicer/
+done
+
 # --- Build -------------------------------------------------------------------------
 msg "Building WebSlicer (takes a few minutes)"
 cd "$WEBSLICER_DIR"
@@ -193,6 +227,7 @@ fi
   echo "WEBSLICER_PORT=${WEBSLICER_PORT}"
   [ -n "$PIN_PRUSASLICER" ] && echo "PRUSASLICER_VERSION=${PRUSASLICER_VERSION}"
   [ -n "$PRUSASLICER_URL" ] && [ -n "$PIN_PRUSASLICER" ] && echo "PRUSASLICER_URL=${PRUSASLICER_URL}"
+  [ -n "${PRUSASLICER_SHA256:-}" ] && echo "PRUSASLICER_SHA256=${PRUSASLICER_SHA256}"
 } >"$SETTINGS"
 
 cat >/etc/systemd/system/webslicer.service <<EOF

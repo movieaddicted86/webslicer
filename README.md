@@ -132,8 +132,9 @@ printer_). Then drag a model into the 3D view and click **Slice now**.
 
 | Variable                          | Default                                     | Meaning                                                                                                                                           |
 | --------------------------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `PRUSASLICER_VERSION` (build arg) | `2.9.6`                                     | PrusaSlicer version                                                                                                                               |
+| `PRUSASLICER_VERSION` (build arg) | `2.9.6`                                     | PrusaSlicer version; the default is pinned by a SHA-256                                                                                           |
 | `PRUSASLICER_URL` (build arg)     | –                                           | Custom AppImage URL (overrides version/arch)                                                                                                      |
+| `PRUSASLICER_SHA256` (build arg)  | –                                           | SHA-256 of a custom AppImage; without it a custom URL/version is downloaded unverified (warning)                                                  |
 | `PORT`                            | `8080`                                      | HTTP port                                                                                                                                         |
 | `DATA_DIR`                        | `/data`                                     | Presets, models, jobs, printer list, autosave                                                                                                     |
 | `LIBRARY_DIR`                     | `/library` (Compose) or `$DATA_DIR/library` | File library for STL/3MF/G-code, meant to be mounted                                                                                              |
@@ -178,6 +179,20 @@ the maintained community AppImages built from the unmodified PrusaSlicer sources
 
 With `PRUSASLICER_URL` any other AppImage (e.g. your own build) can be used; with `PRUSASLICER_BIN`
 also a self-compiled binary mounted as a volume.
+
+**Checksums.** The default AppImage of `PRUSASLICER_VERSION` is verified against a SHA-256 that is
+pinned in `Dockerfile` and `proxmox/install.sh`; a mismatch aborts the build/install before the
+archive is extracted. For a custom AppImage pass `PRUSASLICER_SHA256` (build arg for Docker, env
+variable for the installer, persisted in `/etc/webslicer/installer.env`). Without it, a custom URL or
+another version is downloaded unverified and the log says so.
+
+## Licence
+
+WebSlicer is licensed under the **GNU Affero General Public License, version 3 or later**
+(`LICENSE`). PrusaSlicer itself is AGPL-3.0 as well; the bundled JavaScript dependencies and the
+PrusaSlicer source link are listed in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md). Both files
+are part of the Docker image (`/usr/share/doc/webslicer`) and of an LXC installation
+(`/usr/share/doc/webslicer` and the install directory).
 
 ## MCP: let agents slice
 
@@ -299,6 +314,20 @@ is printed at the end.
 
 To update, type `update` in the container console (or `pct exec <id> -- update` on the host), or run
 the helper command again inside the container.
+
+**Updating from a pinned release instead of `main`.** By default an install follows the `main`
+branch, so `update` picks up every new commit. To stay on a released state, set
+`WEBSLICER_BRANCH` to a tag (or any branch/commit) before the install – the installer stores it in
+`/etc/webslicer/installer.env` and `update` keeps using it:
+
+```bash
+WEBSLICER_BRANCH=v1.0.0-rc.2 bash proxmox/install.sh          # or the helper: … bash proxmox/webslicer-lxc.sh
+# later, by hand in the container – `update` then keeps that tag:
+sed -i 's/^WEBSLICER_BRANCH=.*/WEBSLICER_BRANCH=v1.0.0-rc.2/' /etc/webslicer/installer.env
+```
+
+The same variable is honoured by a local checkout (`WEBSLICER_BRANCH=… bash proxmox/webslicer-lxc.sh`).
+The Docker image is pinned by its tag; build it from a release tag to keep it there.
 
 **Model library from the host / NAS:** in the advanced settings you can bind-mount a host directory as
 `/var/lib/webslicer/library`. In an unprivileged container WebSlicer runs as uid 101050 on the host, so

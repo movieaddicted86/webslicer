@@ -15,7 +15,7 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { config } from '../config.js';
 import { NotFoundError, ValidationError } from '../errors.js';
-import { resolveLibraryPath } from './library.js';
+import { resolveInsideLibrary } from './library.js';
 import { deleteModel, saveModel, setModelLifecycleHooks } from './models.js';
 import { stripServerOnly } from './serverOnly.js';
 import { defaultPresetName, resolvePreset } from '../slicer/presets.js';
@@ -215,7 +215,7 @@ export async function addModelFromLibrary(project: Project, libraryPath: string,
   const n = Math.floor(Number(copies));
   // the range rule lives in `validation/projects.ts`; this is the same rule at the store's end
   if (!copiesSchema.safeParse(n).success) throw new ValidationError('copies must be an integer between 1 and 1000');
-  const abs = resolveLibraryPath(libraryPath); // rejects escapes with a ValidationError
+  const abs = await resolveInsideLibrary(libraryPath); // rejects escapes and symlink escapes (S10)
   let isFile = false;
   try {
     isFile = (await fs.stat(abs)).isFile();

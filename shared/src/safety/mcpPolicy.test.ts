@@ -138,7 +138,9 @@ test('speed: absolute values take an absolute band, percent values the same band
   assert.match(mcpBandIssue('perimeter_speed', '91', '60')?.allowed ?? '', /30–90/);
   assert.equal(mcpBandIssue('external_perimeter_speed', '75%', '50%'), undefined);
   assert.match(mcpBandIssue('external_perimeter_speed', '80%', '50%')?.allowed ?? '', /25%–75%/);
-  assert.equal(mcpBandIssue('perimeter_speed', '75%', '60'), undefined, 'a percent against a mm/s base is not judged');
+  // S8: an absolute value against a percent base (or the reverse) fails closed
+  assert.match(mcpBandIssue('perimeter_speed', '75%', '60')?.reason ?? '', /unit mismatch/);
+  assert.match(mcpBandIssue('external_perimeter_speed', '60', '50%')?.reason ?? '', /unit mismatch/);
   assert.equal(mcpBandIssue('perimeter_speed', '5', '0'), undefined, 'a preset speed of 0 means auto');
 });
 
@@ -162,9 +164,15 @@ test('per-extruder vectors are compared element by element', () => {
   assert.equal(mcpBandIssue('temperature', '215,215,215', '215,215'), undefined, 'a third extruder repeats the last base value');
 });
 
-test('a zero base or an unset preset gives no band to measure against', () => {
-  assert.equal(mcpBandIssue('temperature', '300', ''), undefined);
-  assert.equal(mcpBandIssue('layer_height', '99', '0.2'), undefined, 'no band for this key');
+test('S8: a band that cannot be computed fails closed', () => {
+  // an empty or missing preset value used to wave every value through
+  assert.match(mcpBandIssue('temperature', '300', '')?.reason ?? '', /no value for this option/);
+  assert.match(mcpBandIssue('temperature', '300', undefined)?.reason ?? '', /no value for this option/);
+  // a preset value that is not a number has no band either
+  assert.match(mcpBandIssue('temperature', '300', 'auto')?.reason ?? '', /not a number/);
+  // and a value the band cannot read is refused as well
+  assert.match(mcpBandIssue('temperature', 'hot', '215')?.reason ?? '', /not a number/);
+  assert.equal(mcpBandIssue('layer_height', '99', '0.2'), undefined, 'no band for this key – not judged');
 });
 
 function refusal(type: PresetType, key: string): string {

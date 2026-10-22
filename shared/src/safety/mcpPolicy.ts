@@ -195,25 +195,47 @@ export interface McpSettingIssue {
  *
  * `base` is the raw option value of the resolved preset for the same preset slot – a vector stays a
  * vector, so `215,220` is compared element by element. An element missing in the base vector is
- * taken from its last element (PrusaSlicer resizes per-extruder vectors that way); a value without
- * a numeric counterpart (percent against an absolute base, an empty preset) is not judged here.
+ * taken from its last element (PrusaSlicer resizes per-extruder vectors that way).
+ *
+ * S8: the check **fails closed**. A band the check cannot compute – an empty or unreadable preset
+ * value, or a value whose unit (percent vs. absolute) differs from the base – is refused instead of
+ * waved through, because a band that silently disappears would let a client set any value. A base of
+ * `0` stays "off/auto" for keys where that is meaningful (`zeroAllowed`).
  */
 export function mcpBandIssue(key: string, value: string, base: string | undefined): McpSettingIssue | undefined {
   const band = mcpBandOf(key);
   if (!band) return undefined;
   const values = splitValues(value);
   const bases = splitValues(base ?? '').filter((b) => b !== '');
-  if (!bases.length) return undefined;
+  if (!bases.length)
+    return { key, value: String(value ?? ''), reason: 'the preset has no value for this option, so no band can be checked', allowed: '' };
   for (let i = 0; i < values.length; i++) {
+    const name = values.length > 1 ? `${key}[${i}]` : key;
     const v = parseValue(values[i]);
-    const b = parseValue(bases[Math.min(i, bases.length - 1)]);
-    if (!v || !b) continue;
+    if (!v) return { key: name, value: values[i], reason: 'the value is not a number the band can be checked for', allowed: '' };
+    const rawBase = bases[Math.min(i, bases.length - 1)];
+    const b = parseValue(rawBase);
+    if (!b)
+      return {
+        key: name,
+        value: values[i],
+        reason: `the preset value "${rawBase}" is not a number, so no band can be checked`,
+        allowed: '',
+      };
     if (v.number === 0 && band.zeroAllowed) continue;
     // a preset value of 0 means "off" or "auto" for the slicer: there is no band to measure against
     if (b.number === 0 && band.zeroAllowed) continue;
+    // S8: a percent against an absolute base (or the other way round) has no comparable band
+    if (v.percent !== b.percent)
+      return {
+        key: name,
+        value: values[i],
+        reason: `unit mismatch: the value is ${v.percent ? 'a percentage' : 'absolute'} but the preset has ${b.percent ? 'a percentage' : 'an absolute value'} (${rawBase})`,
+        allowed: '',
+      };
     const allowed = allowedRange(band, v, b);
     if (!allowed) continue;
-    return { key: values.length > 1 ? `${key}[${i}]` : key, value: values[i], reason: 'outside the band around the preset value', allowed };
+    return { key: name, value: values[i], reason: 'outside the band around the preset value', allowed };
   }
   return undefined;
 }
@@ -237,14 +259,12 @@ function splitValues(text: string): string[] {
 /** The allowed range as text, or `undefined` when the value is inside it. */
 function allowedRange(band: McpBand, value: ParsedValue, base: ParsedValue): string | undefined {
   if (band.kind === 'delta') {
-    if (value.percent || base.percent) return undefined; // not a value band is defined for
     const lo = base.number - band.delta;
     const hi = base.number + band.delta;
     if (inRange(value.number, lo, hi)) return undefined;
     const unit = band.unit ? ` ${band.unit}` : '';
     return `${number(lo)}–${number(hi)}${unit} (±${number(band.delta)}${unit} around ${number(base.number)})`;
   }
-  if (value.percent !== base.percent) return undefined; // an absolute speed against a percent base
   const lo = base.number * band.min;
   const hi = base.number * band.max;
   if (inRange(value.number, lo, hi)) return undefined;

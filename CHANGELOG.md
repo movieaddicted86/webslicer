@@ -2,6 +2,30 @@
 
 ## Unreleased
 
+- **Security (T-037 S3–S10):** hardening from the external review of 2026-10-22.
+  _S3 – print hosts:_ a printer test gives up after 5 s, an upload after 60 s plus 1 s per 50 kB with
+  a 10 min maximum; error bodies of OctoPrint/Moonraker/PrusaLink are no longer echoed to the client
+  (the answer names the HTTP status, the body goes to the server log) and connection errors keep a
+  generic message.
+  _S4 – AppImage checksum:_ `Dockerfile` and `proxmox/install.sh` pin the SHA-256 of the default
+  PrusaSlicer 2.9.6 AppImage per architecture and abort before extracting it when it does not match
+  (the installer runs it as root). A custom `PRUSASLICER_URL`/version needs `PRUSASLICER_SHA256`;
+  without it the download is unverified and the log says so.
+  _S5 – update channel:_ unchanged by decision – installs keep following `main`; the README now shows
+  how to pin a release tag with `WEBSLICER_BRANCH`.
+  _S6 – licensing:_ the repo has the `LICENSE` (AGPL-3.0-or-later, as `package.json` says) and a
+  generated `THIRD_PARTY_NOTICES.md` (PrusaSlicer with its source link, all JavaScript production
+  dependencies); the Docker image and the LXC install carry both.
+  _S8 – MCP bands fail closed:_ an empty or non-numeric preset value, a non-numeric value or a
+  percent/absolute mismatch now rejects the change with a reason instead of accepting any value.
+  _S9 – MCP tokens:_ tokens are stored as SHA-256 instead of scrypt (a junk `Authorization` header no
+  longer blocks the event loop); old scrypt records still work and are upgraded on first use; the
+  10th failed authentication of one address within a minute answers **429** with `Retry-After`,
+  and a correct token clears the count.
+  _S10 – library paths:_ every library path is now checked after resolving symlinks, so a link on a
+  NAS share cannot reach outside the library; refusals stay a plain `invalid path` and **500**
+  answers carry a generic `Internal error` (details only in the server log).
+
 - **UI (T-036):** the object toolbar no longer uses the tiny Unicode glyphs. Each action has a real
   SVG icon (`lucide-react`, web only, named imports) at 18 px with a ≥ 30 px hit area, and the tooltip
   with the shortcut stays the `aria-label`. The toolbar is grouped (history | move/rotate/scale/place
