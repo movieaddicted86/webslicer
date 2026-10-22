@@ -22,7 +22,14 @@ export default tseslint.config(
     },
   },
   {
+    // The v7 `recommended` presets switch on a whole React Compiler rule set (static-components, purity,
+    // refs, …). T-027 keeps the rule set of v5 – the two rules – so the upgrade changes nothing here;
+    // the extra rules are a separate task (R-12).
     files: ['web/src/**/*.{ts,tsx}'],
-    extends: [reactHooks.configs['recommended-latest']],
+    plugins: { 'react-hooks': reactHooks },
+    rules: {
+      'react-hooks/rules-of-hooks': 'error',
+      'react-hooks/exhaustive-deps': 'warn',
+    },
   },
 );
