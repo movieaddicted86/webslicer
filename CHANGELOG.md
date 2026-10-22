@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+- **Security:** a slicer option key is now validated instead of filtered by name. SEC-1 dropped
+  `post_process` and `output_filename_format` by an exact match on the raw client key, while the INI
+  writer wrote the key unescaped – a key such as `"x\npost_process = echo pwned"` therefore wrote a
+  second line into the `config.ini` that PrusaSlicer loads with `--load`, and the slicer ran that
+  command as the service user (remote code execution, reachable from the LAN and, through DNS
+  rebinding, from any website a LAN user opens). Now one rule – `isValidConfigKey` in
+  `@webslicer/shared` (`^[a-z][a-z0-9_]*` plus a bracketed vector index such as
+  `dynamic_overhang_speeds[0]`, which the bundled Sovol presets use) – is applied at three layers:
+  the REST/MCP validation rejects a malformed key with **400** and the key in the message
+  (`/api/slice`, `/api/presets/:type/:name`, `/api/projects`, `/api/library/project`, MCP
+  `set_settings`); `mergeConfigs` drops every key that is malformed, server-only, or unknown to the
+  installed slicer; and `serializeIni` refuses a malformed key outright. Unknown-but-well-formed keys
+  are dropped rather than rejected, so old projects and presets keep loading. The same change adds
+  the **Host/Origin guard**: `/api` and `/mcp` refuse a request whose `Host` is not `localhost`, a
+  loopback address, an IP literal, one of this machine's interface addresses or a name from the new
+  `ALLOWED_HOSTS` env variable (403); a browser `Origin` has to name an allowed host too. The MCP
+  router's old `Origin == Host` check is gone – a rebound name always passed it. An install opened by
+  IP, by host name or through a reverse proxy keeps working (`ALLOWED_HOSTS=webslicer.lan,nas`).
 - **Safety (S1-c):** the G-code WebSlicer produces is now scanned before it can be sent. When a job
   finishes, the server reads the output file once (chunked, no full-file string; 0.7 MB in ~56 ms,
   60 MB in ~3.6 s) and stores the findings on the job (`info.preflight`, versioned). Five rules:

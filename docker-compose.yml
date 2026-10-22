@@ -24,6 +24,9 @@ services:
       - MAX_UPLOAD_BYTES=524288000
       # Optional: enable the MCP endpoint for agents (/mcp, bearer token – see README "MCP")
       # - MCP_TOKEN=change-me
+      # Optional: host names the API accepts besides localhost and IP addresses (DNS-rebinding guard).
+      # Needed when you open the app by a name (e.g. http://webslicer.lan:8080) or through a reverse proxy.
+      # - ALLOWED_HOSTS=webslicer.lan
 
 volumes:
   webslicer-data:

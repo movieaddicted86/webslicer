@@ -105,22 +105,43 @@ printer_). Then drag a model into the 3D view and click **Slice now**.
 
 ### Build arguments / environment variables
 
-| Variable                          | Default                                     | Meaning                                                                                                               |
-| --------------------------------- | ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `PRUSASLICER_VERSION` (build arg) | `2.9.6`                                     | PrusaSlicer version                                                                                                   |
-| `PRUSASLICER_URL` (build arg)     | –                                           | Custom AppImage URL (overrides version/arch)                                                                          |
-| `PORT`                            | `8080`                                      | HTTP port                                                                                                             |
-| `DATA_DIR`                        | `/data`                                     | Presets, models, jobs, printer list, autosave                                                                         |
-| `LIBRARY_DIR`                     | `/library` (Compose) or `$DATA_DIR/library` | File library for STL/3MF/G-code, meant to be mounted                                                                  |
-| `MAX_JOBS`                        | `2`                                         | Parallel slicing jobs                                                                                                 |
-| `MAX_UPLOAD_BYTES`                | `524288000`                                 | Maximum upload size per model                                                                                         |
-| `JOB_RETENTION`                   | `50`                                        | Jobs (G-code) kept                                                                                                    |
-| `SLICE_TIMEOUT_MS`                | `3600000`                                   | Timeout per slicing job                                                                                               |
-| `PRUSASLICER_BIN`                 | `/opt/prusaslicer/AppRun`                   | Path to the slicer binary                                                                                             |
-| `PRUSASLICER_RESOURCES`           | auto                                        | Path to the `resources` directory (profiles)                                                                          |
-| `MCP_TOKEN`                       | –                                           | Bearer token for the agent endpoint `/mcp`; without it the endpoint does not exist (see [MCP](#mcp-let-agents-slice)) |
+| Variable                          | Default                                     | Meaning                                                                                                                                           |
+| --------------------------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PRUSASLICER_VERSION` (build arg) | `2.9.6`                                     | PrusaSlicer version                                                                                                                               |
+| `PRUSASLICER_URL` (build arg)     | –                                           | Custom AppImage URL (overrides version/arch)                                                                                                      |
+| `PORT`                            | `8080`                                      | HTTP port                                                                                                                                         |
+| `DATA_DIR`                        | `/data`                                     | Presets, models, jobs, printer list, autosave                                                                                                     |
+| `LIBRARY_DIR`                     | `/library` (Compose) or `$DATA_DIR/library` | File library for STL/3MF/G-code, meant to be mounted                                                                                              |
+| `MAX_JOBS`                        | `2`                                         | Parallel slicing jobs                                                                                                                             |
+| `MAX_UPLOAD_BYTES`                | `524288000`                                 | Maximum upload size per model                                                                                                                     |
+| `JOB_RETENTION`                   | `50`                                        | Jobs (G-code) kept                                                                                                                                |
+| `SLICE_TIMEOUT_MS`                | `3600000`                                   | Timeout per slicing job                                                                                                                           |
+| `PRUSASLICER_BIN`                 | `/opt/prusaslicer/AppRun`                   | Path to the slicer binary                                                                                                                         |
+| `PRUSASLICER_RESOURCES`           | auto                                        | Path to the `resources` directory (profiles)                                                                                                      |
+| `MCP_TOKEN`                       | –                                           | Bearer token for the agent endpoint `/mcp`; without it the endpoint does not exist (see [MCP](#mcp-let-agents-slice))                             |
+| `ALLOWED_HOSTS`                   | –                                           | Extra host names the API accepts in `Host`/`Origin`, comma-separated (e.g. `webslicer.lan,nas:8080`) – for a NAS/LXC host name or a reverse proxy |
 
 Example: `docker build --build-arg PRUSASLICER_VERSION=2.9.5 -t webslicer .`
+
+### Opening the app by IP, host name or reverse proxy
+
+The API only answers requests that name this server: `/api` and `/mcp` refuse a `Host` that is not
+`localhost`, a loopback address, an IP address, one of the machine's own interface addresses or a name
+listed in `ALLOWED_HOSTS` (403 `host not allowed`). That closes **DNS rebinding** – a website that
+points its own name at your LAN address could otherwise drive the whole API from the browser of
+someone in the network. A browser `Origin` header (which only browsers send) has to name an allowed
+host as well; API clients and MCP clients send none and are unaffected.
+
+Practical cases:
+
+- **`http://192.168.1.20:8080`** – works as before; an IP literal is always allowed (an attacker
+  cannot aim a DNS name at an IP literal).
+- **`http://webslicer.lan:8080`** or a NAS/LXC host name – add the name:
+  `ALLOWED_HOSTS=webslicer.lan`. Ports in the list are allowed and ignored.
+- **Behind a reverse proxy** (Caddy, nginx, Traefik) – either list the public name in
+  `ALLOWED_HOSTS`, or make the proxy set the `Host` header to the address the app listens on
+  (`proxy_set_header Host localhost:8080;` in nginx, `header_up Host {upstream_hostport}` in Caddy).
+  If the proxy terminates TLS at another name, that name is the one to list.
 
 ### Where does the PrusaSlicer binary come from?
 
