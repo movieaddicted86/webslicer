@@ -10,7 +10,13 @@ import { invalidConfigKeyMessage } from '@webslicer/shared';
 import { invalidKeyOf } from './config.js';
 import { firstIssueMessage, ordered } from './common.js';
 import type { IniSection } from '../slicer/ini.js';
-import type { ProjectPresetRef } from '../services/projects.js';
+
+/** A preset slot of a project: a preset name plus the options that differ from it. */
+export interface ProjectPresetRef {
+  name: string;
+  /** options that differ from the preset (merged over the resolved preset at slice time) */
+  config: IniSection;
+}
 
 /** The label of a preset slot in a message: `printer`, `print`, `filaments[0]`. */
 export type SlotLabel = string;

@@ -12,10 +12,11 @@ export function badRequest(res: Response, msg: string): void {
 
 /**
  * Answer a typed JSON body. The explicit type parameter is what makes the compiler check the body:
- * `sendJson<JobRecord>(res, job)` fails when the job shape drifts from the contract.
+ * `sendJson<JobRecord>(res, job)` fails when the job shape drifts from the contract. `status`
+ * defaults to 200.
  */
-export function sendJson<T>(res: Response, body: T): void {
-  res.json(body);
+export function sendJson<T>(res: Response, body: T, status = 200): void {
+  res.status(status).json(body);
 }
 
 /**

@@ -19,11 +19,12 @@ import { NotFoundError, ValidationError } from '../errors.js';
 import { resolveInsideLibrary } from './library.js';
 import { deleteModel, saveModel, setModelLifecycleHooks } from './models.js';
 import { stripServerOnly } from './serverOnly.js';
-import { readJson, writeJson } from './jsonStore.js';
+import { readJson, writeJson } from '../storage/jsonStore.js';
 import { defaultPresetName, resolvePreset } from '../slicer/presets.js';
-import type { IniSection } from '../slicer/ini.js';
 import { loadModelFile } from '../plater/meshes.js';
-import { copiesSchema } from '../validation/projects.js';
+import { copiesSchema, type ProjectPresetRef } from '../validation/projects.js';
+import { createJob } from '../jobs.js';
+import { validateConfigLimits, validateSliceRequest } from './slice.js';
 import {
   arrangementSpacing,
   bedShapeOf,
@@ -35,6 +36,7 @@ import {
   translate,
   type Bounds,
   type CustomGcode,
+  type JobRecord,
   type Matrix4,
   type PackAlignment,
   type PresetType,
@@ -58,11 +60,8 @@ const QUARTER_TURN: Matrix4 = [0, 1, 0, 0, -1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
 /** hours a project stays alive after its last use */
 export const PROJECT_TTL_HOURS = envNumberAtLeast('PROJECT_TTL_HOURS', 1, 24);
 
-export interface ProjectPresetRef {
-  name: string;
-  /** options that differ from the preset (merged over the resolved preset at slice time) */
-  config: IniSection;
-}
+/** A preset slot of a project (declared with its schema, so the validation ↔ service cycle is gone). */
+export type { ProjectPresetRef };
 
 /** An object of a *stored server project* (not the 3MF `ProjectObject` of `@webslicer/shared`). */
 export interface StoredProjectObject {
@@ -334,4 +333,27 @@ export function registerProjectLifecycle(): void {
     keepModelIds,
     pruneProjects,
   });
+}
+
+/**
+ * Slice a stored project: the request built from its resolved presets, with the two overrides the
+ * route accepts (`binaryGcode`, `outputName`), validated and queued like a REST slice.
+ *
+ * A project settings typo faces the same global limits as a REST slice, on the merged config – the
+ * config issues travel with the job. The project is touched only after it was queued.
+ */
+export async function sliceProject(
+  project: Project,
+  schema: Schema,
+  overrides: { binaryGcode?: boolean; outputName?: string } = {},
+): Promise<JobRecord> {
+  const request = toSliceRequest(project, schema);
+  if (overrides.binaryGcode !== undefined) request.binaryGcode = overrides.binaryGcode;
+  if (overrides.outputName !== undefined) request.outputName = overrides.outputName;
+  // no thumbnails here: rendering them needs a browser (concept §3.5, rasterizer comes in phase 3)
+  validateSliceRequest(request);
+  const configIssues = validateConfigLimits(request, schema);
+  const job = await createJob(request, schema, configIssues);
+  await touchProject(project);
+  return job;
 }

@@ -4,7 +4,7 @@
  * silently turned the MCP endpoint off. And a plain `writeFile` could leave a truncated file that the
  * next start could not parse at all.
  *
- * Now every store goes through `services/jsonStore.ts`: writes are temp + rename, an unparseable file
+ * Now every store goes through `storage/jsonStore.ts`: writes are temp + rename, an unparseable file
  * is moved aside as `*.corrupt-<timestamp>` and logged, so the data survives and can be recovered.
  *
  * The tests drive the real stores (printers, projects, tokens, installed printers), not just the
@@ -22,8 +22,8 @@ process.env.DATA_DIR = DATA_DIR;
 
 const { config, ensureDirs } = await import('../config.js');
 const { writeJson } = await import('./jsonStore.js');
-const { listPrinters, upsertPrinter } = await import('./printers.js');
-const { loadProject } = await import('./projects.js');
+const { listPrinters, upsertPrinter } = await import('../services/printers.js');
+const { loadProject } = await import('../services/projects.js');
 const { loadTokens, saveTokens } = await import('../mcp/tokens.js');
 const { getInstalledPrinters, setInstalledPrinters } = await import('../slicer/presets.js');
 

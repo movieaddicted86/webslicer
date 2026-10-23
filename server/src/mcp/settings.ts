@@ -34,8 +34,6 @@ import { loadOwnedProject } from './projectAccess.js';
 import { defineTool, type AnyTool } from './toolTypes.js';
 import { configKeySchema } from '../validation/config.js';
 
-const schemaOf = activeSchema;
-
 /** `print`, `printer`, `filament` or `filament[<index>]` -> preset type and filament index. */
 export function scopeOf(scope: string): { type: PresetType; index: number } {
   const s = String(scope || '').trim();
@@ -213,7 +211,7 @@ export const settingsTools: AnyTool[] = [
     input: settingsInput,
     handler: async (args, ctx) => {
       const project = await loadOwnedProject(args.project_id, ctx.owner);
-      const applied = applySettings(await schemaOf(), project, args.scope, args.values);
+      const applied = applySettings(await activeSchema(), project, args.scope, args.values);
       await touchProject(project);
       return { project_id: project.id, scope: args.scope, changed: applied, expires_at: project.expiresAt };
     },
@@ -228,7 +226,7 @@ export const settingsTools: AnyTool[] = [
     input: settingsInput,
     handler: async (args, ctx) => {
       const project = await loadOwnedProject(args.project_id, ctx.owner);
-      const check = checkSettings(await schemaOf(), project, args.scope, args.values);
+      const check = checkSettings(await activeSchema(), project, args.scope, args.values);
       return {
         project_id: project.id,
         scope: args.scope,
@@ -256,7 +254,7 @@ export const settingsTools: AnyTool[] = [
       }
       const project = await loadOwnedProject(args.project_id, ctx.owner);
       // the same apply path as set_settings, so the quick settings cannot bypass the allowlist
-      const applied = applySettings(await schemaOf(), project, 'print', quickSettingsValues(project, args));
+      const applied = applySettings(await activeSchema(), project, 'print', quickSettingsValues(project, args));
       await touchProject(project);
       return { project_id: project.id, changed: applied, print: project.print.name, expires_at: project.expiresAt };
     },

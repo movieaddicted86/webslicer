@@ -71,6 +71,28 @@ export default defineConfig(
     },
   },
   {
+    // q3-server-routes: a route validates, calls one service and answers. The queue (`jobs`) and the
+    // PrusaSlicer layer (`slicer`) are reached through `services/`, never directly.
+    files: ['server/src/routes/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['../slicer', '../slicer/*', '../slicer/**'],
+              message: 'Routes call services only (q3-server-routes): import the use case from services/.',
+            },
+            {
+              group: ['../jobs', '../jobs.js', '../jobs/*', '../jobs/**'],
+              message: 'Routes call services only (q3-server-routes): use services/jobs.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     // The v7 `recommended` presets switch on a whole React Compiler rule set (static-components, purity,
     // refs, …). T-027 keeps the rule set of v5 – the two rules – so the upgrade changes nothing here;
     // the extra rules are a separate task (R-12).

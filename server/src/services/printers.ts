@@ -7,7 +7,8 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { Agent, fetch as undiciFetch, FormData as UndiciFormData } from 'undici';
 import { config } from '../config.js';
-import { readJson, writeJson } from './jsonStore.js';
+import { readJson, writeJson } from '../storage/jsonStore.js';
+import { API_KEY_MASK, printerHost, type PrinterInput } from '../validation/printers.js';
 import type { HostType, PhysicalPrinter } from '@webslicer/shared';
 
 function file(): string {
@@ -250,4 +251,45 @@ export async function uploadToPrinter(
     clearTimeout(timer);
   }
   return { ok: false, message: 'Unsupported host type' };
+}
+
+/**
+ * The printer as the API sends it: the stored API key never travels back – it becomes the mask, plus
+ * the `hasApiKey` flag the UI shows. One mask for every route (AC-6, q3-server-routes).
+ */
+export function maskPrinter(p: PhysicalPrinter): PhysicalPrinter {
+  return { ...p, apiKey: p.apiKey ? API_KEY_MASK : undefined, hasApiKey: !!p.apiKey };
+}
+
+/** Every printer, masked. */
+export async function listPrinterViews(): Promise<PhysicalPrinter[]> {
+  return (await listPrinters()).map(maskPrinter);
+}
+
+/** Create a printer from a validated body and answer it masked. */
+export async function createPrinter(input: PrinterInput): Promise<PhysicalPrinter> {
+  return maskPrinter(await upsertPrinter(input));
+}
+
+/**
+ * Update a printer from a validated body. The mask means "keep the stored key"; an empty key clears
+ * it (the store turns `''` into "no key"). Undefined when there is no such printer.
+ */
+export async function updatePrinter(id: string, input: PrinterInput): Promise<PhysicalPrinter | undefined> {
+  const existing = await getPrinter(id);
+  if (!existing) return undefined;
+  const apiKey = input.apiKey === undefined || input.apiKey === API_KEY_MASK ? existing.apiKey : input.apiKey;
+  return maskPrinter(await upsertPrinter({ ...existing, ...input, apiKey, id: existing.id }));
+}
+
+/** Test an unsaved printer body (`POST /api/printers/test`). */
+export async function testPrinterInput(input: PrinterInput): Promise<{ ok: boolean; message: string }> {
+  return testPrinter({
+    id: 'tmp',
+    name: 'tmp',
+    type: input.type || 'octoprint',
+    host: printerHost(input.host),
+    apiKey: input.apiKey || undefined,
+    ignoreTls: !!input.ignoreTls,
+  });
 }

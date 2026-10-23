@@ -10,13 +10,11 @@
  *   POST /api/projects/:id/slice      slice it -> job record (like POST /api/slice)
  */
 import express, { type Request, type Response } from 'express';
-import { createJob } from '../jobs.js';
-import { validateConfigLimits, validateSliceRequest } from '../services/slice.js';
-import { activeSchema } from '../services/schema.js';
+import { addModelFromLibrary, arrange, createProject, loadProject, sliceProject } from '../services/projects.js';
+import { optionSchema } from '../services/meta.js';
 import { ValidationError } from '../errors.js';
 import { arrangeOptionsSchema, copiesOf, parseProjectCreate, projectModelsSchema, projectSliceSchema } from '../validation/projects.js';
-import { addModelFromLibrary, arrange, createProject, toSliceRequest, touchProject, loadProject } from '../services/projects.js';
-import type { Schema, SliceRequest } from '@webslicer/shared';
+import type { Schema } from '@webslicer/shared';
 
 /** The routes of this router are `async` throughout: Express 5 answers a rejected promise itself. */
 export function projectsRouter(): express.Router {
@@ -31,15 +29,15 @@ export function projectsRouter(): express.Router {
     const project = await loadProject(req.params.id);
     if (!project) {
       res.status(404).json({ error: 'project not found' });
-      return { project: undefined, schema: await activeSchema() };
+      return { project: undefined, schema: await optionSchema() };
     }
-    return { project, schema: await activeSchema() };
+    return { project, schema: await optionSchema() };
   };
 
   r.post('/', json, async (req, res) => {
     const body = parseProjectCreate(req.body);
     if (!body.ok) throw new ValidationError(body.message);
-    const s = await activeSchema();
+    const s = await optionSchema();
     const project = await createProject({
       schema: s,
       printer: body.printer,
@@ -75,16 +73,7 @@ export function projectsRouter(): express.Router {
     const found = await withProject(req, res);
     if (!found.project) return;
     const body = projectSliceSchema.parse(req.body || {});
-    const request: SliceRequest = toSliceRequest(found.project, found.schema);
-    if (body.binaryGcode !== undefined) request.binaryGcode = body.binaryGcode;
-    if (body.outputName !== undefined) request.outputName = body.outputName;
-    // no thumbnails here: rendering them needs a browser (concept §3.5, rasterizer comes in phase 3)
-    validateSliceRequest(request);
-    // S1-d/N3: the project's resolved settings face the same global limits as a REST slice – on the
-    // merged config, so a value from any of its presets is caught
-    const configIssues = validateConfigLimits(request, found.schema);
-    const job = await createJob(request, found.schema, configIssues);
-    await touchProject(found.project);
+    const job = await sliceProject(found.project, found.schema, body);
     res.status(202).json(job);
   });
 

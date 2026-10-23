@@ -11,8 +11,6 @@ import { validateConfigLimits, validateSliceRequest } from '../services/slice.js
 import { loadOwnedProject } from './projectAccess.js';
 import { defineTool, type AnyTool } from './toolTypes.js';
 
-const schemaOf = activeSchema;
-
 /** Warnings and errors of a finished job, from the slicer log. */
 async function warningsOf(jobId: string): Promise<string[]> {
   const text = await readJobLog(jobId);
@@ -32,7 +30,7 @@ export const jobTools: AnyTool[] = [
     input: z.object({ project_id: z.string() }),
     handler: async (args, ctx) => {
       const project = await loadOwnedProject(args.project_id, ctx.owner);
-      const schema = await schemaOf();
+      const schema = await activeSchema();
       const request = toSliceRequest(project, schema);
       validateSliceRequest(request);
       // S1-d/N3: a typo in a temperature or the nozzle is refused here like on /api/slice,

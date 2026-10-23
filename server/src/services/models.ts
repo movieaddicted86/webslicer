@@ -12,8 +12,14 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { config } from '../config.js';
 import { envNumberAtLeast } from '../env.js';
-import { ValidationError } from '../errors.js';
-import { parseStlFile, writeBinaryStl, type Mesh } from '../slicer/threemf/index.js';
+import { NotFoundError, ValidationError } from '../errors.js';
+import { parseStl, parseStlFile, writeBinaryStl, type Mesh } from '../slicer/threemf/index.js';
+import { cutMesh } from '../slicer/cut.js';
+import { convertStepFile, createStepTempDir, isStepFile } from '../slicer/step.js';
+
+/** Does the uploaded file name denote a STEP file? (The CLI goes by the extension.) */
+export const isStepUpload = isStepFile;
+import type { CutRequest, CutResult } from '@webslicer/shared';
 
 export interface StoredModel {
   id: string;
@@ -112,5 +118,66 @@ export async function pruneModels(): Promise<void> {
     } catch {
       /* ignore */
     }
+  }
+}
+
+/**
+ * Cut one instance of a stored model with a plane (T-044) and store both kept parts.
+ *
+ * The CLI does the cutting; this orchestration – read the STL, refuse an empty mesh, run the cutter,
+ * save the parts as models – used to live in the route. A missing model is a 404, an empty mesh a 400.
+ */
+export async function cutModel(request: CutRequest, signal: AbortSignal): Promise<CutResult> {
+  const file = path.join(config.modelsDir, `${path.basename(request.modelId)}.stl`);
+  let bytes: Buffer;
+  try {
+    const stat = await fs.stat(file);
+    if (!stat.isFile()) throw new Error('not a file');
+    bytes = await fs.readFile(file);
+  } catch {
+    throw new NotFoundError('model not found');
+  }
+  const mesh = parseStl(bytes);
+  if (!mesh.indices.length) throw new ValidationError('cannot cut: the model has no triangles');
+  const { parts } = await cutMesh(
+    {
+      mesh,
+      transform: request.transform,
+      point: request.plane.point,
+      normal: request.plane.normal,
+      keep: request.keep,
+      placeOnCut: request.placeOnCut,
+      flipUpper: request.flipUpper,
+    },
+    { signal },
+  );
+  const answer: CutResult = {};
+  for (const part of parts) {
+    const stored = await saveModel(part.mesh, `cut-${part.side}`);
+    answer[part.side] = { modelId: stored.id, name: stored.name, position: part.position };
+  }
+  return answer;
+}
+
+/**
+ * Convert an uploaded STEP file to a binary STL (T-009) in a temp directory that is always removed.
+ *
+ * The route owns the streaming (`writeInput` writes the request body to the given path); the temp
+ * file lifecycle, the empty-body check and the CLI call stay here.
+ */
+export async function convertStepUpload(
+  filename: string,
+  writeInput: (input: string) => Promise<number>,
+  signal: AbortSignal,
+): Promise<Buffer> {
+  const dir = await createStepTempDir();
+  try {
+    const input = path.join(dir, `input${path.extname(filename).toLowerCase()}`);
+    const bytes = await writeInput(input);
+    if (!bytes) throw new ValidationError('empty body');
+    return await convertStepFile(input, { workDir: dir, signal });
+  } finally {
+    // the temp directory is gone before the answer goes out: a client sees no state of the conversion
+    await fs.rm(dir, { recursive: true, force: true }).catch(() => undefined);
   }
 }

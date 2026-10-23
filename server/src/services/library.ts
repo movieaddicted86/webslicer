@@ -12,6 +12,10 @@ import type { Dirent } from 'node:fs';
 import { config } from '../config.js';
 import { NotFoundError, ValidationError } from '../errors.js';
 import { safeName as sharedSafeName, type LibraryEntry } from '@webslicer/shared';
+import { getJob, jobOutputPath } from '../jobs.js';
+import { build3mfForRequest, validateSliceRequest } from './slice.js';
+import { mergeConfigs } from './configMerge.js';
+import { activeSchema } from './schema.js';
 
 /** Step files are models too (T-009): the listing shows them like an STL and the import converts them. */
 export const MODEL_EXT = new Set(['.stl', '.obj', '.3mf', '.amf', '.step', '.stp']);
@@ -204,4 +208,23 @@ export async function copyIntoLibrary(from: string, to: string): Promise<{ path:
   await fs.mkdir(path.dirname(to), { recursive: true });
   await fs.copyFile(from, to);
   return { path: libraryRelativePath(to), size: (await fs.stat(to)).size };
+}
+
+/** Copy the output of a finished job into the library (the "save G-code" action). */
+export async function copyJobOutput(
+  jobId: string,
+  dirRel: string | undefined,
+  name: string | undefined,
+): Promise<{ path: string; size: number }> {
+  const job = getJob(jobId);
+  if (!job || job.status !== 'done') throw new NotFoundError('job output not available');
+  const target = await libraryTargetChecked(dirRel, name || job.outputName, path.extname(job.outputName));
+  return copyIntoLibrary(jobOutputPath(job), target);
+}
+
+/** The 3MF of "save current plater as a library project": the validated request as a project. */
+export async function libraryProject3mf(raw: unknown): Promise<Buffer> {
+  const body = validateSliceRequest(raw);
+  const schema = await activeSchema();
+  return build3mfForRequest(body, mergeConfigs(schema, body, { forProject: true }));
 }

@@ -21,7 +21,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { config } from '../config.js';
 import { appVersion } from './version.js';
-import { readJson, writeJson } from './jsonStore.js';
+import { readJson, writeJson } from '../storage/jsonStore.js';
 import { isNewerVersion, parseUpdateStatus, type UpdateStatus } from '@webslicer/shared';
 
 const execFileAsync = promisify(execFile);

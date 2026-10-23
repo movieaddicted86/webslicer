@@ -11,6 +11,11 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { config } from '../config.js';
+import { activeSchema } from './schema.js';
+import { build3mfForRequest, validateSliceRequest } from './slice.js';
+import { mergeConfigs } from './configMerge.js';
+import { ValidationError } from '../errors.js';
+import type { SliceRequest } from '@webslicer/shared';
 
 /** A client id that is safe to use as a file name. */
 export function isAutosaveClientId(value: unknown): string | undefined {
@@ -59,4 +64,19 @@ export async function deleteAutosave(id: string): Promise<void> {
   } catch {
     /* ignore */
   }
+}
+
+/**
+ * Build the 3MF a plater autosave stores: the validated request, merged with its presets as a
+ * project. An invalid body is the client's 400, not an internal error.
+ */
+export async function buildAutosave(raw: unknown): Promise<Buffer> {
+  let body: SliceRequest;
+  try {
+    body = validateSliceRequest(raw);
+  } catch (e) {
+    throw new ValidationError((e as Error).message);
+  }
+  const schema = await activeSchema();
+  return build3mfForRequest(body, mergeConfigs(schema, body, { forProject: true }));
 }

@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { config } from '../config.js';
 import { ValidationError } from '../errors.js';
-import { readJsonSync, writeJsonSync, writeTextSync } from '../services/jsonStore.js';
+import { readJsonSync, writeJsonSync, writeTextSync } from '../storage/jsonStore.js';
 import { loadBundles, findSystemPreset, type SystemPreset } from './bundles.js';
 import { parseIni, serializeIni, type IniSection } from './ini.js';
 import { evaluateCondition } from './condition.js';

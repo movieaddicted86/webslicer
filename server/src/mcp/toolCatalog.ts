@@ -10,8 +10,6 @@ import { listLibrary } from '../services/library.js';
 import { activeSchema } from '../services/schema.js';
 import { defineTool, type AnyTool } from './toolTypes.js';
 
-const schemaOf = activeSchema;
-
 export const catalogTools: AnyTool[] = [
   defineTool({
     name: 'webslicer.list_printers',
@@ -20,7 +18,7 @@ export const catalogTools: AnyTool[] = [
     readOnly: true,
     input: z.object({}),
     handler: async () => {
-      const schema = await schemaOf();
+      const schema = await activeSchema();
       const presets = listPresets(schema, 'printer');
       return {
         printers: getInstalledPrinters().map((i) => ({
@@ -47,7 +45,7 @@ export const catalogTools: AnyTool[] = [
       print: z.string().optional().describe('print preset name; used for filament compatibility'),
     }),
     handler: async (args) => {
-      const schema = await schemaOf();
+      const schema = await activeSchema();
       const printerCfg = args.printer === undefined ? undefined : resolvePreset(schema, 'printer', args.printer)?.config;
       if (args.printer !== undefined && !printerCfg) throw new NotFoundError(`Unknown printer preset "${args.printer}"`);
       const printCfg = args.print === undefined ? undefined : resolvePreset(schema, 'print', args.print)?.config;
@@ -86,7 +84,7 @@ export const catalogTools: AnyTool[] = [
       limit: z.number().int().min(1).max(200).optional().describe('maximum number of options (default 50)'),
     }),
     handler: async (args) => {
-      const schema = await schemaOf();
+      const schema = await activeSchema();
       const needle = (args.query || '').trim().toLowerCase();
       const limit = args.limit ?? 50;
       // the key is what set_settings needs, so a key match ranks before a tooltip that only mentions it

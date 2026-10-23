@@ -3,12 +3,8 @@
  * back (or only its metadata) and delete it.
  */
 import express from 'express';
-import { activeSchema } from '../services/schema.js';
-import { deleteAutosave, findAutosave, isAutosaveClientId, readAutosaveInfo, writeAutosave } from '../services/autosave.js';
-import { build3mfForRequest, validateSliceRequest } from '../services/slice.js';
-import { mergeConfigs } from '../services/configMerge.js';
+import { buildAutosave, deleteAutosave, findAutosave, isAutosaveClientId, readAutosaveInfo, writeAutosave } from '../services/autosave.js';
 import { badRequest, sendJson } from './common.js';
-import type { SliceRequest } from '@webslicer/shared';
 
 /** The autosave routes of the REST surface. */
 export function autosaveRouter(): express.Router {
@@ -18,15 +14,7 @@ export function autosaveRouter(): express.Router {
   r.put('/autosave/:client', json, async (req, res) => {
     const id = isAutosaveClientId(req.params.client);
     if (!id) return badRequest(res, 'invalid client id');
-    const body = req.body as SliceRequest;
-    try {
-      validateSliceRequest(body);
-    } catch (e) {
-      return badRequest(res, (e as Error).message);
-    }
-    const s = await activeSchema();
-    const merged = mergeConfigs(s, body, { forProject: true });
-    const buf = await build3mfForRequest(body, merged);
+    const buf = await buildAutosave(req.body);
     await writeAutosave(id, buf);
     sendJson<{ ok: true; savedAt: string; size: number }>(res, { ok: true, savedAt: new Date().toISOString(), size: buf.length });
   });
