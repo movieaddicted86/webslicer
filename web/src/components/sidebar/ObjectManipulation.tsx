@@ -1,4 +1,6 @@
+import { useMemo } from 'react';
 import { useStore, instanceBounds, selectedInstance, type PlaterObject } from '../../state/store';
+import { objectInfo } from '../../plater/info';
 import { NumericField } from '../common/NumericField';
 import { TransformInputs } from './TransformInputs';
 import { PaintPanel } from './PaintPanel';
@@ -33,6 +35,8 @@ export function ObjectManipulation({ o }: { o: PlaterObject }) {
     drop(o.id);
   };
   const box = instanceBounds(o, inst);
+  // size, volume and manifold state of the whole object (T-042); a full mesh measurement, so memoised
+  const info = useMemo(() => objectInfo(o), [o]);
   return (
     <div className="manip">
       <TransformInputs
@@ -71,6 +75,11 @@ export function ObjectManipulation({ o }: { o: PlaterObject }) {
       </div>
       <div className="muted small">
         Bounding box: {fmt(box.max.x - box.min.x)} × {fmt(box.max.y - box.min.y)} × {fmt(box.max.z - box.min.z)} mm
+      </div>
+      <div className="object-info-panel muted small" title="Volume, triangles, manifold state and instance count of this object">
+        {fmt(info.size[0])} × {fmt(info.size[1])} × {fmt(info.size[2])} mm · {fmt(info.volume, 2)} cm³ · {info.triangles.toLocaleString()}{' '}
+        triangles · {info.instances} {info.instances === 1 ? 'instance' : 'instances'}
+        {info.openEdges > 0 && <span className="not-manifold"> · Not manifold – {info.openEdges} open edges</span>}
       </div>
       <div className="manip-actions mirror">
         {AXES.map((a, i) => (

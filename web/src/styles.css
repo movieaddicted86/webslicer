@@ -1251,6 +1251,27 @@ table.changes td.mono {
 .vtype.NegativeVolume {
   color: #a0a0a0;
 }
+/* Object info (T-042): the measurement line under a row, and the inline rename field */
+.object-info {
+  padding: 0 6px 4px 26px;
+  line-height: 1.3;
+}
+.object-info .not-manifold {
+  color: var(--yellow);
+}
+.object-info-panel .not-manifold {
+  color: var(--yellow);
+}
+.inline-name {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  color: inherit;
+  background: var(--bg);
+  border: 1px solid var(--orange, #ff7d38);
+  border-radius: 3px;
+  padding: 0 4px;
+}
 .vtype.ModelPart {
   color: #e6b84a;
 }

@@ -30,6 +30,16 @@ export function triangleCount(g: THREE.BufferGeometry): number {
 }
 
 /**
+ * The mesh as a flat triangle soup (three vertices per triangle), whatever its indexing. The shared
+ * measurement helpers (`meshStats`, `mergeParts`) expect soups, and loaded meshes already are ones.
+ */
+export function geometrySoup(g: THREE.BufferGeometry): Float32Array {
+  if (!g.getIndex()) return g.getAttribute('position').array as Float32Array;
+  const flat = g.toNonIndexed();
+  return flat.getAttribute('position').array as Float32Array;
+}
+
+/**
  * Offset from the object's own coordinate frame to the plater frame of a normalized object
  * (geometry centred in X/Y, standing on Z = 0): the negative of the object origin in the frame the
  * geometry was imported in. `addObjects` centres a geometry by the same values, and `makeVolume`
