@@ -72,6 +72,16 @@ export function load3mfBuildItems(buf: ArrayBuffer): THREE.BufferGeometry[] {
   return out;
 }
 
+/**
+ * A stored model (T-044, the parts of a cut) as a geometry. The server returns the mesh already at its
+ * world position, so the caller places it with the identity.
+ */
+export async function loadStoredModel(id: string): Promise<THREE.BufferGeometry> {
+  const r = await fetch(api.modelUrl(id));
+  if (!r.ok) throw new Error(`cannot load the cut part (${r.status})`);
+  return stlModel(await r.arrayBuffer(), id).geometry;
+}
+
 /** A binary STL buffer as one geometry (only the positions survive: the plater rebuilds normals). */
 function stlModel(buf: ArrayBuffer, name: string): LoadedModel {
   const g = new STLLoader().parse(buf);

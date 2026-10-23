@@ -47,9 +47,10 @@ import {
 } from '../../plater/objects';
 import { createPaintSlice, type PaintSlice } from './paint';
 import { createRangeSlice, type RangeSlice } from './ranges';
+import { createCutSlice, type CutSlice } from './cut';
 import type { NewVolumeInput, PlaterInstance, PlaterObject, PlaterVolume, State } from '../types';
 
-export interface PlaterSlice extends PaintSlice, RangeSlice {
+export interface PlaterSlice extends PaintSlice, RangeSlice, CutSlice {
   objects: PlaterObject[];
   selectedIds: string[];
   transformMode: 'translate' | 'rotate' | 'scale';
@@ -147,6 +148,7 @@ function movingInstanceKeys(s: State): Set<string> {
 export const createPlaterSlice: StateCreator<State, [], [], PlaterSlice> = (set, get) => ({
   ...createPaintSlice(set, get),
   ...createRangeSlice(set, get),
+  ...createCutSlice(set, get),
   objects: [],
   selectedIds: [],
   transformMode: 'translate',

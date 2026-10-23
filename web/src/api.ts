@@ -6,6 +6,8 @@
 import type {
   Config,
   CustomGcode,
+  CutRequest,
+  CutResult,
   InstalledPrinter,
   JobEvent,
   JobRecord,
@@ -105,6 +107,10 @@ export const api = {
     }
     return r.arrayBuffer();
   },
+  /** T-044: the server cuts the model with the PrusaSlicer CLI and answers the two parts as models. */
+  cut: (req: CutRequest) => fetch('/api/cut', jsonInit('POST', req)).then((r) => handle<CutResult>(r)),
+  /** a stored model (the parts of a cut arrive as model ids) */
+  modelUrl: (id: string) => `/api/models/${encodeURIComponent(id)}`,
   parseProject: (data: ArrayBuffer) =>
     fetch('/api/projects/parse', { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: data }).then((r) =>
       handle<{ config: Config; objects: ProjectObject[]; customGcodes?: CustomGcode[]; buildOrder: number[] }>(r),

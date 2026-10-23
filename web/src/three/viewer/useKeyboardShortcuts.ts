@@ -62,7 +62,11 @@ export function useKeyboardShortcuts(onCamera: (req: CamRequest) => void, toggle
         if (st.paintMode === 'seam') st.stopPaint();
         else void st.startPaint(st.selectedIds[0], 'seam');
       } else if (matchesShortcut(e, 'placeOnFace')) st.setPlaceOnFace(!st.placeOnFace);
-      else if (matchesShortcut(e, 'move')) st.setTransformMode('translate');
+      else if (matchesShortcut(e, 'cut')) {
+        // T-044: the panel of the single selected instance; C closes it again
+        if (st.cutOpen) st.closeCut();
+        else if (st.selectedIds.length === 1) st.openCut();
+      } else if (matchesShortcut(e, 'move')) st.setTransformMode('translate');
       else if (matchesShortcut(e, 'rotate')) st.setTransformMode('rotate');
       else if (matchesShortcut(e, 'scale')) st.setTransformMode('scale');
       else if (matchesShortcut(e, 'undo')) {
@@ -85,6 +89,7 @@ export function useKeyboardShortcuts(onCamera: (req: CamRequest) => void, toggle
       else if (matchesShortcut(e, 'escape')) {
         if (st.paintMode) st.stopPaint();
         else if (st.placeOnFace) st.setPlaceOnFace(false);
+        else if (st.cutOpen) st.closeCut();
         else st.select([]);
       }
     };

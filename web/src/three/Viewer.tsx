@@ -10,6 +10,7 @@ import { useCamera, useCameraState } from './viewer/useCamera';
 import { useGcodePreview } from './viewer/useGcodePreview';
 import { useScene } from './viewer/useScene';
 import { useShells } from './viewer/useShells';
+import { useCutPlane } from './viewer/useCutPlane';
 import { normalizeColor } from '../gcode/colorprint';
 
 export { VOLUME_COLORS } from './viewer/colors';
@@ -74,6 +75,9 @@ export function Viewer() {
   useGizmo(refsRef, { objects, selectedIds, selectedVolumeId, selectedInstanceId, transformMode, view, paintMode });
 
   useShells(refsRef, shells, objects);
+
+  // --- the translucent cut plane of the cut panel (T-044)
+  useCutPlane(refsRef);
 
   // --- gcode
   useGcodePreview(refsRef, {

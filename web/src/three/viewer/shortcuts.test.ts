@@ -26,6 +26,7 @@ test('the table lists every shortcut the handler had, once per spelling', () => 
     'paintSupports',
     'paintSeam',
     'placeOnFace',
+    'cut',
     'move',
     'rotate',
     'scale',
@@ -88,6 +89,13 @@ test('the instance keys accept the numpad and the shifted spellings', () => {
   assert.equal(matchesShortcut(key('', { code: 'NumpadSubtract' }), 'removeInstance'), true);
 });
 
+test('C opens the cut panel without Ctrl or Shift', () => {
+  assert.equal(matchesShortcut(key('c'), 'cut'), true);
+  assert.equal(matchesShortcut(key('C'), 'cut'), true);
+  assert.equal(matchesShortcut(key('c', { ctrl: true }), 'cut'), false, 'Ctrl+C is not the cut panel');
+  assert.equal(matchesShortcut(key('a'), 'cut'), false);
+});
+
 test('Del and Backspace both delete, Esc cancels', () => {
   assert.equal(matchesShortcut(key('Delete'), 'delete'), true);
   assert.equal(matchesShortcut(key('Backspace'), 'delete'), true);
@@ -111,7 +119,7 @@ test('B10: the one guard blocks every shortcut while a dialog is open or an inpu
 
 test('the About dialog lists the shortcuts in one line, without duplicates', () => {
   const about = aboutShortcuts();
-  // the line in Dialogs.tsx: M · R · S · A · Shift+A · + · − · Del · Ctrl+A · 0…6 · K · Z
+  // the line in Dialogs.tsx: M · R · S · A · Shift+A · + · − · Del · Ctrl+A · 0…6 · K · Z · C
   assert.deepEqual(
     about.map((s) => s.label),
     [
@@ -127,6 +135,7 @@ test('the About dialog lists the shortcuts in one line, without duplicates', () 
       'views',
       'perspective/ortho',
       'zoom to selection',
+      'cut',
     ],
   );
   // every entry the dialog prints has keys to print
