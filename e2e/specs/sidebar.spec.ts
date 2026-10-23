@@ -508,11 +508,12 @@ test.describe('sidebar: the extruder palette (F-21)', () => {
     expect(palette.swatches[5]).toBe('rgb(169, 169, 245)');
     expect(palette.labels.map((l) => l?.replace(/\s+/g, ' ').trim())).toEqual(['1', '2', '3', '4', '5', '6']);
 
-    // back to a single extruder: the tool closes and the bar disables it with the reason
+    // back to a single extruder: the panel closes by its ✕, and the bar disables the tool with the reason
+    await click(app, '.tool-panel-close', 800);
+    expect(await read(app, (s) => s.activeTool ?? null)).toBeNull();
     await app.evaluate(() => window.webslicer.getState().setOption('printer', 'nozzle_diameter', '0.4'));
     await settle(app, 900);
     expect(await read(app, (s) => s.extruderCount())).toBe(1);
-    expect(await read(app, (s) => s.activeTool ?? null)).toBeNull();
     expect(await app.locator('.paint-tools .tool.extruder .swatch').count()).toBe(0);
     await expect(app.locator('.tool-bar button[title="Paint extruder: Needs a multi-extruder printer"]')).toBeDisabled();
   });

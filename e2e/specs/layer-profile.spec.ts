@@ -77,7 +77,8 @@ test.describe('variable layer height', () => {
       s.setView('plater');
       s.select([s.objects[0].id]);
       s.setProfileSettings({ quality: 0 });
-      s.openTool('layerHeight');
+      // `openTool` toggles: only open the panel when the slice did not leave it open
+      if (s.activeTool !== 'layerHeight') s.openTool('layerHeight');
     });
     await settle(app, 600);
     await expect(app.locator('.tool-panel')).toBeVisible();

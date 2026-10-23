@@ -142,15 +142,15 @@ test.describe('tool framework', () => {
         .filter((b) => b.disabled),
     );
     expect(unavailable.map((b) => b.title)).toEqual([
-      'Place on face (F): Select one object',
       'Cut (C): Select one object',
       'Variable layer height (V): Select one object',
       'Paint supports (L): Select one object',
       'Paint seam (P): Select one object',
       'Paint extruder: Select one object',
     ]);
-    // the transform tools still need an object, and there is one
+    // the transform tools and place-on-face need an object on the plate, not a selection: there is one
     await expect(app.locator('.tool-bar button[title="Move (M)"]')).toBeEnabled();
+    await expect(app.locator('.tool-bar button[title="Place on face (F)"]')).toBeEnabled();
     // a disabled button cannot be opened
     await app.evaluate(() => window.webslicer.getState().openTool('cut'));
     expect(await read(app, (s) => s.activeTool ?? null)).toBeNull();
