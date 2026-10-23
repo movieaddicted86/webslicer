@@ -598,6 +598,45 @@ test('B2: shrinking the extruder count clamps objects, volumes, MMU paint and th
   assert.equal(st().presets.filament.length, 1);
 });
 
+test('B2: switching to a printer with fewer extruders clamps like setExtruderCount', async () => {
+  // a 5-extruder printer the fake server knows (the printer count is the nozzle_diameter list)
+  server.presets.printer['Five Extruders'] = {
+    bed_shape: BED,
+    nozzle_diameter: '0.4,0.4,0.4,0.4,0.4',
+    default_print_profile: '0.20mm NORMAL',
+    default_filament_profile: 'Prusament PLA',
+  };
+  await st().selectPreset('printer', 'Five Extruders');
+  useStore.setState({ schema: B2_SCHEMA });
+  assert.equal(st().extruderCount(), 5);
+
+  await importOne(twoCubes());
+  const o = st().objects[0];
+  st().updateObject(o.id, { extruder: 5 });
+  await st().addVolume(o.id, { name: 'part', type: 'ModelPart', geometry: box(5) });
+  const volId = st().objects[0].volumes[0].id;
+  st().updateVolume(o.id, volId, { extruder: 5 });
+  st().updateObject(o.id, { paint: { mmu: Uint8Array.from([0, 5, 3, 1]) } });
+  st().setPaintExtruder(5);
+  assert.equal(st().paintExtruder, 5);
+
+  // the printer switch must clamp exactly like `setExtruderCount(1)` does
+  await st().selectPreset('printer', PRINTER);
+  const after = st().objects[0];
+  assert.equal(st().extruderCount(), 1);
+  assert.equal(st().presets.filament.length, 1);
+  assert.equal(after.extruder, 1, 'the object falls back to extruder 1');
+  assert.equal(after.volumes[0].extruder, 1, 'so does its volume');
+  assert.deepEqual([...(after.paint?.mmu ?? [])], [0, 1, 1, 1], 'MMU paint above the count becomes extruder 1');
+  assert.equal(st().paintExtruder, 1, 'the paint tool cannot stay on a removed extruder');
+  // nothing the slicer would receive may point past the count
+  const req = st().buildSliceRequest();
+  for (const obj of req.objects) {
+    assert.ok(!obj.extruder || obj.extruder <= 1, `object extruder ${obj.extruder}`);
+    for (const v of obj.volumes ?? []) assert.ok(!v.extruder || v.extruder <= 1, `volume extruder ${v.extruder}`);
+  }
+});
+
 test('B2: the slot actions stay on a filament slot that still exists', async () => {
   useStore.setState({ schema: B2_SCHEMA });
   st().setExtruderCount(3);
