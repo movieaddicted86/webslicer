@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type { ConfigIssue } from '@webslicer/shared';
 import type { OptionDef } from '../api';
 import { decodeVector, encodeVector, parsePoints, serializePoints, toBool } from '../values';
 import { NumericField } from './common/NumericField';
@@ -16,6 +17,8 @@ interface Props {
   /** For filament presets only index 0 is edited */
   singleElement?: boolean;
   disabled?: boolean;
+  /** a configuration limit this field breaks (S1-e): block = red, warn = yellow */
+  issue?: ConfigIssue;
 }
 
 function ScalarInput({
@@ -144,7 +147,7 @@ function BedShapeEditor({ value, onChange }: { value: string; onChange: (v: stri
   );
 }
 
-export function OptionField({ def, value, savedValue, onChange, onReset, extruders, singleElement, disabled }: Props) {
+export function OptionField({ def, value, savedValue, onChange, onReset, extruders, singleElement, disabled, issue }: Props) {
   const raw = value ?? def.default;
   const modified = (savedValue ?? def.default) !== raw;
   const isVec =
@@ -197,7 +200,9 @@ export function OptionField({ def, value, savedValue, onChange, onReset, extrude
   }
   return (
     <div
-      className={`option ${modified ? 'modified' : ''} ${def.multiline || def.gcode || def.key === 'bed_shape' ? 'block' : ''}`}
+      className={`option ${modified ? 'modified' : ''} ${def.multiline || def.gcode || def.key === 'bed_shape' ? 'block' : ''} ${
+        issue ? `issue-${issue.severity}` : ''
+      }`}
       id={`opt-${def.key}`}
     >
       <label title={`${def.key}\n\n${def.tooltip}`}>
@@ -211,6 +216,12 @@ export function OptionField({ def, value, savedValue, onChange, onReset, extrude
           <button className="icon reset" title="Reset to preset value" aria-label="Reset to preset value" onClick={onReset}>
             <ACTION_ICONS.reset size={14} strokeWidth={2} aria-hidden="true" focusable="false" />
           </button>
+        )}
+        {/* S1-e: the message under the field names the limit, not only the value */}
+        {issue && (
+          <p className={`field-issue ${issue.severity}`} role={issue.severity === 'block' ? 'alert' : 'status'}>
+            {issue.message}
+          </p>
         )}
       </div>
     </div>

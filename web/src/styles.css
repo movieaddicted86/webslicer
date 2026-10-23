@@ -559,6 +559,29 @@ kbd {
   gap: 8px;
   margin-top: auto;
 }
+/* Configuration limits in the slice panel (S1-e): the whole line is the button that opens the field */
+.plate-issues.limits button.link {
+  display: block;
+  text-align: left;
+  white-space: normal;
+  font-size: 12px;
+}
+.badge-limit {
+  display: inline-block;
+  border-radius: 8px;
+  padding: 0 5px;
+  margin-right: 3px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #fff;
+}
+.badge-limit.block {
+  background: #7a2a2a;
+}
+.badge-limit.warn {
+  background: #7a5d1a;
+}
 .progress {
   position: relative;
   height: 26px;
@@ -791,6 +814,41 @@ pre.log {
   margin: 0;
   font-size: 12px;
   color: var(--muted);
+}
+/* Configuration limits at the field (S1-e): a block is red, a soft range yellow, both with the limit */
+.option.issue-block .control input,
+.option.issue-block .control select,
+.option.issue-block .control textarea,
+.option.issue-warn .control input,
+.option.issue-warn .control select,
+.option.issue-warn .control textarea {
+  border-color: #7a2a2a;
+}
+.option.issue-block .control input:focus,
+.option.issue-block .control select:focus,
+.option.issue-block .control textarea:focus {
+  outline-color: var(--red);
+}
+.option.issue-warn .control input,
+.option.issue-warn .control select,
+.option.issue-warn .control textarea {
+  border-color: #7a5d1a;
+}
+.option.issue-warn .control input:focus,
+.option.issue-warn .control select:focus,
+.option.issue-warn .control textarea:focus {
+  outline-color: #f0d080;
+}
+.field-issue {
+  flex-basis: 100%;
+  margin: 2px 0 0;
+  font-size: 12px;
+}
+.field-issue.block {
+  color: #f08a84;
+}
+.field-issue.warn {
+  color: #f0d080;
 }
 .sidetext {
   color: var(--muted);

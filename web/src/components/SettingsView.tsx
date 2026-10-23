@@ -1,6 +1,8 @@
-import { useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { SERVER_ONLY_KEYS } from '@webslicer/shared';
 import { useStore } from '../state/store';
+import { useLimitIssues } from '../state/useLimitIssues';
+import { fieldIssueOf, type LimitSection } from '../safety/configIssues';
 import { PresetSelect } from './PresetSelect';
 import { OptionField } from './OptionField';
 import { ServerOnlyOption } from './ServerOnlyOption';
@@ -16,9 +18,14 @@ export function SettingsView() {
   const resetOption = useStore((s) => s.resetOption);
   const extruders = useStore((s) => s.extruderCount());
   const setExtruderCount = useStore((s) => s.setExtruderCount);
+  const settingFocus = useStore((s) => s.settingFocus);
+  // S1-e: the limits of the current presets – the same shared check the server runs – at the field
+  const issues = useLimitIssues();
   const [extruderIdx, setExtruderIdx] = useState(0);
   const [pageIdx, setPageIdx] = useState(0);
   const [search, setSearch] = useState('');
+  /** the option a limit issue in the slice panel pointed at; scrolled to and focused after the render */
+  const [focusKey, setFocusKey] = useState<string>();
   // W10: the page list is a real tablist – only the pages with a visible setting are tabs, and the
   // arrows move between those (a page hidden in the current mode is not reachable from the keyboard)
   const tabRefs = useRef<Array<HTMLLIElement | null>>([]);
@@ -28,6 +35,10 @@ export function SettingsView() {
   const tabType: PresetType =
     tech === 'SLA' && type === 'print' ? 'sla_print' : tech === 'SLA' && type === 'filament' ? 'sla_material' : type;
   const tab = schema ? schema.layout.find((t) => t.presetType === tabType) || schema.layout.find((t) => t.presetType === type) : undefined;
+  // S1-e: which of the shared checks this tab shows. The server checks SLA print/material configs as
+  // `sla_print`/`sla_material`, which split along the same print/filament line
+  const section: LimitSection = tabType === 'printer' ? 'printer' : tabType === 'print' || tabType === 'sla_print' ? 'print' : 'filament';
+  const issueOf = (key: string) => fieldIssueOf(issues, section, key, extruderIdx);
   const slot =
     type === 'filament' ? presets.filament[Math.min(extruderIdx, presets.filament.length - 1)] : presets[type as 'print' | 'printer'];
 
@@ -63,6 +74,31 @@ export function SettingsView() {
       }))
       .filter((p) => p.groups.length);
   }, [tab, search, schema]);
+
+  // S1-e: a click on a limit issue in the slice panel opens this tab (the store did that) and the
+  // field it names – search cleared, the page picked and, for a filament issue, the extruder slot.
+  // The jump is a one-shot: the request is taken back out of the store here.
+  useEffect(() => {
+    if (!settingFocus || !tab) return;
+    if (settingFocus.section === 'filament') setExtruderIdx(settingFocus.filamentIndex);
+    setSearch('');
+    const page = tab.pages.findIndex((p) => p.groups.some((g) => g.keys.includes(settingFocus.key)));
+    if (page >= 0) setPageIdx(page);
+    setFocusKey(settingFocus.key);
+    useStore.setState({ settingFocus: undefined });
+  }, [settingFocus, tab]);
+
+  // the page switch renders the field one frame later; then it can be scrolled to and focused
+  useEffect(() => {
+    if (!focusKey) return;
+    const frame = requestAnimationFrame(() => {
+      const el = document.getElementById(`opt-${focusKey}`);
+      el?.scrollIntoView({ block: 'center' });
+      el?.querySelector<HTMLElement>('input, select, textarea')?.focus();
+      setFocusKey(undefined);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [focusKey]);
 
   // the schema is loaded before the settings view can be shown (App waits for `ready`), and so is a tab
   if (!schema || !tab) return null;
@@ -171,6 +207,7 @@ export function SettingsView() {
                         savedValue={slot.saved[k]}
                         extruders={extruders}
                         singleElement={type === 'filament'}
+                        issue={issueOf(k)}
                         onChange={(v) => setOption(type, k, v, extruderIdx)}
                         onReset={() => resetOption(type, k, extruderIdx)}
                       />

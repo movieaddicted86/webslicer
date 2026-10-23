@@ -164,6 +164,8 @@ export interface CoreState {
   gcodeJobId?: string;
   /** the automatic restore of the last session failed; the objects list offers a retry with this message */
   autosaveError?: string;
+  /** a settings field a limit issue pointed at (S1-e); the settings view jumps there and clears it */
+  settingFocus?: import('./slices/ui').SettingFocus;
 }
 
 /** The whole store state: what every slice contributes plus the state they share. */
