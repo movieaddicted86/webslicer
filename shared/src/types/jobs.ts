@@ -71,6 +71,12 @@ export interface SliceObjectInput {
   /** one hex char per triangle = extruder index */
   mmuPaint?: string;
   ranges?: LayerRangeInput[];
+  /**
+   * Variable layer height profile (T-045): flat `[z0, h0, z1, h1, …]` pairs on the object's own Z axis,
+   * written into the 3MF as PrusaSlicer's `Slic3r_PE_layer_heights_profile.txt`. Where a profile and a
+   * height range both set a layer height, the profile wins (PrusaSlicer's behaviour).
+   */
+  layerProfile?: number[];
 }
 
 export interface SliceRequest {
@@ -228,4 +234,6 @@ export interface ProjectObject {
   seamPaint?: string;
   mmuPaint?: string;
   ranges?: LayerRangeInput[];
+  /** variable layer height profile (T-045), read from PrusaSlicer's `Slic3r_PE_layer_heights_profile.txt` */
+  layerProfile?: number[];
 }
