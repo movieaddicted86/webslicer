@@ -285,7 +285,7 @@ const ANALYSE = async (b64: string): Promise<CanvasAnalysis> => {
   };
 };
 
-const OVERLAYS = ['.viewer-toolbar', '.viewer-hint', '.viewer-banner', '.viewer-fit', '.toasts'];
+const OVERLAYS = ['.viewer-toolbar', '.viewer-hint', '.viewer-banner', '.viewer-fit', '.toasts', '.tool-bar', '.tool-panel'];
 
 /** Screenshot of the canvas with the overlays hidden, so a tooltip or a toast cannot change a count. */
 export async function shot(page: Page): Promise<CanvasAnalysis> {

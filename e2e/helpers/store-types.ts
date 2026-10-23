@@ -107,7 +107,10 @@ export interface E2EArrangeSettings {
   alignment: 'center' | 'corner';
 }
 
-/** The cut panel's settings (T-044). */
+/** The ids of the tool registry (T-046). */
+export type E2EToolId = 'move' | 'rotate' | 'scale' | 'placeOnFace' | 'cut' | 'paintSupports' | 'paintSeam' | 'paintMmu' | 'layerHeight';
+
+/** The cut tool's settings (T-044). */
 export interface E2ECutSettings {
   /** height of the plane above the object's bottom, object frame */
   z: number;
@@ -142,21 +145,21 @@ export interface E2EState {
   setArrangeSettings: (patch: Partial<E2EArrangeSettings>) => void;
   /** arrange only the selected instances around the others (Shift+A, T-043) */
   arrangeSelection: () => boolean;
-  /** the cut panel (T-044) */
-  cutOpen: boolean;
+  /** the open tool panel (T-046); `undefined` when no tool is active */
+  activeTool?: E2EToolId;
+  /** open a tool through the registry (`cut`, `paintSupports`, …), toggling the open one off */
+  openTool: (id: E2EToolId) => { ok: boolean; reason?: string };
+  closeTool: () => void;
+  /** the cut tool's settings (T-044) */
   cutSettings: E2ECutSettings;
-  openCut: () => boolean;
-  closeCut: () => void;
   setCutSettings: (patch: Partial<E2ECutSettings>) => void;
   cutSelection: () => Promise<void>;
   /** the variable layer height panel (T-045) */
   profileSettings: { quality: number; radius: number; keepMin: boolean; brushRadius: number; brushDelta: number };
   setProfileSettings: (patch: Partial<E2EState['profileSettings']>) => void;
   transformMode: 'translate' | 'rotate' | 'scale';
-  paintMode?: 'supports' | 'seam' | 'mmu';
   paintTool: string;
   brushRadius: number;
-  placeOnFace: boolean;
   view: string;
   mode: 'simple' | 'advanced' | 'expert';
   sliceDirty: boolean;
@@ -221,9 +224,9 @@ export interface E2EState {
   autosaveNow: () => Promise<void>;
   discardAutosave: () => Promise<void>;
   /** painting (T-035 drives it to prove the paint survives a reload) */
-  startPaint: (objectId: string, kind: 'supports' | 'seam') => Promise<void>;
+  startPaint: (objectId: string, kind: 'supports' | 'seam' | 'mmu') => Promise<void>;
   beginPaintStroke: (objectId: string) => void;
-  applyPaint: (objectId: string, kind: 'supports' | 'seam', triangles: number[], value: number) => void;
+  applyPaint: (objectId: string, kind: 'supports' | 'seam' | 'mmu', triangles: number[], value: number) => void;
   stopPaint: () => void;
 }
 

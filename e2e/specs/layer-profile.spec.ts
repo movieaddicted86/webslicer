@@ -55,9 +55,11 @@ test.describe('variable layer height', () => {
       const s = window.webslicer.getState();
       s.setOption('print', 'layer_height', '0.2');
       s.select([s.objects[0].id]);
+      // T-046: the profile panel is a tool panel now – it opens from the left bar or with V
+      s.openTool('layerHeight');
     });
     await settle(app, 600);
-    await expect(app.locator('.layer-profile-panel')).toBeVisible();
+    await expect(app.locator('.tool-panel')).toBeVisible();
     await expect(app.locator('.layer-profile-chart')).toBeVisible();
 
     // the reference: the sphere with its fixed 0.2 mm layers
@@ -75,10 +77,11 @@ test.describe('variable layer height', () => {
       s.setView('plater');
       s.select([s.objects[0].id]);
       s.setProfileSettings({ quality: 0 });
+      s.openTool('layerHeight');
     });
     await settle(app, 600);
-    await expect(app.locator('.layer-profile-panel')).toBeVisible();
-    await app.locator('.layer-profile-panel button:has-text("Adaptive")').click();
+    await expect(app.locator('.tool-panel')).toBeVisible();
+    await app.locator('.tool-panel button:has-text("Adaptive")').click();
     await settle(app, 800);
 
     const before = await state(app);
@@ -100,9 +103,13 @@ test.describe('variable layer height', () => {
 
   test('Reset clears the profile and one Ctrl+Z undoes it', async ({ app }) => {
     await importFile(app, SPHERE);
-    await app.evaluate(() => window.webslicer.getState().select([window.webslicer.getState().objects[0].id]));
+    await app.evaluate(() => {
+      const s = window.webslicer.getState();
+      s.select([s.objects[0].id]);
+      s.openTool('layerHeight');
+    });
     await settle(app, 600);
-    await app.locator('.layer-profile-panel button:has-text("Adaptive")').click();
+    await app.locator('.tool-panel button:has-text("Adaptive")').click();
     await settle(app, 800);
     expect((await state(app)).objects[0].layerProfile?.length || 0).toBeGreaterThan(0);
 
@@ -111,9 +118,9 @@ test.describe('variable layer height', () => {
     expect((await state(app)).objects[0].layerProfile).toBeUndefined();
 
     // Adaptive again, then Reset through the button: the object prints with its fixed layer height
-    await app.locator('.layer-profile-panel button:has-text("Adaptive")').click();
+    await app.locator('.tool-panel button:has-text("Adaptive")').click();
     await settle(app, 800);
-    await app.locator('.layer-profile-panel button:has-text("Reset")').click();
+    await app.locator('.tool-panel button:has-text("Reset")').click();
     await settle(app, 500);
     const after = await state(app);
     expect(after.objects[0].layerProfile).toBeUndefined();

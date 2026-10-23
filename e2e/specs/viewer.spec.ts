@@ -84,10 +84,10 @@ test.describe('viewer: gizmo and transforms (UAT-05)', () => {
     const box = await canvasBox(app);
     await press(app, 'f');
     await app.waitForTimeout(300);
-    expect(await read(app, (s) => s.placeOnFace)).toBe(true);
+    expect(await read(app, (s) => s.activeTool)).toBe('placeOnFace');
     await app.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
     await app.waitForTimeout(900);
-    expect(await read(app, (s) => s.placeOnFace)).toBe(false);
+    expect(await read(app, (s) => s.activeTool)).toBeUndefined();
   });
 
   test('mirror X flips the instance and a second mirror restores it', async ({ app }) => {
@@ -254,26 +254,26 @@ test.describe('viewer: keyboard shortcuts', () => {
     await app.waitForTimeout(400);
     await press(app, 'l');
     await app.waitForTimeout(2000);
-    expect(await read(app, (s) => s.paintMode)).toBe('supports');
+    expect(await read(app, (s) => s.activeTool)).toBe('paintSupports');
     await press(app, 'l');
     await app.waitForTimeout(500);
-    expect(await read(app, (s) => s.paintMode ?? null)).toBeNull();
+    expect(await read(app, (s) => s.activeTool ?? null)).toBeNull();
     await press(app, 'p');
     await app.waitForTimeout(2000);
-    expect(await read(app, (s) => s.paintMode)).toBe('seam');
+    expect(await read(app, (s) => s.activeTool)).toBe('paintSeam');
     await press(app, 'Escape');
     await app.waitForTimeout(500);
-    expect(await read(app, (s) => s.paintMode ?? null)).toBeNull();
+    expect(await read(app, (s) => s.activeTool ?? null)).toBeNull();
   });
 
   test('F turns place-on-face on and Esc off', async ({ app }) => {
     await importFile(app, CUBE);
     await press(app, 'f');
     await app.waitForTimeout(300);
-    expect(await read(app, (s) => s.placeOnFace)).toBe(true);
+    expect(await read(app, (s) => s.activeTool)).toBe('placeOnFace');
     await press(app, 'Escape');
     await app.waitForTimeout(300);
-    expect(await read(app, (s) => s.placeOnFace)).toBe(false);
+    expect(await read(app, (s) => s.activeTool)).toBeUndefined();
   });
 
   test('Ctrl+Z undoes and Ctrl+Shift+Z / Ctrl+Y redo', async ({ app }) => {
