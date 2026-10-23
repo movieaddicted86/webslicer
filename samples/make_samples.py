@@ -62,4 +62,41 @@ for i, s in enumerate([30, 24, 18, 12, 6]):
     tris += box(-s / 2, -s / 2, i * h, s / 2, s / 2, (i + 1) * h)
 write_stl(os.path.join(HERE, 'stepped_pyramid.stl'), tris)
 
+
+def sphere(cx, cy, cz, r, stacks=48, slices=96):
+    """A UV sphere, outward-facing; the poles are single triangles' fans, so no degenerate ones."""
+    def p(i, j):
+        theta = math.pi * i / stacks
+        phi = 2 * math.pi * j / slices
+        return (
+            cx + r * math.sin(theta) * math.cos(phi),
+            cy + r * math.sin(theta) * math.sin(phi),
+            cz + r * math.cos(theta),
+        )
+
+    out = []
+
+    def add(a, b, c):
+        ux, uy, uz = b[0] - a[0], b[1] - a[1], b[2] - a[2]
+        vx, vy, vz = c[0] - a[0], c[1] - a[1], c[2] - a[2]
+        nx, ny, nz = uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx
+        m = ((a[0] + b[0] + c[0]) / 3 - cx, (a[1] + b[1] + c[1]) / 3 - cy, (a[2] + b[2] + c[2]) / 3 - cz)
+        if nx * m[0] + ny * m[1] + nz * m[2] < 0:
+            b, c = c, b
+        out.append((a, b, c))
+
+    for i in range(stacks):
+        for j in range(slices):
+            a, b = p(i, j), p(i + 1, j)
+            c, d = p(i + 1, j + 1), p(i, j + 1)
+            if i != 0:
+                add(a, b, d)
+            if i != stacks - 1:
+                add(b, c, d)
+    return out
+
+
+# 5) sphere, 30 mm – variable layer height (T-045): thin layers at the poles, thick at the equator
+write_stl(os.path.join(HERE, 'sphere_30mm.stl'), sphere(0, 0, 15, 15))
+
 print('samples written to', HERE)
