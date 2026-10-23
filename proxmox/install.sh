@@ -182,6 +182,10 @@ else
   git clone -q --depth 1 --branch "$WEBSLICER_BRANCH" "$WEBSLICER_REPO" "$WEBSLICER_DIR"
 fi
 VERSION="$(sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' "${WEBSLICER_DIR}/package.json" | head -n1)"
+# T-058: which commit and branch this install runs – the update check compares against them. The
+# tree is a checkout, so `git rev-parse` is the truth; a tree copied in from a tarball has none.
+GIT_COMMIT="$(git -c "safe.directory=${WEBSLICER_DIR}" -C "${WEBSLICER_DIR}" rev-parse HEAD 2>/dev/null || true)"
+GIT_BRANCH="${WEBSLICER_BRANCH}"
 ok "WebSlicer ${VERSION:-sources}"
 
 # --- Licence ---------------------------------------------------------------------
@@ -220,6 +224,20 @@ else
   sed -i "s/^PORT=.*/PORT=${WEBSLICER_PORT}/" /etc/webslicer/webslicer.env
   grep -q '^LIBRARY_DIR=' /etc/webslicer/webslicer.env || echo "LIBRARY_DIR=${WEBSLICER_DATA}/library" >>/etc/webslicer/webslicer.env
 fi
+
+# T-058: the build stamp of this install, refreshed on every update (the update check reads it).
+# `unknown` when the sources came from a tarball – then the notice stays tag-based.
+set_env_line() {
+  local key="$1" value="$2"
+  [ -n "$value" ] || value="unknown"
+  if grep -q "^${key}=" /etc/webslicer/webslicer.env; then
+    sed -i "s|^${key}=.*|${key}=${value}|" /etc/webslicer/webslicer.env
+  else
+    echo "${key}=${value}" >>/etc/webslicer/webslicer.env
+  fi
+}
+set_env_line GIT_COMMIT "$GIT_COMMIT"
+set_env_line GIT_BRANCH "$GIT_BRANCH"
 
 {
   echo "WEBSLICER_REPO=${WEBSLICER_REPO}"

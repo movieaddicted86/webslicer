@@ -4,6 +4,12 @@ services:
       context: .
       args:
         PRUSASLICER_VERSION: '2.9.6'
+        # T-058: the commit/branch this image is built from – the "update available" check compares
+        # against them. Pass them from the shell, e.g.
+        #   GIT_COMMIT=$(git rev-parse HEAD) GIT_BRANCH=main docker compose build
+        # Without them the image only notices new release tags (`unknown` cannot be compared).
+        GIT_COMMIT: ${GIT_COMMIT:-unknown}
+        GIT_BRANCH: ${GIT_BRANCH:-main}
     image: webslicer:latest
     container_name: webslicer
     restart: unless-stopped
@@ -27,6 +33,8 @@ services:
       # Optional: host names the API accepts besides localhost and IP addresses (DNS-rebinding guard).
       # Needed when you open the app by a name (e.g. http://webslicer.lan:8080) or through a reverse proxy.
       # - ALLOWED_HOSTS=webslicer.lan
+      # Optional (T-058): switch the daily GitHub update check off – no outbound request at all
+      # - WEBSLICER_UPDATE_CHECK=off
 
 volumes:
   webslicer-data:
