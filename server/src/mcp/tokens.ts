@@ -14,7 +14,7 @@
  */
 import { createHash, scryptSync, timingSafeEqual } from 'node:crypto';
 import { config } from '../config.js';
-import { readJsonSync, writeJsonSync } from '../services/jsonStore.js';
+import { readJsonSync, writeJsonSync } from '../storage/jsonStore.js';
 
 export interface McpToken {
   id: string;

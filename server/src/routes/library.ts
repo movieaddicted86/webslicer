@@ -9,14 +9,10 @@ import express from 'express';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import { config } from '../config.js';
-import { getJob, jobOutputPath } from '../jobs.js';
-import { build3mfForRequest } from '../services/slice.js';
-import { mergeConfigs } from '../services/configMerge.js';
-import { activeSchema } from '../services/schema.js';
+import { copyJobOutput, libraryProject3mf } from '../services/library.js';
 import { libraryGcodeSchema, libraryMkdirSchema, libraryProjectSchema } from '../validation/library.js';
 import { firstIssueMessage } from '../validation/common.js';
 import {
-  copyIntoLibrary,
   deleteLibraryEntry,
   libraryRelativePath,
   libraryTargetChecked,
@@ -27,7 +23,7 @@ import {
   writeLibraryData,
 } from '../services/library.js';
 import { receiveToFile } from './uploads.js';
-import type { SliceRequest } from '@webslicer/shared';
+import { sendJson } from './common.js';
 
 /** The routes of this router are `async` throughout: Express 5 answers a rejected promise itself. */
 export function libraryRouter(): express.Router {
@@ -35,7 +31,7 @@ export function libraryRouter(): express.Router {
   const json = express.json({ limit: '64mb' });
 
   r.get('/', async (req, res) => {
-    res.json({ root: config.libraryDir, ...(await listLibrary(String(req.query.path || ''))) });
+    sendJson(res, { root: config.libraryDir, ...(await listLibrary(String(req.query.path || ''))) });
   });
 
   r.get('/file', async (req, res) => {
@@ -58,36 +54,32 @@ export function libraryRouter(): express.Router {
     } finally {
       await fsp.rm(tmp, { force: true }).catch(() => undefined);
     }
-    res.json({ ok: true, path: libraryRelativePath(target), size: bytes });
+    sendJson(res, { ok: true, path: libraryRelativePath(target), size: bytes });
   });
 
   r.post('/mkdir', json, async (req, res) => {
     const body = libraryMkdirSchema.parse(req.body ?? {});
-    res.json({ ok: true, ...(await makeLibraryDir(body.path, body.name)) });
+    sendJson(res, { ok: true, ...(await makeLibraryDir(body.path, body.name)) });
   });
 
   r.delete('/file', async (req, res) => {
     await deleteLibraryEntry(String(req.query.path || ''));
-    res.json({ ok: true });
+    sendJson(res, { ok: true });
   });
 
   // save the current plater as a 3MF project into the library
   r.post('/project', json, async (req, res) => {
     const parsed = libraryProjectSchema.safeParse(req.body ?? {});
     if (!parsed.success) return res.status(400).json({ error: firstIssueMessage(parsed.error, 'no objects') });
-    const body = req.body as SliceRequest;
-    const buf = await build3mfForRequest(body, mergeConfigs(await activeSchema(), body, { forProject: true }));
+    const buf = await libraryProject3mf(req.body);
     const target = await libraryTargetChecked(String(req.query.path || ''), String(req.query.name || 'project'), '.3mf');
-    res.json({ ok: true, ...(await writeLibraryData(target, buf)) });
+    sendJson(res, { ok: true, ...(await writeLibraryData(target, buf)) });
   });
 
   // copy a job's output (G-code) into the library
   r.post('/gcode', json, async (req, res) => {
     const body = libraryGcodeSchema.parse(req.body ?? {});
-    const job = getJob(body.jobId);
-    if (!job || job.status !== 'done') return res.status(404).json({ error: 'job output not available' });
-    const target = await libraryTargetChecked(body.path, body.name || job.outputName, path.extname(job.outputName));
-    res.json({ ok: true, ...(await copyIntoLibrary(jobOutputPath(job), target)) });
+    sendJson(res, { ok: true, ...(await copyJobOutput(body.jobId, body.path, body.name)) });
   });
 
   return r;

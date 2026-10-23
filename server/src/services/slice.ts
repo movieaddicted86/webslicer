@@ -7,7 +7,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { config } from '../config.js';
-import { activeSchema } from './schema.js';
 import { parseStl, transformMesh, build3mf, type ThreeMfObject, type ThreeMfVolume } from '../slicer/threemf/index.js';
 import { parseSliceRequest } from '../validation/slice.js';
 import {
@@ -24,23 +23,29 @@ import { mergeConfigs } from './configMerge.js';
 import type { IniSection } from '../slicer/ini.js';
 
 /**
- * Validate a slice request in place. The rules live in `validation/slice.ts` as one zod schema (R-10),
- * shared with the MCP tools; this wrapper keeps the contract the callers rely on: it *normalises in
- * place* (`instances` overwrites the legacy `transform`, a missing `filaments` becomes an empty array)
- * and it throws a plain `Error`, not a typed one.
+ * Validate a slice request in place and answer it as the `SliceRequest` it now is. The rules live in
+ * `validation/slice.ts` as one zod schema (R-10), shared with the MCP tools; this wrapper keeps the
+ * contract the callers rely on: it *normalises in place* (`instances` overwrites the legacy
+ * `transform`, a missing `filaments` becomes an empty array) and it throws a plain `Error`, not a
+ * typed one.
  *
  * That last point is deliberate: every route that calls it maps the error to 400 with this message
  * (`/api/slice`, `/api/autosave/:client`, both export routes, the project slice and the MCP tools);
  * a plain `Error` here never reaches the 500 handler as an "internal error".
+ *
+ * The raw body is given its API type only here, after the schema checked the contract – routes never
+ * cast `req.body` themselves (AC-3, q3-server-routes).
  */
-export function validateSliceRequest(body: SliceRequest) {
-  const parsed = parseSliceRequest(body);
+export function validateSliceRequest(raw: unknown): SliceRequest {
+  const parsed = parseSliceRequest(raw);
   if (!parsed.ok) throw new Error(parsed.message);
+  const body = raw as SliceRequest;
   const objects = (body as unknown as { objects: Array<Record<string, unknown>> }).objects;
   parsed.request.objects.forEach((o, i) => {
     objects[i].transform = o.transform;
   });
   body.filaments = parsed.request.filaments as SliceRequest['filaments'];
+  return body;
 }
 
 /** The configuration-limit issues of a validated request (S1-d): the slice and MCP paths read these. */
@@ -133,9 +138,4 @@ export async function build3mfForRequest(req: SliceRequest, projectConfig?: IniS
     customGcodes: req.customGcodes,
     extruders,
   });
-}
-
-/** The option schema, built on first use from the installed slicer. */
-export async function schemaOf(): Promise<Schema> {
-  return activeSchema();
 }

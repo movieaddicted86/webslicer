@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- **Server (T-050 – one router per resource, typed contract):** `routes/api.ts` shrank from 22.9 KB to
+  1.7 KB and now only mounts the resource routers (`meta`, `presets`, `models`, `jobs`, `printers`,
+  `exports`, `autosave`, plus the existing `library` and `projects`). Route logic moved into
+  `server/src/services/` (preset context and key filtering, meta info, SSE, cut/STEP orchestration,
+  printer masking, export/autosave 3MF building, job use cases); an ESLint
+  `no-restricted-imports` rule forbids `routes → slicer/jobs`, so the boundary cannot regress.
+  `jsonStore` moved to `server/src/storage/` and `ProjectPresetRef` lives with its schema, removing
+  both import cycles. Request schemas that parse a shared type are checked against it
+  (`z.ZodType<CutRequest>`, `z.ZodType<Config>`), and every JSON success body goes through the typed
+  `sendJson<T>`, so a contract drift is a compiler error. Behaviour is unchanged
+  (`routes/http.test.ts` untouched).
+
 - **Safety (T-049 – G-code preflight hardening):** the preflight now sees what Marlin sees and knows
   more of the dangerous commands. **Line ends:** the scanner splits on `\r\n`, a lone `\r` and `\n`
   (a reproduction showed PrusaSlicer 2.9.6 turns a lone `\r` in `start_gcode` into a real line break),

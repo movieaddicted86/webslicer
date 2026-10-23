@@ -11,8 +11,6 @@ import { arrangeOptionsSchema, copiesSchema, toPresetRef } from '../validation/p
 import { loadOwnedProject, summary } from './projectAccess.js';
 import { defineTool, type AnyTool } from './toolTypes.js';
 
-const schemaOf = activeSchema;
-
 /** live projects a single token may own */
 export const MAX_PROJECTS_PER_OWNER = 20;
 
@@ -28,7 +26,7 @@ export const projectTools: AnyTool[] = [
       filaments: z.array(z.string()).optional().describe('filament preset names, one per extruder'),
     }),
     handler: async (args, ctx) => {
-      const schema = await schemaOf();
+      const schema = await activeSchema();
       const live = (await listProjects()).filter((p) => p.owner === ctx.owner);
       if (live.length >= MAX_PROJECTS_PER_OWNER) {
         throw new ValidationError(
@@ -73,7 +71,7 @@ export const projectTools: AnyTool[] = [
     input: z.object({ project_id: z.string(), ...arrangeOptionsSchema.shape }),
     handler: async (args, ctx) => {
       const { project_id, ...options } = args;
-      return summary(await arrange(await loadOwnedProject(project_id, ctx.owner), await schemaOf(), options));
+      return summary(await arrange(await loadOwnedProject(project_id, ctx.owner), await activeSchema(), options));
     },
   }),
 ];
