@@ -21,6 +21,7 @@ function deps(over: Partial<Parameters<typeof shutdown>[0]> = {}) {
       stopJobs: async () => {
         calls.push('stopJobs');
       },
+      stopSlicers: () => calls.push('stopSlicers'),
       exit: (code: number) => exits.push(code),
       graceMs: 50,
       ...over,
@@ -31,7 +32,11 @@ function deps(over: Partial<Parameters<typeof shutdown>[0]> = {}) {
 test('a shutdown stops the listener first, then the jobs, and exits 0', async () => {
   const d = deps();
   await shutdown(d.value, 'SIGTERM');
-  assert.deepEqual(d.calls, ['close', 'stopJobs'], 'the listener stops accepting before the jobs are cancelled');
+  assert.deepEqual(
+    d.calls,
+    ['close', 'stopSlicers', 'stopJobs'],
+    'the listener stops accepting, the STEP/cut CLI processes are killed, then the jobs',
+  );
   assert.deepEqual(d.exits, [0]);
 });
 

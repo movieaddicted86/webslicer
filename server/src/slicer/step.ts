@@ -5,14 +5,16 @@
  *
  * Every call works in a temp directory under `data/cache` and removes it again, whatever happens:
  * a broken file must not leave a half-written model behind, and the CLI needs the input to keep its
- * `.step`/`.stp` extension (it refuses anything else by name).
+ * `.step`/`.stp` extension (it refuses anything else by name). The process itself goes through the
+ * one CLI seam (`cli.ts`): limited, abortable on a client disconnect, output bounded.
  */
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import { config } from '../config.js';
 import { envIntegerAtLeast } from '../env.js';
 import { ValidationError } from '../errors.js';
-import { runSlicer, type RunOptions, type RunResult } from './cli.js';
+import { exportStlArgs } from './commands.js';
+import { failureLine, maskTempPath, runSlicer, withTempDir, type RunOptions, type RunResult } from './cli.js';
 
 /** The CLI runner, injectable so the tests do not need PrusaSlicer. */
 export type SlicerRunner = (args: string[], opts?: RunOptions) => Promise<RunResult>;
@@ -41,67 +43,65 @@ export async function createStepTempDir(): Promise<string> {
   return fsp.mkdtemp(path.join(await stepTempRoot(), `${process.pid}-`));
 }
 
-/** The escape character of the CLI's ANSI colour codes (`\u001b`, kept out of a regex literal). */
-const ESC = String.fromCharCode(27);
-const ANSI = new RegExp(`${ESC}\\[[0-9;]*m`, 'g');
-
-/** Strip the CLI's colour escapes and the `****` decoration of its log lines. */
-function cleanLine(line: string): string {
-  return line
-    .replace(ANSI, '')
-    .replace(/^\*+\s*/, '')
-    .replace(/\s*\*+$/, '')
-    .trim();
+/** A 400 that never carries a server path (AC-6). */
+function stepError(message: string, dir: string): ValidationError {
+  return new ValidationError(maskTempPath(message, dir));
 }
 
-/** The first line of the CLI output that says what went wrong (what the user gets as 400 text). */
-export function failureLine(res: RunResult, timeoutMs = stepTimeoutMs()): string {
-  if (res.code === null && res.signal) return `the conversion timed out after ${Math.round(timeoutMs / 1000)} s`;
-  const lines = `${res.stderr}\n${res.stdout}`.split(/\r?\n/).map(cleanLine).filter(Boolean);
-  const relevant = lines.find((l) => /\b(err|error|fail|cannot|unknown|invalid|syntax|no such|unable)\b/i.test(l));
-  return relevant || lines[0] || `the slicer CLI exited with code ${res.code}`;
+export interface StepOptions {
+  run?: SlicerRunner;
+  workDir?: string;
+  timeoutMs?: number;
+  /** kills the CLI when the client goes away (AC-3) */
+  signal?: AbortSignal;
 }
 
 /**
  * Convert the STEP file at `input` to a binary STL and return its bytes. The output file lives in
  * `workDir` (or in a temp directory this function creates and removes again).
  */
-export async function convertStepFile(
-  input: string,
-  opts: { run?: SlicerRunner; workDir?: string; timeoutMs?: number } = {},
-): Promise<Buffer> {
-  const ownDir = opts.workDir ? undefined : await createStepTempDir();
-  const dir = opts.workDir ?? (ownDir as string);
+export async function convertStepFile(input: string, opts: StepOptions = {}): Promise<Buffer> {
+  if (opts.workDir) return convertInDir(input, opts.workDir, opts);
+  return withTempDir('step', (dir) => convertInDir(input, dir, opts));
+}
+
+async function convertInDir(input: string, dir: string, opts: StepOptions): Promise<Buffer> {
   const timeoutMs = opts.timeoutMs ?? stepTimeoutMs();
   const out = path.join(dir, `.step-out-${Date.now()}-${Math.random().toString(36).slice(2)}.stl`);
   try {
     const run = opts.run ?? runSlicer;
-    const res = await run(['--export-stl', '--no-ensure-on-bed', '--output', out, input], { timeoutMs });
-    if (res.code !== 0) throw new ValidationError(`cannot convert STEP: ${failureLine(res, timeoutMs)}`);
+    const res = await run(exportStlArgs({ outputFile: out, inputFile: input }), { timeoutMs, signal: opts.signal });
+    if (res.code !== 0) throw stepError(`cannot convert STEP: ${failureLine(res, timeoutMs)}`, dir);
+    // the CLI output is bounded like an upload: a STEP that explodes is a 400, not an unbounded read
+    const stat = await fsp.stat(out).catch(() => undefined);
+    if (!stat) throw stepError(`cannot convert STEP: ${failureLine(res, timeoutMs)}`, dir);
+    if (stat.size > config.maxUploadBytes) {
+      throw stepError(`cannot convert STEP: the converted model is larger than the allowed size of ${config.maxUploadBytes} bytes`, dir);
+    }
     let stl: Buffer;
     try {
       stl = await fsp.readFile(out);
     } catch {
-      throw new ValidationError(`cannot convert STEP: ${failureLine(res, timeoutMs)}`);
+      throw stepError(`cannot convert STEP: ${failureLine(res, timeoutMs)}`, dir);
     }
-    if (!stl.length) throw new ValidationError('cannot convert STEP: the slicer wrote an empty STL');
+    if (!stl.length) throw stepError('cannot convert STEP: the slicer wrote an empty STL', dir);
     return stl;
   } finally {
     await fsp.rm(out, { force: true }).catch(() => undefined);
-    if (ownDir) await fsp.rm(ownDir, { recursive: true, force: true }).catch(() => undefined);
   }
 }
 
 /** Convert a STEP file held in memory (the headless plater and the upload route both start here). */
-export async function convertStep(buf: Buffer, filename: string, opts: { run?: SlicerRunner; timeoutMs?: number } = {}): Promise<Buffer> {
+export async function convertStep(
+  buf: Buffer,
+  filename: string,
+  opts: { run?: SlicerRunner; timeoutMs?: number; signal?: AbortSignal } = {},
+): Promise<Buffer> {
   const ext = path.extname(filename).toLowerCase();
   if (!STEP_EXTENSIONS.has(ext)) throw new ValidationError(`not a STEP file "${filename}"`);
-  const dir = await createStepTempDir();
-  try {
+  return withTempDir('step', async (dir) => {
     const input = path.join(dir, `input${ext}`);
     await fsp.writeFile(input, buf);
-    return await convertStepFile(input, { ...opts, workDir: dir });
-  } finally {
-    await fsp.rm(dir, { recursive: true, force: true }).catch(() => undefined);
-  }
+    return convertStepFile(input, { ...opts, workDir: dir });
+  });
 }

@@ -18,11 +18,11 @@
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import JSZip from 'jszip';
-import { config } from '../config.js';
 import { envIntegerAtLeast } from '../env.js';
 import { ValidationError } from '../errors.js';
-import { runSlicer, type RunOptions, type RunResult } from './cli.js';
-import { writeBinaryStl, transformMesh, type Mesh } from './threemf/index.js';
+import { failureLine, maskTempPath, runSlicer, withTempDir, type RunOptions, type RunResult } from './cli.js';
+import { cutArgs } from './commands.js';
+import { readMeshBlock, writeBinaryStl, transformMesh, type Mesh } from './threemf/index.js';
 import { parse3mfBuild } from './threemf/read.js';
 import { assertZipReasonable, readZipEntryText } from './threemf/zipLimits.js';
 import { cutRotation, invert, multiply, planeFrame, soupBounds, translate, type Matrix4, type Vec3 } from '@webslicer/shared';
@@ -34,25 +34,9 @@ export function cutTimeoutMs(): number {
   return envIntegerAtLeast('CUT_TIMEOUT_MS', 1, 120_000);
 }
 
-/** The escape character of the CLI's ANSI colour codes (`\u001b`, kept out of a regex literal). */
-const ESC = String.fromCharCode(27);
-const ANSI = new RegExp(`${ESC}\\[[0-9;]*m`, 'g');
-
-/** Strip the CLI's colour escapes and the `****` decoration of its log lines. */
-function cleanLine(line: string): string {
-  return line
-    .replace(ANSI, '')
-    .replace(/^\*+\s*/, '')
-    .replace(/\s*\*+$/, '')
-    .trim();
-}
-
 /** The first line of the CLI output that says what went wrong (the 400 text of a failed cut). */
 export function cutFailureLine(res: RunResult, timeoutMs = cutTimeoutMs()): string {
-  if (res.code === null && res.signal) return `the cut timed out after ${Math.round(timeoutMs / 1000)} s`;
-  const lines = `${res.stderr}\n${res.stdout}`.split(/\r?\n/).map(cleanLine).filter(Boolean);
-  const relevant = lines.find((l) => /\b(err|error|fail|cannot|unknown|invalid|no such|unable)\b/i.test(l));
-  return relevant || lines[0] || `the slicer CLI exited with code ${res.code}`;
+  return failureLine(res, timeoutMs, 'the cut');
 }
 
 /** One side of the cut: `upper` is the material above the plane, `lower` the material below it. */
@@ -87,11 +71,9 @@ export interface CutOutput {
   parts: CutOutPart[];
 }
 
-/** The temp directory one cut works in; the caller removes it, whatever happens. */
-export async function createCutTempDir(): Promise<string> {
-  const root = path.join(config.cacheDir, 'cut');
-  await fsp.mkdir(root, { recursive: true });
-  return fsp.mkdtemp(path.join(root, `${process.pid}-`));
+/** A 400 of the cut that never carries a server path (AC-6). */
+function cutError(message: string, dir: string): ValidationError {
+  return new ValidationError(maskTempPath(message, dir));
 }
 
 /** The objects of a cut 3MF in document order, with their item transform applied. */
@@ -109,7 +91,7 @@ async function readCutOutput(file: string): Promise<Mesh[]> {
     if (!open) continue;
     const id = /\bid="([^"]+)"/.exec(open[1])?.[1];
     if (!id) continue;
-    const mesh = readMesh(open[2]);
+    const mesh = readMeshBlock(open[2]);
     if (!mesh.indices.length) continue;
     // with `--dont-arrange --no-ensure-on-bed` the item transform is the identity, but a CLI that
     // wrote a placement must not lose it
@@ -118,29 +100,6 @@ async function readCutOutput(file: string): Promise<Mesh[]> {
   }
   if (!meshes.length) throw new ValidationError('cannot cut: the slicer wrote no mesh');
   return meshes;
-}
-
-/** Vertices and triangles of one `<mesh>` block (the reader of the headless import, kept local). */
-function readMesh(body: string): Mesh {
-  const block = /<mesh\b[^>]*>([\s\S]*?)<\/mesh>/.exec(body)?.[1];
-  if (!block) return { vertices: new Float32Array(0), indices: new Uint32Array(0) };
-  const attr = (tag: string, name: string) => new RegExp(`\\b${name}="([^"]*)"`).exec(tag)?.[1];
-  const verts: number[] = [];
-  const vertexRe = /<vertex\b([^>]*?)\/?>/g;
-  let v: RegExpExecArray | null;
-  while ((v = vertexRe.exec(block))) verts.push(Number(attr(v[1], 'x')), Number(attr(v[1], 'y')), Number(attr(v[1], 'z')));
-  const tris: number[] = [];
-  const triRe = /<triangle\b([^>]*?)\/?>/g;
-  let t: RegExpExecArray | null;
-  const count = verts.length / 3;
-  while ((t = triRe.exec(block))) {
-    const a = Number(attr(t[1], 'v1'));
-    const b = Number(attr(t[1], 'v2'));
-    const c = Number(attr(t[1], 'v3'));
-    if (![a, b, c].every((i) => Number.isInteger(i) && i >= 0 && i < count)) continue;
-    tris.push(a, b, c);
-  }
-  return { vertices: Float32Array.from(verts), indices: Uint32Array.from(tris) };
 }
 
 /** The CLI's objects named by their side: the upper part is the one with the higher top. */
@@ -186,14 +145,23 @@ export function ownCoordinates(mesh: Mesh): { mesh: Mesh; position: Vec3 } {
   return { mesh: transformMesh(mesh, translate(-position[0], -position[1], -position[2])), position };
 }
 
-/**
- * Cut a model with a plane. Returns the kept parts in world coordinates, each also in its own
+/** What one cut needs besides the input: the frame it happens in and the CLI run's options. */
+interface CutRun {
+  frame: { rotation: Matrix4; planeZ: number };
+  framed: Mesh;
+  /** the plane height in the framed mesh, counted from its lowest point (what `--cut` takes) */
+  cutZ: number;
+  /** the lowest point of the framed mesh, undone on the CLI's output */
+  minZ: number;
+  opts: { run?: SlicerRunner; timeoutMs?: number; signal?: AbortSignal };
+}
+
+/** Cut a model with a plane. Returns the kept parts in world coordinates, each also in its own
  * coordinates with the world position of that origin; the temp directory of the run is removed in
- * every case, so a failed cut leaves nothing behind.
- */
+ * every case, so a failed cut leaves nothing behind. */
 export async function cutMesh(
   input: CutInput,
-  opts: { run?: SlicerRunner; workDir?: string; timeoutMs?: number } = {},
+  opts: { run?: SlicerRunner; workDir?: string; timeoutMs?: number; signal?: AbortSignal } = {},
 ): Promise<CutOutput> {
   const frame = planeFrame({ point: input.point, normal: input.normal });
   if (!frame) throw new ValidationError('cannot cut: the plane has no direction');
@@ -201,33 +169,29 @@ export async function cutMesh(
   const intoFrame = multiply(frame.rotation, input.transform);
   const framed = transformMesh(input.mesh, intoFrame);
   const minZ = soupBounds(framed.vertices).min[2];
-  const cutZ = frame.planeZ - minZ;
-  const ownDir = opts.workDir ? undefined : await createCutTempDir();
-  const dir = opts.workDir ?? (ownDir as string);
-  const timeoutMs = opts.timeoutMs ?? cutTimeoutMs();
+  const run: CutRun = { frame, framed, cutZ: frame.planeZ - minZ, minZ, opts };
+  if (opts.workDir) return cutInDir(input, opts.workDir, run);
+  return withTempDir('cut', (dir) => cutInDir(input, dir, run));
+}
+
+async function cutInDir(input: CutInput, dir: string, c: CutRun): Promise<CutOutput> {
+  const timeoutMs = c.opts.timeoutMs ?? cutTimeoutMs();
   const inputFile = path.join(dir, 'input.stl');
   const outputFile = path.join(dir, 'cut.3mf');
-  try {
-    await fsp.writeFile(inputFile, writeBinaryStl(framed));
-    const run = opts.run ?? runSlicer;
-    const res = await run(
-      ['--cut', String(cutZ), '--export-3mf', '--dont-arrange', '--no-ensure-on-bed', '--output', outputFile, inputFile],
-      { timeoutMs },
-    );
-    if (res.code !== 0) throw new ValidationError(`cannot cut: ${cutFailureLine(res, timeoutMs)}`);
-    const meshes = await readCutOutput(outputFile).catch(() => {
-      throw new ValidationError(`cannot cut: ${cutFailureLine(res, timeoutMs)}`);
-    });
-    // the CLI exports every object standing on z = 0 (measured in the frame it cut in); the cut
-    // frame puts the plane back where the user's plane is
-    const up = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, minZ, 1];
-    const placed = meshes.map((mesh) => transformMesh(mesh, up));
-    const keep = input.keep ?? 'both';
-    const parts = splitParts(placed, frame.planeZ)
-      .filter((p) => keep === 'both' || p.side === keep)
-      .map((p) => ({ side: p.side, ...ownCoordinates(placePart(p, frame, input)) }));
-    return { parts };
-  } finally {
-    await fsp.rm(dir, { recursive: true, force: true }).catch(() => undefined);
-  }
+  await fsp.writeFile(inputFile, writeBinaryStl(c.framed));
+  const run = c.opts.run ?? runSlicer;
+  const res = await run(cutArgs({ cutZ: c.cutZ, outputFile, inputFile }), { timeoutMs, signal: c.opts.signal });
+  if (res.code !== 0) throw cutError(`cannot cut: ${cutFailureLine(res, timeoutMs)}`, dir);
+  const meshes = await readCutOutput(outputFile).catch(() => {
+    throw cutError(`cannot cut: ${cutFailureLine(res, timeoutMs)}`, dir);
+  });
+  // the CLI exports every object standing on z = 0 (measured in the frame it cut in); the cut
+  // frame puts the plane back where the user's plane is
+  const up = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, c.minZ, 1];
+  const placed = meshes.map((mesh) => transformMesh(mesh, up));
+  const keep = input.keep ?? 'both';
+  const parts = splitParts(placed, c.frame.planeZ)
+    .filter((p) => keep === 'both' || p.side === keep)
+    .map((p) => ({ side: p.side, ...ownCoordinates(placePart(p, c.frame, input)) }));
+  return { parts };
 }
