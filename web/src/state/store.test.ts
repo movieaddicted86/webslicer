@@ -338,6 +338,75 @@ test('arrange packs every instance and refuses without touching the plater', asy
   assert.equal(st().undoStack.length, depth, 'the failed arrange records no undo step');
 });
 
+test('the arrange spacing setting changes the gap between the objects (AC-1)', async () => {
+  await importOne(box(10));
+  await importOne(box(10), 'second.stl');
+  st().setArrangeSettings({ spacing: 20 });
+  assert.equal(st().arrange(), true);
+  const wide = st().objects.map((o) => o.instances[0].position[0]);
+  assert.equal(Math.abs(wide[0] - wide[1]), 30, '10 mm cube plus 20 mm spacing');
+  st().setArrangeSettings({ spacing: 2 });
+  assert.equal(st().arrange(), true);
+  const tight = st().objects.map((o) => o.instances[0].position[0]);
+  assert.equal(Math.abs(tight[0] - tight[1]), 12, '10 mm cube plus 2 mm spacing');
+});
+
+test('the arrange settings are remembered per browser', () => {
+  st().setArrangeSettings({ spacing: 20, rotations: true, alignment: 'corner' });
+  assert.deepEqual(JSON.parse(memory.get('webslicer.arrange') ?? '{}'), { spacing: 20, rotations: true, alignment: 'corner' });
+  // an empty spacing field means "use the print profile" and is stored as absent
+  st().setArrangeSettings({ spacing: undefined });
+  assert.deepEqual(JSON.parse(memory.get('webslicer.arrange') ?? '{}'), { rotations: true, alignment: 'corner' });
+});
+
+test('the rotations setting turns long bars so that they fit (AC-2)', async () => {
+  // five bars of 120 × 40 mm: one per row without turning (5 * 46 = 230 > 210), one row turned
+  for (let i = 0; i < 5; i++) await st().addObjects([{ name: `bar${i}.stl`, geometry: new THREE.BoxGeometry(120, 40, 40).toNonIndexed() }]);
+  assert.equal(st().arrange(), false, 'the plain layout does not fit');
+  assert.equal(st().toasts[st().toasts.length - 1].text, 'Not all objects fit on the bed');
+  st().setArrangeSettings({ rotations: true });
+  assert.equal(st().arrange(), true);
+  for (const o of st().objects) {
+    const inst = o.instances[0];
+    assert.ok(Math.abs(Math.abs(inst.rotation[2]) - Math.PI / 2) < 1e-9, `${o.name} is turned: ${inst.rotation}`);
+    // the turned footprint is 40 mm across x and 120 mm across y, so the centre stays well inside
+    assert.ok(inst.position[0] >= 20 - 1e-9 && inst.position[0] <= 230 + 1e-9, `x in bed: ${inst.position[0]}`);
+    assert.ok(inst.position[1] >= 60 - 1e-9 && inst.position[1] <= 150 + 1e-9, `y in bed: ${inst.position[1]}`);
+  }
+});
+
+test('arrangeSelection moves only the selection and keeps the others in place (AC-3)', async () => {
+  await importOne(box(10));
+  await importOne(box(10), 'second.stl');
+  await importOne(box(10), 'third.stl');
+  assert.equal(st().arrange(), true);
+  const [first, second, third] = st().objects;
+  const beforeFirst = [...first.instances[0].position];
+  const kept = [second, third].map((o) => [...o.instances[0].position]);
+  st().select([first.id]);
+  st().selectInstance(first.id, first.instances[0].id);
+  assert.equal(st().arrangeSelection(), true);
+  closePoint(st().objects[1].instances[0].position, kept[0], 'the second object stays put');
+  closePoint(st().objects[2].instances[0].position, kept[1], 'the third object stays put');
+  const placed = st().objects.map((o) => o.instances[0].position);
+  assert.notDeepEqual(placed[0], beforeFirst, 'the selected instance moved into the free space');
+  for (let i = 0; i < placed.length; i++)
+    for (let k = i + 1; k < placed.length; k++) {
+      const dx = Math.abs(placed[i][0] - placed[k][0]);
+      const dy = Math.abs(placed[i][1] - placed[k][1]);
+      assert.ok(dx >= 10 - 1e-9 || dy >= 10 - 1e-9, `objects ${i}/${k} overlap`);
+    }
+  for (const p of placed) assert.ok(p[0] >= 5 && p[0] <= 245 && p[1] >= 5 && p[1] <= 205, `on the bed: ${p}`);
+});
+
+test('arrangeSelection without a selection reports it and changes nothing', () => {
+  st().select([]);
+  const depth = st().undoStack.length;
+  assert.equal(st().arrangeSelection(), false);
+  assert.equal(st().toasts[st().toasts.length - 1].text, 'Select the objects to arrange first');
+  assert.equal(st().undoStack.length, depth);
+});
+
 test('fillBedWithInstances fills the bed and reports a full one', async () => {
   await importOne(box(10));
   const o = st().objects[0];

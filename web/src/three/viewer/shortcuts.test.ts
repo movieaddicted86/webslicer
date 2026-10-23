@@ -32,6 +32,7 @@ test('the table lists every shortcut the handler had, once per spelling', () => 
     'undo',
     'redo',
     'selectAll',
+    'arrangeSelection',
     'arrange',
     'escape',
   ]) {
@@ -70,6 +71,14 @@ test('Ctrl+A selects all and plain A arranges', () => {
   assert.equal(matchesShortcut(key('A'), 'arrange'), true, 'the uppercase spelling works');
 });
 
+test('Shift+A arranges only the selection', () => {
+  assert.equal(matchesShortcut(key('a', { shift: true }), 'arrangeSelection'), true);
+  assert.equal(matchesShortcut(key('A', { shift: true }), 'arrangeSelection'), true, 'the uppercase spelling works');
+  assert.equal(matchesShortcut(key('a', { shift: true }), 'arrange'), false, 'Shift+A is not plain arrange');
+  assert.equal(matchesShortcut(key('a'), 'arrangeSelection'), false, 'A alone does not arrange the selection');
+  assert.equal(matchesShortcut(key('a', { shift: true, ctrl: true }), 'arrangeSelection'), false, 'Ctrl+Shift+A is not it');
+});
+
 test('the instance keys accept the numpad and the shifted spellings', () => {
   assert.equal(matchesShortcut(key('+'), 'addInstance'), true);
   assert.equal(matchesShortcut(key('='), 'addInstance'), true);
@@ -102,7 +111,7 @@ test('B10: the one guard blocks every shortcut while a dialog is open or an inpu
 
 test('the About dialog lists the shortcuts in one line, without duplicates', () => {
   const about = aboutShortcuts();
-  // the line in Dialogs.tsx: M · R · S · A · + · − · Del · Ctrl+A · 0…6 · K · Z
+  // the line in Dialogs.tsx: M · R · S · A · Shift+A · + · − · Del · Ctrl+A · 0…6 · K · Z
   assert.deepEqual(
     about.map((s) => s.label),
     [
@@ -110,6 +119,7 @@ test('the About dialog lists the shortcuts in one line, without duplicates', () 
       'rotate',
       'scale',
       'arrange',
+      'arrange selection',
       'add instance',
       'remove instance',
       'delete',

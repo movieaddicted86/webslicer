@@ -12,6 +12,7 @@ import {
   RotateCw,
   Save,
   Scaling,
+  Settings,
   Split,
   SquarePlus,
   SquareSplitHorizontal,
@@ -34,6 +35,8 @@ export const ACTION_ICONS = {
   scale: Scaling,
   placeOnFace: PanelBottom,
   arrange: LayoutGrid,
+  /** the gear next to Arrange: spacing, rotations, alignment (T-043) */
+  arrangeSettings: Settings,
   addInstance: Plus,
   removeInstance: Minus,
   duplicate: Copy,

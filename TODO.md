@@ -30,7 +30,7 @@ Priority by frequency of use in everyday printing and PrusaSlicer parity.
 - [x] Configuration limits while editing: server checks at the field, Slice disabled on a block (S1-e, T-041)
 - [x] STEP import through the CLI (`--export-stl`, T-009)
 - [x] Merge objects; object info (volume, manifold check), rename (T-042)
-- [ ] Arrange with settings (spacing, rotation) and "arrange selection"
+- [x] Arrange with settings (spacing, rotation, alignment) and "arrange selection" (T-043)
 - [ ] Cut tool (cut plane; connectors later)
 - [ ] Continuous layer-height profile (smoothing, adaptive)
 - [ ] Rename preset; config bundle import/export; import config from G-code

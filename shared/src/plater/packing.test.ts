@@ -71,8 +71,8 @@ test('fillCount returns 0 when nothing fits', () => {
 });
 
 test('fillCount never exceeds the limit', () => {
-  assert.equal(fillCount(26, 26, [], BED, 5), 5);
-  assert.equal(fillCount(26, 26, [], BED, 1000), 72);
+  assert.equal(fillCount(26, 26, [], BED, { limit: 5 }), 5);
+  assert.equal(fillCount(26, 26, [], BED, { limit: 1000 }), 72);
 });
 
 test('fillCount reserves the bed space of a larger item already placed', () => {
@@ -82,6 +82,60 @@ test('fillCount reserves the bed space of a larger item already placed', () => {
   const copies = Array.from({ length: n }, (_, i) => item(`c${i}`, 26, 26));
   assert.ok(packShelf([...existing, ...copies], BED), 'the resulting layout still fits');
   assert.equal(packShelf([...existing, ...copies, item('more', 26, 26)], BED), undefined, 'one more does not fit');
+});
+
+test('packShelf defaults reproduce the layout of the callers that pass no options (AC-4)', () => {
+  const items = [item('a', 40, 40), item('b', 20, 20), item('c', 20, 20)];
+  const plain = packShelf(items, BED);
+  const explicit = packShelf(items, BED, { spacing: 0, rotations: false, alignment: 'center', fixed: [] });
+  assert.deepEqual(explicit, plain);
+  // and no item is marked as turned, so the caller leaves the rotations alone
+  assert.ok(plain && plain.every((p) => p.rotated === undefined));
+});
+
+test('packShelf keeps the requested spacing between the items (AC-1)', () => {
+  const items = [item('a', 20, 20), item('b', 20, 20)];
+  const tight = packShelf(items, BED, { spacing: 2 });
+  const wide = packShelf(items, BED, { spacing: 20 });
+  assert.ok(tight && wide);
+  assert.equal(Math.abs(tight[0].x - tight[1].x), 22);
+  assert.equal(Math.abs(wide[0].x - wide[1].x), 40);
+  // both stay in one row, so the bigger spacing only widens the gap
+  assert.equal(tight[0].y, tight[1].y);
+  assert.equal(wide[0].y, wide[1].y);
+});
+
+test('packShelf turns long bars so that they fit with rotations (AC-2)', () => {
+  // five long bars: one per row without turning (5 * 50 = 250 > 210), one row when turned
+  const bars = Array.from({ length: 5 }, (_, i) => item(`bar${i}`, 150, 50));
+  assert.equal(packShelf(bars, BED), undefined);
+  const packed = packShelf(bars, BED, { rotations: true });
+  assert.ok(packed);
+  assert.equal(packed.length, 5);
+  for (const p of packed) {
+    assert.equal(p.rotated, true, `${p.id} is marked as turned`);
+    assert.ok(p.x - 25 >= -1e-9 && p.x + 25 <= 250 + 1e-9, `x in bed: ${p.x}`);
+    assert.ok(p.y - 75 >= -1e-9 && p.y + 75 <= 210 + 1e-9, `y in bed: ${p.y}`);
+  }
+});
+
+test('packShelf keeps fixed footprints free (AC-3)', () => {
+  const fixed = [{ id: 'fixed', width: 40, height: 40, x: 125, y: 105 }];
+  const packed = packShelf([item('a', 40, 40)], BED, { fixed });
+  assert.ok(packed);
+  const p = packed[0];
+  // the selected item is pushed beside the fixed one instead of covering it
+  assert.ok(Math.abs(p.x - 125) >= 40 - 1e-9 || Math.abs(p.y - 105) >= 40 - 1e-9, `overlap: ${p.x},${p.y}`);
+  assert.ok(p.x - 20 >= -1e-9 && p.x + 20 <= 250 + 1e-9 && p.y - 20 >= -1e-9 && p.y + 20 <= 210 + 1e-9);
+});
+
+test('packShelf reports when the fixed footprints leave no room', () => {
+  const fixed = [{ id: 'fixed', width: 200, height: 200, x: 125, y: 105 }];
+  assert.equal(packShelf([item('a', 40, 40)], BED, { fixed }), undefined);
+});
+
+test('packShelf corner alignment starts in the bed corner', () => {
+  assert.deepEqual(packShelf([item('a', 40, 40)], BED, { alignment: 'corner' }), [{ id: 'a', x: 20, y: 20 }]);
 });
 
 test('bedShapeOf reads the bed rectangle of a printer preset', () => {

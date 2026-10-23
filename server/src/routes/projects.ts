@@ -14,7 +14,7 @@ import { createJob } from '../jobs.js';
 import { validateConfigLimits, validateSliceRequest } from '../services/slice.js';
 import { activeSchema } from '../services/schema.js';
 import { ValidationError } from '../errors.js';
-import { copiesOf, parseProjectCreate, projectModelsSchema, projectSliceSchema } from '../validation/projects.js';
+import { arrangeOptionsSchema, copiesOf, parseProjectCreate, projectModelsSchema, projectSliceSchema } from '../validation/projects.js';
 import { addModelFromLibrary, arrange, createProject, toSliceRequest, touchProject, loadProject } from '../services/projects.js';
 import type { Schema, SliceRequest } from '@webslicer/shared';
 
@@ -67,7 +67,8 @@ export function projectsRouter(): express.Router {
   r.post('/:id/arrange', json, async (req, res) => {
     const found = await withProject(req, res);
     if (!found.project) return;
-    res.json(await arrange(found.project, found.schema));
+    const options = arrangeOptionsSchema.parse(req.body || {});
+    res.json(await arrange(found.project, found.schema, options));
   });
 
   r.post('/:id/slice', json, async (req, res) => {

@@ -142,6 +142,17 @@ export function copiesOf(value: unknown): number {
 }
 
 /**
+ * The optional options of `POST /api/projects/:id/arrange` and the MCP arrange tool (T-043): the
+ * same knobs the browser's Arrange settings have (spacing, rotations, alignment). Unknown keys are
+ * ignored like on the other project routes; an empty body means "today's layout".
+ */
+export const arrangeOptionsSchema = z.looseObject({
+  spacing: z.number().min(0).max(100).optional(),
+  rotations: z.boolean().optional(),
+  alignment: z.enum(['center', 'corner']).optional(),
+});
+
+/**
  * The body of `POST /api/projects/:id/slice` – both fields are optional overrides of the project.
  *
  * The rules are the ones the route applied by hand: `binaryGcode` is read as a flag, `outputName` only

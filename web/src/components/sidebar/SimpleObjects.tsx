@@ -4,8 +4,9 @@ import { SectionHeader } from '../common/SectionHeader';
 import { ToolbarButton } from '../common/ToolbarButton';
 import { ACTION_ICONS } from '../common/icons';
 import { useDeleteSelection, useInstanceActions, useSelectedObjects } from './selection';
+import { ArrangeSettingsMenu } from './ArrangeSettingsMenu';
 
-/** The reduced objects section of Simple mode: the five actions, no list, no manipulation panel. */
+/** The reduced objects section of Simple mode: the five actions plus the arrange settings, no list. */
 export function SimpleObjects() {
   const objects = useStore((s) => s.objects);
   const arrange = useStore((s) => s.arrange);
@@ -23,6 +24,7 @@ export function SimpleObjects() {
       <SectionHeader title={`Objects (${objects.length})`}>
         <div className="tools">
           <ToolbarButton title="Arrange (A)" icon={ACTION_ICONS.arrange} onClick={arrange} disabled={!objects.length} />
+          <ArrangeSettingsMenu />
           <span className="tool-sep" aria-hidden="true" />
           <ToolbarButton title="Add instance (+)" icon={ACTION_ICONS.addInstance} onClick={addInstance} disabled={selected.length !== 1} />
           <ToolbarButton

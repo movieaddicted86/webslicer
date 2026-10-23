@@ -7,7 +7,7 @@ import { z } from 'zod';
 import { ValidationError } from '../errors.js';
 import { addModelFromLibrary, arrange, createProject, listProjects, PROJECT_TTL_HOURS } from '../services/projects.js';
 import { activeSchema } from '../services/schema.js';
-import { copiesSchema, toPresetRef } from '../validation/projects.js';
+import { arrangeOptionsSchema, copiesSchema, toPresetRef } from '../validation/projects.js';
 import { loadOwnedProject, summary } from './projectAccess.js';
 import { defineTool, type AnyTool } from './toolTypes.js';
 
@@ -67,9 +67,13 @@ export const projectTools: AnyTool[] = [
   defineTool({
     name: 'webslicer.arrange',
     title: 'Arrange',
-    description: 'Place every instance of the project on the bed (the same shelf packing the browser uses).',
+    description:
+      'Place every instance of the project on the bed (the same shelf packing the browser uses). Optional spacing (mm), rotations (try 0/90°) and alignment (center/corner) like the browser’s Arrange settings.',
     readOnly: false,
-    input: z.object({ project_id: z.string() }),
-    handler: async (args, ctx) => summary(await arrange(await loadOwnedProject(args.project_id, ctx.owner), await schemaOf())),
+    input: z.object({ project_id: z.string(), ...arrangeOptionsSchema.shape }),
+    handler: async (args, ctx) => {
+      const { project_id, ...options } = args;
+      return summary(await arrange(await loadOwnedProject(project_id, ctx.owner), await schemaOf(), options));
+    },
   }),
 ];
