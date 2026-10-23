@@ -38,7 +38,12 @@ async function gcodeGaps(app: Parameters<typeof read>[0]) {
   return read(app, (s) => {
     const zs = s.gcode?.layerZ || [];
     const gaps: number[] = [];
-    for (let i = 1; i < zs.length; i++) gaps.push(+(zs[i] - zs[i - 1]).toFixed(4));
+    for (let i = 1; i < zs.length; i++) {
+      const d = +(zs[i] - zs[i - 1]).toFixed(4);
+      // the start G-code moves to the first layer's Z before the first ;LAYER_CHANGE, so the parser
+      // sees that layer twice (gap 0); only real layer steps count
+      if (d > 0.001) gaps.push(d);
+    }
     return { count: s.gcode?.layerCount || 0, gaps };
   });
 }
@@ -60,7 +65,8 @@ test.describe('variable layer height', () => {
     const fixed = await gcodeGaps(app);
     expect(fixed.count).toBeGreaterThan(100);
     // a fixed layer height gives (nearly) equal gaps
-    expect(Math.max(...fixed.gaps) - Math.min(...fixed.gaps)).toBeLessThan(0.01);
+    const spread = Math.max(...fixed.gaps) - Math.min(...fixed.gaps);
+    expect(spread, `gaps ${fixed.gaps.slice(0, 3).join(', ')}…`).toBeLessThan(0.01);
 
     // the panel's finest quality, then Adaptive through the button
     await app.evaluate(() => window.webslicer.getState().setProfileSettings({ quality: 0 }));
