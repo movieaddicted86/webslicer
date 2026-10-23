@@ -148,7 +148,10 @@ const MAX_PROFILE_SAMPLES = 20_000;
  * or bottom pulls the next layer boundary onto itself.
  *
  * Returns PrusaSlicer's flat pair layout `[z0, h0, z1, h1, …]`, empty for a mesh without facets or a
- * non-positive maximum.
+ * non-positive maximum. Like `layer_height_profile_adaptive` (`Slicing.cpp`), the profile always ends
+ * with a pair whose `z` is the object's top: `PrintObject::update_layer_height_profile` discards a
+ * profile whose second-to-last value is not within 1e-3 mm of the top, and slices the object with a
+ * fixed layer height instead. The height of that last pair is the remaining gap, clamped to the limits.
  */
 export function adaptiveProfile(mesh: ProfileMesh, quality: number, minH: number, maxH: number, nominal?: number): number[] {
   const limits: LayerLimits = { min: Math.max(1e-4, minH), max: Math.max(1e-4, maxH) };
@@ -185,19 +188,17 @@ export function adaptiveProfile(mesh: ProfileMesh, quality: number, minH: number
       if (facetHeight(f, deviation) < d) h = d;
     }
     h = clampLayerHeight(h, limits);
-    if (z + h > zMax) {
-      // the last layer would stick out of the object: shorten it, and when what is left is thinner than
-      // the printer allows, let the previous layer cover it instead (PrusaSlicer's thin-layer merge)
-      h = zMax - z;
-      if (h < limits.min && pairs.length >= 2) {
-        pairs[pairs.length - 1] = +(pairs[pairs.length - 1] + h).toFixed(6);
-        break;
-      }
-      h = Math.max(h, limits.min);
-    }
     if (!(h > eps)) break;
     pairs.push(+z.toFixed(6), +h.toFixed(6));
     z += h;
+  }
+  if (pairs.length) {
+    // PrusaSlicer's terminator: the last pair sits exactly at the object top (the gap left by the loop
+    // is its height; a layer above the top is simply clipped when the layers are generated)
+    const lastZ = pairs[pairs.length - 2];
+    const gap = zMax - lastZ;
+    if (gap > 0) pairs.push(+zMax.toFixed(6), +clampLayerHeight(gap, limits).toFixed(6));
+    else if (lastZ > zMax) pairs[pairs.length - 2] = +zMax.toFixed(6);
   }
   return pairs;
 }
@@ -303,12 +304,14 @@ export function profileZs(profile: number[] | undefined): number[] {
   return out;
 }
 
-/** Total height a profile covers: the last Z plus its layer height. */
+/**
+ * The top of a profile: its last Z, which for a profile PrusaSlicer accepts is the object's top (the
+ * last pair's height only describes the layer that reaches it).
+ */
 export function profileTop(profile: number[] | undefined): number {
   const n = pairCount(profile || []);
   if (!n) return 0;
-  const list = profile as number[];
-  return list[(n - 1) * 2] + list[(n - 1) * 2 + 1];
+  return (profile as number[])[(n - 1) * 2];
 }
 
 /** The largest difference between two neighbouring heights (the "jumps" smoothing reduces). */

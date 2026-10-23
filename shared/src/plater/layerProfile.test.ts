@@ -86,9 +86,10 @@ test('AC-1: adaptive on a sphere – thin layers near the poles, thick at the eq
   assert.equal(hs.length, zs.length);
   // every height is inside the limits
   for (const h of hs) assert.ok(h >= 0.05 - 1e-9 && h <= 0.3 + 1e-9, `height ${h}`);
-  // the profile covers the sphere: 0 .. 20 mm
+  // the profile covers the sphere: 0 .. 20 mm, and its last Z is exactly the top (PrusaSlicer discards
+  // a profile whose second-to-last value is not within 1e-3 of the object top)
   assert.ok(zs[0] <= 1e-6);
-  assert.ok(Math.abs(profileTop(profile) - 20) < 0.35, `profile covers ${profileTop(profile)}`);
+  assert.ok(Math.abs(profileTop(profile) - 20) < 1e-6, `profile ends at ${profileTop(profile)}`);
   // quality, not the nominal: the extremes are thinner than the equator
   const n = hs.length;
   const bottom = hs.slice(0, Math.max(1, Math.floor(n * 0.1)));
@@ -113,7 +114,7 @@ test('AC-1: a box has its thinnest layers at the flat top and bottom', () => {
   assert.ok(hs.length > 0);
   // walls are vertical: the layers are at the maximum, the flat top pulls the last one up to it
   assert.ok(hs.every((h) => h > 0.05));
-  assert.ok(Math.abs(profileTop(profile) - 20) < 0.3);
+  assert.ok(Math.abs(profileTop(profile) - 20) < 1e-6);
 });
 
 test('adaptiveProfile: an empty or degenerate mesh gives no profile', () => {
@@ -171,7 +172,7 @@ test('profileHeightAt and profileTop read the flat layout', () => {
   assert.equal(profileHeightAt(profile, 0.25), 0.1);
   assert.equal(profileHeightAt(profile, 1), 0.25);
   assert.equal(profileHeightAt(undefined, 1), undefined);
-  assert.ok(Math.abs(profileTop(profile) - 0.55) < 1e-9);
+  assert.ok(Math.abs(profileTop(profile) - 0.3) < 1e-9);
 });
 
 test('AC-3: the profile file is PrusaSlicer format and roundtrips', () => {
