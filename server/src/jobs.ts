@@ -10,6 +10,7 @@ import { randomUUID } from 'node:crypto';
 import { config } from './config.js';
 import { envIntegerAtLeast } from './env.js';
 import { runSlicer } from './slicer/cli.js';
+import { exportGcodeArgs } from './slicer/commands.js';
 import { serializeIni } from './slicer/ini.js';
 import { extractWarnings, readGcodeInfo } from './slicer/gcodeInfo.js';
 import { machineLimitsOf, scanGcodeFile } from './slicer/gcodePreflight.js';
@@ -359,17 +360,12 @@ async function runJob(job: JobRecord) {
   const outFile = path.join(dir, job.outputName);
   const logLines: string[] = [];
 
-  const args = [
-    job.technology === 'SLA' ? '--export-sla' : '--export-gcode',
-    '--load',
-    cfgFile,
-    '--dont-arrange',
-    '--loglevel',
-    '3',
-    '--output',
-    outFile,
-    jobFile(job.id, 'model.3mf'),
-  ];
+  const args = exportGcodeArgs({
+    technology: job.technology,
+    configFile: cfgFile,
+    outputFile: outFile,
+    modelFile: jobFile(job.id, 'model.3mf'),
+  });
   logLines.push(`$ ${config.slicerBin} ${args.join(' ')}`);
   const controller = new AbortController();
   controllers.set(job.id, controller);

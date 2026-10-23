@@ -124,6 +124,37 @@ function parseAsciiStl(text: string): Mesh {
   return dedupe(positions);
 }
 
+/** The value of an XML attribute inside a captured tag string. */
+function xmlAttr(tag: string, name: string): string | undefined {
+  return new RegExp(`\\b${name}="([^"]*)"`).exec(tag)?.[1];
+}
+
+/**
+ * Vertices and triangles of one `<mesh>` block of a 3MF model – the reader the headless import and
+ * the cut tool share (q2-slicer-cli). Triangles that point outside the vertex list are dropped: they
+ * would corrupt the mesh downstream.
+ */
+export function readMeshBlock(body: string): Mesh {
+  const block = /<mesh\b[^>]*>([\s\S]*?)<\/mesh>/.exec(body)?.[1];
+  if (!block) return { vertices: new Float32Array(0), indices: new Uint32Array(0) };
+  const verts: number[] = [];
+  const vertexRe = /<vertex\b([^>]*?)\/?>/g;
+  let v: RegExpExecArray | null;
+  while ((v = vertexRe.exec(block))) verts.push(Number(xmlAttr(v[1], 'x')), Number(xmlAttr(v[1], 'y')), Number(xmlAttr(v[1], 'z')));
+  const tris: number[] = [];
+  const triRe = /<triangle\b([^>]*?)\/?>/g;
+  let t: RegExpExecArray | null;
+  const count = verts.length / 3;
+  while ((t = triRe.exec(block))) {
+    const a = Number(xmlAttr(t[1], 'v1'));
+    const b = Number(xmlAttr(t[1], 'v2'));
+    const c = Number(xmlAttr(t[1], 'v3'));
+    if (![a, b, c].every((i) => Number.isInteger(i) && i >= 0 && i < count)) continue;
+    tris.push(a, b, c);
+  }
+  return { vertices: Float32Array.from(verts), indices: Uint32Array.from(tris) };
+}
+
 export function writeBinaryStl(mesh: Mesh): Buffer {
   const n = mesh.indices.length / 3;
   const buf = Buffer.alloc(84 + n * 50);
