@@ -24,6 +24,8 @@
     "format:check": "prettier --check .",
     "version:sync": "node scripts/version.mjs",
     "version:check": "node scripts/version.mjs --check",
+    "pins:update": "tsx server/scripts/pins-update.ts",
+    "help-diff": "tsx server/scripts/help-diff.ts",
     "docs:screenshots": "tsx e2e/scripts/screenshots.ts"
   },
   "devDependencies": {

@@ -195,6 +195,11 @@ jobs:
           done
           # the app has to resolve the mock by name before the send spec runs
           docker exec e2e node -e "fetch('http://mock-host:8160/api/version').then(r=>r.json()).then(j=>console.log('mock host:',j.server)).catch(e=>{console.error(e);process.exit(1)})"
+      - name: Slicer help matches the fixtures
+        # A Dockerfile version bump that nobody regenerated the fixtures for would otherwise stay
+        # invisible: the pin tests read the fixtures, not the binary. This compares the help output of
+        # the slicer in the image with `server/src/slicer/fixtures/help-*.txt` (q7-slicer-upgrade).
+        run: PRUSASLICER_DOCKER_CONTAINER=e2e npm run help-diff
       - name: Run the E2E suite (shard ${{ matrix.shard }})
         # The suite runs in the Playwright image (browsers preinstalled), against the workspace the
         # runner already installed. The mock's log directory is mounted, host networking reaches the
