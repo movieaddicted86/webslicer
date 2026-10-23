@@ -68,8 +68,16 @@ test.describe('variable layer height', () => {
     const spread = Math.max(...fixed.gaps) - Math.min(...fixed.gaps);
     expect(spread, `gaps ${fixed.gaps.slice(0, 3).join(', ')}…`).toBeLessThan(0.01);
 
-    // the panel's finest quality, then Adaptive through the button
-    await app.evaluate(() => window.webslicer.getState().setProfileSettings({ quality: 0 }));
+    // the panel's finest quality, then Adaptive through the button. Slicing switches the app to the
+    // preview, so the plater and the selection come back first.
+    await app.evaluate(() => {
+      const s = window.webslicer.getState();
+      s.setView('plater');
+      s.select([s.objects[0].id]);
+      s.setProfileSettings({ quality: 0 });
+    });
+    await settle(app, 600);
+    await expect(app.locator('.layer-profile-panel')).toBeVisible();
     await app.locator('.layer-profile-panel button:has-text("Adaptive")').click();
     await settle(app, 800);
 
