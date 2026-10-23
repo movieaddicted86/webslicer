@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **Docs (T-056 – short README, grouped documentation, generated screenshots):** the README is a
+  landing page now (pitch, hero image, feature highlights, quick start, a tour with five screenshots,
+  a documentation index, contributing, license – 110 lines instead of 500). Its details moved into
+  `docs/installation.md`, `docs/configuration.md`, `docs/mcp.md` and `docs/development.md`, and the
+  safety rules (configuration limits, G-code preflight, send gate) into `docs/safety.md`; no content
+  was dropped. The images in `docs/images/` come from `npm run docs:screenshots`
+  (`e2e/scripts/screenshots.ts`): Playwright drives the Docker image with the fixture data and writes
+  indexed PNGs, so they can be refreshed after a UI change.
+
 - **Plater (T-055 – tool bar labels, tidier sidebar):** the left tool bar names its tools now. The
   registry carries a short **`label`** per tool ("Move", "Rotate", "Scale", "Place on face", "Cut",
   "Paint supports", "Paint seam", "Paint extruder", "Layer height"), and the bar shows it next to the

@@ -23,7 +23,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "version:sync": "node scripts/version.mjs",
-    "version:check": "node scripts/version.mjs --check"
+    "version:check": "node scripts/version.mjs --check",
+    "docs:screenshots": "tsx e2e/scripts/screenshots.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",

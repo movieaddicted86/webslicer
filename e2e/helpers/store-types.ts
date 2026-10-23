@@ -145,6 +145,8 @@ export interface E2EState {
   setArrangeSettings: (patch: Partial<E2EArrangeSettings>) => void;
   /** arrange only the selected instances around the others (Shift+A, T-043) */
   arrangeSelection: () => boolean;
+  /** arrange every instance on the bed; false when they do not all fit */
+  arrange: () => boolean;
   /** the open tool panel (T-046); `undefined` when no tool is active */
   activeTool?: E2EToolId;
   /** open a tool through the registry (`cut`, `paintSupports`, …), toggling the open one off */
