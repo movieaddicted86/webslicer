@@ -69,6 +69,11 @@ export interface PlaterObject {
   paint?: { supports?: Uint8Array; seam?: Uint8Array; mmu?: Uint8Array };
   /** height range modifiers (object Z in mm, from the object's bottom) */
   ranges: LayerRange[];
+  /**
+   * Variable layer height profile (T-045): flat `[z0, h0, z1, h1, …]` pairs on the object's own Z axis,
+   * or `undefined` while the object uses its fixed layer height.
+   */
+  layerProfile?: number[];
   /** geometry has been subdivided for painting */
   paintReady?: boolean;
   /** bumped on every paint stroke so the viewer refreshes colours */

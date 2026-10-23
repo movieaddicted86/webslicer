@@ -48,9 +48,10 @@ import {
 import { createPaintSlice, type PaintSlice } from './paint';
 import { createRangeSlice, type RangeSlice } from './ranges';
 import { createCutSlice, type CutSlice } from './cut';
+import { createProfileSlice, type ProfileSlice } from './profile';
 import type { NewVolumeInput, PlaterInstance, PlaterObject, PlaterVolume, State } from '../types';
 
-export interface PlaterSlice extends PaintSlice, RangeSlice, CutSlice {
+export interface PlaterSlice extends PaintSlice, RangeSlice, CutSlice, ProfileSlice {
   objects: PlaterObject[];
   selectedIds: string[];
   transformMode: 'translate' | 'rotate' | 'scale';
@@ -71,6 +72,8 @@ export interface PlaterSlice extends PaintSlice, RangeSlice, CutSlice {
       seamPaint?: string;
       mmuPaint?: string;
       ranges?: LayerRangeInput[];
+      /** variable layer height profile (T-045), restored from a project or the autosave */
+      layerProfile?: number[];
     }>,
     opts?: { keepPositions?: boolean; snapshot?: PlaterObject[] },
   ) => Promise<void>;
@@ -149,6 +152,7 @@ export const createPlaterSlice: StateCreator<State, [], [], PlaterSlice> = (set,
   ...createPaintSlice(set, get),
   ...createRangeSlice(set, get),
   ...createCutSlice(set, get),
+  ...createProfileSlice(set, get),
   objects: [],
   selectedIds: [],
   transformMode: 'translate',
@@ -207,6 +211,7 @@ export const createPlaterSlice: StateCreator<State, [], [], PlaterSlice> = (set,
             ? { supports: decodePaint(it.supportPaint, tri), seam: decodePaint(it.seamPaint, tri), mmu: decodeMmu(it.mmuPaint, tri) }
             : undefined,
         ranges: (it.ranges || []).map((r) => ({ id: mintRangeId(), minZ: r.minZ, maxZ: r.maxZ, config: { ...r.config } })),
+        layerProfile: it.layerProfile?.length ? it.layerProfile.slice() : undefined,
       });
     }
     set((st) => ({
@@ -317,6 +322,7 @@ export const createPlaterSlice: StateCreator<State, [], [], PlaterSlice> = (set,
       volumes: o.volumes.map((v) => ({ ...v, id: mintVolumeId(), config: { ...v.config } })),
       paint: o.paint ? { supports: o.paint.supports?.slice(), seam: o.paint.seam?.slice(), mmu: o.paint.mmu?.slice() } : undefined,
       ranges: o.ranges.map((r) => ({ ...r, id: mintRangeId(), config: { ...r.config } })),
+      layerProfile: o.layerProfile?.slice(),
     }));
     set((st) => ({
       objects: [...st.objects, ...created],
@@ -499,6 +505,7 @@ export const createPlaterSlice: StateCreator<State, [], [], PlaterSlice> = (set,
       volumes: src.volumes.map((v) => ({ ...v, id: mintVolumeId(), config: { ...v.config } })),
       paint: src.paint ? { supports: src.paint.supports?.slice(), seam: src.paint.seam?.slice(), mmu: src.paint.mmu?.slice() } : undefined,
       ranges: src.ranges.map((r) => ({ ...r, id: mintRangeId(), config: { ...r.config } })),
+      layerProfile: src.layerProfile?.slice(),
     };
     // the original keeps its other instances; with only one it disappears (like PrusaSlicer's split)
     const rest = src.instances.filter((i) => i.id !== inst.id);
@@ -584,6 +591,8 @@ export const createPlaterSlice: StateCreator<State, [], [], PlaterSlice> = (set,
         config: o.config,
         extruder: o.extruder,
         ranges: o.ranges.map((r) => ({ minZ: r.minZ, maxZ: r.maxZ, config: r.config })),
+        // the profile is measured on the object's Z, which every shell shares
+        layerProfile: o.layerProfile?.slice(),
         supportPaint: paint.supports,
         seamPaint: paint.seam,
         mmuPaint: paint.mmu,

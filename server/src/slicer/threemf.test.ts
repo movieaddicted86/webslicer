@@ -95,6 +95,52 @@ test('3MF roundtrip of height ranges and MMU paint', async () => {
   assert.ok(model.includes('slic3rpe:mmu_segmentation="8"'));
 });
 
+test('3MF roundtrip of variable layer height profiles (T-045)', async () => {
+  const profileA = [0, 0.15, 0.15, 0.2, 0.35, 0.1, 0.45, 0.25];
+  const profileB = [0, 0.3, 0.3, 0.3, 0.6, 0.3];
+  const buf = await build3mf([
+    { name: 'a', mesh: cube(10), transform: I, layerProfile: profileA },
+    { name: 'b', mesh: cube(5), transform: I, layerProfile: profileB },
+    { name: 'c', mesh: cube(5), transform: I },
+  ]);
+  const JSZip = (await import('jszip')).default;
+  const zip = await JSZip.loadAsync(buf);
+  // PrusaSlicer's own file name and line format: `object_id=<1-based id>|<z>;<h>;…`, six decimals
+  const text = await zip.file('Metadata/Slic3r_PE_layer_heights_profile.txt')!.async('string');
+  assert.equal(
+    text,
+    'object_id=1|0.000000;0.150000;0.150000;0.200000;0.350000;0.100000;0.450000;0.250000\n' +
+      'object_id=2|0.000000;0.300000;0.300000;0.300000;0.600000;0.300000\n',
+  );
+  const proj = await read3mfProject(buf);
+  assert.deepEqual(proj.objects[0].layerProfile, profileA);
+  assert.deepEqual(proj.objects[1].layerProfile, profileB);
+  // an object without a profile stays without one (no empty entry in the file)
+  assert.equal(proj.objects[2].layerProfile, undefined);
+});
+
+test('3MF writer leaves out the profile file when no object has one', async () => {
+  const buf = await build3mf([{ name: 'a', mesh: cube(5), transform: I }]);
+  const JSZip = (await import('jszip')).default;
+  assert.equal((await JSZip.loadAsync(buf)).file('Metadata/Slic3r_PE_layer_heights_profile.txt'), null);
+});
+
+test('3MF reader accepts the alternate profile file name and prefers the canonical one', async () => {
+  const buf = await build3mf([{ name: 'a', mesh: cube(5), transform: I, layerProfile: [0, 0.2, 0.2, 0.2, 0.4, 0.2] }]);
+  const JSZip = (await import('jszip')).default;
+  // rewrite the archive with the old name only
+  const zip = await JSZip.loadAsync(buf);
+  const text = await zip.file('Metadata/Slic3r_PE_layer_heights_profile.txt')!.async('string');
+  zip.remove('Metadata/Slic3r_PE_layer_heights_profile.txt');
+  zip.file('Metadata/Prusa_Slicer_layer_heights_profile.txt', text);
+  const alt = await read3mfProject(await zip.generateAsync({ type: 'nodebuffer' }));
+  assert.deepEqual(alt.objects[0].layerProfile, [0, 0.2, 0.2, 0.2, 0.4, 0.2]);
+  // both present: the canonical file wins
+  zip.file('Metadata/Slic3r_PE_layer_heights_profile.txt', 'object_id=1|0;0.1;0.1;0.1;0.2;0.1\n');
+  const both = await read3mfProject(await zip.generateAsync({ type: 'nodebuffer' }));
+  assert.deepEqual(both.objects[0].layerProfile, [0, 0.1, 0.1, 0.1, 0.2, 0.1]);
+});
+
 test('custom G-codes per print Z roundtrip', async () => {
   const { customGcodeXml, parseCustomGcodeXml } = await import('./threemf/index.js');
   const xml = customGcodeXml(

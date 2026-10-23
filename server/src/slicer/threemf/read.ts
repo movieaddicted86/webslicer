@@ -6,6 +6,9 @@ import JSZip from 'jszip';
 import { attributeToTriangleState, PAINT_BLOCKER, PAINT_ENFORCER } from '../paint.js';
 import type { IniSection } from '../ini.js';
 import {
+  LAYER_PROFILE_FILE,
+  LAYER_PROFILE_FILE_ALT,
+  parseLayerProfiles,
   transformFrom3mf,
   VOLUME_TYPES,
   type CustomGcode,
@@ -195,6 +198,18 @@ export async function read3mfProject(
   let customGcodes: CustomGcode[] = [];
   const cgFile = zip.file('Metadata/Prusa_Slicer_custom_gcode_per_print_z.xml');
   if (cgFile) customGcodes = parseCustomGcodeXml(await readZipEntryText(zip, 'Metadata/Prusa_Slicer_custom_gcode_per_print_z.xml'));
+  // variable layer height profiles (T-045): PrusaSlicer writes one line per object, keyed by the 1-based
+  // object id; the older/alternate name is accepted as well, the canonical one wins when both exist
+  const profilesById = new Map<number, number[]>();
+  for (const name of [LAYER_PROFILE_FILE_ALT, LAYER_PROFILE_FILE]) {
+    if (!zip.file(name)) continue;
+    const parsed = parseLayerProfiles(await readZipEntryText(zip, name));
+    for (const [id, profile] of parsed) profilesById.set(id, profile);
+  }
+  objectIds.forEach((objectId, i) => {
+    const profile = profilesById.get(Number(objectId));
+    if (profile) objects[i].layerProfile = profile;
+  });
   // object index of every build item, in build order (a 3MF loader returns one mesh per item)
   const buildOrder = buildItems.map((b) => objectIds.indexOf(b.objectId));
   return { config: cfg, objects, customGcodes, buildOrder };

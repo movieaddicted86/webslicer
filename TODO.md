@@ -32,7 +32,7 @@ Priority by frequency of use in everyday printing and PrusaSlicer parity.
 - [x] Merge objects; object info (volume, manifold check), rename (T-042)
 - [x] Arrange with settings (spacing, rotation, alignment) and "arrange selection" (T-043)
 - [x] Cut tool (cut plane, via the CLI, T-044) – connectors (dowels/buttons) still open
-- [ ] Continuous layer-height profile (smoothing, adaptive)
+- [x] Continuous layer-height profile (adaptive, smoothing, brush, T-045)
 - [ ] Rename preset; config bundle import/export; import config from G-code
 - [ ] Update vendor profiles online (PrusaSlicer-settings)
 - [ ] Extend the configuration wizard (filaments per vendor, temperatures)

@@ -40,6 +40,8 @@ export interface E2EObject {
   volumes: E2EVolume[];
   instances: E2EPlacement[];
   ranges: E2ERange[];
+  /** the variable layer height profile, flat `[z0, h0, z1, h1, …]` pairs (T-045) */
+  layerProfile?: number[];
   paint?: { supports?: Uint8Array; seam?: Uint8Array; mmu?: Uint8Array };
   paintVersion?: number;
   geometry: { clone: () => unknown };
@@ -147,6 +149,9 @@ export interface E2EState {
   closeCut: () => void;
   setCutSettings: (patch: Partial<E2ECutSettings>) => void;
   cutSelection: () => Promise<void>;
+  /** the variable layer height panel (T-045) */
+  profileSettings: { quality: number; radius: number; keepMin: boolean; brushRadius: number; brushDelta: number };
+  setProfileSettings: (patch: Partial<E2EState['profileSettings']>) => void;
   transformMode: 'translate' | 'rotate' | 'scale';
   paintMode?: 'supports' | 'seam' | 'mmu';
   paintTool: string;

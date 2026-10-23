@@ -5,6 +5,7 @@ import { NumericField } from '../common/NumericField';
 import { TransformInputs } from './TransformInputs';
 import { PaintPanel } from './PaintPanel';
 import { RangePanel } from './RangePanel';
+import { VariableLayerHeightPanel } from './VariableLayerHeightPanel';
 import { AXES } from './axes';
 import { fmt } from '../../format';
 import type { Placement } from '../../api';
@@ -108,6 +109,7 @@ export function ObjectManipulation({ o }: { o: PlaterObject }) {
       </div>
       <PaintPanel o={o} />
       <RangePanel o={o} />
+      <VariableLayerHeightPanel o={o} />
       <div className="manip-row extruder">
         {extruders > 1 && (
           <>

@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+- **Plater (T-045 – variable layer height):** every object can carry a continuous layer height profile
+  like PrusaSlicer's "Variable layer height". The new panel in the object manipulation shows the
+  profile as a Z/height chart and offers **Adaptive** (quality slider 0–1), **Smooth** (radius, keep
+  minimum) and **Reset**; dragging in the chart adds or subtracts layer height with a brush. The
+  algorithms are pure functions in `shared/src/plater/layerProfile.ts`, modelled on PrusaSlicer's
+  `SlicingAdaptive` and `LayerHeightProfile`: the adaptive walk takes the smallest layer height the
+  facets crossing each layer allow, a second pass keeps facet boundaries, flat tops/bottoms become
+  layer boundaries, and every height is clamped to the printer's `min_layer_height` /
+  `max_layer_height` (25 % / 75 % of the nozzle when the option is 0). An object with a profile is
+  coloured by layer height in the 3D view, reusing the preview's height gradient. The profile travels
+  to the slicer in PrusaSlicer's own 3MF file (`Metadata/Slic3r_PE_layer_heights_profile.txt`, a
+  verified source detail – the task text named it `Prusa_Slicer_…`, which the reader accepts too),
+  is read back on project import, and wins over height ranges for the layer height while a range's
+  other settings still apply in their band. Every Adaptive/Smooth/Reset/brush action is one undo step
+  and marks the plate for a new slice; the G-code preview's "Height" view shows the resulting layer
+  bands. A generated `sphere_30mm.stl` sample ships for trying it.
+
 - **Plater (T-044 – cut tool):** the selected object can be cut with a plane (**C** or the scissors in
   the object toolbar). The panel sets the height along the object's own Z axis (slider and numeric
   field) and two tilt angles (X/Y); a translucent plane in the 3D view shows where the cut runs. The

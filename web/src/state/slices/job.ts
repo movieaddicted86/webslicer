@@ -59,6 +59,7 @@ export const createJobSlice: StateCreator<State, [], [], JobSlice> = (set, get) 
           seamPaint: o.paint?.seam && o.paint.seam.some((x) => x) ? encodePaint(o.paint.seam) : undefined,
           mmuPaint: o.paint?.mmu && o.paint.mmu.some((x) => x) ? encodeMmu(o.paint.mmu) : undefined,
           ranges: o.ranges.filter((r) => r.maxZ > r.minZ).map((r) => ({ minZ: r.minZ, maxZ: r.maxZ, config: r.config })),
+          layerProfile: o.layerProfile?.length ? o.layerProfile : undefined,
           volumes: o.volumes
             .filter((v): v is PlaterVolume & { modelId: string } => !!v.modelId)
             .map((v) => ({
