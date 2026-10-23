@@ -6,6 +6,7 @@ import { getSlicerVersion } from '../slicer/cli.js';
 import { loadBundles, resolveModelAsset } from '../slicer/bundles.js';
 import { activeSchema } from '../services/schema.js';
 import { appVersion } from '../services/version.js';
+import { updateStatus } from '../services/updateCheck.js';
 import { deleteModel, saveModel, saveModelFile } from '../services/models.js';
 import { deleteAutosave, findAutosave, isAutosaveClientId, readAutosaveInfo, writeAutosave } from '../services/autosave.js';
 import { build3mfForRequest, validateConfigLimits, validateSliceRequest } from '../services/slice.js';
@@ -76,6 +77,11 @@ export function apiRouter(): express.Router {
       maxJobs: config.maxJobs,
       maxUploadBytes: config.maxUploadBytes,
     });
+  });
+
+  // T-058: the server's answer to "has the repository moved on?" – cached, never blocks, silent on failure
+  r.get('/update-status', async (_req, res) => {
+    res.json(await updateStatus());
   });
 
   r.get('/schema', async (_req, res) => {

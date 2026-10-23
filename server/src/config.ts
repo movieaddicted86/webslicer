@@ -64,6 +64,12 @@ export const config = {
   /** MCP bearer tokens (hashes) and the audit log of the MCP endpoint */
   mcpTokensFile: path.join(dataDir, 'mcp-tokens.json'),
   auditLog: path.join(dataDir, 'audit.log'),
+  /** T-058: the last observation of the update check (kept across restarts) */
+  updateStatusFile: path.join(dataDir, 'update-status.json'),
+  /** T-058: the branch this build follows (`GIT_BRANCH` build arg), `main` by default */
+  gitBranch: process.env.GIT_BRANCH || 'main',
+  /** T-058: the raw `WEBSLICER_UPDATE_CHECK` value; `off` disables every outbound call */
+  updateCheck: process.env.WEBSLICER_UPDATE_CHECK,
   /** model / project / G-code library, meant to be mounted (NAS, SMB, …) */
   libraryDir: path.resolve(process.env.LIBRARY_DIR || path.join(dataDir, 'library')),
   slicerBin,

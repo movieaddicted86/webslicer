@@ -129,6 +129,10 @@ async function main() {
       mount(DATA, '/data'),
       '-v',
       mount(LIBRARY, '/library'),
+      // T-058: the suite must not depend on GitHub (or wait for the delayed first check); the notice
+      // itself is covered by `update.spec.ts` with an intercepted endpoint
+      '-e',
+      'WEBSLICER_UPDATE_CHECK=off',
       IMAGE,
     ],
     { stdio: 'inherit' },

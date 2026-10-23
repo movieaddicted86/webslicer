@@ -92,6 +92,11 @@ jobs:
         with:
           context: .
           push: false
+          # T-058: the image knows the commit and branch it was built from – the update check
+          # compares against them, and without the stamp a CI image would only get tag notices
+          build-args: |
+            GIT_COMMIT=${{ github.sha }}
+            GIT_BRANCH=${{ github.ref_name }}
           cache-from: type=gha,scope=e2e
           cache-to: type=gha,mode=max,scope=e2e
   e2e:
@@ -166,6 +171,7 @@ jobs:
             -v "$RUNNER_TEMP/e2e/mock:/mock-data" webslicer-mock-host:e2e
           docker run -d --name e2e --network e2e-net \
             -p 8080:8080 \
+            -e WEBSLICER_UPDATE_CHECK=off \
             -v "$RUNNER_TEMP/e2e/data:/data" \
             -v "$RUNNER_TEMP/e2e/library:/library" \
             webslicer:e2e

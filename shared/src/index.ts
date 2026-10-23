@@ -16,4 +16,5 @@ export * from './presets.js';
 export * from './safety/index.js';
 export * from './serverOnly.js';
 export * from './types/index.js';
+export * from './update.js';
 export * from './values.js';

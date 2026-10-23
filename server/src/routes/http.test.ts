@@ -26,6 +26,7 @@ const { ensureDirs, config } = await import('../config.js');
 const { createApp } = await import('../app.js');
 const { setSchema } = await import('../jobs.js');
 const { setActiveSchema } = await import('../services/schema.js');
+const { setUpdateChecker } = await import('../services/updateCheck.js');
 const { IDENTITY } = await import('@webslicer/shared');
 
 /** Minimal schema: these tests never reach the slicer schema, but the module cache is shared. */
@@ -137,6 +138,27 @@ test('GET /api/health answers 200 { ok: true }', async () => {
   const res = await call('GET', '/api/health');
   assert.equal(res.status, 200);
   assert.deepEqual(res.json, { ok: true });
+});
+
+test('GET /api/update-status answers the checker’s status (T-058)', async () => {
+  const answer = {
+    current: '7ebbe07',
+    latest: 'aaa1111',
+    behind: 3,
+    url: 'https://github.com/movieaddicted86/webslicer/compare/7ebbe07...main',
+    checkedAt: '2026-10-23T08:00:00.000Z',
+    enabled: true,
+    tag: 'v1.1.0',
+  };
+  setUpdateChecker({ enabled: true, status: () => answer, check: async () => answer, start: () => () => {} });
+  try {
+    const res = await call('GET', '/api/update-status');
+    assert.equal(res.status, 200);
+    // the route hands out exactly the contract fields – no extra key from the checker leaks
+    assert.deepEqual(res.json, answer);
+  } finally {
+    setUpdateChecker(undefined);
+  }
 });
 
 // ---------------------------------------------------------------------------

@@ -18,6 +18,11 @@ ARG DEFAULT_PRUSASLICER_VERSION=2.9.6
 # PRUSASLICER_URL or PRUSASLICER_VERSION needs PRUSASLICER_SHA256; without it the build warns.
 ARG PRUSASLICER_SHA256_AMD64=903765126127d99144f06bbac58857d4cc684d9b30c2884a4cc7e2ecb7a7fab8
 ARG PRUSASLICER_SHA256_ARM64=8c4fa98ad9b07878b3ebfbb7e2ccdfd1bdf6fa307b87ba74dde3d07b4103b19a
+# T-058: which commit and branch this image was built from – the update check compares against them.
+# The default is `unknown`: a build that does not say cannot know whether it is behind (tag notices
+# still work). CI and the Proxmox installer pass both.
+ARG GIT_COMMIT=unknown
+ARG GIT_BRANCH=main
 
 # ---------- 1. Build frontend + backend ------------------------------------
 FROM ${NODE_IMAGE} AS build
@@ -84,6 +89,9 @@ RUN set -eux; \
 
 # ---------- 3. Runtime ------------------------------------------------------
 FROM ${NODE_IMAGE}
+# an ARG of an earlier stage is not visible here; both are passed as ENV below (T-058)
+ARG GIT_COMMIT
+ARG GIT_BRANCH
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update \
  && apt-get install -y --no-install-recommends ca-certificates curl tini \
@@ -104,7 +112,11 @@ COPY LICENSE THIRD_PARTY_NOTICES.md /usr/share/doc/webslicer/
 
 # no WEBSLICER_VERSION here: the runtime reads /app/package.json, copied from the build stage, so
 # the version has one source (root package.json, synced by `npm run version:sync`)
-ENV NODE_ENV=production \
+# T-058: the build stamp is an ENV, so the runtime needs no extra file – `GIT_COMMIT` is what the
+# update check compares with the branch head, `GIT_BRANCH` the branch it follows (both are build args)
+ENV GIT_COMMIT=${GIT_COMMIT} \
+    GIT_BRANCH=${GIT_BRANCH} \
+    NODE_ENV=production \
     PORT=8080 \
     DATA_DIR=/data \
     PRUSASLICER_BIN=/opt/prusaslicer/AppRun \

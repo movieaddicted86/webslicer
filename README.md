@@ -54,6 +54,12 @@ On first start pick your printer in the _Printers_ dialog, drag a model into the
 PrusaSlicer pinning): [docs/installation.md](docs/installation.md). All environment variables:
 [docs/configuration.md](docs/configuration.md).
 
+**Updates.** WebSlicer never updates itself, but it tells you when the repository has moved on: the
+server compares its build commit (`GIT_COMMIT`, passed by Compose/CI/the Proxmox installer) with the
+head of your branch once a day, and a dismissible chip plus the About dialog link to the new commits
+or release. Set `WEBSLICER_UPDATE_CHECK=off` to switch the check – and every outbound request – off.
+Details: [docs/installation.md#update-notice](docs/installation.md#update-notice).
+
 ## A quick tour
 
 The plater with the tool bar, the object list and the quick settings. Move, rotate and scale have their
