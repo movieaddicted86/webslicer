@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.0.0-rc.3 – 2026-10-23
+
 - **Updates (T-058 – "a new version is available"):** a self-hosted install now notices when the
   repository has moved on, without ever updating itself. The **server** checks `GET
 /api/update-status`: about a minute after start and then daily it asks the GitHub REST API for the
