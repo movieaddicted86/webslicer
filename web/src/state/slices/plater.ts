@@ -18,7 +18,6 @@ import {
   bedShapeOf,
   fillCount,
   mirrorPlacement,
-  packShelf,
   placementMatrix,
   transferredVolumePlacement,
   type PackItem,
@@ -26,14 +25,15 @@ import {
 import { splitShells } from '../../plater/split';
 import { mergeVolumes } from '../../plater/info';
 import {
+  arrangePlan,
   bedAndSpacing,
   fitsOnBed,
   layoutOf,
-  packItemOf,
-  placementUpdates,
+  packOptionsOf,
   withPlacements,
-  type ArrangedInstance,
+  type ArrangeSettings,
 } from '../../plater/arrangement';
+import { loadArrangeSettings, saveArrangeSettings } from '../../plater/arrangeSettings';
 import {
   IDENTITY_PLACEMENT,
   instanceBounds,
@@ -125,7 +125,23 @@ export interface PlaterSlice extends PaintSlice, RangeSlice {
   setTransformMode: (m: State['transformMode']) => void;
   /** arrange every instance on the bed; false (and no change) when they do not all fit */
   arrange: () => boolean;
+  /** arrange only the selected instances around the others (Shift+A); false when it does not fit */
+  arrangeSelection: () => boolean;
+  /** the Arrange settings from the gear popover (T-043), remembered per browser */
+  arrangeSettings: ArrangeSettings;
+  setArrangeSettings: (patch: Partial<ArrangeSettings>) => void;
   dropToBed: (id: string) => void;
+}
+
+/** The instances Shift+A moves: the picked one when there is one, else every instance of the selection. */
+function movingInstanceKeys(s: State): Set<string> {
+  const keys = new Set<string>();
+  for (const o of s.objects) {
+    if (!s.selectedIds.includes(o.id)) continue;
+    const picked = pickedInstanceId(s, o);
+    for (const inst of o.instances) if (!picked || inst.id === picked) keys.add(`${o.id}:${inst.id}`);
+  }
+  return keys;
 }
 
 export const createPlaterSlice: StateCreator<State, [], [], PlaterSlice> = (set, get) => ({
@@ -134,6 +150,7 @@ export const createPlaterSlice: StateCreator<State, [], [], PlaterSlice> = (set,
   objects: [],
   selectedIds: [],
   transformMode: 'translate',
+  arrangeSettings: loadArrangeSettings(),
   addObjects: async (items, opts = {}) => {
     // a caller that already changed the plater passes its own snapshot, so the undo step spans both
     get().recordHistory(opts.snapshot);
@@ -344,28 +361,35 @@ export const createPlaterSlice: StateCreator<State, [], [], PlaterSlice> = (set,
   },
   arrange: () => {
     const s = get();
-    const { bed, spacing } = bedAndSpacing(s.presets);
-    // every instance is an item of its own (footprint = its own bounds incl. the spacing)
-    const items: Array<ArrangedInstance & { w: number; h: number }> = [];
-    for (const o of s.objects) {
-      for (const inst of o.instances) {
-        const box = instanceBounds(o, inst);
-        const { width: w, height: h } = packItemOf(o, inst, `${o.id}:${inst.id}`, spacing);
-        items.push({ o, inst, box, w, h, key: `${o.id}:${inst.id}` });
-      }
-    }
-    const packed = packShelf(
-      items.map((it) => ({ id: it.key, width: it.w, height: it.h }) satisfies PackItem),
-      bed,
-    );
-    if (!packed) {
+    const updates = arrangePlan(s.objects, bedShapeOf(s.presets.printer.current), packOptionsOf(s.presets, s.arrangeSettings));
+    if (!updates) {
       // nothing fits: report it and leave the plater untouched (checked before recording history)
       s.toast('error', 'Not all objects fit on the bed');
       return false;
     }
     get().recordHistory();
-    set((st) => ({ objects: withPlacements(st.objects, placementUpdates(items, packed)), sliceDirty: true }));
+    set((st) => ({ objects: withPlacements(st.objects, updates), sliceDirty: true }));
     return true;
+  },
+  arrangeSelection: () => {
+    const s = get();
+    const moving = movingInstanceKeys(s);
+    if (!moving.size) {
+      s.toast('info', 'Select the objects to arrange first');
+      return false;
+    }
+    const updates = arrangePlan(s.objects, bedShapeOf(s.presets.printer.current), packOptionsOf(s.presets, s.arrangeSettings), moving);
+    if (!updates) {
+      s.toast('error', 'The selected objects do not fit on the bed');
+      return false;
+    }
+    get().recordHistory();
+    set((st) => ({ objects: withPlacements(st.objects, updates), sliceDirty: true }));
+    return true;
+  },
+  setArrangeSettings: (patch) => {
+    set((s) => ({ arrangeSettings: { ...s.arrangeSettings, ...patch } }));
+    saveArrangeSettings(get().arrangeSettings);
   },
   addInstances: (objectId, count = 1) => {
     const s0 = get();
@@ -384,13 +408,13 @@ export const createPlaterSlice: StateCreator<State, [], [], PlaterSlice> = (set,
       scale: [...template.scale] as [number, number, number],
     }));
     const preview = { ...o, instances: [...o.instances, ...added] };
-    const { bed, spacing } = bedAndSpacing(s0.presets);
+    const bed = bedShapeOf(s0.presets.printer.current);
     if (
       !fitsOnBed(
         s0.objects.filter((x) => x.id !== objectId),
         preview,
-        spacing,
         bed,
+        packOptionsOf(s0.presets, s0.arrangeSettings),
       )
     ) {
       // the copies would be born off the bed; refuse instead of leaving an unprintable plater
@@ -444,12 +468,13 @@ export const createPlaterSlice: StateCreator<State, [], [], PlaterSlice> = (set,
     const s = get();
     const o = s.objects.find((x) => x.id === objectId);
     if (!o) return;
-    const { bed, spacing } = bedAndSpacing(s.presets);
+    const { bed, spacing: presetSpacing } = bedAndSpacing(s.presets);
+    const spacing = s.arrangeSettings.spacing ?? presetSpacing;
     // every instance currently on the bed is an occupied slot, `fillCount` returns the copies that still fit
-    const items: PackItem[] = layoutOf(s.objects, spacing);
+    const items: PackItem[] = layoutOf(s.objects);
     const box = instanceBounds(o, selectedInstance(s, o));
     const capacity = Math.max(0, Math.min(1000 - o.instances.length, 1000 - items.length));
-    const n = fillCount(box.max.x - box.min.x + spacing, box.max.y - box.min.y + spacing, items, bed, capacity);
+    const n = fillCount(box.max.x - box.min.x, box.max.y - box.min.y, items, bed, { limit: capacity, spacing });
     if (n < 1) {
       s.toast('info', 'No room left for another copy');
       return;

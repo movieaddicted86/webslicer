@@ -5,7 +5,8 @@
  *
  * The order of `SHORTCUTS` is the handler's order and is significant: the chain is an `else if`, so
  * `Ctrl+A` reaches `selectAll` before the plain `A` branch, while `Cmd+A` (no `ctrlKey`) falls through
- * to `arrange` – both as before.
+ * to `arrange` – both as before. `Shift+A` ("arrange selection", T-043) is tested before plain `A`,
+ * and `arrange` requires Shift off, so the two never fire for the same keypress.
  */
 import { viewByKey } from '../../plater/camera';
 
@@ -45,12 +46,12 @@ interface Shortcut {
 
 /** Every shortcut, in the order the handler tests them. */
 export const SHORTCUTS: Shortcut[] = [
-  { id: 'views', keys: ['0', '6'], range: true, ctrl: 'no-mod', label: 'views', aboutAt: 9 },
-  { id: 'projection', keys: ['K'], match: ['k', 'K'], ctrl: 'no-mod', label: 'perspective/ortho', aboutAt: 10 },
-  { id: 'zoom', keys: ['Z'], match: ['z', 'Z'], ctrl: 'no-mod', label: 'zoom to selection', aboutAt: 11 },
-  { id: 'delete', keys: ['Del'], match: ['Delete', 'Backspace'], label: 'delete', aboutAt: 7 },
-  { id: 'addInstance', keys: ['+'], match: ['+', '='], codes: ['NumpadAdd'], label: 'add instance', aboutAt: 5 },
-  { id: 'removeInstance', keys: ['−'], match: ['-', '_'], codes: ['NumpadSubtract'], label: 'remove instance', aboutAt: 6 },
+  { id: 'views', keys: ['0', '6'], range: true, ctrl: 'no-mod', label: 'views', aboutAt: 10 },
+  { id: 'projection', keys: ['K'], match: ['k', 'K'], ctrl: 'no-mod', label: 'perspective/ortho', aboutAt: 11 },
+  { id: 'zoom', keys: ['Z'], match: ['z', 'Z'], ctrl: 'no-mod', label: 'zoom to selection', aboutAt: 12 },
+  { id: 'delete', keys: ['Del'], match: ['Delete', 'Backspace'], label: 'delete', aboutAt: 8 },
+  { id: 'addInstance', keys: ['+'], match: ['+', '='], codes: ['NumpadAdd'], label: 'add instance', aboutAt: 6 },
+  { id: 'removeInstance', keys: ['−'], match: ['-', '_'], codes: ['NumpadSubtract'], label: 'remove instance', aboutAt: 7 },
   { id: 'paintSupports', keys: ['L'], match: ['l', 'L'], label: 'paint supports' },
   { id: 'paintSeam', keys: ['P'], match: ['p', 'P'], label: 'paint seam' },
   { id: 'placeOnFace', keys: ['F'], match: ['f', 'F'], label: 'place on face' },
@@ -61,8 +62,9 @@ export const SHORTCUTS: Shortcut[] = [
   { id: 'undo', keys: ['Ctrl', 'Z'], match: ['z', 'Z'], ctrl: 'ctrl-or-meta', shift: false, label: 'undo' },
   { id: 'redo', keys: ['Ctrl', 'Shift', 'Z'], match: ['z', 'Z'], ctrl: 'ctrl-or-meta', shift: true, label: 'redo' },
   { id: 'redo', keys: ['Ctrl', 'Y'], match: ['y', 'Y'], ctrl: 'ctrl-or-meta', label: 'redo' },
-  { id: 'selectAll', keys: ['Ctrl', 'A'], match: ['a'], ctrl: 'ctrl', label: 'select all', aboutAt: 8 },
-  { id: 'arrange', keys: ['A'], match: ['a', 'A'], ctrl: 'no-ctrl', label: 'arrange', aboutAt: 4 },
+  { id: 'selectAll', keys: ['Ctrl', 'A'], match: ['a'], ctrl: 'ctrl', label: 'select all', aboutAt: 9 },
+  { id: 'arrangeSelection', keys: ['Shift', 'A'], match: ['a', 'A'], ctrl: 'no-ctrl', shift: true, label: 'arrange selection', aboutAt: 5 },
+  { id: 'arrange', keys: ['A'], match: ['a', 'A'], ctrl: 'no-ctrl', shift: false, label: 'arrange', aboutAt: 4 },
   { id: 'escape', keys: ['Esc'], match: ['Escape'], label: 'cancel' },
 ];
 

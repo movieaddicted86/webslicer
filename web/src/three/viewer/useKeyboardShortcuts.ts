@@ -80,7 +80,8 @@ export function useKeyboardShortcuts(onCamera: (req: CamRequest) => void, toggle
       } else if (matchesShortcut(e, 'selectAll')) {
         e.preventDefault();
         st.select(st.objects.map((o) => o.id));
-      } else if (matchesShortcut(e, 'arrange')) st.arrange();
+      } else if (matchesShortcut(e, 'arrangeSelection')) st.arrangeSelection();
+      else if (matchesShortcut(e, 'arrange')) st.arrange();
       else if (matchesShortcut(e, 'escape')) {
         if (st.paintMode) st.stopPaint();
         else if (st.placeOnFace) st.setPlaceOnFace(false);

@@ -7,6 +7,7 @@ import { ACTION_ICONS } from '../common/icons';
 import { ObjectRow } from './ObjectRow';
 import { ObjectManipulation } from './ObjectManipulation';
 import { VolumeManipulation } from './VolumeManipulation';
+import { ArrangeSettingsMenu } from './ArrangeSettingsMenu';
 import { useDeleteSelection, useInstanceActions, useSelectedObjects } from './selection';
 
 /**
@@ -94,6 +95,7 @@ export function ObjectsSection() {
           />
           <span className="tool-sep" aria-hidden="true" />
           <ToolbarButton title="Arrange (A)" icon={ACTION_ICONS.arrange} onClick={arrange} disabled={!objects.length} />
+          <ArrangeSettingsMenu />
           <ToolbarButton title="Add instance (+)" icon={ACTION_ICONS.addInstance} onClick={addInstance} disabled={selected.length !== 1} />
           <ToolbarButton
             title="Remove the last instance (−)"
