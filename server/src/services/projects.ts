@@ -138,18 +138,60 @@ export function projectFile(id: string): string {
   return path.join(config.projectsDir, `${path.basename(id)}.json`);
 }
 
+/**
+ * B7: the per-project write chain. Loading, changing and saving a project spans several `await`s, so
+ * two concurrent MCP calls could both load the same file and the second save would drop the first
+ * one's objects. Every caller that changes a project runs its load → modify → save through
+ * `withProjectLock(id, …)` – the same promise-chain pattern as `services/printers.ts` `update()`.
+ */
+const projectLocks = new Map<string, Promise<unknown>>();
+
+export function withProjectLock<T>(id: string, fn: () => Promise<T>): Promise<T> {
+  const key = String(id);
+  const previous = projectLocks.get(key) ?? Promise.resolve();
+  // the next call waits for this one – even when it failed; errors stay with their own caller
+  const run = previous.then(fn, fn);
+  const tail = run.catch(() => undefined);
+  projectLocks.set(key, tail);
+  // the chain is the only state: once it is the last one queued, nobody waits on it any more
+  void tail.then(() => {
+    if (projectLocks.get(key) === tail) projectLocks.delete(key);
+  });
+  return run;
+}
+
 export async function saveProject(project: Project): Promise<Project> {
   // B7: temp + rename; a crash mid-write cannot leave a half project that the next start drops
   await writeJson(projectFile(project.id), project);
   return project;
 }
 
-/** Mark a project as used and push its expiry out by the TTL. */
-export async function touchProject(project: Project): Promise<Project> {
+function stamp(project: Project): Project {
   const now = new Date();
   project.updatedAt = now.toISOString();
   project.expiresAt = new Date(now.getTime() + PROJECT_TTL_HOURS * 3600_000).toISOString();
-  return saveProject(project);
+  return project;
+}
+
+/**
+ * Mark a project as used and push its expiry out by the TTL. Under the project's lock and on the
+ * file as it is *now*: a touch that arrives after a concurrent change must not write that change
+ * away (B7). A caller that already holds the lock uses `saveTouched` instead – see the note there.
+ */
+export async function touchProject(project: Project): Promise<Project> {
+  return withProjectLock(project.id, async () => {
+    // the file now, not the caller's copy: a touch may arrive after a concurrent change
+    const current = (await loadProject(project.id)) ?? project;
+    const saved = await saveTouched(current);
+    project.expiresAt = saved.expiresAt;
+    project.updatedAt = saved.updatedAt;
+    return saved;
+  });
+}
+
+/** Stamp and save a project whose read-modify-write already runs under `withProjectLock`. */
+async function saveTouched(project: Project): Promise<Project> {
+  return saveProject(stamp(project));
 }
 
 export async function loadProject(id: string): Promise<Project | undefined> {
@@ -224,6 +266,22 @@ export async function createProject(opts: {
  * instance set of each model (an STL with `copies: 3` becomes one object with three instances).
  */
 export async function addModelFromLibrary(project: Project, libraryPath: string, copies = 1): Promise<Project> {
+  return withProjectLock(project.id, async () => {
+    // B7: the caller loaded the project before the lock, so a queued call must start from the file's
+    // state – otherwise 20 parallel adds all append to the same stale copy and 19 are lost
+    const current = (await loadProject(project.id)) ?? project;
+    const saved = await addModelToProject(current, libraryPath, copies);
+    // the caller's object follows the saved state as well (a caller may keep using it)
+    if (current !== project) Object.assign(project, saved);
+    return saved;
+  });
+}
+
+/**
+ * `addModelFromLibrary` for a caller that already holds the project's lock (the routes and the MCP
+ * tools): it changes the project the caller loaded *inside* the lock and saves it (B7).
+ */
+export async function addModelToProject(project: Project, libraryPath: string, copies = 1): Promise<Project> {
   const n = Math.floor(Number(copies));
   // the range rule lives in `validation/projects.ts`; this is the same rule at the store's end
   if (!copiesSchema.safeParse(n).success) throw new ValidationError('copies must be an integer between 1 and 1000');
@@ -251,7 +309,7 @@ export async function addModelFromLibrary(project: Project, libraryPath: string,
       instances,
     });
   }
-  return touchProject(project);
+  return saveTouched(project);
 }
 
 /**
@@ -262,6 +320,17 @@ export async function addModelFromLibrary(project: Project, libraryPath: string,
  * Arrange settings offer (T-043); the defaults reproduce the old layout.
  */
 export async function arrange(project: Project, schema: Schema, options: ArrangeOptions = {}): Promise<Project> {
+  return withProjectLock(project.id, async () => {
+    // same as `addModelFromLibrary`: the file's state, not the copy the caller loaded before the lock
+    const current = (await loadProject(project.id)) ?? project;
+    const saved = await arrangeLockedProject(current, schema, options);
+    if (current !== project) Object.assign(project, saved);
+    return saved;
+  });
+}
+
+/** `arrange` for a caller that already holds the lock: the project it loaded, laid out and saved (B7). */
+export async function arrangeLockedProject(project: Project, schema: Schema, options: ArrangeOptions = {}): Promise<Project> {
   if (!project.objects.length) throw new ValidationError('Project has no objects');
   const cfg = resolvedConfigs(project, schema);
   const bed = bedShapeOf(cfg.printer.config);
@@ -287,7 +356,7 @@ export async function arrange(project: Project, schema: Schema, options: Arrange
     const dz = -box.min[2];
     it.o.instances[it.index] = multiply(translate(dx, dy, dz), m);
   }
-  return touchProject(project);
+  return saveTouched(project);
 }
 
 /** Turn an instance by 90° around Z through its footprint centre, so it stays where it is. */

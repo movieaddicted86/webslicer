@@ -5,7 +5,14 @@
  */
 import { z } from 'zod';
 import { ValidationError } from '../errors.js';
-import { addModelFromLibrary, arrange, createProject, listProjects, PROJECT_TTL_HOURS } from '../services/projects.js';
+import {
+  addModelToProject,
+  arrangeLockedProject,
+  createProject,
+  listProjects,
+  PROJECT_TTL_HOURS,
+  withProjectLock,
+} from '../services/projects.js';
 import { activeSchema } from '../services/schema.js';
 import { arrangeOptionsSchema, copiesSchema, toPresetRef } from '../validation/projects.js';
 import { loadOwnedProject, summary } from './projectAccess.js';
@@ -56,9 +63,11 @@ export const projectTools: AnyTool[] = [
       copies: copiesSchema.optional().describe('number of copies (default 1)'),
     }),
     handler: async (args, ctx) => {
-      const project = await loadOwnedProject(args.project_id, ctx.owner);
-      await addModelFromLibrary(project, args.library_path, args.copies ?? 1);
-      return summary(project);
+      // B7: load → add → save under the project's lock (the ownership check runs inside it)
+      return withProjectLock(args.project_id, async () => {
+        const project = await loadOwnedProject(args.project_id, ctx.owner);
+        return summary(await addModelToProject(project, args.library_path, args.copies ?? 1));
+      });
     },
   }),
 
@@ -71,7 +80,10 @@ export const projectTools: AnyTool[] = [
     input: z.object({ project_id: z.string(), ...arrangeOptionsSchema.shape }),
     handler: async (args, ctx) => {
       const { project_id, ...options } = args;
-      return summary(await arrange(await loadOwnedProject(project_id, ctx.owner), await activeSchema(), options));
+      const schema = await activeSchema();
+      return withProjectLock(project_id, async () =>
+        summary(await arrangeLockedProject(await loadOwnedProject(project_id, ctx.owner), schema, options)),
+      );
     },
   }),
 ];

@@ -10,7 +10,14 @@
  *   POST /api/projects/:id/slice      slice it -> job record (like POST /api/slice)
  */
 import express, { type Request, type Response } from 'express';
-import { addModelFromLibrary, arrange, createProject, loadProject, sliceProject } from '../services/projects.js';
+import {
+  addModelToProject,
+  arrangeLockedProject,
+  createProject,
+  loadProject,
+  sliceProject,
+  withProjectLock,
+} from '../services/projects.js';
 import { optionSchema } from '../services/meta.js';
 import { ValidationError } from '../errors.js';
 import { arrangeOptionsSchema, copiesOf, parseProjectCreate, projectModelsSchema, projectSliceSchema } from '../validation/projects.js';
@@ -60,14 +67,24 @@ export function projectsRouter(): express.Router {
     if (!found.project) return;
     const body = projectModelsSchema.safeParse(req.body || {});
     if (!body.success) throw new ValidationError(body.error.issues[0]?.message || 'libraryPath required');
-    sendJson(res, await addModelFromLibrary(found.project, body.data.libraryPath, copiesOf(body.data.copies)));
+    // B7: load → modify → save under the project's lock; two concurrent calls must not both start
+    // from the same file (the `withProject` above only answers the 404, the file is re-read here)
+    const loaded = found.project;
+    const project = await withProjectLock(req.params.id, async () =>
+      addModelToProject((await loadProject(req.params.id)) ?? loaded, body.data.libraryPath, copiesOf(body.data.copies)),
+    );
+    sendJson(res, project);
   });
 
   r.post('/:id/arrange', json, async (req, res) => {
     const found = await withProject(req, res);
     if (!found.project) return;
     const options = arrangeOptionsSchema.parse(req.body || {});
-    sendJson(res, await arrange(found.project, found.schema, options));
+    const loaded = found.project;
+    const project = await withProjectLock(req.params.id, async () =>
+      arrangeLockedProject((await loadProject(req.params.id)) ?? loaded, found.schema, options),
+    );
+    sendJson(res, project);
   });
 
   r.post('/:id/slice', json, async (req, res) => {
