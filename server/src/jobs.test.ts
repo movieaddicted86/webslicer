@@ -86,7 +86,11 @@ test('a job without an FFF G-code output still gets its info before it is done',
   await completeJob(job, file, [], {});
   assert.equal(job.status, 'done');
   assert.equal(job.info?.sizeBytes, 'SLA output'.length);
-  assert.deepEqual(job.info?.preflight, { version: PREFLIGHT_VERSION, issues: [], counts: {} }, 'still scanned once, no findings here');
+  assert.deepEqual(
+    job.info?.preflight,
+    { version: PREFLIGHT_VERSION, issues: [], counts: {}, maxTemperatures: { hotend: 0, bed: 0 } },
+    'still scanned once, no findings here',
+  );
 });
 
 test("the slicer's plate refusal reaches the user instead of a generic failure", () => {

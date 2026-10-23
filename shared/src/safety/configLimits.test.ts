@@ -8,6 +8,7 @@ import {
   blockingConfigIssues,
   checkConfigLimits,
   checkConfigValues,
+  checkRequestConfigLimits,
   FILAMENT_SOFT_RANGES,
   GLOBAL_LIMITS,
   maxTemperaturesOf,
@@ -269,4 +270,77 @@ test('the maximum ignores 0 and nil, and reads every filament', () => {
     hotend: 230,
     bed: 0,
   });
+});
+
+// ---------------------------------------------------------------------------
+// N3: the merged config, the printer/print sections, per-object layer heights
+// ---------------------------------------------------------------------------
+
+test('a temperature in the printer config is checked like a filament one (N3)', () => {
+  const issues = checkRequestConfigLimits({
+    printer: { config: { temperature: '999' } },
+    print: { config: {} },
+    filaments: [{ config: { filament_type: 'PLA' } }],
+  });
+  assert.deepEqual(rulesOf(issues), ['config.hotend_limit']);
+  assert.equal(issues[0].severity, 'block');
+  assert.equal(issues[0].key, 'temperature');
+  assert.equal(issues[0].value, '999');
+  // a print config's bed temperature is the same rule
+  const bed = checkRequestConfigLimits({ print: { config: { bed_temperature: '999' } } });
+  assert.deepEqual(rulesOf(bed), ['config.bed_limit']);
+});
+
+test('a value that only the merged config carries is caught (N3)', () => {
+  // the preset sections are fine; the slicer would receive the merged value
+  const issues = checkRequestConfigLimits({
+    printer: { config: { nozzle_diameter: '0.4' } },
+    print: { config: { layer_height: '0.2' } },
+    filaments: [{ config: { filament_type: 'PLA', temperature: '215' } }],
+    merged: { nozzle_diameter: '0.4', layer_height: '10' },
+  });
+  assert.deepEqual(rulesOf(issues), ['config.layer_height']);
+  assert.match(issues[0].message, /layer_height = 10 mm/);
+  // a legit merged config reports nothing
+  assert.deepEqual(
+    checkRequestConfigLimits({
+      print: { config: { layer_height: '0.2' } },
+      printer: { config: { nozzle_diameter: '0.4' } },
+      filaments: [{ config: { temperature: '215', bed_temperature: '60', filament_type: 'PLA' } }],
+      merged: { layer_height: '0.2', nozzle_diameter: '0.4', temperature: '215', bed_temperature: '60' },
+    }),
+    [],
+  );
+});
+
+test('a finding two views produce is reported once (N3)', () => {
+  const issues = checkRequestConfigLimits({
+    print: { config: {} },
+    printer: { config: { nozzle_diameter: '9' } },
+    filaments: [{ config: { temperature: '2150', filament_type: 'PLA' } }],
+    merged: { temperature: '2150', nozzle_diameter: '9' },
+  });
+  assert.deepEqual(rulesOf(issues), ['config.nozzle_diameter', 'config.hotend_limit']);
+});
+
+test('a per-object and per-range layer_height override is checked with the nozzle rule (N3)', () => {
+  const issues = checkRequestConfigLimits({
+    printer: { config: { nozzle_diameter: '0.4' } },
+    print: { config: { layer_height: '0.2' } },
+    objects: [
+      { config: { layer_height: '0.2' } },
+      { config: { layer_height: '0.9' } },
+      { ranges: [{ config: { layer_height: '0.25' } }, { config: { layer_height: '5' } }] },
+    ],
+  });
+  assert.deepEqual(
+    issues.map((i) => [i.rule, i.key]),
+    [
+      ['config.layer_height', 'object[1].layer_height'],
+      ['config.layer_height', 'object[2].range[1].layer_height'],
+    ],
+  );
+  assert.match(issues[0].message, /object\[1\]: layer_height = 0.9 mm/);
+  // an object override must not be reported on its own: the nozzle is the printer's
+  assert.deepEqual(checkRequestConfigLimits({ objects: [{ config: { layer_height: '0.9' } }] }), []);
 });

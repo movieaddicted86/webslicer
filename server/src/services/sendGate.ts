@@ -22,11 +22,11 @@
 import {
   blockingIssues,
   checkSend,
-  currentPreflight,
   maxTemperaturesOf,
   notScannedIssue,
   preflightSendIssues,
   printerLimitIssues,
+  usablePreflight,
   type PresetLink,
 } from '@webslicer/shared';
 import type { JobRecord, PhysicalPrinter, SendIssue, SendResult } from '@webslicer/shared';
@@ -55,24 +55,29 @@ export function sendIssues(job: JobRecord, printer: PhysicalPrinter, presets: re
 }
 
 /**
- * The preflight issues of a finished job. The stored result is used when the current rule set made it;
- * otherwise the output is scanned now (an old record, or a job from before S1-c). A record without an
- * output name or a binary output is a warn – v1 does not read `.bgcode`.
+ * The preflight issues of a finished job for one target printer.
  *
- * The re-scan uses the target printer's ceilings when the send knows them (S1-d): the stored result
- * keeps the global catchers, the send gate judges the same file against the machine it goes to.
+ * The stored result is used when it was made with the current rule set *and* carries the temperature
+ * maxima (N3); otherwise the output is scanned now. The scan always passes the target printer's
+ * ceilings, so `gcode.max_temp` fires at the machine's limit. On top of that, the **maximum hotend
+ * and bed temperature of the file** is compared with the printer's `safety` profile
+ * (`send.printer_limit`) – the stored scan only knows the global catchers, so `M104 S300` in a
+ * custom start G-code is invisible to it but blocks a 260 °C machine here.
  */
 export async function preflightIssues(
   job: JobRecord,
   gcodePath: string,
-  limits: { hotendLimit?: number; bedLimit?: number } = {},
+  printer: PhysicalPrinter,
+  machineLimits: Readonly<Record<string, string>> = {},
 ): Promise<SendIssue[]> {
-  const stored = currentPreflight(job.info?.preflight);
-  if (stored) return preflightSendIssues(stored);
+  const limits = { hotendLimit: printer.safety?.maxHotend, bedLimit: printer.safety?.maxBed };
+  const stored = usablePreflight(job.info?.preflight);
+  if (stored) {
+    return [...preflightSendIssues(stored), ...printerLimitIssues(stored.maxTemperatures, printer.safety)];
+  }
   if (isBinaryGcode(job.outputName)) return [notScannedIssue('the output is binary G-code (.bgcode), which the preflight does not read')];
-  const schema = await activeSchema();
-  const printer = resolvePreset(schema, 'printer', job.presets.printer);
-  return preflightSendIssues(await scanGcodeFile(gcodePath, machineLimitsOf(printer?.config ?? {}), limits));
+  const result = await scanGcodeFile(gcodePath, machineLimits, limits);
+  return [...preflightSendIssues(result), ...printerLimitIssues(result.maxTemperatures, printer.safety)];
 }
 
 /**
@@ -146,15 +151,15 @@ export type { SendResult };
  */
 export async function sendJobOutput({ job, printer, gcodePath, filename, startPrint, override, reason }: SendRequest): Promise<SendResult> {
   const started = Date.now();
-  // S1-d: the target machine's own limits, both on the sliced temperatures and (for an older record
-  // without a stored preflight) on the file's `M104`/`M140` lines
-  const safety = printer.safety;
-  const limits = { hotendLimit: safety?.maxHotend, bedLimit: safety?.maxBed };
+  // S1-d/N3: the target machine's own limits, both on the sliced temperatures and on the file's
+  // `M104`/`M140` lines (and their maxima, whether the result was stored or scanned)
+  const schema = await activeSchema();
+  const jobPreset = resolvePreset(schema, 'printer', job.presets.printer);
   // S1-c: the file's own issues join the preset issues – a block from either side needs the override
   const issues = [
     ...sendIssues(job, printer),
     ...(await printerLimitSendIssues(job, printer)),
-    ...(await preflightIssues(job, gcodePath, limits)),
+    ...(await preflightIssues(job, gcodePath, printer, machineLimitsOf(jobPreset?.config ?? {}))),
   ];
   const blocking = blockingIssues(issues);
   if (blocking.length && !override) {

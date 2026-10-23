@@ -40,7 +40,7 @@
  * value into a real line break itself (reproduced in the T-049 report), but the scanner must not rely
  * on that. A command word may also carry blanks after its letter (`M 500`, accepted by Marlin).
  */
-import type { PreflightIssue, PreflightResult, SendIssue, SendIssueSeverity } from '../types/jobs.js';
+import type { MaxTemperatures, PreflightIssue, PreflightResult, SendIssue, SendIssueSeverity } from '../types/jobs.js';
 
 /** Version of the rule set; a stored result of another version is re-scanned. */
 export const PREFLIGHT_VERSION = 2;
@@ -253,6 +253,8 @@ export class GcodePreflight {
   private readonly bedLimit: number;
   private readonly maxPerRule: number;
   private readonly machineLimits: Readonly<Record<string, string | undefined>>;
+  /** the highest temperature the file commands, whatever the ceilings are (N3) */
+  private readonly maxTemperatures: MaxTemperatures = { hotend: 0, bed: 0 };
 
   constructor(options: PreflightOptions = {}) {
     this.machineLimits = options.machineLimits ?? {};
@@ -297,7 +299,7 @@ export class GcodePreflight {
       this.carry = '';
       this.line(last);
     }
-    return { version: PREFLIGHT_VERSION, issues: this.issues, counts: { ...this.counts } };
+    return { version: PREFLIGHT_VERSION, issues: this.issues, counts: { ...this.counts }, maxTemperatures: { ...this.maxTemperatures } };
   }
 
   /** Record one finding, capped per rule. */
@@ -401,8 +403,12 @@ export class GcodePreflight {
     }
   }
 
-  private temperature(param: string, value: number | undefined, limit: number, what: string, text: string): void {
-    if (value === undefined || value <= limit) return;
+  private temperature(param: string, value: number | undefined, limit: number, what: 'hotend' | 'bed', text: string): void {
+    if (value === undefined) return;
+    // the maximum is recorded whatever the ceilings are: the send gate compares it with the target
+    // printer's own limits, which the stored scan knows nothing about (N3)
+    this.maxTemperatures[what] = Math.max(this.maxTemperatures[what], value);
+    if (value <= limit) return;
     this.report('gcode.max_temp', this.lineNo, text, `${param}${value} sets the ${what} to ${value} °C, above the ${limit} °C limit.`);
   }
 
@@ -427,6 +433,15 @@ export function scanGcodeText(text: string, options: PreflightOptions = {}): Pre
 /** The stored preflight of a job, if it was made with the current rule set. */
 export function currentPreflight(result: PreflightResult | undefined): PreflightResult | undefined {
   return result && result.version === PREFLIGHT_VERSION ? result : undefined;
+}
+
+/**
+ * The stored result the **send gate** may trust: current rule set *and* the temperature maxima of N3.
+ * A record without them (an older version, or one written before the field existed) is re-scanned.
+ */
+export function usablePreflight(result: PreflightResult | undefined): PreflightResult | undefined {
+  const current = currentPreflight(result);
+  return current?.maxTemperatures ? current : undefined;
 }
 
 /** The issues of a stored result as send-gate issues (a `PreflightIssue` is a `SendIssue`). */
