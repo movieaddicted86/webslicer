@@ -76,6 +76,8 @@ export const config = {
   slicerResources: resolveResources(slicerBin),
   webDist: process.env.WEB_DIST || path.resolve(process.cwd(), 'web', 'dist'),
   maxJobs: envIntegerAtLeast('MAX_JOBS', 1, Math.min(2, os.cpus().length)),
+  /** q2-slicer-cli: how many PrusaSlicer processes may run at once across jobs, STEP and cut */
+  maxCliProcesses: envIntegerAtLeast('MAX_CLI_PROCESSES', 1, envIntegerAtLeast('MAX_JOBS', 1, Math.min(2, os.cpus().length))),
   maxUploadBytes: envIntegerAtLeast('MAX_UPLOAD_BYTES', 1, 500 * 1024 * 1024),
   jobRetention: envIntegerAtLeast('JOB_RETENTION', 0, 50),
 };

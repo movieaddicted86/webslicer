@@ -225,6 +225,43 @@ test('a run that writes no 3MF is a 400 too', async () => {
   assert.deepEqual(leftovers(), []);
 });
 
+test('an aborted signal (client gone) kills the CLI and removes the temp directory', async () => {
+  let aborted = false;
+  const run: SlicerRunner = async (_args, opts) => {
+    aborted = !!opts?.signal;
+    return { code: null, stdout: '', stderr: '', signal: 'SIGKILL' };
+  };
+  const controller = new AbortController();
+  controller.abort();
+  const err = await cutMesh(
+    { mesh: CUBE(), transform: ITEM, point: [10, 10, 10], normal: [0, 0, 1] },
+    { run, signal: controller.signal },
+  ).then(
+    () => undefined,
+    (e: unknown) => e,
+  );
+  assert.ok(err instanceof HttpError);
+  assert.equal(err.status, 400);
+  assert.equal(aborted, true, 'the signal reached the CLI runner');
+  assert.deepEqual(leftovers(), [], 'the temp directory was removed after the abort');
+});
+
+test('a 400 of the cut never carries the absolute temp path (AC-6)', async () => {
+  const run: SlicerRunner = async (args) => ({
+    code: 1,
+    stdout: '',
+    stderr: `ERR cannot open ${args[args.length - 1]}`,
+    signal: null,
+  });
+  const err = await cutMesh({ mesh: CUBE(), transform: ITEM, point: [10, 10, 10], normal: [0, 0, 1] }, { run }).then(
+    () => undefined,
+    (e: unknown) => e,
+  );
+  assert.ok(err instanceof HttpError);
+  assert.match(err.message, /<tmp>[/\\]input\.stl/);
+  assert.ok(!err.message.includes(DATA_DIR), 'the data directory path is masked');
+});
+
 test('a plane without direction is refused before the CLI runs', async () => {
   let ran = false;
   const run: SlicerRunner = async () => {

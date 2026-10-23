@@ -14,9 +14,12 @@ import path from 'node:path';
 const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'webslicer-step-'));
 process.env.DATA_DIR = DATA_DIR;
 process.env.LIBRARY_DIR = path.join(DATA_DIR, 'library');
+// a small output limit, so the size guard (q2-slicer-cli) can be tested with a tiny file
+process.env.MAX_UPLOAD_BYTES = '4096';
 
 const { config, ensureDirs } = await import('../config.js');
-const { convertStep, convertStepFile, failureLine, isStepFile, stepTimeoutMs } = await import('./step.js');
+const { convertStep, convertStepFile, isStepFile, stepTimeoutMs } = await import('./step.js');
+const { failureLine } = await import('./cli.js');
 const { HttpError } = await import('../errors.js');
 import type { SlicerRunner } from './step.js';
 
@@ -114,6 +117,29 @@ test('a non-STEP name is refused before anything is written', async () => {
   assert.equal(isStepFile('a.STP'), true);
   assert.equal(isStepFile('a.stl'), false);
   assert.equal(stepTimeoutMs(), 120_000);
+});
+
+test('a converted model larger than MAX_UPLOAD_BYTES is a 400 instead of an unbounded read', async () => {
+  const err = await convertStep(Buffer.from('x'), 'huge.step', { run: fakeRun(Buffer.alloc(5000)) }).then(
+    () => undefined,
+    (e: unknown) => e,
+  );
+  assert.ok(err instanceof HttpError);
+  assert.equal(err.status, 400);
+  assert.match(err.message, /larger than the allowed size of 4096 bytes/);
+  assert.deepEqual(leftovers(), [], 'the temp directory was removed');
+});
+
+test('a 400 never carries the absolute temp path of the conversion (AC-6)', async () => {
+  const err = await convertStep(Buffer.from('x'), 'cube.step', {
+    run: async (args) => ({ code: 1, stdout: '', stderr: `ERR cannot open ${args[args.length - 1]}`, signal: null }),
+  }).then(
+    () => undefined,
+    (e: unknown) => e,
+  );
+  assert.ok(err instanceof HttpError);
+  assert.match(err.message, /<tmp>[/\\]input\.step/);
+  assert.ok(!err.message.includes(DATA_DIR), 'the data directory path is masked');
 });
 
 test('an existing work directory is used and survives; only the output file is removed', async () => {

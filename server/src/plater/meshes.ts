@@ -12,7 +12,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import JSZip from 'jszip';
-import { parse3mfBuild, parseStl, type Mesh } from '../slicer/threemf/index.js';
+import { parse3mfBuild, parseStl, readMeshBlock, type Mesh } from '../slicer/threemf/index.js';
 import { assertZipReasonable, readZipEntryText } from '../slicer/threemf/zipLimits.js';
 import { IDENTITY, type Matrix4 } from '@webslicer/shared';
 import { ValidationError } from '../errors.js';
@@ -75,34 +75,11 @@ async function read3mfMeshes(buf: Buffer): Promise<LoadedModel[]> {
     if (!open) continue;
     const id = attr(open[1], 'id');
     if (!id) continue;
-    const mesh = readMesh(open[2]);
+    const mesh = readMeshBlock(open[2]);
     if (!mesh.indices.length) continue;
     const instances = items.filter((b) => b.objectId === id).map((b) => b.transform);
     out.push({ name: attr(open[1], 'name') || `Object ${id}`, mesh, instances: instances.length ? instances : [IDENTITY] });
   }
   if (!out.length) throw new ValidationError('3MF contains no mesh');
   return out;
-}
-
-/** Vertices and triangles of one `<mesh>` block. */
-function readMesh(body: string): Mesh {
-  const block = /<mesh\b[^>]*>([\s\S]*?)<\/mesh>/.exec(body)?.[1];
-  if (!block) return { vertices: new Float32Array(0), indices: new Uint32Array(0) };
-  const verts: number[] = [];
-  const vertexRe = /<vertex\b([^>]*?)\/?>/g;
-  let v: RegExpExecArray | null;
-  while ((v = vertexRe.exec(block))) verts.push(Number(attr(v[1], 'x')), Number(attr(v[1], 'y')), Number(attr(v[1], 'z')));
-  const tris: number[] = [];
-  const triRe = /<triangle\b([^>]*?)\/?>/g;
-  let t: RegExpExecArray | null;
-  const count = verts.length / 3;
-  while ((t = triRe.exec(block))) {
-    const a = Number(attr(t[1], 'v1'));
-    const b = Number(attr(t[1], 'v2'));
-    const c = Number(attr(t[1], 'v3'));
-    // a triangle pointing outside the vertex list would corrupt the mesh downstream
-    if (![a, b, c].every((i) => Number.isInteger(i) && i >= 0 && i < count)) continue;
-    tris.push(a, b, c);
-  }
-  return { vertices: Float32Array.from(verts), indices: Uint32Array.from(tris) };
 }

@@ -11,6 +11,7 @@
  */
 import type { Server } from 'node:http';
 import { shutdownJobs } from './jobs.js';
+import { stopRunningSlicers } from './slicer/cli.js';
 
 /** How long a connection may keep the process alive after the listeners are closed. */
 export const SHUTDOWN_GRACE_MS = 5000;
@@ -20,6 +21,8 @@ export interface ShutdownDeps {
   closeServer: () => void;
   /** cancel the running jobs and wait for their runners to finish */
   stopJobs: () => Promise<void>;
+  /** kill STEP/cut CLI processes and empty the CLI wait queue (AC-4, q2-slicer-cli) */
+  stopSlicers?: () => void;
   exit: (code: number) => void;
   graceMs?: number;
 }
@@ -31,6 +34,9 @@ export interface ShutdownDeps {
 export async function shutdown(deps: ShutdownDeps, signal: string): Promise<void> {
   console.log(`[webslicer] ${signal}: shutting down`);
   deps.closeServer();
+  // the STEP/cut processes are outside the job queue (q2-slicer-cli): they are stopped here, and
+  // the job shutdown below waits for the runners it knows
+  deps.stopSlicers?.();
   const graceMs = deps.graceMs ?? SHUTDOWN_GRACE_MS;
   let timer: NodeJS.Timeout | undefined;
   const tooSlow = new Promise<number>((resolve) => {
@@ -62,7 +68,15 @@ export function installShutdownHandlers(server: Server): void {
       process.exit(1);
     }
     stopping = true;
-    void shutdown({ closeServer: () => server.close(), stopJobs: shutdownJobs, exit: (code) => process.exit(code) }, signal);
+    void shutdown(
+      {
+        closeServer: () => server.close(),
+        stopJobs: shutdownJobs,
+        stopSlicers: stopRunningSlicers,
+        exit: (code) => process.exit(code),
+      },
+      signal,
+    );
   };
   process.once('SIGTERM', () => stop('SIGTERM'));
   process.once('SIGINT', () => stop('SIGINT'));

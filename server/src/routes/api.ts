@@ -42,6 +42,19 @@ function badRequest(res: Response, msg: string) {
   res.status(400).json({ error: msg });
 }
 
+/**
+ * A signal that aborts when the client goes away before the answer is sent (AC-3, q2-slicer-cli):
+ * the STEP/cut process is killed and its temp directory removed instead of running on for nobody.
+ * `req.on('close')` is no good here – it fires once the body has been read.
+ */
+function disconnectSignal(res: Response): AbortSignal {
+  const controller = new AbortController();
+  res.on('close', () => {
+    if (!res.writableEnded) controller.abort();
+  });
+  return controller.signal;
+}
+
 function presetType(req: Request, res: Response): PresetType | undefined {
   const t = req.params.type as PresetType;
   if (!isPresetType(t)) {
@@ -216,7 +229,7 @@ export function apiRouter(): express.Router {
       const input = path.join(dir, `input${path.extname(filename).toLowerCase()}`);
       const bytes = await receiveToFile(req, input);
       if (!bytes) throw new ValidationError('empty body');
-      stl = await convertStepFile(input, { workDir: dir });
+      stl = await convertStepFile(input, { workDir: dir, signal: disconnectSignal(res) });
     } finally {
       // the temp directory is gone before the answer goes out: a client sees no state of the conversion
       await fs.rm(dir, { recursive: true, force: true }).catch(() => undefined);
@@ -248,15 +261,18 @@ export function apiRouter(): express.Router {
     if (!file) return res.status(404).json({ error: 'model not found' });
     const mesh = parseStl(await fs.readFile(file));
     if (!mesh.indices.length) return badRequest(res, 'cannot cut: the model has no triangles');
-    const { parts } = await cutMesh({
-      mesh,
-      transform: cut.transform,
-      point: cut.plane.point,
-      normal: cut.plane.normal,
-      keep: cut.keep,
-      placeOnCut: cut.placeOnCut,
-      flipUpper: cut.flipUpper,
-    });
+    const { parts } = await cutMesh(
+      {
+        mesh,
+        transform: cut.transform,
+        point: cut.plane.point,
+        normal: cut.plane.normal,
+        keep: cut.keep,
+        placeOnCut: cut.placeOnCut,
+        flipUpper: cut.flipUpper,
+      },
+      { signal: disconnectSignal(res) },
+    );
     const answer: { upper?: CutPart; lower?: CutPart } = {};
     for (const part of parts) {
       const stored = await saveModel(part.mesh, `cut-${part.side}`);
