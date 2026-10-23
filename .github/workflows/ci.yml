@@ -105,13 +105,24 @@ jobs:
       fail-fast: false
       matrix:
         shard: ['1/4', '2/4', '3/4', '4/4']
-    # a shard runs ~⅓ of the suite; the cap is a backstop against a hung slice, not the target
+    # a shard runs ~¼ of the suite; the cap is a backstop against a hung slice, not the target
     timeout-minutes: 30
     env:
       E2E_BASE_URL: http://localhost:8080
       E2E_MOCK_URL: http://mock-host:8160
-      # measured in run 39940568907 (per-file suite times, see `.ai/reports/T-057.md`)
-      PWTEST_SHARD_WEIGHTS: 41:26:21:29
+      # `PWTEST_SHARD_WEIGHTS` is read by Playwright's own `filterForShard` (undocumented, but present
+      # since 1.4x and still there in 1.64.1). It weights the shards; Playwright still hands out
+      # **contiguous file groups**, so only the boundaries move. Without it the split is by test count
+      # (an alphabetical walk), which is what put `preview` and `sidebar` into one shard.
+      # The numbers are the measured test counts of the four file groups (41 / 26 / 21 / 29); the
+      # times behind them are in `.ai/reports/T-057.md`. **After a Playwright bump** (the Dependabot
+      # `playwright` group) re-check the assignment locally:
+      #   for i in 1 2 3 4; do npx playwright test --list --shard=$i/4; done
+      # with `E2E_MOCK_URL`/`E2E_MOCK_DIR` set (otherwise the send tests are skipped and the counts
+      # shift). If the env var is ever dropped, the shards fall back to the count-based split – still
+      # correct, just less balanced.
+      # quoted on purpose: unquoted `a:b:c:d` is a sexagesimal integer to YAML 1.1 parsers
+      PWTEST_SHARD_WEIGHTS: '41:26:21:29'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -200,7 +211,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
-          # one report per shard: the three jobs run on different runners, so the file sets cannot
+          # one report per shard: the four jobs run on different runners, so the file sets cannot
           # be merged and must not overwrite each other
           name: playwright-report-shard-${{ strategy.job-index }}
           path: |
