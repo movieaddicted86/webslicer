@@ -1,4 +1,4 @@
-# Slicer fixtures (T-028)
+# Slicer fixtures
 
 Captured output of PrusaSlicer 2.9.6 that the pin tests build on. They make the refactoring steps of
 R-11 verifiable without the slicer binary: any change to the layout tables, the option metadata, the
@@ -13,11 +13,17 @@ help parser or the 3MF writer shows up as a diff.
 
 The files come from PrusaSlicer's public resources (AGPL-3.0-or-later, like this project).
 
-**Regenerating.** Only after an _intended_ change of the layout, the option metadata, the help parser
-or the 3MF writer:
+**When to regenerate.** Two different reasons, two different commands:
+
+- **A PrusaSlicer version change** – the full procedure is the
+  [upgrade runbook](../../../docs/PrusaSlicer-Upgrade.md). It captures `help-fff.txt`, `help-sla.txt`
+  and `bundle-keys.json` from the new binary and then rewrites `schema.json` and `written-3mf.json`
+  from those captures.
+- **An intended change of the layout, the option metadata, the help parser or the 3MF writer** – the
+  pins only:
 
 ```sh
-UPDATE_PINS=1 npx tsx --test server/src/slicer/schema.pin.test.ts server/src/slicer/threemf/write.pin.test.ts
+UPDATE_PINS=1 npx tsx --test server/src/slicer/schema.pin.test.ts server/src/slicer/threemf.pin.test.ts
 ```
 
 Then review the fixture diff in the commit – it is the proof of what changed.
