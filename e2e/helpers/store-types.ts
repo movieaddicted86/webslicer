@@ -166,6 +166,8 @@ export interface E2EState {
   undoStack: unknown[];
   redoStack: unknown[];
   job?: E2EJob;
+  /** the slicer's log lines of the current slice (the preview panel prints them) */
+  jobLog: string[];
   gcode?: E2EGcode;
   gcodeLoading: boolean;
   /** fetch and parse a finished job's G-code (the preview does it on a `done` event) */
