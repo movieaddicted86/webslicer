@@ -29,6 +29,16 @@ any browser – on a PC, a tablet or the workshop laptop.
 - **MCP endpoint** at `/mcp`, so an assistant can browse presets and library, build a project and slice
   it – see [docs/mcp.md](docs/mcp.md).
 
+## How it is built
+
+- `web/` – React 19, three.js and Zustand: plater, settings, G-code preview.
+- `shared/` – pure TypeScript shared by web and server: API contract types, geometry, packing.
+- `server/` – Node 22 and Express: routes → services → the PrusaSlicer CLI, slice jobs over SSE,
+  presets, library, printer upload and the `/mcp` endpoint.
+- `e2e/` – the Playwright suite, `proxmox/` – the LXC installer, `docs/` – the guides.
+
+The layout in detail is in [docs/development.md](docs/development.md).
+
 Feature-by-feature comparison with PrusaSlicer: [docs/Feature-Comparison.md](docs/Feature-Comparison.md).
 Not included yet (see [TODO.md](TODO.md)): text/SVG embossing, a measurement tool, a G-code viewer for
 files from the library. The slicing result is otherwise identical to PrusaSlicer because the same engine
@@ -96,18 +106,17 @@ The file library can be a shared folder or a NAS mount: models, projects and fin
 - [docs/safety.md](docs/safety.md) – configuration limits and G-code preflight
 - [docs/Feature-Comparison.md](docs/Feature-Comparison.md) – PrusaSlicer ↔ WebSlicer feature inventory
 - [docs/MCP-Concept.md](docs/MCP-Concept.md) – the concept behind the agent endpoint
-- [docs/UAT.md](docs/UAT.md) – acceptance test plan, [docs/UAT-Report.md](docs/UAT-Report.md) – results
+- [docs/UAT.md](docs/UAT.md) – acceptance test plan
 - [CHANGELOG.md](CHANGELOG.md) – versions, [TODO.md](TODO.md) – roadmap
+- [docs/archive/](docs/archive/) – finished reports and work packages, kept for traceability
 
 The screenshots above are generated: `npm run docs:screenshots` drives the Docker image with Playwright
 and refreshes `docs/images/`.
 
 ## Contributing
 
-Issues and pull requests are welcome. Read
-[docs/work-packages/CONVENTIONS.md](docs/work-packages/CONVENTIONS.md) and
-[docs/work-packages/CODING-GUIDELINES.md](docs/work-packages/CODING-GUIDELINES.md) first – they are
-binding for code, tests and commits. The short version is in [docs/development.md](docs/development.md).
+Issues and pull requests are welcome – start with [CONTRIBUTING.md](CONTRIBUTING.md). It links the
+binding rules for code, tests and commits and lists the commands, including the E2E suite.
 
 ## License
 

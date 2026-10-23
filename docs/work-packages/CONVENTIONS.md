@@ -9,7 +9,7 @@ If a work package contradicts this file, the work package wins for that package 
 WebSlicer is PrusaSlicer in the browser. The **server** (`server/`, Node 22, Express, TypeScript, ESM)
 wraps the PrusaSlicer 2.9 CLI: it builds a PrusaSlicer-style 3MF from the plater, runs
 `--export-gcode`, streams job progress over SSE and serves presets, library files and print hosts.
-The **web app** (`web/`, React 19, Zustand, three.js, Vite 7) is the plater, settings editor and
+The **web app** (`web/`, React 19, Zustand, three.js, Vite 8) is the plater, settings editor and
 G-code preview. Target behaviour, labels and file formats follow **PrusaSlicer 2.9** – when in
 doubt, do what PrusaSlicer does and name it the way PrusaSlicer names it.
 
@@ -41,7 +41,8 @@ web/src/components/dialogs/   one file per dialog on the shared Modal frame
 web/src/components/preview/   preview panel parts (layer slider, codes, options, legend)
 web/src/api.ts                web-side API client; its types come from `@webslicer/shared`
 web/src/importFiles.ts        model/3MF import (also used by autosave restore)
-docs/                         Feature-Comparison (parity matrix), UAT, UAT-Report, concepts
+docs/                         Feature-Comparison (parity matrix), UAT, concepts; archive/ holds
+                              finished reports and work packages
 ```
 
 ## 2. Language
@@ -89,7 +90,7 @@ with Vite. The dev machine is Windows 11 with Git Bash/PowerShell: set `MSYS_NO_
   trailing commas, lines up to 140 characters. Run `npm run format` before you commit; do not
   hand-format. `endOfLine` is `auto`, not `lf`: `.gitattributes` stores LF and `core.autocrlf=true`
   checks out CRLF on Windows, so `lf` would make `format:check` fail on every Windows checkout.
-- ESLint 9 (`.eslint.config.mjs`) is the arbiter for code smells: `typescript-eslint` recommended,
+- ESLint 9 (`eslint.config.mjs`) is the arbiter for code smells: `typescript-eslint` recommended,
   type-aware (`parserOptions.projectService`, W7) with `no-floating-promises` as an error, `react-hooks` for
   `web/`, `no-explicit-any` as an error. A promise you mean to start and not await is written `void f()`
   with the reason; a plain `.mjs` file is linted without types. `no-non-null-assertion` is a warning
@@ -97,7 +98,8 @@ with Vite. The dev machine is Windows 11 with Git Bash/PowerShell: set `MSYS_NO_
   line the rule reports; prefer fixing the code.
 - Server imports use ESM with `.js` suffix (`from './slicer/threemf.js'`).
 - Comments: short JSDoc one-liners on exported functions/types and comments that explain _why_.
-  No commented-out code, no TODO without an entry in `TODO.md`.
+  No commented-out code, no TODO without an entry in `TODO.md`. **No ticket ids in code comments** –
+  the commit message carries the id; an existing comment is not rewritten for this alone.
 - **No new runtime dependencies** without approval of the lead developer. Dev dependencies only if
   the work package allows it.
 - Keep functions pure where possible (geometry, parsing, packing) so they can be unit tested.
@@ -108,6 +110,12 @@ with Vite. The dev machine is Windows 11 with Git Bash/PowerShell: set `MSYS_NO_
   creators in `web/src/state/slices/` (one file per area) and re-exports the domain types, so
   components keep importing from `state/store`. Components read with selectors
   (`useStore((s) => s.objects)`), never mutate state directly, and call store actions.
+- Component styles live in a plain `*.css` file next to the component (`ObjectRow.css`) and are
+  imported for their side effect; selectors stay global because the E2E suite targets the class
+  names. Not CSS Modules: Vite 8 tree-shakes a `*.module.css` import whose class map is unused, so a
+  component would silently lose its styles in the production build. Tokens, the reset, form
+  controls and the app frame live in `web/src/styles.css`, which `main.tsx` imports **before** the
+  app so the element-level rules lose against the component sheets.
 - Every user-visible plater change: call `get().recordHistory()` **before** the change (undo/redo)
   and set `sliceDirty: true`.
 - IDs are strings with a prefix and a module counter (`obj-12`, `vol-3`, `rng-4`). Follow that
@@ -135,7 +143,7 @@ with Vite. The dev machine is Windows 11 with Git Bash/PowerShell: set `MSYS_NO_
   `web/src/api.ts` re-exports them, so `import { type SliceRequest } from './api'` keeps working;
   nothing is declared a second time on the web side.
 - 3MF output must stay loadable by **desktop PrusaSlicer** and must roundtrip through
-  `read3mfProject`. Any change to `threemf.ts` needs a roundtrip test.
+  `read3mfProject`. Any change to `threemf/` needs a roundtrip test.
 
 ## 5. Testing – definition of done
 
