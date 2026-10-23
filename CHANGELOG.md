@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+- **Plater (T-043 – arrange settings and "arrange selection"):** Arrange gained a gear with the
+  settings PrusaSlicer offers: the spacing between objects in mm (an empty field keeps using the
+  print profile's value), "enable rotations" (the packer turns an item by 90° when that makes it
+  fit or pack tighter) and the alignment of the packed block (center, as before, or the bed
+  corner). The settings are remembered per browser in `localStorage` (try/catch, so a private
+  window still works). **Shift+A** arranges only the selected objects/instances into the free space:
+  everything unselected stays exactly where it is and is treated as an obstacle, and a selection
+  that does not fit reports "The selected objects do not fit on the bed" without touching the
+  plater. Both features extend the one shelf packer in `shared/src/plater/packing.ts` (new
+  `spacing`, `rotations`, `alignment` and `fixed` options, defaulting to the old layout), so the
+  headless `POST /api/projects/:id/arrange` and the `webslicer.arrange` MCP tool take the same
+  spacing/rotations/alignment and produce the same result.
+
 - **Plater (T-042 – merge, object info, rename):** two or more selected objects can be merged into
   one (toolbar button; only objects with a single instance – the button says why it is disabled). The
   first selected object keeps its settings, paint and height ranges; every other object becomes a

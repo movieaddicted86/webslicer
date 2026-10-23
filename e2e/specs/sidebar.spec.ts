@@ -345,7 +345,7 @@ test.describe('sidebar: quick settings and the mode switch', () => {
       quick: document.querySelectorAll('.quick-settings').length,
       tools: document.querySelectorAll('section.objects.simple .tools button').length,
     }));
-    expect(simple).toEqual({ classicList: 0, manip: 0, quick: 1, tools: 5 });
+    expect(simple).toEqual({ classicList: 0, manip: 0, quick: 1, tools: 6 });
 
     await app.evaluate(() => window.webslicer.getState().setMode('advanced'));
     await settle(app, 900);
@@ -354,7 +354,7 @@ test.describe('sidebar: quick settings and the mode switch', () => {
       rows: document.querySelectorAll('.object-row').length,
       tools: document.querySelectorAll('.objects .section-head .tools button').length,
     }));
-    expect(advanced).toEqual({ mode: 'advanced', rows: 1, tools: 13 });
+    expect(advanced).toEqual({ mode: 'advanced', rows: 1, tools: 14 });
   });
 
   test('every toolbar action shows its own 18 px SVG icon, grouped, without overflow at 320 px (T-036)', async ({ app }) => {
@@ -391,6 +391,7 @@ test.describe('sidebar: quick settings and the mode switch', () => {
       'Scale (S)',
       'Place on face (F): click a face in the 3D view to lay it flat on the bed',
       'Arrange (A)',
+      'Arrange settings',
       'Add instance (+)',
       'Remove the last instance (−)',
       // T-042: disabled with one selected object, so it shows the prompt for the merge
@@ -402,13 +403,13 @@ test.describe('sidebar: quick settings and the mode switch', () => {
     // the tooltip stays the shortcut line and is also the accessible name
     expect(toolbar.buttons.every((b) => b.title === b.label)).toBe(true);
     expect(toolbar.buttons.every((b) => b.text === '')).toBe(true);
-    expect(toolbar.buttons.map((b) => b.icon)).toEqual(Array(13).fill('18'));
+    expect(toolbar.buttons.map((b) => b.icon)).toEqual(Array(14).fill('18'));
     expect(toolbar.buttons.every((b) => (b.stroke ?? 0) > 0)).toBe(true);
     // the hit area is at least 30 px high
     expect(toolbar.buttons.every((b) => b.size >= 30)).toBe(true);
-    // four groups: history | transform tools | arrange/instances/merge | duplicate/delete
+    // four groups: history | transform tools | arrange (+ settings)/instances/merge | duplicate/delete
     expect(toolbar.separators).toBe(3);
-    expect(new Set(toolbar.paths).size).toBe(13);
+    expect(new Set(toolbar.paths).size).toBe(14);
 
     // AC-2: the narrowest sidebar width wraps the toolbar instead of shrinking it
     const narrow = await app.evaluate(() => {
@@ -436,8 +437,45 @@ test.describe('sidebar: quick settings and the mode switch', () => {
     const simple = await app.evaluate(() =>
       Array.from(document.querySelectorAll('section.objects.simple .tools button svg')).map((s) => s.getAttribute('width')),
     );
-    expect(simple).toEqual(Array(5).fill('18'));
+    expect(simple).toEqual(Array(6).fill('18'));
     await app.evaluate(() => window.webslicer.getState().setMode('advanced'));
+  });
+
+  test('the arrange settings popover changes the spacing and remembers it (T-043)', async ({ app }) => {
+    // two cubes (the second import keeps the first), so the bed shows a gap to measure
+    await importFile(app, CUBE);
+    await importFile(app, CUBE, { clear: false });
+    await settle(app, 700);
+    await click(app, '.section-head .tools button[title="Arrange settings"]');
+    await expect(app.locator('.arrange-popover')).toBeVisible();
+    const spacing = app.locator('.arrange-popover input[type="number"]');
+    await spacing.fill('20');
+    await spacing.press('Enter');
+    await settle(app, 300);
+    expect(await read(app, (s) => s.arrangeSettings)).toEqual({ spacing: 20, rotations: false, alignment: 'center' });
+    expect(await app.evaluate(() => localStorage.getItem('webslicer.arrange'))).toContain('"spacing":20');
+
+    await click(app, '.section-head .tools button[title="Arrange (A)"]');
+    await settle(app, 500);
+    const wide = await read(app, (s) => s.objects.map((o) => o.instances[0].position[0]));
+    // 20 mm cubes with 20 mm between them
+    expect(Math.abs(wide[0] - wide[1])).toBeCloseTo(40, 5);
+
+    // corner alignment puts the block into the bed corner instead of the middle
+    await click(app, '.section-head .tools button[title="Arrange settings"]');
+    await app.locator('.arrange-popover select').selectOption('corner');
+    await click(app, '.section-head .tools button[title="Arrange (A)"]');
+    await settle(app, 500);
+    const placed = await read(app, (s) => s.objects.flatMap((o) => o.instances.map((i) => i.position)));
+    expect(Math.min(...placed.map((p) => p[0]))).toBeCloseTo(20, 5);
+    expect(Math.min(...placed.map((p) => p[1]))).toBeCloseTo(20, 5);
+
+    // an emptied field goes back to the print profile's spacing
+    await click(app, '.section-head .tools button[title="Arrange settings"]');
+    await spacing.fill('');
+    await spacing.press('Enter');
+    await settle(app, 300);
+    expect((await read(app, (s) => s.arrangeSettings)).spacing).toBeUndefined();
   });
 });
 

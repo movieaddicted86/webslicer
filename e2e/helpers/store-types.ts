@@ -97,6 +97,14 @@ export interface E2ECustomGcode {
   extra?: string;
 }
 
+/** The Arrange settings the gear popover writes (T-043). */
+export interface E2EArrangeSettings {
+  /** clearance in mm; absent = the print preset's arrangement spacing */
+  spacing?: number;
+  rotations: boolean;
+  alignment: 'center' | 'corner';
+}
+
 export interface E2EState {
   ready: boolean;
   fatal?: string;
@@ -116,6 +124,11 @@ export interface E2EState {
   renameObject: (id: string, name: string) => void;
   renameVolume: (objectId: string, volumeId: string, name: string) => void;
   mergeObjects: (ids: string[]) => Promise<void>;
+  /** arrange settings of the gear popover, remembered per browser (T-043) */
+  arrangeSettings: E2EArrangeSettings;
+  setArrangeSettings: (patch: Partial<E2EArrangeSettings>) => void;
+  /** arrange only the selected instances around the others (Shift+A, T-043) */
+  arrangeSelection: () => boolean;
   transformMode: 'translate' | 'rotate' | 'scale';
   paintMode?: 'supports' | 'seam' | 'mmu';
   paintTool: string;

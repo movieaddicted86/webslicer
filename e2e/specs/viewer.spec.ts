@@ -214,6 +214,37 @@ test.describe('viewer: keyboard shortcuts', () => {
     expect(keys.size).toBe(3);
   });
 
+  test('Shift+A arranges only the picked instance and leaves the others (T-043)', async ({ app }) => {
+    // three separate cubes (an import clears the plater by default), so the picked one has a
+    // fixed neighbour on either side after the first arrange
+    for (let i = 0; i < 3; i++) await importFile(app, CUBE, { clear: i === 0 });
+    await app.waitForTimeout(900);
+    await press(app, 'a');
+    await app.waitForTimeout(1200);
+    const before = await read(app, (s) => s.objects.map((o) => o.instances[0].position));
+    await app.evaluate(() => {
+      const s = window.webslicer.getState();
+      s.selectInstance(s.objects[0].id, s.objects[0].instances[0].id);
+    });
+    await press(app, 'Shift+a');
+    await app.waitForTimeout(1200);
+    const after = await read(app, (s) => s.objects.map((o) => o.instances[0].position));
+    expect(after[1]).toEqual(before[1]);
+    expect(after[2]).toEqual(before[2]);
+    expect(after[0]).not.toEqual(before[0]);
+    // the arranged instance stays on the bed and clear of the two fixed ones
+    for (const [i, k] of [
+      [0, 1],
+      [1, 2],
+    ]) {
+      const dx = Math.abs(after[i][0] - after[k][0]);
+      const dy = Math.abs(after[i][1] - after[k][1]);
+      // 20 mm cubes: no pair may overlap
+      expect(dx >= 20 - 1e-6 || dy >= 20 - 1e-6).toBe(true);
+    }
+    expect(after[0][0] > 0 && after[0][0] < 250 && after[0][1] > 0 && after[0][1] < 210).toBe(true);
+  });
+
   test('L/P toggle painting and Esc leaves it', async ({ app }) => {
     await importFile(app, CUBE);
     await app.evaluate(() => {
