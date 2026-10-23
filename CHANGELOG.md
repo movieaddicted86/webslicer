@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- **Slicer (T-048 – one seam for every PrusaSlicer call):** the CLI argument lists now live in
+  `server/src/slicer/commands.ts` (`exportGcodeArgs`, `exportStlArgs`, `cutArgs`, `helpArgs`) and are
+  pinned by unit tests, so a PrusaSlicer version change that renames a flag is one edit in one file.
+  `cleanLine`/`failureLine`/`withTempDir` exist once in `slicer/cli.ts`, and the 3MF `<mesh>` reader
+  moved to `slicer/threemf/mesh.ts` for both the headless import and the cut tool. A new in-module
+  semaphore limits **all** PrusaSlicer processes – slicing jobs, STEP conversion, cut and the
+  headless STEP import – to `MAX_CLI_PROCESSES` at once (default `MAX_JOBS`); further calls wait
+  FIFO. STEP and cut requests kill their process and remove the temp directory when the client
+  disconnects, SIGTERM/SIGINT stops them too, a converted STEP larger than `MAX_UPLOAD_BYTES` is a
+  400 instead of an unbounded read, and the 400 messages replace the temp directory with `<tmp>`.
+
 - **Updates (T-058 – "a new version is available"):** a self-hosted install now notices when the
   repository has moved on, without ever updating itself. The **server** checks `GET
 /api/update-status`: about a minute after start and then daily it asks the GitHub REST API for the
