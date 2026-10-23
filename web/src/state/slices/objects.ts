@@ -7,9 +7,9 @@
  * The per-object parts live next door: instances (`./instances`), volumes (`./volumes`), merging
  * (`./merge`), shell splitting (`./split`) and transforms/arrangement (`./transform`).
  */
-import { api, type Config, type LayerRangeInput, type Placement } from '../../api';
+import type { Config, LayerRangeInput, Placement } from '../../api';
 import { decodeMmu, decodePaint } from '../../plater/paintCodec';
-import { geometryToStl } from '../../plater/meshInfo';
+import { uploadMesh } from '../upload';
 import { apply as applyMatrix, bedShapeOf, placementMatrix } from '@webslicer/shared';
 import { IDENTITY_PLACEMENT, makeVolume, mintInstanceId, mintObjectId, mintRangeId, mintVolumeId } from '../../plater/objects';
 import type { NewVolumeInput, PlaterObject, SlicePart } from '../types';
@@ -113,13 +113,12 @@ export const createObjectSlice: SlicePart<ObjectSlice> = (set, get) => ({
     if (!opts.keepPositions) get().arrange();
     // upload meshes
     for (const o of created) {
-      try {
-        const res = await api.uploadModel(geometryToStl(o.geometry), o.name);
-        get().updateObject(o.id, { modelId: res.id });
-      } catch (e) {
-        get().updateObject(o.id, { uploadError: (e as Error).message });
-        get().toast('error', `Upload of ${o.name} failed: ${(e as Error).message}`);
-      }
+      await uploadMesh(
+        o.geometry,
+        o.name,
+        (patch) => get().updateObject(o.id, patch),
+        (text) => get().toast('error', text),
+      );
       for (const v of o.volumes) await get().uploadVolume(o.id, v);
     }
   },

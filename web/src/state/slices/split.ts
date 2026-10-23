@@ -3,12 +3,12 @@
  * parts of the same object. Split out of `plater.ts`; `createPlaterSlice` spreads this creator into
  * itself.
  */
-import { api } from '../../api';
 import { encodeMmu, encodePaint } from '../../plater/paintCodec';
-import { geometrySize, geometryToStl, objectFrameOffset } from '../../plater/meshInfo';
+import { geometrySize, objectFrameOffset } from '../../plater/meshInfo';
 import { shellGeometry } from '../../plater/meshOps';
 import { splitShells } from '../../plater/split';
 import { mintVolumeId } from '../../plater/objects';
+import { uploadMesh } from '../upload';
 import type { PlaterVolume, SlicePart } from '../types';
 
 export interface SplitSlice {
@@ -154,13 +154,12 @@ export const createSplitSlice: SlicePart<SplitSlice> = (set, get) => ({
       sliceDirty: true,
     }));
     if (dropped) s.toast('info', 'Paint on the parts that became volumes was dropped');
-    try {
-      const res = await api.uploadModel(geometryToStl(mainGeometry), o.name);
-      get().updateObject(objectId, { modelId: res.id });
-    } catch (e) {
-      get().updateObject(objectId, { uploadError: (e as Error).message });
-      get().toast('error', `Upload of ${o.name} failed: ${(e as Error).message}`);
-    }
+    await uploadMesh(
+      mainGeometry,
+      o.name,
+      (patch) => get().updateObject(objectId, patch),
+      (text) => get().toast('error', text),
+    );
     for (const v of volumes) await get().uploadVolume(objectId, v);
     s.toast('info', `Split into 1 object and ${volumes.length} parts`);
   },

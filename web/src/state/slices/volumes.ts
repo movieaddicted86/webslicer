@@ -7,8 +7,7 @@
  * slice and the component stay free of three.js imports.
  */
 import { bedShapeOf } from '@webslicer/shared';
-import { api } from '../../api';
-import { geometryToStl } from '../../plater/meshInfo';
+import { uploadMesh } from '../upload';
 import { createPrimitive, loadModelFile, type PrimitiveShape } from '../../plater/meshOps';
 import { makeVolume } from '../../plater/objects';
 import { VOLUME_LABELS, type NewVolumeInput, type PlaterVolume, type SlicePart } from '../types';
@@ -29,15 +28,13 @@ export interface VolumeSlice {
 }
 
 export const createVolumeSlice: SlicePart<VolumeSlice> = (set, get) => ({
-  uploadVolume: async (objectId, v) => {
-    try {
-      const res = await api.uploadModel(geometryToStl(v.geometry), v.name);
-      get().updateVolume(objectId, v.id, { modelId: res.id });
-    } catch (e) {
-      get().updateVolume(objectId, v.id, { uploadError: (e as Error).message });
-      get().toast('error', `Upload of ${v.name} failed: ${(e as Error).message}`);
-    }
-  },
+  uploadVolume: (objectId, v) =>
+    uploadMesh(
+      v.geometry,
+      v.name,
+      (patch) => get().updateVolume(objectId, v.id, patch),
+      (text) => get().toast('error', text),
+    ),
   addVolume: async (objectId, input) => {
     const o = get().objects.find((x) => x.id === objectId);
     if (!o) return;
