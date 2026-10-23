@@ -27,9 +27,14 @@ server/src/validation/        one zod schema per request payload, shared by REST
 server/src/jobs.ts            slice job queue, SliceRequest → 3MF → CLI
 server/src/slicer/threemf/    3MF writer/reader (PrusaSlicer extensions) + tests
 web/src/state/store.ts        composes `useStore` from the slice creators and re-exports them
-web/src/state/slices/         one slice per area: plater, preset, job, preview, ui, history, paint, ranges
+web/src/state/slices/         one slice per area (preset, job, preview, ui, history, tools); the plater
+                              slice is composed in plater.ts from paint, ranges, cut, profile, objects,
+                              volumes, instances, transform, split and merge
+web/src/state/upload.ts       the one mesh upload path (binary STL, uploadError bookkeeping, toast)
+web/src/plater/               plater logic without three.js: packing, bounds, split, the mesh readers
+                              (meshInfo), paint codecs; meshOps is the one seam into three/
 web/src/three/Viewer.tsx      composition of the `three/viewer/` hooks, no logic of its own
-web/src/three/viewer/         scene, bed, camera, plater objects, gizmo, G-code preview, shortcuts.ts
+web/src/three/viewer/         scene, bed, cameraMath, plater objects, gizmo, G-code preview, shortcuts.ts
 web/src/components/sidebar/   object list, manipulation, volumes, slice panel
 web/src/components/common/    SectionHeader, TextField, NumericField, ToolbarButton, useFieldDraft
 web/src/components/dialogs/   one file per dialog on the shared Modal frame
@@ -107,6 +112,11 @@ with Vite. The dev machine is Windows 11 with Git Bash/PowerShell: set `MSYS_NO_
   and set `sliceDirty: true`.
 - IDs are strings with a prefix and a module counter (`obj-12`, `vol-3`, `rng-4`). Follow that
   pattern for new entity types.
+- three.js: imports of the `three` package and `three/examples/**` live in `web/src/three/**` only
+  (ESLint enforces it); `state/types.ts` may `import type` it for the geometry type, and tests may
+  build fixtures with it. `state/**` never imports a `three/**` module at runtime – store actions
+  reach three.js through `plater/meshOps`, and pure logic goes to `plater/`. The viewer may import
+  `state/store` (it reads the store), not the other way round.
 - three.js: share `BufferGeometry` between meshes that show the same mesh; dispose geometries and
   materials you created when objects are removed.
 - UI: PrusaSlicer wording; tooltips name the shortcut in parentheses (`title="Arrange (A)"`).

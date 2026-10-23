@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+- **Web (T-051 – plater slice split, three.js boundary):** `state/slices/plater.ts` shrank from
+  35.4 KB to 2.0 KB and is now the composition only: the actions live in `objects`, `volumes`,
+  `instances`, `transform`, `split` and `merge` next to `paint`, `ranges`, `cut` and `profile`, all
+  spread into the same plater slice (`SlicePart<XSlice>`), so every public action name and
+  `window.webslicer` stay unchanged. three.js imports are restricted by ESLint to `web/src/three/**`
+  (plus a type-only import in `state/types.ts`): the camera maths moved to
+  `three/viewer/cameraMath.ts`, the face-rotation quaternions to `three/faceRotation.ts`, the pure
+  geometry readers and paint codecs to `plater/meshInfo.ts`/`plater/paintCodec.ts`, and
+  `instanceBounds` returns a plain `{ min, max }` box. No file in `state/**` imports a `three/**`
+  module at runtime; the store reaches three.js only through `plater/meshOps`, and the viewer
+  registers its thumbnail renderer through a setter (`state/thumbnailRenderer.ts`) instead of a
+  store field. The upload try/catch and error toast exist once (`state/upload.ts`). Behaviour,
+  undo steps and `sliceDirty` are unchanged (`store.test.ts` passes untouched).
+
 - **Server (T-050 – one router per resource, typed contract):** `routes/api.ts` shrank from 22.9 KB to
   1.7 KB and now only mounts the resource routers (`meta`, `presets`, `models`, `jobs`, `printers`,
   `exports`, `autosave`, plus the existing `library` and `projects`). Route logic moved into
