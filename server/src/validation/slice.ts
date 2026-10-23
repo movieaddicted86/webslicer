@@ -29,6 +29,7 @@ const TRANSFORM_FINITE = 'transform must contain 16 finite numbers';
 const INSTANCES_COUNT = 'instances must have 1-1000 entries';
 const INSTANCE_TRANSFORM = 'every instance must be a transform with 16 finite numbers';
 const RANGES = 'invalid ranges';
+const LAYER_PROFILE = 'invalid layerProfile';
 const RANGE = 'invalid range';
 const RANGE_CONFIG = 'range config required';
 const VOLUMES = 'invalid volumes';
@@ -160,6 +161,13 @@ const objectSchema = ordered(
     ranges: z
       .array(rangeSchema, { error: () => RANGES })
       .max(64, RANGES)
+      .optional(),
+    // the variable layer height profile (T-045): flat z/height pairs, an even count of finite numbers
+    layerProfile: z
+      .array(z.number({ error: () => LAYER_PROFILE }), { error: () => LAYER_PROFILE })
+      .max(40_000, LAYER_PROFILE)
+      .refine((v) => v.length % 2 === 0, { error: () => LAYER_PROFILE })
+      .refine((v) => v.every((x) => Number.isFinite(x)), { error: () => LAYER_PROFILE })
       .optional(),
     volumes: z.preprocess((v) => (v ? v : undefined), z.array(volumeSchema, { error: () => VOLUMES }).optional()),
   }),

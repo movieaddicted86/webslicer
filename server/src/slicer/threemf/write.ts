@@ -6,7 +6,15 @@
 import JSZip from 'jszip';
 import { triangleStateToAttribute } from '../paint.js';
 import type { IniSection } from '../ini.js';
-import { escapeStringCstyle, transformTo3mf, type CustomGcode, type LayerRangeInput, type VolumeType } from '@webslicer/shared';
+import {
+  escapeStringCstyle,
+  LAYER_PROFILE_FILE,
+  serializeLayerProfiles,
+  transformTo3mf,
+  type CustomGcode,
+  type LayerRangeInput,
+  type VolumeType,
+} from '@webslicer/shared';
 import { customGcodeXml } from './customGcode.js';
 import type { Mesh } from './mesh.js';
 import { fmt, xmlEscape } from './xml.js';
@@ -40,6 +48,11 @@ export interface ThreeMfObject {
   mmuPaint?: string;
   /** height range modifiers (object Z) with per-range settings */
   ranges?: LayerRangeInput[];
+  /**
+   * variable layer height profile (T-045): flat `[z0, h0, z1, h1, …]` pairs on the object's own Z axis,
+   * written as PrusaSlicer's `Metadata/Slic3r_PE_layer_heights_profile.txt`
+   */
+  layerProfile?: number[];
 }
 
 /** Build a 3MF project archive from meshes. */
@@ -165,6 +178,11 @@ export async function build3mf(
     const mode = (opts.extruders ?? 1) > 1 ? 'MultiAsSingle' : 'SingleExtruder';
     zip.file('Metadata/Prusa_Slicer_custom_gcode_per_print_z.xml', customGcodeXml(opts.customGcodes, mode, opts.projectConfig));
   }
+
+  // The variable layer height profiles (T-045): one line per object, PrusaSlicer's own format. The
+  // object id is the 1-based `<object>` id of `3D/3dmodel.model`, the same numbering as the model config.
+  const profileText = serializeLayerProfiles(objects.map((obj, i) => ({ objectId: i + 1, profile: obj.layerProfile || [] })));
+  if (profileText) zip.file(LAYER_PROFILE_FILE, profileText);
 
   // Height range modifiers live in their own file (PrusaSlicer: Prusa_Slicer_layer_config_ranges.xml)
   if (objects.some((o) => o.ranges && o.ranges.some((r) => r.maxZ > r.minZ))) {

@@ -102,6 +102,8 @@ export async function build3mfForRequest(req: SliceRequest, projectConfig?: IniS
       seamPaint: o.seamPaint,
       mmuPaint: o.mmuPaint,
       ranges: o.ranges,
+      // the variable layer height profile (T-045) goes into the 3MF next to the height ranges
+      layerProfile: o.layerProfile,
     });
   }
   const extruders = Math.max(1, splitVector(req.printer.config.nozzle_diameter || '0.4').length);

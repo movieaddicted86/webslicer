@@ -66,6 +66,11 @@ const OBJECT_CASES: Array<[string, Record<string, unknown>, string]> = [
   ['a range has a non-numeric height', { ranges: [{ minZ: '0', maxZ: 1, config: {} }] }, 'invalid range'],
   ['a range has no config', { ranges: [{ minZ: 0, maxZ: 1 }] }, 'range config required'],
   ['a range config is not an object', { ranges: [{ minZ: 0, maxZ: 1, config: 5 }] }, 'range config required'],
+  ['layerProfile is not an array', { layerProfile: '0;0.2' }, 'invalid layerProfile'],
+  ['layerProfile has an odd number of values', { layerProfile: [0, 0.2, 0.4] }, 'invalid layerProfile'],
+  ['layerProfile holds a string', { layerProfile: [0, '0.2'] }, 'invalid layerProfile'],
+  ['layerProfile holds NaN', { layerProfile: [0, Number.NaN] }, 'invalid layerProfile'],
+  ['layerProfile is too long', { layerProfile: Array.from({ length: 40_002 }, (_, i) => i / 1000) }, 'invalid layerProfile'],
   ['a volume modelId is not a uuid', { volumes: [{ modelId: 'nope', transform: [...I], type: 'ModelPart' }] }, 'invalid volume modelId'],
   [
     'a volume transform has 15 entries',
