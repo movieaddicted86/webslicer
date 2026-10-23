@@ -39,8 +39,10 @@ export const createPaintSlice: SlicePart<PaintSlice> = (set, get) => ({
     const o = get().objects.find((x) => x.id === objectId);
     if (!o) return;
     set({ selectedIds: [objectId], selectedVolumeId: undefined, view: 'plater' });
-    // the tool opens through the registry, like a click in the bar: one lifecycle for both ways in
-    get().openTool(paintToolOf(kind));
+    // the tool opens through the registry, like a click in the bar: one lifecycle for both ways in.
+    // Its `onEnter` calls this function again, so only the outer call (no paint tool open yet) opens.
+    const id = paintToolOf(kind);
+    if (get().activeTool !== id) get().openTool(id);
     if (o.paintReady) return;
     // subdivide the mesh so the brush has a useful resolution
     get().recordHistory();

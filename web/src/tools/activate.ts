@@ -36,10 +36,11 @@ export function activateTool(host: ToolHost, id: ToolId): { ok: boolean; reason?
   const available = tool.isAvailable(state);
   if (!available.ok) return available;
   exitCurrent(host);
-  // the tool's own state (paint kind, cut settings) before it counts as open, so the panel mounts
-  // with everything it needs
-  tool.onEnter?.({ state: host.getState() });
+  // the tool counts as open before its `onEnter` runs: the enter action may open the same tool
+  // itself (paint goes through the store's `startPaint`), and the toggle check then sees it open
+  // instead of recursing
   host.setState({ activeTool: id });
+  tool.onEnter?.({ state: host.getState() });
   return { ok: true };
 }
 

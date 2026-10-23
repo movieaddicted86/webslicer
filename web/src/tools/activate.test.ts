@@ -60,6 +60,25 @@ test('an unavailable tool stays closed and returns the reason the bar shows as t
   assert.equal(mutable.activeTool, undefined, 'nothing opened');
 });
 
+test('a tool that is already marked open when onEnter runs – no recursion', () => {
+  // a paint tool's onEnter calls the store's startPaint, which opens the same tool through openTool
+  // (the shortcut and the bar come in the same way). The tool counts as open before onEnter, so the
+  // nested call toggles instead of opening again – the recursion bug of the first E2E run.
+  const calls: string[] = [];
+  const state = {
+    objects: [{ id: 'a', volumes: [], size: [10, 10, 10] }],
+    selectedIds: ['a'],
+    startPaint: (_id: string, kind: string) => {
+      calls.push(`paint:${kind}:${state.activeTool}`);
+      return Promise.resolve();
+    },
+  } as unknown as State & { activeTool?: string };
+  const result: ToolHost = { getState: () => state, setState: (partial) => Object.assign(state, partial) };
+  assert.deepEqual(activateTool(result, 'paintSupports'), { ok: true });
+  assert.equal(state.activeTool, 'paintSupports');
+  assert.deepEqual(calls, ['paint:supports:paintSupports'], 'onEnter saw its tool already active');
+});
+
 test('closing a closed tool does nothing', () => {
   const { result, calls } = host();
   exitTool(result);
