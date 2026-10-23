@@ -65,6 +65,10 @@ export interface E2EJob {
   info?: {
     warnings?: unknown[];
     estimatedTime?: unknown;
+    /** filament use of the finished job (T-042 compares it before and after a merge) */
+    filamentUsedMm?: number[];
+    filamentUsedCm3?: number[];
+    totalFilamentG?: number;
     /** the G-code preflight of the finished file (S1-c) */
     preflight?: E2EPreflight;
   };
@@ -105,6 +109,13 @@ export interface E2EState {
   selectedIds: string[];
   selectedInstanceId?: string;
   selectedVolumeId?: string;
+  /** an object whose rename was requested (F2), cleared by the objects list (T-042) */
+  renameRequest?: string;
+  requestRename: (id: string) => void;
+  /** rename an object or one of its volumes (T-042) */
+  renameObject: (id: string, name: string) => void;
+  renameVolume: (objectId: string, volumeId: string, name: string) => void;
+  mergeObjects: (ids: string[]) => Promise<void>;
   transformMode: 'translate' | 'rotate' | 'scale';
   paintMode?: 'supports' | 'seam' | 'mmu';
   paintTool: string;
@@ -158,6 +169,8 @@ export interface E2EState {
   openDialog: (dialog: string, payload?: unknown) => void;
   closeDialog: () => void;
   slice: () => Promise<void>;
+  /** the slice request of the current plate (T-042 exports it as 3MF to check the names round trip) */
+  buildSliceRequest: () => unknown;
   setPreviewLayerRange: (range: [number, number]) => void;
   setPreviewMoveCut: (move: number | undefined) => void;
   togglePreviewMarker: (kind: string) => void;
