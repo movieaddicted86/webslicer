@@ -115,8 +115,8 @@ export default defineConfig(
   },
   {
     // The v7 `recommended` presets switch on a whole React Compiler rule set (static-components, purity,
-    // refs, …). T-027 kept the rule set of v5; T-054 turns the compiler rules on as warnings, so the
-    // remaining offenders are visible and fixable before the compiler itself is enabled.
+    // refs, …). The rule set stayed at v5 across the upgrade; the compiler rules run as warnings, so
+    // the remaining offenders are visible and fixable before the compiler itself is enabled.
     files: ['web/src/**/*.{ts,tsx}'],
     plugins: { 'react-hooks': reactHooks },
     rules: {

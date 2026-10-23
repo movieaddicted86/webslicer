@@ -1,6 +1,6 @@
 /* WebSlicer – the global layer: the tokens, the reset, form controls, the button variants, the
    small utilities and the app frame. Component styles live in a plain `*.css` next to their
-   component and are imported for the side effect (q8-housekeeping): the selectors stay global
+   component and are imported for the side effect: the selectors stay global
    because the E2E suite targets the class names, and Vite 8 drops CSS-module imports whose class
    map is unused, so `.module.css` would silently lose whole components in the production build. */
 

@@ -1,7 +1,7 @@
 /**
  * The loader hooks for `node --test`: a `.css` import resolves to an empty module. The component
- * sheets are imported for the side effect (q8-housekeeping); a test has no stylesheet to apply.
- * Registered by `register.mjs`, which is what the `test` script points `--import` at.
+ * sheets are imported for the side effect; a test has no stylesheet to apply. Registered by
+ * `css-loader.mjs`, which is what the `test` script points `--import` at.
  */
 const STUB = 'data:text/css,export default {};';
 
