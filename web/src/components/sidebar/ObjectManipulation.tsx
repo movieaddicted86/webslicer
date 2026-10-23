@@ -11,7 +11,7 @@ import type { Placement } from '../../api';
 /**
  * The manipulation panel of the selected object (instance placement, copies, mirror, splits, height
  * ranges). Painting and variable layer height are tools with their own panels in the 3D view since
- * T-046, and their buttons live in the object toolbar.
+ * T-046; their buttons sit in the left tool bar of the viewer.
  */
 export function ObjectManipulation({ o }: { o: PlaterObject }) {
   const updateInstance = useStore((s) => s.updateInstance);
