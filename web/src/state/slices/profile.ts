@@ -22,8 +22,8 @@ export interface ProfileSlice {
   applySmooth: (objectId: string) => void;
   /** drop the profile: the object prints with its fixed layer height ("Reset") */
   resetProfile: (objectId: string) => void;
-  /** the brush of the chart: add/subtract layer height around `z` */
-  brushProfile: (objectId: string, z: number, delta: number) => void;
+  /** the brush of the chart: add/subtract layer height around `z`; a drag records one undo step */
+  brushProfile: (objectId: string, z: number, delta: number, undoable?: boolean) => void;
 }
 
 /** The nominal layer height of the print profile (the middle of the adaptive quality curve). */
@@ -33,9 +33,9 @@ function nominalHeight(print: Record<string, string>): number | undefined {
 }
 
 export const createProfileSlice: SlicePart<ProfileSlice> = (set, get) => {
-  /** Store a profile of one object as one undo step. */
-  const store = (objectId: string, profile: number[] | undefined) => {
-    get().recordHistory();
+  /** Store a profile of one object as one undo step (`undoable` false for the rest of a brush drag). */
+  const store = (objectId: string, profile: number[] | undefined, undoable = true) => {
+    if (undoable) get().recordHistory();
     set((s) => ({
       objects: s.objects.map((o) => (o.id === objectId ? { ...o, layerProfile: profile && profile.length ? profile : undefined } : o)),
       sliceDirty: true,
@@ -76,13 +76,13 @@ export const createProfileSlice: SlicePart<ProfileSlice> = (set, get) => {
       if (!o?.layerProfile) return;
       store(objectId, undefined);
     },
-    brushProfile: (objectId, z, delta) => {
+    brushProfile: (objectId, z, delta, undoable = true) => {
       const s = get();
       const o = s.objects.find((x) => x.id === objectId);
       if (!o?.layerProfile) return;
       const limits = printerLayerLimits(s.presets.printer.current);
       const profile = applyBrush(o.layerProfile, z, s.profileSettings.brushRadius, delta, limits);
-      store(objectId, profile);
+      store(objectId, profile, undoable);
     },
   };
 };

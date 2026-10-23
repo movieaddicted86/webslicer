@@ -14,7 +14,11 @@ import { expect, test } from '../helpers/fixtures';
 async function profileBands(app: Parameters<typeof read>[0]) {
   return read(app, (s) => {
     const p = s.objects[0].layerProfile || [];
-    const acc = { bottom: [0, 0], middle: [0, 0], top: [0, 0] };
+    const acc: Record<'bottom' | 'middle' | 'top', [number, number]> = {
+      bottom: [0, 0],
+      middle: [0, 0],
+      top: [0, 0],
+    };
     for (let i = 0; i + 1 < p.length; i += 2) {
       const z = p[i];
       const h = p[i + 1];

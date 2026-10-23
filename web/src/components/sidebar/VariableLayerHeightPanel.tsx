@@ -49,9 +49,9 @@ export function VariableLayerHeightPanel({ o }: { o: PlaterObject }) {
     const t = (H - frame.pad - y) / (H - 2 * frame.pad);
     return Math.min(frame.zMax, Math.max(0, t * frame.zMax));
   };
-  const paint = (e: React.PointerEvent<SVGSVGElement>) => {
+  const paint = (e: React.PointerEvent<SVGSVGElement>, undoable: boolean) => {
     if (!hasProfile) return;
-    brushProfile(o.id, zAt(e), subtract ? -settings.brushDelta : settings.brushDelta);
+    brushProfile(o.id, zAt(e), subtract ? -settings.brushDelta : settings.brushDelta, undoable);
   };
   const line = frame.points.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
   return (
@@ -75,10 +75,11 @@ export function VariableLayerHeightPanel({ o }: { o: PlaterObject }) {
         onPointerDown={(e) => {
           dragging.current = true;
           e.currentTarget.setPointerCapture(e.pointerId);
-          paint(e);
+          // the whole drag is one undo step: only its first sample records history
+          paint(e, true);
         }}
         onPointerMove={(e) => {
-          if (dragging.current) paint(e);
+          if (dragging.current) paint(e, false);
         }}
         onPointerUp={(e) => {
           dragging.current = false;

@@ -149,6 +149,9 @@ export interface E2EState {
   closeCut: () => void;
   setCutSettings: (patch: Partial<E2ECutSettings>) => void;
   cutSelection: () => Promise<void>;
+  /** the variable layer height panel (T-045) */
+  profileSettings: { quality: number; radius: number; keepMin: boolean; brushRadius: number; brushDelta: number };
+  setProfileSettings: (patch: Partial<E2EState['profileSettings']>) => void;
   transformMode: 'translate' | 'rotate' | 'scale';
   paintMode?: 'supports' | 'seam' | 'mmu';
   paintTool: string;
