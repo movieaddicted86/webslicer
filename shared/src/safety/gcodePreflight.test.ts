@@ -73,6 +73,34 @@ test('M906/M907 are a warn, not a block – PrusaSlicer sets the extruder curren
   }
 });
 
+test('M121 switches the endstops off and blocks (N4)', () => {
+  assert.deepEqual(rules('M121\n'), ['gcode.forbidden_command']);
+  assert.deepEqual(rules('G28\nM121 E0\n'), ['gcode.forbidden_command'], 'with parameters');
+  // M1210 is not M121
+  assert.deepEqual(rules('M1210\n'), []);
+});
+
+test('M302 without a limit blocks; the vendor form "M302 S155" does not (N4)', () => {
+  // PrusaSlicer's own PrusaResearch presets write "M302 S155" in their start G-code – a block would
+  // refuse every MK4S/XL print, so the sweep's rule is: no limit, S0 or P1 block
+  for (const command of ['M302', 'M302 S0', 'M302 P1', 'M302 S0 P1']) {
+    assert.deepEqual(rules(`${command}\n`), ['gcode.forbidden_command'], command);
+  }
+  for (const command of ['M302 S155', 'M302 S170', 'M302 P0 S155']) {
+    assert.deepEqual(rules(`${command}\n`), [], command);
+  }
+  assert.deepEqual(rules('M3020\n'), [], 'M3020 is not M302');
+});
+
+test('Klipper SAVE_CONFIG blocks, an ordinary macro does not (N4)', () => {
+  assert.deepEqual(rules('SAVE_CONFIG\n'), ['gcode.forbidden_command']);
+  assert.deepEqual(rules('save_config\n'), ['gcode.forbidden_command'], 'case insensitive');
+  assert.match(one('SAVE_CONFIG\n').message, /rewrites the printer configuration/);
+  assert.deepEqual(rules('PRINT_START\n'), []);
+  // SAVE_CONFIG is still a macro for the homing heuristic
+  assert.deepEqual(rules('SAVE_CONFIG\nG1 X1\n'), ['gcode.forbidden_command', 'gcode.macro_before_move']);
+});
+
 test('M211 S0 is forbidden, M211 S1 is not', () => {
   assert.deepEqual(rules('M211 S0\n'), ['gcode.forbidden_command']);
   assert.deepEqual(rules('M211 S1\n'), []);
@@ -129,6 +157,55 @@ test('a cooling command is not a temperature command', () => {
 test('the ceilings can be lowered for a later per-printer rule set (S1-d)', () => {
   assert.deepEqual(rules('M104 S260\n', { hotendLimit: 240 }), ['gcode.max_temp']);
   assert.deepEqual(rules('M104 S230\n', { hotendLimit: 240 }), []);
+});
+
+// ---------------------------------------------------------------------------
+// N4: further temperature targets
+// ---------------------------------------------------------------------------
+
+test('M303 (PID autotune) is checked against the hotend ceiling (N4)', () => {
+  assert.deepEqual(rules('M303 S500\n'), ['gcode.max_temp']);
+  assert.deepEqual(rules('M303 E0 S215 C8\n'), []);
+  const issue = one('M303 S500\n');
+  assert.equal(issue.severity, 'block');
+  assert.match(issue.message, /"M303 S500".*500 °C/);
+  assert.deepEqual(rules('M3030 S500\n'), [], 'M3030 is not M303');
+});
+
+test('M141/M191 are checked against the chamber ceiling (N4)', () => {
+  assert.deepEqual(rules('M141 S60\n'), []);
+  assert.deepEqual(rules('M191 S60\n'), []);
+  assert.deepEqual(rules('M141 S150\n'), ['gcode.max_temp']);
+  assert.deepEqual(rules('M191 S150\n'), ['gcode.max_temp']);
+  // the chamber has no printer safety limit, so the maximum does not mix into the hotend/bed maxima
+  assert.deepEqual(scanGcodeText('M141 S60\n').maxTemperatures, { hotend: 0, bed: 0 });
+});
+
+test('RRF G10 S and M568 S are hotend targets (N4)', () => {
+  assert.deepEqual(rules('G10 S0\n'), [], 'G10 S0 is "tool off"');
+  assert.deepEqual(rules('G10 S650\n'), ['gcode.max_temp']);
+  assert.deepEqual(rules('G10 S0 P0\n'), []);
+  assert.deepEqual(rules('M568 P0 S215 R170 A1\n'), []);
+  assert.deepEqual(rules('M568 P0 S650\n'), ['gcode.max_temp']);
+  // RRF G10 must not be mistaken for a move before homing, and G1 still is one
+  assert.deepEqual(rules('G10 S215\nG1 X5\n'), ['gcode.no_homing']);
+});
+
+test('Klipper SET_HEATER_TEMPERATURE TARGET= is checked by heater (N4)', () => {
+  assert.deepEqual(rules('SET_HEATER_TEMPERATURE HEATER=extruder TARGET=260 WAIT=1\n'), []);
+  assert.deepEqual(rules('SET_HEATER_TEMPERATURE HEATER=extruder TARGET=500\n'), ['gcode.max_temp']);
+  assert.deepEqual(rules('SET_HEATER_TEMPERATURE HEATER=heater_bed TARGET=160\n'), ['gcode.max_temp']);
+  assert.deepEqual(rules('SET_HEATER_TEMPERATURE HEATER=heater_bed TARGET=60\n'), []);
+  assert.deepEqual(rules('SET_HEATER_TEMPERATURE HEATER=chamber TARGET=150\n'), ['gcode.max_temp']);
+  // a macro without TARGET does nothing
+  assert.deepEqual(rules('SET_HEATER_TEMPERATURE HEATER=extruder\n'), []);
+});
+
+test('the temperature maxima include every temperature command (N3)', () => {
+  const result = scanGcodeText('G28\nM104 S220\nM140 S60\nM109 R230\nM303 S500\nG10 S400\nM191 S60\n');
+  assert.deepEqual(result.maxTemperatures, { hotend: 500, bed: 60 });
+  // G10 S400 is below the ceiling (recorded in the maxima, not reported); M303 S500 is above it
+  assert.deepEqual(result.counts, { 'gcode.max_temp': 1 });
 });
 
 // ---------------------------------------------------------------------------

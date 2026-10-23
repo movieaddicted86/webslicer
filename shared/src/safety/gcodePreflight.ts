@@ -11,9 +11,9 @@
  *
  * | rule                     | severity | finding                                                        |
  * | ------------------------ | -------- | -------------------------------------------------------------- |
- * | `gcode.forbidden_command`| block    | `M500 M502 M211 S0 M92 M997 M851`                                |
+ * | `gcode.forbidden_command`| block    | `M500 M502 M211 S0 M92 M997 M851 M121`, `M302` without a limit, `SAVE_CONFIG` |
  * | `gcode.motor_current`    | warn     | `M906`/`M907` – see below                                       |
- * | `gcode.max_temp`         | block    | `M104`/`M109` above 450 °C, `M140`/`M190` above 150 °C            |
+ * | `gcode.max_temp`         | block    | `M104`/`M109` above 450 °C, `M140`/`M190` above 150 °C, chamber above 100 °C, and the targets of `M303`, `M141`/`M191`, `G10`/`M568`, `SET_HEATER_TEMPERATURE` |
  * | `gcode.no_homing`        | block    | a move with X/Y/Z before the first `G28`                         |
  * | `gcode.macro_before_move`| warn     | the same, but a printer macro (e.g. `PRINT_START`) came first    |
  * | `gcode.firmware_limit`   | warn     | `M201 M203 M204 M205` above the printer preset's `machine_max_*` |
@@ -48,6 +48,8 @@ export const PREFLIGHT_VERSION = 2;
 /** Wide typo catchers of Q-005 – narrow per-printer limits are S1-d. */
 export const DEFAULT_HOTEND_LIMIT = 450;
 export const DEFAULT_BED_LIMIT = 150;
+/** The chamber catcher: PrusaSlicer's own profiles stay well below 70 °C (q6-preflight, N4). */
+export const DEFAULT_CHAMBER_LIMIT = 100;
 /** How many issues of one rule are kept (the counts keep the total). */
 export const MAX_ISSUES_PER_RULE = 5;
 /** A line longer than this cannot be a command; it is dropped instead of buffered (thumbnails are short). */
@@ -77,6 +79,8 @@ export interface PreflightOptions {
   hotendLimit?: number;
   /** bed ceiling in °C (`M140`/`M190`) */
   bedLimit?: number;
+  /** chamber ceiling in °C (`M141`/`M191`) */
+  chamberLimit?: number;
   maxIssuesPerRule?: number;
 }
 
@@ -179,14 +183,34 @@ function hasAxis(rest: string): boolean {
 /** The forbidden firmware commands and what they do to the machine. `M211` is checked separately. */
 const FORBIDDEN: Readonly<Record<number, string>> = {
   92: 'changes the steps/mm of the axes',
+  121: 'switches the endstops off – a crash cannot be stopped any more',
   500: "stores the printer's settings in its EEPROM",
   502: "resets the printer's settings to the firmware defaults",
   851: 'changes the Z offset of the probe',
   997: 'starts a firmware update',
 };
 
+/**
+ * `M302` (allow cold extrusion). PrusaSlicer's own PrusaResearch presets write `M302 S155` in their
+ * start G-code (18 printer sections in 2.9.6), so the command itself cannot block – the vendor sweep
+ * would fail on every one of them. Blocking are the forms that make cold extrusion unconditional:
+ * `M302` without a temperature limit, `M302 S0`, and `M302 P1`.
+ */
+const COLD_EXTRUSION = 302;
+
 /** The motor-current commands: a warn, because PrusaSlicer's own presets set the extruder current. */
 const MOTOR_CURRENT = new Set([906, 907]);
+
+/** Commands whose `S`/`R` is a hotend target: `M303` (PID autotune), RRF `G10`, RRF `M568`. */
+const HOTEND_TARGET = new Set([303]);
+/** RRF `G10 S…` / `M568 S… R…` – the same hotend target in RepRapFirmware spelling. */
+const RRF_HOTEND = new Set(['G10', 'M568']);
+/** The chamber heater commands (`M141` set, `M191` wait). */
+const CHAMBER_TEMP = new Set([141, 191]);
+/** Klipper's macro spelling of the heater commands. */
+const KLIPPER_HEATER = 'SET_HEATER_TEMPERATURE';
+/** Klipper's save-the-config command: it rewrites `printer.cfg`. */
+const KLIPPER_SAVE = 'SAVE_CONFIG';
 
 /** The `machine_max_*` keys of an `M201`/`M203`/`M205` axis parameter. */
 const AXIS_LIMIT: Readonly<Record<number, Readonly<Record<string, string>>>> = {
@@ -251,6 +275,7 @@ export class GcodePreflight {
   private moveReported = false;
   private readonly hotendLimit: number;
   private readonly bedLimit: number;
+  private readonly chamberLimit: number;
   private readonly maxPerRule: number;
   private readonly machineLimits: Readonly<Record<string, string | undefined>>;
   /** the highest temperature the file commands, whatever the ceilings are (N3) */
@@ -260,6 +285,7 @@ export class GcodePreflight {
     this.machineLimits = options.machineLimits ?? {};
     this.hotendLimit = options.hotendLimit ?? DEFAULT_HOTEND_LIMIT;
     this.bedLimit = options.bedLimit ?? DEFAULT_BED_LIMIT;
+    this.chamberLimit = options.chamberLimit ?? DEFAULT_CHAMBER_LIMIT;
     this.maxPerRule = Math.max(1, options.maxIssuesPerRule ?? MAX_ISSUES_PER_RULE);
   }
 
@@ -317,6 +343,14 @@ export class GcodePreflight {
     const parsed = parse(code);
     if (parsed.kind === 'macro') {
       if (!this.macro) this.macro = parsed.word;
+      if (parsed.word.toUpperCase() === KLIPPER_SAVE) {
+        this.report(
+          'gcode.forbidden_command',
+          this.lineNo,
+          text,
+          '"SAVE_CONFIG" rewrites the printer configuration (Klipper) – a forbidden command.',
+        );
+      } else if (parsed.word.toUpperCase() === KLIPPER_HEATER) this.klipperHeater(text);
       return;
     }
     if (parsed.kind !== 'command') return;
@@ -328,6 +362,11 @@ export class GcodePreflight {
   private gcode(number: number, rest: string, text: string): void {
     if (number === 28) {
       this.homed = true;
+      return;
+    }
+    // RRF: G10 sets a tool/hotend temperature, M568 the active/standby one – both `S` is a target
+    if (RRF_HOTEND.has(`G${number}`)) {
+      this.hotendTargets(paramsOf(rest), text, `G${number}`);
       return;
     }
     // a move with an axis coordinate; a feedrate-only line (G1 F720) moves nothing
@@ -363,9 +402,29 @@ export class GcodePreflight {
       );
       return;
     }
+    // RRF M568 sets the active/standby hotend temperature – `S` and `R` are targets
+    if (RRF_HOTEND.has(`M${number}`)) {
+      this.hotendTargets(paramsOf(rest), text, `M${number}`);
+      return;
+    }
     const why = FORBIDDEN[number];
     if (why) {
       this.report('gcode.forbidden_command', this.lineNo, text, `"M${number}" ${why} – a forbidden command.`);
+      return;
+    }
+    // M302 blocks only in its unconditional forms; `M302 S155` is in PrusaSlicer's own presets
+    if (number === COLD_EXTRUSION) {
+      const params = paramsOf(rest);
+      const s = params.get('S');
+      const p = params.get('P');
+      if (s === undefined || s === 0 || p === 1) {
+        this.report(
+          'gcode.forbidden_command',
+          this.lineNo,
+          text,
+          '"M302" allows cold extrusion without a temperature limit – the filament is pushed while the nozzle is cold.',
+        );
+      }
       return;
     }
     if (
@@ -374,6 +433,8 @@ export class GcodePreflight {
       number !== 109 &&
       number !== 140 &&
       number !== 190 &&
+      !CHAMBER_TEMP.has(number) &&
+      !HOTEND_TARGET.has(number) &&
       !AXIS_LIMIT[number] &&
       !SINGLE_LIMIT[number]
     )
@@ -393,6 +454,15 @@ export class GcodePreflight {
       for (const key of ['S', 'R']) this.temperature(key, params.get(key), this.bedLimit, 'bed', text);
       return;
     }
+    if (CHAMBER_TEMP.has(number)) {
+      for (const key of ['S', 'R']) this.temperature(key, params.get(key), this.chamberLimit, 'chamber', text);
+      return;
+    }
+    // M303's PID target is the hotend; `S` is the only target parameter there
+    if (HOTEND_TARGET.has(number)) {
+      this.hotendTargets(params, text, `M${number}`);
+      return;
+    }
     const axes = AXIS_LIMIT[number];
     if (axes) {
       for (const [axis, key] of Object.entries(axes)) this.limit(axis, params.get(axis), key, number, text);
@@ -403,13 +473,22 @@ export class GcodePreflight {
     }
   }
 
-  private temperature(param: string, value: number | undefined, limit: number, what: 'hotend' | 'bed', text: string): void {
+  private temperature(
+    param: string,
+    value: number | undefined,
+    limit: number,
+    what: 'hotend' | 'bed' | 'chamber',
+    text: string,
+    command?: string,
+  ): void {
     if (value === undefined) return;
     // the maximum is recorded whatever the ceilings are: the send gate compares it with the target
-    // printer's own limits, which the stored scan knows nothing about (N3)
-    this.maxTemperatures[what] = Math.max(this.maxTemperatures[what], value);
+    // printer's own limits, which the stored scan knows nothing about (N3). The chamber has no
+    // printer limit, so it is only checked against the global catcher.
+    if (what !== 'chamber') this.maxTemperatures[what] = Math.max(this.maxTemperatures[what], value);
     if (value <= limit) return;
-    this.report('gcode.max_temp', this.lineNo, text, `${param}${value} sets the ${what} to ${value} °C, above the ${limit} °C limit.`);
+    const name = command ? `"${command} ${param}${value}"` : `${param}${value}`;
+    this.report('gcode.max_temp', this.lineNo, text, `${name} sets the ${what} to ${value} °C, above the ${limit} °C limit.`);
   }
 
   private limit(param: string, value: number | undefined, key: string, command: number, text: string): void {
@@ -417,6 +496,24 @@ export class GcodePreflight {
     const max = normalLimit(this.machineLimits, key);
     if (max === undefined || value <= max) return;
     this.report('gcode.firmware_limit', this.lineNo, text, `"M${command} ${param}${value}" is above the printer preset's ${key} = ${max}.`);
+  }
+
+  /** The hotend targets of `M303`, RRF `G10`/`M568`: `S` is the target, `R` the wait-for value. */
+  private hotendTargets(params: ReadonlyMap<string, number>, text: string, command: string): void {
+    for (const key of ['S', 'R']) this.temperature(key, params.get(key), this.hotendLimit, 'hotend', text, command);
+  }
+
+  /**
+   * Klipper's `SET_HEATER_TEMPERATURE HEATER=extruder TARGET=260`: the heater names the kind, the
+   * target is the temperature. An unknown heater is checked as a hotend (the common case).
+   */
+  private klipperHeater(text: string): void {
+    const heater = /HEATER\s*=\s*(\S+)/i.exec(text)?.[1]?.toLowerCase() ?? '';
+    const target = Number(/TARGET\s*=\s*(-?\d+(?:\.\d+)?)/i.exec(text)?.[1]);
+    if (!Number.isFinite(target)) return;
+    const what = heater.includes('bed') ? 'bed' : heater.includes('chamber') ? 'chamber' : 'hotend';
+    const limit = what === 'bed' ? this.bedLimit : what === 'chamber' ? this.chamberLimit : this.hotendLimit;
+    this.temperature('TARGET', target, limit, what, text, 'SET_HEATER_TEMPERATURE');
   }
 }
 

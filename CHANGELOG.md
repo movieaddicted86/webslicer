@@ -2,6 +2,27 @@
 
 ## Unreleased
 
+- **Safety (T-049 – G-code preflight hardening):** the preflight now sees what Marlin sees and knows
+  more of the dangerous commands. **Line ends:** the scanner splits on `\r\n`, a lone `\r` and `\n`
+  (a reproduction showed PrusaSlicer 2.9.6 turns a lone `\r` in `start_gcode` into a real line break),
+  a `\r`/`\n` pair split across two chunks stays one line end, and `M 500` – Marlin accepts a blank
+  after the letter – is the command `M500` instead of an unrecognised word. **Limits where they
+  matter:** the preflight result records the highest hotend and bed temperature the file asks for, so
+  the send gate compares it with the **target printer's** `safety.maxHotend`/`maxBed` (previously only
+  temperatures above the global 450/150 °C ceilings were ever seen); a stored result without the
+  field is re-scanned (`PREFLIGHT_VERSION` 2). `checkConfigLimits` runs on the **merged** config, so a
+  `temperature`, `bed_temperature` or `nozzle_diameter` that only a print or printer section carries
+  is checked too, and per-object/per-range `layer_height` overrides are checked with the nozzle rule.
+  **New rules:** `M121` (endstops off) and Klipper `SAVE_CONFIG` block; `M302` blocks only in its
+  unconditional forms (`M302`, `M302 S0`, `M302 P1`) because `M302 S155` ships in 18 Prusa printer
+  presets; the temperature ceiling also covers `M303` (PID target), `M141`/`M191` (chamber, new
+  100 °C limit), RRF `G10`/`M568` and Klipper `SET_HEATER_TEMPERATURE … TARGET=`. A section value
+  with a lone carriage return is refused (400 / writer guard): PrusaSlicer's INI has no such line
+  end, so the commands behind it would be hidden. Sweep over all 1763 print + 1066 printer presets of
+  the bundled 2.9.6: 0 blocking findings from the new rules; the pre-existing rules flag 25
+  `no_homing`, 44 `M211 S0`, 8 `M502`, 4 `M92`, 2 `M500` and 12 macro-before-move warnings – all in
+  third-party start G-code and all present before this change.
+
 - **Slicer (T-048 – one seam for every PrusaSlicer call):** the CLI argument lists now live in
   `server/src/slicer/commands.ts` (`exportGcodeArgs`, `exportStlArgs`, `cutArgs`, `helpArgs`) and are
   pinned by unit tests, so a PrusaSlicer version change that renames a flag is one edit in one file.
