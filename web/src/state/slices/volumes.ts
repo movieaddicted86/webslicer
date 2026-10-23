@@ -1,0 +1,74 @@
+/**
+ * The plater's sub-volumes (q4-web-store): parts, modifiers, support enforcers/blockers and negative
+ * volumes of an object, and their uploads. Split out of `plater.ts`; `createPlaterSlice` spreads this
+ * creator into itself.
+ */
+import { api } from '../../api';
+import { geometryToStl } from '../../three/geometry';
+import { makeVolume } from '../../plater/objects';
+import type { NewVolumeInput, PlaterVolume, SlicePart } from '../types';
+
+export interface VolumeSlice {
+  /** add a sub-volume to an object and upload its mesh; one undo step */
+  addVolume: (objectId: string, input: NewVolumeInput) => Promise<void>;
+  updateVolume: (objectId: string, volumeId: string, patch: Partial<PlaterVolume>) => void;
+  removeVolume: (objectId: string, volumeId: string) => void;
+  selectVolume: (objectId: string, volumeId?: string) => void;
+  uploadVolume: (objectId: string, v: PlaterVolume) => Promise<void>;
+  /** rename a sub-volume of an object (empty names are ignored); one undo step */
+  renameVolume: (objectId: string, volumeId: string, name: string) => void;
+}
+
+export const createVolumeSlice: SlicePart<VolumeSlice> = (set, get) => ({
+  uploadVolume: async (objectId, v) => {
+    try {
+      const res = await api.uploadModel(geometryToStl(v.geometry), v.name);
+      get().updateVolume(objectId, v.id, { modelId: res.id });
+    } catch (e) {
+      get().updateVolume(objectId, v.id, { uploadError: (e as Error).message });
+      get().toast('error', `Upload of ${v.name} failed: ${(e as Error).message}`);
+    }
+  },
+  addVolume: async (objectId, input) => {
+    const o = get().objects.find((x) => x.id === objectId);
+    if (!o) return;
+    get().recordHistory();
+    const v = makeVolume(input, [0, 0, 0]);
+    set((s) => ({
+      objects: s.objects.map((x) => (x.id === objectId ? { ...x, volumes: [...x.volumes, v] } : x)),
+      selectedIds: [objectId],
+      selectedVolumeId: v.id,
+      sliceDirty: true,
+    }));
+    await get().uploadVolume(objectId, v);
+  },
+  updateVolume: (objectId, vid, patch) =>
+    set((s) => ({
+      objects: s.objects.map((o) =>
+        o.id === objectId ? { ...o, volumes: o.volumes.map((v) => (v.id === vid ? { ...v, ...patch } : v)) } : o,
+      ),
+      sliceDirty: true,
+    })),
+  removeVolume: (objectId, vid) => {
+    get().recordHistory();
+    set((s) => ({
+      objects: s.objects.map((o) => (o.id === objectId ? { ...o, volumes: o.volumes.filter((v) => v.id !== vid) } : o)),
+      selectedVolumeId: s.selectedVolumeId === vid ? undefined : s.selectedVolumeId,
+      sliceDirty: true,
+    }));
+  },
+  selectVolume: (objectId, vid) => set({ selectedIds: [objectId], selectedVolumeId: vid }),
+  renameVolume: (objectId, volumeId, name) => {
+    const o = get().objects.find((x) => x.id === objectId);
+    const v = o?.volumes.find((x) => x.id === volumeId);
+    const next = name.trim();
+    if (!o || !v || !next || next === v.name) return;
+    get().recordHistory();
+    set((s) => ({
+      objects: s.objects.map((x) =>
+        x.id === objectId ? { ...x, volumes: x.volumes.map((vv) => (vv.id === volumeId ? { ...vv, name: next } : vv)) } : x,
+      ),
+      sliceDirty: true,
+    }));
+  },
+});
