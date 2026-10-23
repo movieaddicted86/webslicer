@@ -1895,3 +1895,14 @@ body {
 .tool-clear {
   align-self: flex-start;
 }
+
+/* the paint panel's brush row: the label and slider, like the old sidebar block */
+.tool-panel .brush {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 12px;
+}
+.tool-panel .brush input[type='range'] {
+  width: 100%;
+}
