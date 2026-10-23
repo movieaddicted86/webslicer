@@ -3,14 +3,16 @@ import { useStore, instanceBounds, selectedInstance, type PlaterObject } from '.
 import { objectInfo } from '../../plater/info';
 import { NumericField } from '../common/NumericField';
 import { TransformInputs } from './TransformInputs';
-import { PaintPanel } from './PaintPanel';
 import { RangePanel } from './RangePanel';
-import { VariableLayerHeightPanel } from './VariableLayerHeightPanel';
 import { AXES } from './axes';
 import { fmt } from '../../format';
 import type { Placement } from '../../api';
 
-/** The manipulation panel of the selected object (instance placement, copies, mirror, painting) */
+/**
+ * The manipulation panel of the selected object (instance placement, copies, mirror, splits, height
+ * ranges). Painting and variable layer height are tools with their own panels in the 3D view since
+ * T-046, and their buttons live in the object toolbar.
+ */
 export function ObjectManipulation({ o }: { o: PlaterObject }) {
   const updateInstance = useStore((s) => s.updateInstance);
   const drop = useStore((s) => s.dropToBed);
@@ -107,9 +109,7 @@ export function ObjectManipulation({ o }: { o: PlaterObject }) {
         <button onClick={() => set({ scale: [1, 1, 1] })}>Reset scale</button>
         <button onClick={() => set({ rotation: [0, 0, 0], scale: [1, 1, 1] })}>Reset all</button>
       </div>
-      <PaintPanel o={o} />
       <RangePanel o={o} />
-      <VariableLayerHeightPanel o={o} />
       <div className="manip-row extruder">
         {extruders > 1 && (
           <>

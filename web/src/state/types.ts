@@ -22,13 +22,13 @@ import type {
 } from '../api';
 import type { ThumbnailSpec } from '@webslicer/shared';
 import type { ParsedGcode } from '../gcode/types';
-import type { PaintKind } from '../three/paint';
 import type { UiSlice } from './slices/ui';
 import type { PresetSlice } from './slices/preset';
 import type { PlaterSlice } from './slices/plater';
 import type { JobSlice } from './slices/job';
 import type { PreviewSlice } from './slices/preview';
 import type { HistorySlice } from './slices/history';
+import type { ToolsSlice } from './slices/tools';
 
 /** A sub-volume of an object: additional part, modifier, support enforcer/blocker or negative volume. */
 export interface PlaterVolume extends Placement {
@@ -162,8 +162,6 @@ export interface CoreState {
   selectedVolumeId?: string;
   /** selected copy of the single selected object; undefined means its first instance */
   selectedInstanceId?: string;
-  /** painting (support enforcers/blockers, seam) */
-  paintMode?: PaintKind;
   job?: JobRecord;
   gcode?: ParsedGcode;
   gcodeJobId?: string;
@@ -174,7 +172,7 @@ export interface CoreState {
 }
 
 /** The whole store state: what every slice contributes plus the state they share. */
-export type State = CoreState & UiSlice & PresetSlice & PlaterSlice & JobSlice & PreviewSlice & HistorySlice;
+export type State = CoreState & UiSlice & PresetSlice & PlaterSlice & JobSlice & PreviewSlice & HistorySlice & ToolsSlice;
 
 /**
  * A part of a slice: a creator that `createPlaterSlice` spreads into itself (painting, height

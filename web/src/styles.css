@@ -1515,13 +1515,6 @@ button.link:hover {
 }
 
 /* ---- painting */
-.paint-panel {
-  border-top: 1px dashed var(--border);
-  padding-top: 6px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
 .paint-tools {
   display: flex;
   gap: 4px;
@@ -1548,12 +1541,6 @@ button.link:hover {
 .paint-tools .tool.active.erase {
   border-color: #ccc;
   background: #ffffff22;
-}
-.paint-panel label.brush {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  font-size: 12px;
 }
 
 /* ---- height ranges */
@@ -1584,11 +1571,7 @@ button.link:hover {
   border-color: var(--red);
 }
 
-/* ---- variable layer height (T-045) */
-.layer-profile-panel {
-  border-top: 1px dashed var(--border);
-  padding-top: 6px;
-}
+/* ---- variable layer height (T-045, panel T-046) */
 .layer-profile-chart {
   display: block;
   width: 100%;
@@ -1618,13 +1601,6 @@ button.link:hover {
 }
 .layer-profile-stats {
   margin: 3px 0 5px;
-}
-.layer-profile-panel .manip-row input[type='range'] {
-  flex: 1;
-  min-width: 60px;
-}
-.layer-profile-panel .manip-row {
-  margin: 2px 0;
 }
 .paint-tools .tool.extruder .swatch {
   width: 12px;
@@ -1792,30 +1768,130 @@ body {
   border: 1px solid #0006;
   flex: none;
 }
-/* Cut panel (T-044): the height slider, the tilt angles and the keep/place options of the plane */
-.cut-panel {
-  border-top: 1px dashed var(--border);
-  padding-top: 6px;
+
+/* ---- tools: the left tool bar and the tool panel over the 3D view (T-046)
+   Layout only: the mobile layout (P3) turns the same panel into a bottom sheet by overriding
+   .tool-panel's position, so no component carries a coordinate. */
+.tool-bar {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 3;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 3px;
+  padding: 4px;
+  background: rgba(27, 30, 36, 0.85);
+  border: 1px solid var(--border);
+  border-radius: 6px;
 }
-.cut-panel .manip-row {
+.tool-bar-group {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.tool-bar .tool-sep {
+  width: auto;
+  height: 1px;
+  margin: 2px 2px;
+  background: var(--border);
+}
+.tool-bar button {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.tool-panel {
+  position: absolute;
+  left: 58px;
+  top: 10px;
+  z-index: 3;
+  width: 300px;
+  max-width: 320px;
+  max-height: calc(100% - 20px);
+  display: flex;
+  flex-direction: column;
+  background: rgba(27, 30, 36, 0.96);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 6px 24px #0008;
+}
+.tool-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px 6px 10px;
+  border-bottom: 1px solid var(--border);
+}
+.tool-panel-title {
+  font-weight: 600;
+  font-size: 13px;
+}
+.tool-panel-body {
+  padding: 8px 10px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  min-height: 0;
+}
+.tool-panel-foot {
+  border-top: 1px solid var(--border);
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: stretch;
+}
+.tool-section {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.tool-section-title {
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.tool-field {
   display: grid;
-  grid-template-columns: 64px 1fr 72px auto;
+  grid-template-columns: 58px 1fr 64px auto;
   align-items: center;
   gap: 6px;
   font-size: 12px;
 }
-.cut-panel .manip-row input[type='range'] {
+.tool-field-label {
+  color: var(--text);
+}
+.tool-field input[type='range'] {
+  width: 100%;
+  min-width: 0;
+}
+.tool-field-number {
   width: 100%;
 }
-.cut-panel .manip-row input[type='number'] {
-  width: 100%;
-}
-.cut-panel .manip-row select {
+.tool-field-select {
   grid-column: 2 / -1;
 }
-.cut-panel .arrange-check {
+.tool-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: 12px;
+}
+.layer-profile-actions {
+  display: flex;
+  gap: 4px;
+}
+.layer-profile-actions button {
+  flex: 1;
+}
+.tool-clear {
+  align-self: flex-start;
 }

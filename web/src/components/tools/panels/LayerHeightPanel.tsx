@@ -1,40 +1,46 @@
 /**
- * The variable layer height panel (T-045): the chart of the selected object's profile, the Adaptive /
- * Smooth / Reset buttons and their sliders, and the brush that adds or subtracts layer height by
- * dragging in the chart. Shown in the manipulation panel of a single selected object (like the height
- * ranges), for Advanced/Expert – the whole object list is one of those modes.
+ * The variable layer height panel (T-046, moved out of the sidebar; the feature is T-045): the chart
+ * of the selected object's profile, the Adaptive / Smooth / Reset buttons and their sliders, and the
+ * brush that adds or subtracts layer height by dragging in the chart.
  *
- * The chart is a plain SVG: Z up the vertical axis, layer height along the horizontal one. Dragging in it
- * applies the brush of the shared algorithm around the Z under the pointer; "Subtract" turns the drag
- * into "thinner layers".
+ * The chart is a plain SVG: Z up the vertical axis, layer height along the horizontal one. Dragging in
+ * it applies the brush of the shared algorithm around the Z under the pointer; "Brush subtracts" turns
+ * the drag into "thinner layers". Every action is one undo step (the whole drag is one).
  */
 import { useMemo, useRef, useState } from 'react';
 import { maxNeighbourHeightDiff, profileHeights } from '@webslicer/shared';
-import { useStore, type PlaterObject } from '../../state/store';
-import { chartFrame, printerLayerLimits } from '../../plater/layerProfile';
-import { SectionHeader } from '../common/SectionHeader';
-import { NumericField } from '../common/NumericField';
-import { fmt } from '../../format';
+import { useStore } from '../../../state/store';
+import { chartFrame, printerLayerLimits } from '../../../plater/layerProfile';
+import { SliderField } from '../fields/SliderField';
+import { ToggleRow } from '../fields/ToggleRow';
+import { ToolPanel } from '../ToolPanel';
+import { fmt } from '../../../format';
 
 /** The chart's size in SVG units (the CSS scales it to the panel width). */
 const W = 170;
 const H = 150;
 
-export function VariableLayerHeightPanel({ o }: { o: PlaterObject }) {
+export function LayerHeightPanel() {
   const settings = useStore((s) => s.profileSettings);
   const setSettings = useStore((s) => s.setProfileSettings);
   const applyAdaptive = useStore((s) => s.applyAdaptive);
   const applySmooth = useStore((s) => s.applySmooth);
   const resetProfile = useStore((s) => s.resetProfile);
   const brushProfile = useStore((s) => s.brushProfile);
+  const close = useStore((s) => s.closeTool);
   const printer = useStore((s) => s.presets.printer.current);
+  const o = useStore((s) => (s.selectedIds.length === 1 ? s.objects.find((x) => x.id === s.selectedIds[0]) : undefined));
   const [subtract, setSubtract] = useState(false);
   const dragging = useRef(false);
 
+  // every hook runs before the guard: the panel closes with the last selection, but a render must
+  // never change the hook order
   const limits = useMemo(() => printerLayerLimits(printer), [printer]);
-  const profile = o.layerProfile || [];
-  const zMax = o.size[2] || 1;
+  const profile = useMemo(() => o?.layerProfile ?? [], [o]);
+  const zMax = o?.size[2] || 1;
   const frame = useMemo(() => chartFrame(profile, limits, zMax, W, H), [profile, limits, zMax]);
+  if (!o) return null;
+
   const hasProfile = profile.length >= 2;
   const heights = profileHeights(profile);
   const minH = heights.length ? Math.min(...heights) : 0;
@@ -55,8 +61,18 @@ export function VariableLayerHeightPanel({ o }: { o: PlaterObject }) {
   };
   const line = frame.points.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
   return (
-    <div className="layer-profile-panel">
-      <SectionHeader title="Variable layer height">
+    <ToolPanel
+      title="Variable layer height"
+      onClose={close}
+      footer={
+        <span className="layer-profile-stats muted small">
+          {hasProfile
+            ? `${heights.length} layers · ${fmt(minH, 3)}–${fmt(maxH, 3)} mm · max jump ${fmt(jumps, 3)} mm`
+            : `Fixed layer height (limits ${fmt(limits.min, 2)}–${fmt(limits.max, 2)} mm)`}
+        </span>
+      }
+    >
+      <div className="layer-profile-actions">
         <button onClick={() => applyAdaptive(o.id)} title="Compute an adaptive profile from the surface slopes">
           Adaptive
         </button>
@@ -66,7 +82,7 @@ export function VariableLayerHeightPanel({ o }: { o: PlaterObject }) {
         <button onClick={() => resetProfile(o.id)} disabled={!hasProfile} title="Back to the object's fixed layer height">
           Reset
         </button>
-      </SectionHeader>
+      </div>
       <svg
         className="layer-profile-chart"
         viewBox={`0 0 ${W} ${H}`}
@@ -101,54 +117,31 @@ export function VariableLayerHeightPanel({ o }: { o: PlaterObject }) {
           </text>
         )}
       </svg>
-      <div className="layer-profile-stats muted small">
-        {hasProfile
-          ? `${heights.length} layers · ${fmt(minH, 3)}–${fmt(maxH, 3)} mm · max jump ${fmt(jumps, 3)} mm`
-          : `Fixed layer height (limits ${fmt(limits.min, 2)}–${fmt(limits.max, 2)} mm)`}
-      </div>
-      <label className="manip-row">
-        <span>Quality</span>
-        <input
-          type="range"
-          min={0}
-          max={1}
-          step={0.05}
-          value={settings.quality}
-          onChange={(e) => setSettings({ quality: Number(e.target.value) })}
-          title="Adaptive quality: 0 = finest, 1 = fastest"
-        />
-        <span className="unit">{Math.round(settings.quality * 100)}%</span>
-      </label>
-      <label className="manip-row">
-        <span>Radius</span>
-        <input
-          type="range"
-          min={0.2}
-          max={10}
-          step={0.2}
-          value={settings.radius}
-          onChange={(e) => setSettings({ radius: Number(e.target.value) })}
-          title="Smoothing radius in mm"
-        />
-        <NumericField
-          text={String(settings.radius)}
-          step={0.2}
-          min={0.2}
-          onText={(t) => {
-            const n = Number(t);
-            if (Number.isFinite(n) && n > 0) setSettings({ radius: n });
-          }}
-        />
-        <span className="unit">mm</span>
-      </label>
-      <label className="arrange-check">
-        <input type="checkbox" checked={settings.keepMin} onChange={(e) => setSettings({ keepMin: e.target.checked })} />
-        Keep minimum
-      </label>
-      <label className="arrange-check">
-        <input type="checkbox" checked={subtract} onChange={(e) => setSubtract(e.target.checked)} />
-        Brush subtracts (drag in the chart)
-      </label>
-    </div>
+      <SliderField
+        label="Quality"
+        value={settings.quality}
+        min={0}
+        max={1}
+        step={0.05}
+        title="Adaptive quality: 0 = finest, 1 = fastest"
+        onChange={(quality) => setSettings({ quality })}
+        format={{
+          show: (v) => `${Math.round(v * 100)}%`,
+          parse: (t) => (Number.isFinite(Number(t.replace('%', ''))) ? Number(t.replace('%', '')) / 100 : undefined),
+        }}
+      />
+      <SliderField
+        label="Radius"
+        value={settings.radius}
+        min={0.2}
+        max={10}
+        step={0.2}
+        unit="mm"
+        title="Smoothing radius in mm"
+        onChange={(radius) => setSettings({ radius })}
+      />
+      <ToggleRow label="Keep minimum" checked={settings.keepMin} onChange={(keepMin) => setSettings({ keepMin })} />
+      <ToggleRow label="Brush subtracts (drag in the chart)" checked={subtract} onChange={setSubtract} />
+    </ToolPanel>
   );
 }

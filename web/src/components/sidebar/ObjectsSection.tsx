@@ -8,12 +8,12 @@ import { ObjectRow } from './ObjectRow';
 import { ObjectManipulation } from './ObjectManipulation';
 import { VolumeManipulation } from './VolumeManipulation';
 import { ArrangeSettingsMenu } from './ArrangeSettingsMenu';
-import { CutPanel } from './CutPanel';
 import { useDeleteSelection, useInstanceActions, useSelectedObjects } from './selection';
 
 /**
  * The object list of the plater: the toolbar above it, the rows with their sub-lists, and the
- * manipulation panel of whatever is selected.
+ * manipulation panel of whatever is selected. Tool options are not here any more (T-046): a tool's
+ * panel is docked next to its button in the 3D view (`components/tools/`).
  */
 export function ObjectsSection() {
   const objects = useStore((s) => s.objects);
@@ -25,8 +25,8 @@ export function ObjectsSection() {
   const clear = useStore((s) => s.clearObjects);
   const transformMode = useStore((s) => s.transformMode);
   const setTransformMode = useStore((s) => s.setTransformMode);
-  const placeOnFace = useStore((s) => s.placeOnFace);
-  const setPlaceOnFace = useStore((s) => s.setPlaceOnFace);
+  const activeTool = useStore((s) => s.activeTool);
+  const openTool = useStore((s) => s.openTool);
   const undo = useStore((s) => s.undo);
   const redo = useStore((s) => s.redo);
   const canUndo = useStore((s) => s.undoStack.length > 0);
@@ -34,8 +34,6 @@ export function ObjectsSection() {
   const autosaveError = useStore((s) => s.autosaveError);
   const discardAutosave = useStore((s) => s.discardAutosave);
   const openDialog = useStore((s) => s.openDialog);
-  const openCut = useStore((s) => s.openCut);
-  const cutOpen = useStore((s) => s.cutOpen);
   const [addMenuFor, setAddMenuFor] = useState<string | null>(null);
   // which objects show their instance sub-list (like the volume list, collapsed by default)
   const [instancesOpen, setInstancesOpen] = useState<Record<string, boolean>>({});
@@ -64,7 +62,8 @@ export function ObjectsSection() {
       ? 'Only objects with a single instance can be merged'
       : 'Merge: select two or more objects with a single instance';
 
-  // T-044: one instance of one object, without modifiers or parts (the tooltip says why)
+  // T-044/T-046: one instance of one object, without modifiers or parts (the tooltip says why).
+  // The button opens the cut panel, which lives in the 3D view's tool dock now.
   const cutTargetObject = selected.length === 1 ? selected[0] : undefined;
   const canCut = !!cutTargetObject && cutTargetObject.volumes.length === 0;
   const cutTitle = cutTargetObject
@@ -101,8 +100,8 @@ export function ObjectsSection() {
           <ToolbarButton
             title="Place on face (F): click a face in the 3D view to lay it flat on the bed"
             icon={ACTION_ICONS.placeOnFace}
-            active={placeOnFace}
-            onClick={() => setPlaceOnFace(!placeOnFace)}
+            active={activeTool === 'placeOnFace'}
+            onClick={() => void openTool('placeOnFace')}
             disabled={!objects.length}
           />
           <span className="tool-sep" aria-hidden="true" />
@@ -116,7 +115,13 @@ export function ObjectsSection() {
             disabled={selected.length !== 1 || instanceCount <= 1}
           />
           <span className="tool-sep" aria-hidden="true" />
-          <ToolbarButton title={cutTitle} icon={ACTION_ICONS.cut} active={cutOpen} onClick={() => openCut()} disabled={!canCut} />
+          <ToolbarButton
+            title={cutTitle}
+            icon={ACTION_ICONS.cut}
+            active={activeTool === 'cut'}
+            onClick={() => void openTool('cut')}
+            disabled={!canCut}
+          />
           <ToolbarButton title={mergeTitle} icon={ACTION_ICONS.merge} onClick={() => void mergeObjects(selectedIds)} disabled={!canMerge} />
           <ToolbarButton
             title="Duplicate"
@@ -181,7 +186,6 @@ export function ObjectsSection() {
       </ul>
       {selected.length === 1 && selectedVolume && <VolumeManipulation o={selected[0]} v={selectedVolume} />}
       {selected.length === 1 && !selectedVolume && <ObjectManipulation o={selected[0]} />}
-      {selected.length === 1 && cutOpen && <CutPanel o={selected[0]} />}
       {selected.length > 1 && <div className="muted small">{selected.length} objects selected</div>}
     </section>
   );

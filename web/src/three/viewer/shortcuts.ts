@@ -3,13 +3,17 @@
  * dialog renders its shortcut line from it, so the two cannot drift apart (CONVENTIONS.md §4 asks for
  * exactly that – a new shortcut used to have to be added in `Viewer.tsx` *and* in `Dialogs.tsx`).
  *
+ * The tool keys (M, R, S, F, C, L, P, V) are **not** listed here: they come from the tool registry
+ * (`tools/registry.ts`), which the key handler asks first (T-046). A tool is therefore opened, listed
+ * in the About dialog and documented by one registry entry.
+ *
  * The order of `SHORTCUTS` is the handler's order and is significant: the chain is an `else if`, so
  * `Ctrl+A` reaches `selectAll` before the plain `A` branch, while `Cmd+A` (no `ctrlKey`) falls through
  * to `arrange` – both as before. `Shift+A` ("arrange selection", T-043) is tested before plain `A`,
- * and `arrange` requires Shift off, so the two never fire for the same keypress. `C` (cut, T-044)
- * keeps Ctrl off like the camera keys and comes after the mode keys, so no earlier branch takes it.
+ * and `arrange` requires Shift off, so the two never fire for the same keypress.
  */
 import { viewByKey } from '../../plater/camera';
+import { toolShortcutEntries, type ToolShortcutEntry } from '../../tools/registry';
 
 /**
  * The Ctrl/Cmd guard a branch of the original handler carried. It was not uniform, so the four
@@ -45,6 +49,24 @@ interface Shortcut {
   aboutAt?: number;
 }
 
+/** The guard of a tool's shortcut, from the registry entry (T-046). */
+function toolCtrl(s: ToolShortcutEntry): CtrlGuard | undefined {
+  return s.noMod ? 'no-mod' : undefined;
+}
+
+/**
+ * The tool shortcuts as table entries, so the handler and the About dialog treat them like the rest
+ * (T-046). `toolShortcutEntries` comes from the registry, so adding a tool adds its key.
+ */
+const TOOL_SHORTCUTS: Shortcut[] = toolShortcutEntries().map((s) => ({
+  id: s.id,
+  keys: s.keys,
+  match: s.match,
+  ctrl: toolCtrl(s),
+  label: s.label,
+  aboutAt: s.aboutAt,
+}));
+
 /** Every shortcut, in the order the handler tests them. */
 export const SHORTCUTS: Shortcut[] = [
   { id: 'views', keys: ['0', '6'], range: true, ctrl: 'no-mod', label: 'views', aboutAt: 10 },
@@ -53,14 +75,7 @@ export const SHORTCUTS: Shortcut[] = [
   { id: 'delete', keys: ['Del'], match: ['Delete', 'Backspace'], label: 'delete', aboutAt: 8 },
   { id: 'addInstance', keys: ['+'], match: ['+', '='], codes: ['NumpadAdd'], label: 'add instance', aboutAt: 6 },
   { id: 'removeInstance', keys: ['−'], match: ['-', '_'], codes: ['NumpadSubtract'], label: 'remove instance', aboutAt: 7 },
-  { id: 'paintSupports', keys: ['L'], match: ['l', 'L'], label: 'paint supports' },
-  { id: 'paintSeam', keys: ['P'], match: ['p', 'P'], label: 'paint seam' },
-  { id: 'placeOnFace', keys: ['F'], match: ['f', 'F'], label: 'place on face' },
-  { id: 'cut', keys: ['C'], match: ['c', 'C'], ctrl: 'no-mod', label: 'cut', aboutAt: 13 },
   { id: 'rename', keys: ['F2'], match: ['F2'], label: 'rename' },
-  { id: 'move', keys: ['M'], match: ['m', 'M'], label: 'move', aboutAt: 1 },
-  { id: 'rotate', keys: ['R'], match: ['r', 'R'], label: 'rotate', aboutAt: 2 },
-  { id: 'scale', keys: ['S'], match: ['s', 'S'], label: 'scale', aboutAt: 3 },
   { id: 'undo', keys: ['Ctrl', 'Z'], match: ['z', 'Z'], ctrl: 'ctrl-or-meta', shift: false, label: 'undo' },
   { id: 'redo', keys: ['Ctrl', 'Shift', 'Z'], match: ['z', 'Z'], ctrl: 'ctrl-or-meta', shift: true, label: 'redo' },
   { id: 'redo', keys: ['Ctrl', 'Y'], match: ['y', 'Y'], ctrl: 'ctrl-or-meta', label: 'redo' },
@@ -68,6 +83,7 @@ export const SHORTCUTS: Shortcut[] = [
   { id: 'arrangeSelection', keys: ['Shift', 'A'], match: ['a', 'A'], ctrl: 'no-ctrl', shift: true, label: 'arrange selection', aboutAt: 5 },
   { id: 'arrange', keys: ['A'], match: ['a', 'A'], ctrl: 'no-ctrl', shift: false, label: 'arrange', aboutAt: 4 },
   { id: 'escape', keys: ['Esc'], match: ['Escape'], label: 'cancel' },
+  ...TOOL_SHORTCUTS,
 ];
 
 /**

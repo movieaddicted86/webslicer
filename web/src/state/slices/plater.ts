@@ -55,9 +55,6 @@ export interface PlaterSlice extends PaintSlice, RangeSlice, CutSlice, ProfileSl
   objects: PlaterObject[];
   selectedIds: string[];
   transformMode: 'translate' | 'rotate' | 'scale';
-  /** "Place on face" tool: the next click on an object face lays that face flat on the bed */
-  placeOnFace: boolean;
-  setPlaceOnFace: (on: boolean) => void;
   /** rotate an object so that the given world-space face normal points down (-Z) */
   placeObjectOnFace: (id: string, worldNormal: Vec3) => void;
   addObjects: (
@@ -339,9 +336,7 @@ export const createPlaterSlice: StateCreator<State, [], [], PlaterSlice> = (set,
       selectedVolumeId: undefined,
       selectedInstanceId: undefined,
     })),
-  setTransformMode: (transformMode) => set({ transformMode, placeOnFace: false }),
-  placeOnFace: false,
-  setPlaceOnFace: (placeOnFace) => set({ placeOnFace }),
+  setTransformMode: (transformMode) => set({ transformMode }),
   placeObjectOnFace: (id, worldNormal) => {
     const o = get().objects.find((x) => x.id === id);
     if (!o) return;
@@ -356,7 +351,8 @@ export const createPlaterSlice: StateCreator<State, [], [], PlaterSlice> = (set,
     const e = new THREE.Euler().setFromQuaternion(next, 'XYZ');
     get().updateInstance(id, inst.id, { rotation: [e.x, e.y, e.z] });
     get().dropToBed(id);
-    set({ placeOnFace: false });
+    // placing is the whole job of the tool: the next click picks normally again
+    get().closeTool();
   },
   dropToBed: (id) => {
     const s = get();

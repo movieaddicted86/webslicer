@@ -1,9 +1,12 @@
 import {
   Combine,
   Copy,
+  Layers3,
   LayoutGrid,
   Minus,
   Move,
+  Paintbrush,
+  Palette,
   PanelBottom,
   Plus,
   Redo2,
@@ -14,6 +17,7 @@ import {
   Scaling,
   Scissors,
   Settings,
+  Spline,
   Split,
   SquarePlus,
   SquareSplitHorizontal,
@@ -60,3 +64,27 @@ export const ACTION_ICONS = {
   save: Save,
   addVolume: SquarePlus,
 } as const;
+
+/**
+ * One icon per tool of the tool bar (T-046). The four editing tools use their `ACTION_ICONS` icon, so
+ * a tool looks the same in the toolbar of the object list and in the tool bar; the paint tools and the
+ * layer height tool have their own pictures.
+ */
+export const TOOL_ICONS = {
+  move: ACTION_ICONS.move,
+  rotate: ACTION_ICONS.rotate,
+  scale: ACTION_ICONS.scale,
+  placeOnFace: ACTION_ICONS.placeOnFace,
+  cut: ACTION_ICONS.cut,
+  /** support enforcers / blockers */
+  paintSupports: Paintbrush,
+  /** seam enforcers / blockers */
+  paintSeam: Spline,
+  /** multi-material extruder painting */
+  paintMmu: Palette,
+  /** variable layer height */
+  layerHeight: Layers3,
+} as const;
+
+/** The icon of the tool bar's close button. */
+export const CLOSE_ICON = X;

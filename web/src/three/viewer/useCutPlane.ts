@@ -14,7 +14,7 @@ import type { SceneRefs } from './types';
 export const CUT_PLANE_NAME = 'cut-plane';
 
 export function useCutPlane(refsRef: RefObject<SceneRefs | null>) {
-  const open = useStore((s) => s.cutOpen);
+  const open = useStore((s) => s.activeTool === 'cut');
   const settings = useStore((s) => s.cutSettings);
   const objects = useStore((s) => s.objects);
   const selectedIds = useStore((s) => s.selectedIds);

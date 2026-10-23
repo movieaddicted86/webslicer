@@ -6,6 +6,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { SHORTCUTS, aboutShortcuts, matchesShortcut, shortcutsBlocked } from './shortcuts';
+import { TOOLS, aboutToolEntries, toolShortcutEntries, toolsInGroup, type ToolDefinition, type ToolId } from '../../tools/registry';
 
 /** A `KeyboardEvent`-shaped object; `matchesShortcut` reads `key`, `code` and the three modifiers. */
 const key = (k: string, mods: { ctrl?: boolean; meta?: boolean; shift?: boolean; code?: string } = {}) =>
@@ -136,15 +137,56 @@ test('the About dialog lists the shortcuts in one line, without duplicates', () 
       'perspective/ortho',
       'zoom to selection',
       'cut',
+      'place on face',
+      'paint supports',
+      'paint seam',
+      'variable layer height',
     ],
   );
   // every entry the dialog prints has keys to print
   assert.ok(about.every((s) => s.keys.length > 0 && (s.range || s.keys.length <= 3)));
-  // the entries the dialog does not print are the mode keys, the paint keys and F2 rename (T-042)
+  // the entries the dialog does not print are the non-tool keys (T-046: paint extruder has no key)
   assert.deepEqual(
     SHORTCUTS.filter((s) => s.aboutAt === undefined)
       .map((s) => s.id)
       .sort(),
-    ['escape', 'paintSeam', 'paintSupports', 'placeOnFace', 'redo', 'redo', 'rename', 'undo'],
+    ['escape', 'redo', 'redo', 'rename', 'undo'],
   );
+});
+
+test('T-046: the tool keys come from the registry, so a tool is one entry there', () => {
+  // every tool with a shortcut has its entry, with the keys of the registry
+  const tools = toolShortcutEntries();
+  for (const t of tools) {
+    assert.ok(
+      SHORTCUTS.some((s) => s.id === t.id && s.keys.join() === t.keys.join()),
+      `${t.id} is in the table with ${t.keys.join()}`,
+    );
+  }
+  // and the About dialog lists exactly the tool definitions that carry an aboutAt
+  const about = aboutToolEntries().map((t) => t.label);
+  assert.ok(about.includes('move') && about.includes('cut') && about.includes('paint supports'));
+  assert.ok(!about.includes('paint extruder'), 'the extruder paint tool has no aboutAt and is not listed');
+  assert.equal(about.length, tools.filter((t) => t.aboutAt !== undefined).length);
+});
+
+test('T-046: a dummy tool needs only a registry entry', () => {
+  // what `toolShortcutEntries`, `aboutToolEntries` and a bar button read is the same array – a copy
+  // of the real one with one more definition shows up in the table and in the About line
+  const dummyId = 'dummy' as ToolId;
+  const dummy: ToolDefinition = {
+    ...TOOLS[0],
+    id: dummyId,
+    title: 'Dummy',
+    shortcut: { keys: ['Y'], match: ['y', 'Y'] },
+    aboutAt: 99,
+  };
+  const tools = [...TOOLS, dummy];
+  const entries = toolShortcutEntries(tools);
+  assert.ok(
+    entries.some((e) => e.id === dummyId && e.keys.join() === 'Y'),
+    'the shortcut table lists it',
+  );
+  assert.equal(aboutToolEntries(tools).at(-1)?.id, dummyId, 'the About line lists it last, by aboutAt');
+  assert.equal(toolsInGroup(dummy.group, tools).filter((t) => t.id === dummyId).length, 1, 'the bar shows it in its group');
 });
