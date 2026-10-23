@@ -403,15 +403,19 @@ before it writes anything. A hand-started server for the suite therefore needs t
 marker copied into it); never point it at your working install.
 
 - Specs by area: `smoke`, `viewer`, `camera`, `sidebar`, `dialogs`, `preview`, `send`, `api-smoke`.
-- `retries: 0`, one worker: a flaky test is a failure, not a retry.
+- `retries: 0`: a flaky test is a failure, not a retry. Locally one worker runs; CI runs **two**
+  (`playwright.config.ts`). Every test gets its own browser context and autosave id; the few tests
+  that read or write the server's printer list or the mock host's upload log take the `server-state`
+  test lock, so two workers cannot see each other's hosts.
+- Specs whose tests only read the sliced result share **one slice per spec** (`sliceOnce` in
+  `e2e/helpers/fixtures.ts`, called from `beforeAll`); the tests load that job into their own page.
 - On failure Playwright keeps a trace, a screenshot and the error context in `test-results/`; in CI each
   shard uploads its own `playwright-report-shard-<n>` artifact.
-- Slicing is the slow part (software WebGL in CI): a full run takes ~20–25 min, so CI runs the suite
-  **sharded over three jobs** (`--shard=1/3` … `3/3`, each with its own app + mock host), weighted by
-  the measured time of each spec (`PWTEST_SHARD_WEIGHTS`, set in the workflow) so the shards carry
-  5 / 9 / 10 min of suite time on a runner instead of 12 / 7 / 5. The Playwright browsers are cached
-  per `package-lock.json`: with a warm cache a shard job takes 6–11 min, and the first run after a
-  dependency bump pays the browser download on all three shards at once.
+- CI runs the whole suite in the **official Playwright image** (`mcr.microsoft.com/playwright:v<version>`,
+  the version taken from `@playwright/test`), so browsers and their system libraries are preinstalled
+  and there is no `playwright install` step. The app image is built **once** in a `build` job and the
+  three shards only load it from the build cache. A push to a branch cancels the run it supersedes;
+  `main` runs are never cancelled.
 
 ### Architecture
 

@@ -177,7 +177,9 @@ jobs:
           E2E_MOCK_DIR: ${{ runner.temp }}/e2e/mock
         run: |
           set -euo pipefail
-          docker run --rm --network host \
+          # `--ipc=host`: the browser's shared memory – the default 64 MB /dev/shm is too small for
+          # several Chromium instances and crashes them (the documented Playwright container setup)
+          docker run --rm --network host --ipc=host \
             --user "$(id -u):$(id -g)" -e HOME=/tmp \
             -v "$GITHUB_WORKSPACE:/work" -w /work \
             -v "$E2E_MOCK_DIR:/mock-data" \
