@@ -20,7 +20,7 @@ export function metaRouter(): express.Router {
   const r = express.Router();
   const json = express.json({ limit: '64mb' });
 
-  r.get('/health', (_req, res) => res.json({ ok: true }));
+  r.get('/health', (_req, res) => sendJson<{ ok: true }>(res, { ok: true }));
 
   r.get('/info', async (_req, res) => {
     sendJson<ServerInfo>(res, await serverInfo());

@@ -64,7 +64,7 @@ export function presetsRouter(): express.Router {
     if (!t) return;
     if (!hasUserPreset(t, req.params.name)) return res.status(404).json({ error: 'user preset not found' });
     removeUserPreset(t, req.params.name);
-    res.json({ ok: true });
+    sendJson(res, { ok: true });
   });
 
   return r;

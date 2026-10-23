@@ -15,6 +15,7 @@
  */
 import { z } from 'zod';
 import { CONFIG_KEY_PATTERN, hasLoneCarriageReturn, isValidConfigKey } from '@webslicer/shared';
+import type { Config } from '@webslicer/shared';
 
 /** One config key; the message names the key as it was sent (quoted, so a newline stays visible as `\n`). */
 export const configKeySchema = z.string({ error: () => 'config keys must be strings' }).regex(CONFIG_KEY_PATTERN, {
@@ -27,7 +28,10 @@ export const configKeySchema = z.string({ error: () => 'config keys must be stri
  * A config that is not an object at all (the older request rule accepted an empty array as "an
  * object") still passes here and reaches the merge empty – the key rule only inspects keys.
  */
-export const configSchema = z.record(configKeySchema, z.string({ error: () => 'config values must be strings' }));
+export const configSchema = z.record(
+  configKeySchema,
+  z.string({ error: () => 'config values must be strings' }),
+) satisfies z.ZodType<Config>;
 
 /** The first config of a slice request whose keys are malformed, or `undefined` (SEC-2). */
 export function invalidKeyInRequest(request: {

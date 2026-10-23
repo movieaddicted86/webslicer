@@ -15,6 +15,7 @@ import { optionSchema } from '../services/meta.js';
 import { ValidationError } from '../errors.js';
 import { arrangeOptionsSchema, copiesOf, parseProjectCreate, projectModelsSchema, projectSliceSchema } from '../validation/projects.js';
 import type { Schema } from '@webslicer/shared';
+import { sendJson } from './common.js';
 
 /** The routes of this router are `async` throughout: Express 5 answers a rejected promise itself. */
 export function projectsRouter(): express.Router {
@@ -45,13 +46,13 @@ export function projectsRouter(): express.Router {
       filaments: body.filaments,
       owner: body.owner,
     });
-    res.status(201).json(project);
+    sendJson(res, project, 201);
   });
 
   r.get('/:id', async (req, res) => {
     const project = await loadProject(req.params.id);
     if (!project) return res.status(404).json({ error: 'project not found' });
-    res.json(project);
+    sendJson(res, project);
   });
 
   r.post('/:id/models', json, async (req, res) => {
@@ -59,14 +60,14 @@ export function projectsRouter(): express.Router {
     if (!found.project) return;
     const body = projectModelsSchema.safeParse(req.body || {});
     if (!body.success) throw new ValidationError(body.error.issues[0]?.message || 'libraryPath required');
-    res.json(await addModelFromLibrary(found.project, body.data.libraryPath, copiesOf(body.data.copies)));
+    sendJson(res, await addModelFromLibrary(found.project, body.data.libraryPath, copiesOf(body.data.copies)));
   });
 
   r.post('/:id/arrange', json, async (req, res) => {
     const found = await withProject(req, res);
     if (!found.project) return;
     const options = arrangeOptionsSchema.parse(req.body || {});
-    res.json(await arrange(found.project, found.schema, options));
+    sendJson(res, await arrange(found.project, found.schema, options));
   });
 
   r.post('/:id/slice', json, async (req, res) => {
@@ -74,7 +75,7 @@ export function projectsRouter(): express.Router {
     if (!found.project) return;
     const body = projectSliceSchema.parse(req.body || {});
     const job = await sliceProject(found.project, found.schema, body);
-    res.status(202).json(job);
+    sendJson(res, job, 202);
   });
 
   return r;

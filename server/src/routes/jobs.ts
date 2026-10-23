@@ -53,12 +53,12 @@ export function jobsRouter(): express.Router {
 
   r.post('/jobs/:id/cancel', (req, res) => {
     if (!cancelJobById(req.params.id)) return res.status(404).json({ error: 'job not cancellable' });
-    res.json({ ok: true });
+    sendJson(res, { ok: true });
   });
 
   r.delete('/jobs/:id', async (req, res) => {
     if (!(await deleteJobById(req.params.id))) return res.status(404).json({ error: 'job not found' });
-    res.json({ ok: true });
+    sendJson(res, { ok: true });
   });
 
   r.post('/jobs/:id/send', json, async (req, res) => {

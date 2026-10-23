@@ -23,6 +23,7 @@ import {
   writeLibraryData,
 } from '../services/library.js';
 import { receiveToFile } from './uploads.js';
+import { sendJson } from './common.js';
 
 /** The routes of this router are `async` throughout: Express 5 answers a rejected promise itself. */
 export function libraryRouter(): express.Router {
@@ -30,7 +31,7 @@ export function libraryRouter(): express.Router {
   const json = express.json({ limit: '64mb' });
 
   r.get('/', async (req, res) => {
-    res.json({ root: config.libraryDir, ...(await listLibrary(String(req.query.path || ''))) });
+    sendJson(res, { root: config.libraryDir, ...(await listLibrary(String(req.query.path || ''))) });
   });
 
   r.get('/file', async (req, res) => {
@@ -53,17 +54,17 @@ export function libraryRouter(): express.Router {
     } finally {
       await fsp.rm(tmp, { force: true }).catch(() => undefined);
     }
-    res.json({ ok: true, path: libraryRelativePath(target), size: bytes });
+    sendJson(res, { ok: true, path: libraryRelativePath(target), size: bytes });
   });
 
   r.post('/mkdir', json, async (req, res) => {
     const body = libraryMkdirSchema.parse(req.body ?? {});
-    res.json({ ok: true, ...(await makeLibraryDir(body.path, body.name)) });
+    sendJson(res, { ok: true, ...(await makeLibraryDir(body.path, body.name)) });
   });
 
   r.delete('/file', async (req, res) => {
     await deleteLibraryEntry(String(req.query.path || ''));
-    res.json({ ok: true });
+    sendJson(res, { ok: true });
   });
 
   // save the current plater as a 3MF project into the library
@@ -72,13 +73,13 @@ export function libraryRouter(): express.Router {
     if (!parsed.success) return res.status(400).json({ error: firstIssueMessage(parsed.error, 'no objects') });
     const buf = await libraryProject3mf(req.body);
     const target = await libraryTargetChecked(String(req.query.path || ''), String(req.query.name || 'project'), '.3mf');
-    res.json({ ok: true, ...(await writeLibraryData(target, buf)) });
+    sendJson(res, { ok: true, ...(await writeLibraryData(target, buf)) });
   });
 
   // copy a job's output (G-code) into the library
   r.post('/gcode', json, async (req, res) => {
     const body = libraryGcodeSchema.parse(req.body ?? {});
-    res.json({ ok: true, ...(await copyJobOutput(body.jobId, body.path, body.name)) });
+    sendJson(res, { ok: true, ...(await copyJobOutput(body.jobId, body.path, body.name)) });
   });
 
   return r;

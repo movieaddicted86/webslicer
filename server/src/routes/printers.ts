@@ -41,7 +41,7 @@ export function printersRouter(): express.Router {
   });
   r.delete('/printers/:id', async (req, res) => {
     if (!(await deletePrinter(req.params.id))) return res.status(404).json({ error: 'printer not found' });
-    res.json({ ok: true });
+    sendJson(res, { ok: true });
   });
   r.post('/printers/:id/test', async (req, res) => {
     const p = await getPrinter(req.params.id);

@@ -35,7 +35,7 @@ export function autosaveRouter(): express.Router {
     const id = isAutosaveClientId(req.params.client);
     if (!id) return badRequest(res, 'invalid client id');
     await deleteAutosave(id);
-    res.json({ ok: true });
+    sendJson(res, { ok: true });
   });
 
   return r;

@@ -37,7 +37,7 @@ export function modelsRouter(): express.Router {
         throw new ValidationError(`cannot parse STL: ${(e as Error).message}`);
       }
     });
-    res.json(stored);
+    sendJson(res, stored);
   });
 
   // ---- STEP conversion (T-009) --------------------------------------------
@@ -66,7 +66,7 @@ export function modelsRouter(): express.Router {
 
   r.delete('/models/:id', async (req, res) => {
     await deleteModel(path.basename(req.params.id));
-    res.json({ ok: true });
+    sendJson(res, { ok: true });
   });
 
   // ---- cut (T-044) ---------------------------------------------------------
