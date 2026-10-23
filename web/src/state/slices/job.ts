@@ -4,7 +4,7 @@
  */
 import type { StateCreator } from 'zustand';
 import { api, autosaveApi, type Config, type PresetType, type SliceRequest } from '../../api';
-import { encodeMmu, encodePaint } from '../../three/paint';
+import { encodeMmu, encodePaint } from '../../plater/paintCodec';
 import { decodeVector } from '../../values';
 import { parseThumbnailSpec, placementMatrix } from '@webslicer/shared';
 import { clientId } from '../client';

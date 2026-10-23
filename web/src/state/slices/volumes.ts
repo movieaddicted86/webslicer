@@ -2,15 +2,24 @@
  * The plater's sub-volumes (q4-web-store): parts, modifiers, support enforcers/blockers and negative
  * volumes of an object, and their uploads. Split out of `plater.ts`; `createPlaterSlice` spreads this
  * creator into itself.
+ *
+ * The menu's primitives and file imports come through `plater/meshOps` (the three.js seam), so this
+ * slice and the component stay free of three.js imports.
  */
+import { bedShapeOf } from '@webslicer/shared';
 import { api } from '../../api';
-import { geometryToStl } from '../../three/geometry';
+import { geometryToStl } from '../../plater/meshInfo';
+import { createPrimitive, loadModelFile, type PrimitiveShape } from '../../plater/meshOps';
 import { makeVolume } from '../../plater/objects';
-import type { NewVolumeInput, PlaterVolume, SlicePart } from '../types';
+import { VOLUME_LABELS, type NewVolumeInput, type PlaterVolume, type SlicePart } from '../types';
 
 export interface VolumeSlice {
   /** add a sub-volume to an object and upload its mesh; one undo step */
   addVolume: (objectId: string, input: NewVolumeInput) => Promise<void>;
+  /** add a primitive sub-volume, sized and placed like PrusaSlicer's Add volume menu */
+  addPrimitiveVolume: (objectId: string, type: NewVolumeInput['type'], shape: PrimitiveShape) => Promise<void>;
+  /** load a mesh file as a sub-volume of the given type */
+  addVolumeFromFile: (objectId: string, file: File, type: NewVolumeInput['type']) => Promise<void>;
   updateVolume: (objectId: string, volumeId: string, patch: Partial<PlaterVolume>) => void;
   removeVolume: (objectId: string, volumeId: string) => void;
   selectVolume: (objectId: string, volumeId?: string) => void;
@@ -41,6 +50,29 @@ export const createVolumeSlice: SlicePart<VolumeSlice> = (set, get) => ({
       sliceDirty: true,
     }));
     await get().uploadVolume(objectId, v);
+  },
+  addPrimitiveVolume: async (objectId, type, shape) => {
+    const s = get();
+    const o = s.objects.find((x) => x.id === objectId);
+    if (!o) return;
+    const bed = bedShapeOf(s.presets.printer.current);
+    const side = Math.max(5, 0.1 * Math.max(bed.max[0] - bed.min[0], bed.max[1] - bed.min[1]));
+    const geometry = createPrimitive(shape, side, [o.size[0], o.size[1], o.size[2]]);
+    geometry.computeBoundingBox();
+    const bb = geometry.boundingBox;
+    if (!bb) return;
+    const h = bb.max.z - bb.min.z;
+    // modifiers etc. start at the object centre; slabs and new parts sit on the bed
+    const position: [number, number, number] = shape === 'slab' || type === 'ModelPart' ? [0, 0, h / 2] : [0, 0, o.size[2] / 2];
+    await get().addVolume(objectId, { name: `${VOLUME_LABELS[type]} ${shape}`, type, geometry, position });
+  },
+  addVolumeFromFile: async (objectId, file, type) => {
+    try {
+      const models = await loadModelFile(file);
+      for (const m of models) await get().addVolume(objectId, { name: m.name, type, geometry: m.geometry });
+    } catch (e) {
+      get().toast('error', (e as Error).message);
+    }
   },
   updateVolume: (objectId, vid, patch) =>
     set((s) => ({

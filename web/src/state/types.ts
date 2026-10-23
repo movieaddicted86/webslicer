@@ -7,7 +7,7 @@
  * still says what it contributes.
  */
 import type { StateCreator } from 'zustand';
-import * as THREE from 'three';
+import type * as THREE from 'three';
 import type {
   Config,
   JobRecord,

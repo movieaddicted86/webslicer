@@ -16,7 +16,7 @@ import {
   type MeshStats,
   type Vec3,
 } from '@webslicer/shared';
-import { geometrySoup } from '../three/geometry';
+import { geometrySoup } from './meshInfo';
 import type { PlaterObject } from '../state/types';
 
 /** One piece of an object: its soup in its own frame and the matrix into the object's frame. */

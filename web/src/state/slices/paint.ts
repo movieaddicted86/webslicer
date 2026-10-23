@@ -8,8 +8,9 @@
  * registry, so both ways in (the bar/shortcut and this action) run the same lifecycle.
  */
 import { api } from '../../api';
-import { remapPaint, subdivideForPainting, type PaintKind } from '../../three/paint';
-import { geometryToStl } from '../../three/geometry';
+import { remapPaint, type PaintKind } from '../../plater/paintCodec';
+import { geometryToStl } from '../../plater/meshInfo';
+import { subdivideForPainting } from '../../plater/meshOps';
 import { clampExtruder } from '../../plater/extruders';
 import { paintToolOf } from '../../tools/paintKind';
 import type { SlicePart } from '../types';

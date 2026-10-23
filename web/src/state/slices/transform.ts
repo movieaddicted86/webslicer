@@ -2,11 +2,11 @@
  * The plater's transforms (q4-web-store): the gizmo mode, "place on face", drop to bed, arrangement
  * and its settings. Split out of `plater.ts`; `createPlaterSlice` spreads this creator into itself.
  */
-import * as THREE from 'three';
 import { bedShapeOf } from '@webslicer/shared';
 import type { Vec3 } from '../../api';
 import { arrangePlan, packOptionsOf, withPlacements, type ArrangeSettings } from '../../plater/arrangement';
 import { loadArrangeSettings, saveArrangeSettings } from '../../plater/arrangeSettings';
+import { rotationForFace } from '../../plater/meshOps';
 import { instanceBounds, pickedInstanceId, selectedInstance } from '../../plater/objects';
 import type { State, SlicePart } from '../types';
 
@@ -44,15 +44,10 @@ export const createTransformSlice: SlicePart<TransformSlice> = (set, get) => ({
     const o = get().objects.find((x) => x.id === id);
     if (!o) return;
     get().recordHistory();
-    const n = new THREE.Vector3(...worldNormal).normalize();
-    if (n.lengthSq() < 0.5) return;
-    const down = new THREE.Vector3(0, 0, -1);
-    const q = new THREE.Quaternion().setFromUnitVectors(n, down);
     const inst = selectedInstance(get(), o);
-    const cur = new THREE.Quaternion().setFromEuler(new THREE.Euler(inst.rotation[0], inst.rotation[1], inst.rotation[2], 'XYZ'));
-    const next = q.multiply(cur);
-    const e = new THREE.Euler().setFromQuaternion(next, 'XYZ');
-    get().updateInstance(id, inst.id, { rotation: [e.x, e.y, e.z] });
+    const rotation = rotationForFace(worldNormal, inst.rotation);
+    if (!rotation) return;
+    get().updateInstance(id, inst.id, { rotation });
     get().dropToBed(id);
     // placing is the whole job of the tool: the next click picks normally again
     get().closeTool();

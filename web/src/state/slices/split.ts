@@ -4,8 +4,9 @@
  * itself.
  */
 import { api } from '../../api';
-import { encodeMmu, encodePaint } from '../../three/paint';
-import { geometrySize, geometryToStl, objectFrameOffset, shellGeometry } from '../../three/geometry';
+import { encodeMmu, encodePaint } from '../../plater/paintCodec';
+import { geometrySize, geometryToStl, objectFrameOffset } from '../../plater/meshInfo';
+import { shellGeometry } from '../../plater/meshOps';
 import { splitShells } from '../../plater/split';
 import { mintVolumeId } from '../../plater/objects';
 import type { PlaterVolume, SlicePart } from '../types';

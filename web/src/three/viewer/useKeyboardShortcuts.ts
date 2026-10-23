@@ -11,7 +11,7 @@ import { useEffect, useRef } from 'react';
 import { useStore, pickedInstanceId } from '../../state/store';
 import { matchesShortcut, shortcutsBlocked } from './shortcuts';
 import { toolForShortcut } from '../../tools/registry';
-import { viewByKey } from '../../plater/camera';
+import { viewByKey } from './cameraMath';
 import type { CamRequest } from './types';
 
 export function useKeyboardShortcuts(onCamera: (req: CamRequest) => void, toggleOrtho: () => void) {

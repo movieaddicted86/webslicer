@@ -8,8 +8,8 @@
  * (`./merge`), shell splitting (`./split`) and transforms/arrangement (`./transform`).
  */
 import { api, type Config, type LayerRangeInput, type Placement } from '../../api';
-import { decodeMmu, decodePaint } from '../../three/paint';
-import { geometryToStl } from '../../three/geometry';
+import { decodeMmu, decodePaint } from '../../plater/paintCodec';
+import { geometryToStl } from '../../plater/meshInfo';
 import { apply as applyMatrix, bedShapeOf, placementMatrix } from '@webslicer/shared';
 import { IDENTITY_PLACEMENT, makeVolume, mintInstanceId, mintObjectId, mintRangeId, mintVolumeId } from '../../plater/objects';
 import type { NewVolumeInput, PlaterObject, SlicePart } from '../types';
@@ -20,7 +20,7 @@ export interface ObjectSlice {
   addObjects: (
     items: Array<{
       name: string;
-      geometry: Parameters<typeof geometryToStl>[0];
+      geometry: PlaterObject['geometry'];
       config?: Config;
       extruder?: number;
       volumes?: NewVolumeInput[];

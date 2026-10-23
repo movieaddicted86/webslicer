@@ -7,7 +7,7 @@ import type * as THREE from 'three';
 import type { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import type { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
 import type { MarkerKind, ParsedGcode } from '../../gcode/types';
-import type { CameraView } from '../../plater/camera';
+import type { CameraView } from './cameraMath';
 
 export interface InstanceNode {
   /** scene node carrying the instance transform; its children are in object-local coordinates */

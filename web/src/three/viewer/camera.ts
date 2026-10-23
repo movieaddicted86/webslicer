@@ -5,14 +5,14 @@
  */
 import * as THREE from 'three';
 import { bedShapeOf } from '@webslicer/shared';
-import { fitFrame, orthoExtents, orthoFitDistance, orthoFrustumHeight } from '../../plater/camera';
+import { fitFrame, orthoExtents, orthoFitDistance, orthoFrustumHeight } from './cameraMath';
 import { useStore, pickedInstanceId } from '../../state/store';
 import type { ParsedGcode } from '../../gcode/types';
 import type { SceneRefs } from './types';
 
 export const FOV = 45;
 export const DEFAULT_BED = '0x0,200x0,200x200,0x200';
-/** Where the perspective/orthographic choice is remembered (see `plater/camera.ts`). */
+/** Where the perspective/orthographic choice is remembered (see `viewer/cameraMath.ts`). */
 const ORTHO_KEY = 'webslicer.camera.ortho';
 
 export function readOrthoPref(): boolean {

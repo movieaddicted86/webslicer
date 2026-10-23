@@ -2,9 +2,9 @@
  * The plater's merge (q4-web-store): merging several objects into the first one. Split out of
  * `plater.ts`; `createPlaterSlice` spreads this creator into itself.
  */
-import * as THREE from 'three';
 import { placementMatrix, transferredVolumePlacement } from '@webslicer/shared';
-import { geometrySize } from '../../three/geometry';
+import { geometrySize } from '../../plater/meshInfo';
+import { geometryFromVertices } from '../../plater/meshOps';
 import { mergeVolumes } from '../../plater/info';
 import { mintVolumeId } from '../../plater/objects';
 import type { PlaterVolume, SlicePart } from '../types';
@@ -45,10 +45,7 @@ export const createMergeSlice: SlicePart<MergeSlice> = (set, get) => ({
       }
       // the source's own mesh becomes a ModelPart at exactly its world position
       for (const mv of mergeVolumes(targetInstance, sourceInstance, { ...src, volumes: [] })) {
-        const geometry = new THREE.BufferGeometry();
-        geometry.setAttribute('position', new THREE.Float32BufferAttribute(Array.from(mv.vertices), 3));
-        geometry.computeVertexNormals();
-        geometry.computeBoundingBox();
+        const geometry = geometryFromVertices(mv.vertices);
         volumes.push({
           id: mintVolumeId(),
           name: src.name,

@@ -12,7 +12,7 @@ import {
   viewDef,
   viewDirection,
   type CameraView,
-} from './camera';
+} from './cameraMath';
 
 const FOV = 45;
 const ASPECT = 16 / 9;
