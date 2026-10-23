@@ -9,6 +9,7 @@ import { registerProjectLifecycle } from './services/projects.js';
 import { loadJobsFromDisk, setSchema } from './jobs.js';
 import { installShutdownHandlers } from './shutdown.js';
 import { seedSamples } from './samples.js';
+import { startUpdateCheck } from './services/updateCheck.js';
 
 async function main() {
   ensureDirs();
@@ -48,6 +49,11 @@ async function main() {
   );
 
   const app = createApp();
+
+  // T-058: asks GitHub once after a minute and then daily, in the background; `off` starts nothing
+  const stopUpdateCheck = await startUpdateCheck();
+  process.once('SIGTERM', stopUpdateCheck);
+  process.once('SIGINT', stopUpdateCheck);
 
   const server = app.listen(config.port, config.host, () => {
     console.log(`[webslicer] listening on http://${config.host}:${config.port}`);
