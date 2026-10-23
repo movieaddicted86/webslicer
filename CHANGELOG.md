@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- **Safety (S1-e – configuration limits in the UI):** the checks the server runs before slicing
+  (S1-d) now run in the editor as well, over the presets the plater would send and through the same
+  shared `checkConfigLimits` – no second copy of any limit. A blocking value (hotend/bed/chamber
+  temperature, nozzle diameter, layer height above twice the nozzle) reddens the field with the
+  allowed window under it and disables **Slice now**, whose tooltip lists the reasons; a soft range
+  of the filament type only turns the field yellow and adds a warning badge, and the slice still runs
+  with the server's warning on the job as before. The sidebar lists every issue and a click opens the
+  settings tab at that field (raising the visibility mode when the option is hidden, and selecting
+  the extruder of a multi-material issue). The check is debounced (150 ms) and memoised per config
+  combination, so typing stays responsive. The server remains the authority.
+
 - **Maintenance (T-040 – quick wins from the external review, Q-006):**
   _Layers:_ the audit log lives in `server/src/services/audit.ts` (it serves the MCP tools and the
   send overrides, not only MCP), `objectIsOutside` is a pure helper in `web/src/plater/plateCheck.ts`

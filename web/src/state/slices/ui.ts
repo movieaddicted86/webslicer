@@ -5,7 +5,12 @@
 import type { StateCreator } from 'zustand';
 import { api, type InstalledPrinter, type Mode, type PhysicalPrinter, type Vendor } from '../../api';
 import { loadSelection, saveSelection } from './preset';
+import { MODE_RANK } from '../../values';
 import type { State, Toast, View } from '../types';
+import type { IssueTarget } from '../../safety/configIssues';
+
+/** The settings view a limit issue points at, with the extruder slot an issue of a filament may name. */
+export type SettingFocus = IssueTarget;
 
 export interface UiSlice {
   ready: boolean;
@@ -19,6 +24,10 @@ export interface UiSlice {
   toast: (kind: Toast['kind'], text: string, action?: Toast['action']) => void;
   dismissToast: (id: number) => void;
   setView: (v: View) => void;
+  /** open the settings tab and field of a configuration-limit issue (S1-e) */
+  focusSetting: (target: SettingFocus) => void;
+  /** where the settings view should jump to; cleared once it did */
+  settingFocus?: SettingFocus;
   setMode: (m: Mode) => void;
   openDialog: (d: State['dialog'], payload?: unknown) => void;
   closeDialog: () => void;
@@ -71,6 +80,17 @@ export const createUiSlice: StateCreator<State, [], [], UiSlice> = (set, get) =>
   setMode: (mode) => {
     set({ mode });
     saveSelection(get());
+  },
+  focusSetting: (target) => {
+    // a focus is a one-shot request: the settings view scrolls to the field and clears it. A field
+    // hidden by the current visibility mode is revealed first – otherwise the jump would land on a
+    // tab without the option the message named.
+    const { schema, mode } = get();
+    const needed = schema?.options[target.key]?.mode;
+    const raise = needed && MODE_RANK[needed] > MODE_RANK[mode] ? { mode: needed } : {};
+    set({ ...raise, view: target.section, settingFocus: target });
+    // the mode is part of the remembered selection, like `setMode` keeps it
+    if (needed && raise.mode) saveSelection(get());
   },
   openDialog: (dialog, dialogPayload) => set({ dialog, dialogPayload }),
   closeDialog: () => set({ dialog: undefined, dialogPayload: undefined, pendingSwitch: undefined }),

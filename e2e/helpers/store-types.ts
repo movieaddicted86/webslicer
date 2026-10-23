@@ -60,6 +60,8 @@ export interface E2EJob {
   presets?: { printer: string; print?: string; filament?: string[] };
   /** the highest temperatures the request asks for (S1-d) */
   temperatures?: { hotend: number; bed: number };
+  /** the configuration-limit warnings the job was sliced with (S1-d) */
+  configIssues?: Array<{ rule: string; severity: string; key: string; message: string }>;
   info?: {
     warnings?: unknown[];
     estimatedTime?: unknown;
