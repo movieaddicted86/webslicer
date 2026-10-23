@@ -419,8 +419,10 @@ marker copied into it); never point it at your working install.
   run it supersedes; `main` runs are never cancelled.
 - `PWTEST_SHARD_WEIGHTS` is Playwright-internal (undocumented): it weights the shard sizes, while
   Playwright still hands out contiguous **file groups**, so only the boundaries move. The current
-  weights make the groups 41 / 26 / 21 / 29 tests across the 117-test suite. After a Playwright bump
-  (the Dependabot `playwright` group) re-check the assignment with
+  weights make the groups 33 / 23 / 32 / 29 tests across the 117-test suite, and keep each locked
+  spec (`preview`, `send`, `dialogs`, `api-smoke`) in a shard of its own: Playwright's `lock` applies
+  to the whole file group, so two locked specs in one shard run strictly one after the other. After a
+  Playwright bump (the Dependabot `playwright` group) re-check the assignment with
   `for i in 1 2 3 4; do npx playwright test --list --shard=$i/4; done` (with `E2E_MOCK_URL` and
   `E2E_MOCK_DIR` set, otherwise the send tests are skipped and the counts shift). If the variable is
   ever ignored, the shards fall back to the count-based split – correct, just less balanced.

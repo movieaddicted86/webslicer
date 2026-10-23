@@ -114,15 +114,18 @@ jobs:
       # since 1.4x and still there in 1.64.1). It weights the shards; Playwright still hands out
       # **contiguous file groups**, so only the boundaries move. Without it the split is by test count
       # (an alphabetical walk), which is what put `preview` and `sidebar` into one shard.
-      # The numbers are the measured test counts of the four file groups (41 / 26 / 21 / 29); the
-      # times behind them are in `.ai/reports/T-057.md`. **After a Playwright bump** (the Dependabot
-      # `playwright` group) re-check the assignment locally:
+      # The numbers are the test counts of the four file groups (33 / 23 / 32 / 29 of 117); the times
+      # behind them are in `.ai/reports/T-057.md`. The split also keeps **at most one locked file per
+      # shard**: Playwright attaches a `lock` to the whole file group, so two locked files in one shard
+      # run strictly one after the other – that cost 10.6 min in run 39946406732, where `preview` and
+      # `send` shared a shard. **After a Playwright bump** (the Dependabot `playwright` group)
+      # re-check the assignment locally:
       #   for i in 1 2 3 4; do npx playwright test --list --shard=$i/4; done
       # with `E2E_MOCK_URL`/`E2E_MOCK_DIR` set (otherwise the send tests are skipped and the counts
       # shift). If the env var is ever dropped, the shards fall back to the count-based split – still
       # correct, just less balanced.
       # quoted on purpose: unquoted `a:b:c:d` is a sexagesimal integer to YAML 1.1 parsers
-      PWTEST_SHARD_WEIGHTS: '41:26:21:29'
+      PWTEST_SHARD_WEIGHTS: '33:23:32:29'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
