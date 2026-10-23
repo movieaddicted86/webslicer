@@ -1,6 +1,7 @@
-import { useRef } from 'react';
+import { useRef, useMemo } from 'react';
 import { useStore } from '../state/store';
 import { VIEWS } from '../plater/camera';
+import { printerLayerLimits } from '../plater/layerProfile';
 import { useKeyboardShortcuts } from './viewer/useKeyboardShortcuts';
 import type { SceneRefs } from './viewer/types';
 import { useGizmo } from './viewer/useGizmo';
@@ -27,6 +28,9 @@ export function Viewer() {
   const transformMode = useStore((s) => s.transformMode);
   const bedShape = useStore((s) => s.presets.printer.current.bed_shape || '0x0,200x0,200x200,0x200');
   const maxHeight = useStore((s) => Number(s.presets.printer.current.max_print_height || 200));
+  const printer = useStore((s) => s.presets.printer.current);
+  // the layer height gradient's range (T-045); memoised so it does not re-run the object effect
+  const layerLimits = useMemo(() => printerLayerLimits(printer), [printer]);
   const view = useStore((s) => s.view);
   const gcode = useStore((s) => s.gcode);
   const range = useStore((s) => s.previewLayerRange);
@@ -71,6 +75,7 @@ export function Viewer() {
     gcode,
     paintMode,
     shells,
+    layerLimits,
   });
   useGizmo(refsRef, { objects, selectedIds, selectedVolumeId, selectedInstanceId, transformMode, view, paintMode });
 

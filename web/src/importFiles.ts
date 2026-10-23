@@ -24,6 +24,8 @@ type ImportItem = {
   seamPaint?: string;
   mmuPaint?: string;
   ranges?: LayerRangeInput[];
+  /** variable layer height profile (T-045) */
+  layerProfile?: number[];
 };
 
 export async function importFiles(files: FileList | File[]) {
@@ -81,6 +83,7 @@ export async function importFiles(files: FileList | File[]) {
                 seamPaint: po.seamPaint,
                 mmuPaint: po.mmuPaint,
                 ranges: po.ranges,
+                layerProfile: po.layerProfile,
                 instances: po.instances.map((m) => placementFromMatrix(m)),
               };
               // restore sub-volumes (parts, modifiers, support enforcers/blockers) from the triangle ranges

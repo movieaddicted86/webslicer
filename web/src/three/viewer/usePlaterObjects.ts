@@ -7,10 +7,11 @@
 import { useEffect } from 'react';
 import type { RefObject } from 'react';
 import * as THREE from 'three';
-import { bedShapeOf } from '@webslicer/shared';
+import { bedShapeOf, type LayerLimits } from '@webslicer/shared';
 import { boxOutside } from '../../plater/plateCheck';
 import { instanceBounds, selectedInstance, type PlaterObject, type PlaterVolume } from '../../state/store';
 import { paintToColors, type PaintKind } from '../paint';
+import { layerHeightColors } from '../heightColors';
 import type { ParsedGcode } from '../../gcode/types';
 import type { View } from '../../state/types';
 import { EXTRUDER_COLORS, OBJECT_COLOR, OUTSIDE_COLOR, SELECTED_COLOR, VOLUME_COLORS } from './colors';
@@ -65,10 +66,31 @@ interface PlaterObjectsOptions {
   paintMode?: PaintKind;
   /** "Shells": the plater meshes stay visible over the toolpaths */
   shells: boolean;
+  /** the printer's layer height limits, the range of the height gradient (T-045) */
+  layerLimits: LayerLimits;
+}
+
+/**
+ * The height colours of a geometry (T-045). A profile of several hundred pairs is recomputed on every
+ * transform drag otherwise, so the last result is kept per geometry and profile. Geometry is replaced
+ * when the mesh changes (cut, repair), which drops the entry with it.
+ */
+const heightColorCache = new WeakMap<THREE.BufferGeometry, { key: string; colors: Float32Array }>();
+
+function cachedHeightColors(geometry: THREE.BufferGeometry, profile: number[], limits: LayerLimits): Float32Array | undefined {
+  const pos = geometry.getAttribute('position') as THREE.BufferAttribute | undefined;
+  if (!pos) return undefined;
+  const key = `${limits.min}:${limits.max}|${profile.join(',')}`;
+  const hit = heightColorCache.get(geometry);
+  if (hit && hit.key === key) return hit.colors;
+  const colors = layerHeightColors(pos.array, profile, limits);
+  if (colors) heightColorCache.set(geometry, { key, colors });
+  return colors;
 }
 
 export function usePlaterObjects(refsRef: RefObject<SceneRefs | null>, options: PlaterObjectsOptions) {
-  const { objects, selectedIds, selectedVolumeId, selectedInstanceId, view, bedShape, maxHeight, gcode, paintMode, shells } = options;
+  const { objects, selectedIds, selectedVolumeId, selectedInstanceId, view, bedShape, maxHeight, gcode, paintMode, shells, layerLimits } =
+    options;
   useEffect(() => {
     const refs = refsRef.current;
     if (!refs) return;
@@ -157,11 +179,26 @@ export function usePlaterObjects(refsRef: RefObject<SceneRefs | null>, options: 
           mat.color.set(0xffffff);
           mat.needsUpdate = true;
         } else {
-          if (mat.vertexColors) {
-            mat.vertexColors = false;
+          // a variable layer height profile colours the object in the preview's height gradient
+          // (T-045); paint takes precedence over it, the profile over the ranges
+          const heights = !paintMode ? cachedHeightColors(o.geometry, o.layerProfile || [], layerLimits) : undefined;
+          if (heights) {
+            const existing = inode.mesh.geometry.getAttribute('color') as THREE.BufferAttribute | undefined;
+            if (!existing || existing.array !== heights) {
+              inode.mesh.geometry.setAttribute('color', new THREE.BufferAttribute(heights, 3));
+            } else {
+              existing.needsUpdate = true;
+            }
+            mat.vertexColors = true;
+            mat.color.set(0xffffff);
             mat.needsUpdate = true;
+          } else {
+            if (mat.vertexColors) {
+              mat.vertexColors = false;
+              mat.needsUpdate = true;
+            }
+            mat.color.set(outside ? OUTSIDE_COLOR : bodySelected ? SELECTED_COLOR : base);
           }
-          mat.color.set(outside ? OUTSIDE_COLOR : bodySelected ? SELECTED_COLOR : base);
         }
         mat.emissive.set(bodySelected && !paintMode ? 0x16304a : 0x000000);
 
@@ -272,5 +309,5 @@ export function usePlaterObjects(refsRef: RefObject<SceneRefs | null>, options: 
     disposeRemovedGeometries(removedInstances, live);
     // `refsRef` is a stable ref object owned by the Viewer; its content changes without a re-render
     // eslint-disable-next-line react-hooks/exhaustive-deps -- stable ref, not a dependency
-  }, [objects, selectedIds, selectedVolumeId, selectedInstanceId, view, bedShape, maxHeight, gcode, paintMode, shells]);
+  }, [objects, selectedIds, selectedVolumeId, selectedInstanceId, view, bedShape, maxHeight, gcode, paintMode, shells, layerLimits]);
 }
