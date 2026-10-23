@@ -39,6 +39,14 @@ updates:
         patterns:
           - 'vite'
           - '@vitejs/plugin-react'
+      # T-057: CI runs the E2E suite in `mcr.microsoft.com/playwright:v<version>`, derived from this
+      # package at run time – so a bump of the package moves the container too, in one PR.
+      playwright:
+        applies-to: version-updates
+        patterns:
+          - '@playwright/test'
+          - 'playwright'
+          - 'playwright-core'
       typescript:
         applies-to: version-updates
         patterns:
