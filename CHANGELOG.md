@@ -2,6 +2,27 @@
 
 ## Unreleased
 
+- **Updates (T-058 – "a new version is available"):** a self-hosted install now notices when the
+  repository has moved on, without ever updating itself. The **server** checks `GET
+/api/update-status`: about a minute after start and then daily it asks the GitHub REST API for the
+  head of the branch the build came from (`GIT_BRANCH`, default `main`) and for the newest release
+  tag, compares the head with the build's `GIT_COMMIT` (via `/compare/<sha>...<branch>` `ahead_by`)
+  and reports `current`, `latest`, `behind`, `url`, `checkedAt`, `enabled` and the tag. A newer tag
+  wins over a commit count; `unknown` (a build without a stamp) only reports tags. The answer is
+  cached in memory and in the data dir, the single check is timeout-bounded (5 s) and **failure is
+  silent** – offline, rate limit or a 403 keeps the last result, logs at debug and never blocks or
+  crashes anything. The contract (`shared/src/types/update.ts`) is validated by hand in `shared`
+  (which stays dependency-free) and by a runtime check on the server. The **UI** is a quiet chip in
+  the top bar ("Update available · 3 commits behind" / "· v1.1.0", accessible `role="status"` with
+  a label and a link to the compare/release page) plus one row in the About dialog; the ✕ dismisses
+  it for that `latest` only (`localStorage`), a newer commit shows it again, and nothing appears when
+  the install is current or the check is off. **Opt-out and privacy:**
+  `WEBSLICER_UPDATE_CHECK=off` stops every outbound request. The image learns its commit and branch
+  through the `GIT_COMMIT`/`GIT_BRANCH` build args (CI and the Proxmox installer pass them, Compose
+  reads them from the environment); the installer also refreshes them in
+  `/etc/webslicer/webslicer.env` on every update. No new runtime dependency – the check uses the
+  global `fetch`.
+
 - **Docs (T-056 – short README, grouped documentation, generated screenshots):** the README is a
   landing page now (pitch, hero image, feature highlights, quick start, a tour with five screenshots,
   a documentation index, contributing, license – 110 lines instead of 500). Its details moved into

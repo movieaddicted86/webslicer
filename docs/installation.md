@@ -65,6 +65,35 @@ archive is extracted. For a custom AppImage pass `PRUSASLICER_SHA256` (build arg
 variable for the installer, persisted in `/etc/webslicer/installer.env`). Without it, a custom URL or
 another version is downloaded unverified and the log says so.
 
+## Update notice
+
+A self-hosted WebSlicer tells you when the repository has moved on, but never updates itself. About a
+minute after start and then once a day the **server** asks the GitHub REST API for the head of the
+branch it was built from (`GIT_BRANCH`, default `main`) and for the newest release tag. If the head is
+a different commit than `GIT_COMMIT` – or a newer tag than the running version exists – the top bar
+shows a quiet, dismissible chip ("Update available · 3 commits behind" / "… · v1.1.0") that links to
+the compare or release page; the About dialog shows the same line. Dismissing hides it for that
+`latest` commit only, and a failure (no internet, GitHub unreachable, rate limit) is silent: the app
+keeps the last answer and never blocks or interrupts anything. Nothing updates automatically.
+
+The image has to know which commit it was built from; pass both build arguments:
+
+```bash
+docker build --build-arg GIT_COMMIT="$(git rev-parse HEAD)" --build-arg GIT_BRANCH=main -t webslicer .
+# Compose reads them from the environment:
+GIT_COMMIT="$(git rev-parse HEAD)" GIT_BRANCH=main docker compose build
+```
+
+Without the stamp (`unknown`, the default of a plain `docker build`) only new release tags are
+noticed. The Proxmox installer derives both from its checkout and writes them into
+`/etc/webslicer/webslicer.env`, so a native install compares commits as well.
+
+**Privacy / opt-out:** the request goes from the server straight to `api.github.com`; it carries no
+WebSlicer data – no model names, no settings, no user identity (GitHub sees the IP address and the
+`User-Agent: webslicer`). Set `WEBSLICER_UPDATE_CHECK=off` (Docker `-e`, Compose `environment:`,
+Proxmox `/etc/webslicer/webslicer.env`) to stop the check completely: no outbound request is made and
+no notice appears. The default is on.
+
 ## Proxmox VE (LXC)
 
 Run on the Proxmox host as root:
