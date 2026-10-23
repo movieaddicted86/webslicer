@@ -81,7 +81,7 @@ with Vite. The dev machine is Windows 11 with Git Bash/PowerShell: set `MSYS_NO_
   hand-format. `endOfLine` is `auto`, not `lf`: `.gitattributes` stores LF and `core.autocrlf=true`
   checks out CRLF on Windows, so `lf` would make `format:check` fail on every Windows checkout.
 - ESLint 9 (`.eslint.config.mjs`) is the arbiter for code smells: `typescript-eslint` recommended,
-  type-aware (`parserOptions.project`, W7) with `no-floating-promises` as an error, `react-hooks` for
+  type-aware (`parserOptions.projectService`, W7) with `no-floating-promises` as an error, `react-hooks` for
   `web/`, `no-explicit-any` as an error. A promise you mean to start and not await is written `void f()`
   with the reason; a plain `.mjs` file is linted without types. `no-non-null-assertion` is a warning
   until R-12 removes the remaining ones. A disable comment needs a `-- <reason>` and must sit on the

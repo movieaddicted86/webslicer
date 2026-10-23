@@ -26,6 +26,7 @@
     "version:check": "node scripts/version.mjs --check"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.5",
     "@playwright/test": "1.64.1",
     "concurrently": "^9.1.2",
     "eslint": "^9.39.5",
