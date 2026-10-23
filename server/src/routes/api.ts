@@ -6,7 +6,7 @@ import { getSlicerVersion } from '../slicer/cli.js';
 import { loadBundles, resolveModelAsset } from '../slicer/bundles.js';
 import { activeSchema } from '../services/schema.js';
 import { appVersion } from '../services/version.js';
-import { deleteModel, saveModelFile } from '../services/models.js';
+import { deleteModel, saveModel, saveModelFile } from '../services/models.js';
 import { deleteAutosave, findAutosave, isAutosaveClientId, readAutosaveInfo, writeAutosave } from '../services/autosave.js';
 import { build3mfForRequest, validateConfigLimits, validateSliceRequest } from '../services/slice.js';
 import { mergeConfigs } from '../services/configMerge.js';
@@ -20,10 +20,12 @@ import {
   defaultPresetName,
   userPresetExists,
 } from '../slicer/presets.js';
-import { read3mfProject } from '../slicer/threemf/index.js';
+import { parseStl, read3mfProject } from '../slicer/threemf/index.js';
 import { convertStepFile, createStepTempDir, isStepFile } from '../slicer/step.js';
+import { cutMesh } from '../slicer/cut.js';
+import { parseCutRequest } from '../validation/cut.js';
 import { createJob, getJob, listJobs, subscribe, cancelJob, deleteJob, jobOutputPath, readJobLog } from '../jobs.js';
-import { isPresetType, type PhysicalPrinter, type PresetType, type SliceRequest } from '@webslicer/shared';
+import { isPresetType, type CutPart, type PhysicalPrinter, type PresetType, type SliceRequest } from '@webslicer/shared';
 import { listPrinters, upsertPrinter, deletePrinter, getPrinter, testPrinter } from '../services/printers.js';
 import { sendJobOutput } from '../services/sendGate.js';
 import { API_KEY_MASK, installedPrintersOf, jobSendSchema, parsePrinter, parsePrinterTest, printerHost } from '../validation/printers.js';
@@ -226,6 +228,35 @@ export function apiRouter(): express.Router {
   r.delete('/models/:id', async (req, res) => {
     await deleteModel(path.basename(req.params.id));
     res.json({ ok: true });
+  });
+
+  // ---- cut (T-044) ---------------------------------------------------------
+  // The CLI does the cutting, so the endpoint receives the model id, the instance transform and the
+  // plane only. The parts come back as models of their own, already at their world position (or on
+  // the cut face with "place on cut"); a side the plane leaves no material of is absent.
+  r.post('/cut', json, async (req, res) => {
+    const parsed = parseCutRequest(req.body);
+    if (!parsed.ok) return badRequest(res, parsed.message);
+    const cut = parsed.request;
+    const file = await resolveExistingFile(path.join(config.modelsDir, `${path.basename(cut.modelId)}.stl`));
+    if (!file) return res.status(404).json({ error: 'model not found' });
+    const mesh = parseStl(await fs.readFile(file));
+    if (!mesh.indices.length) return badRequest(res, 'cannot cut: the model has no triangles');
+    const { parts } = await cutMesh({
+      mesh,
+      transform: cut.transform,
+      point: cut.plane.point,
+      normal: cut.plane.normal,
+      keep: cut.keep,
+      placeOnCut: cut.placeOnCut,
+      flipUpper: cut.flipUpper,
+    });
+    const answer: { upper?: CutPart; lower?: CutPart } = {};
+    for (const part of parts) {
+      const stored = await saveModel(part.mesh, `cut-${part.side}`);
+      answer[part.side] = { modelId: stored.id, name: stored.name, position: part.position };
+    }
+    res.json(answer);
   });
 
   // ---- projects (3MF) ----------------------------------------------------
