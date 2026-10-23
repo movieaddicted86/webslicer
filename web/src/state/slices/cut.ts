@@ -1,6 +1,7 @@
 /**
- * The cut tool's store part (T-044): the panel's settings, its open state and the action that cuts the
- * selected instance through the server.
+ * The cut tool's store part (T-044, tool framework T-046): the panel's settings and the action that
+ * cuts the selected instance through the server. Which tool is open is the tools slice's
+ * (`activeTool === 'cut'`); this slice owns only the plane and the cut itself.
  *
  * The cutting itself is the server's (`POST /api/cut`, PrusaSlicer CLI); this slice sends the model id,
  * the instance matrix and the plane, then turns the two returned models into plater objects at their
@@ -18,13 +19,8 @@ import { cutPlaneWorld, defaultCutSettings, type CutSettings } from '../../plate
 import type { PlaterObject, SlicePart } from '../types';
 
 export interface CutSlice {
-  /** the cut panel is open for the selected instance */
-  cutOpen: boolean;
   /** the panel's settings (reset for every object the panel opens on) */
   cutSettings: CutSettings;
-  /** open the cut panel on the selected instance; false when the selection cannot be cut */
-  openCut: () => boolean;
-  closeCut: () => void;
   setCutSettings: (patch: Partial<CutSettings>) => void;
   /** cut the selected instance; one undo step */
   cutSelection: () => Promise<void>;
@@ -60,20 +56,7 @@ function partObject(part: CutPart, source: PlaterObject, geometry: THREE.BufferG
 }
 
 export const createCutSlice: SlicePart<CutSlice> = (set, get) => ({
-  cutOpen: false,
   cutSettings: defaultCutSettings(0),
-  openCut: () => {
-    const s = get();
-    const o = cutTarget(s.objects, s.selectedIds);
-    if (!o) return false;
-    if (o.volumes.length) {
-      s.toast('error', 'Cut: remove modifiers and parts first');
-      return false;
-    }
-    set({ cutOpen: true, cutSettings: defaultCutSettings(o.size[2]) });
-    return true;
-  },
-  closeCut: () => set({ cutOpen: false }),
   setCutSettings: (patch) => set((s) => ({ cutSettings: { ...s.cutSettings, ...patch } })),
   cutSelection: async () => {
     const s = get();
@@ -128,7 +111,7 @@ export const createCutSlice: SlicePart<CutSlice> = (set, get) => ({
       selectedIds: created.map((c) => c.id),
       selectedInstanceId: undefined,
       selectedVolumeId: undefined,
-      cutOpen: false,
+      activeTool: undefined,
       sliceDirty: true,
     }));
     const dropped = [o.paint ? 'paint' : '', o.ranges.length ? 'height ranges' : ''].filter(Boolean);

@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+- **Plater (T-046 – tool framework):** the tools of the plater now live in a **left tool bar** at the
+  edge of the 3D view, and each one opens its own **panel** docked next to the bar (at most 320 px
+  wide, scrolling body, sticky footer for the primary action). Cut, place on face, paint supports/
+  seam/extruder and variable layer height moved out of the sidebar into those panels; move, rotate
+  and scale stay gizmo-only but have their bar entry. One tool is open at a time: its own button, the
+  panel's ✕ and **Esc** close it, and opening another tool closes the first (the cut plane, the paint
+  brush and the face picking all follow from that one state). Disabled tools show their reason as the
+  tooltip (`Cut (C): Remove modifiers and parts first`). The tools come from **one registry**
+  (`web/src/tools/registry.ts`: id, title, icon, group, panel kind, shortcut, About position,
+  availability, enter/exit) – the bar, the shortcut table and the About dialog are generated from it,
+  so a new tool is one entry there (proven by unit tests with a dummy definition). The old ad-hoc
+  flags (`paintMode`, `placeOnFace`, `cutOpen`, the layer-height panel flag) are gone; the store has
+  a `tools` slice with `activeTool`, `openTool` and `closeTool`. Panels share one frame
+  (`components/tools/ToolPanel.tsx`) and the slider/toggle/section blocks in
+  `components/tools/fields/`; layout is CSS-only, so the planned mobile bottom sheet (P3) only
+  overrides the panel's position. The sidebar no longer renders tool options.
+
 - **Plater (T-045 – variable layer height):** every object can carry a continuous layer height profile
   like PrusaSlicer's "Variable layer height". The new panel in the object manipulation shows the
   profile as a Z/height chart and offers **Adaptive** (quality slider 0–1), **Smooth** (radius, keep

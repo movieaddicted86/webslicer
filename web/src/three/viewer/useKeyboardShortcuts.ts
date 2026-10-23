@@ -10,6 +10,7 @@
 import { useEffect, useRef } from 'react';
 import { useStore, pickedInstanceId } from '../../state/store';
 import { matchesShortcut, shortcutsBlocked } from './shortcuts';
+import { toolForShortcut } from '../../tools/registry';
 import { viewByKey } from '../../plater/camera';
 import type { CamRequest } from './types';
 
@@ -55,21 +56,11 @@ export function useKeyboardShortcuts(onCamera: (req: CamRequest) => void, toggle
       } else if (matchesShortcut(e, 'removeInstance')) {
         // AC-1.2: "−" always drops the last copy
         if (st.selectedIds.length === 1) st.removeInstance(st.selectedIds[0]);
-      } else if (matchesShortcut(e, 'paintSupports') && st.selectedIds.length === 1) {
-        if (st.paintMode === 'supports') st.stopPaint();
-        else void st.startPaint(st.selectedIds[0], 'supports');
-      } else if (matchesShortcut(e, 'paintSeam') && st.selectedIds.length === 1) {
-        if (st.paintMode === 'seam') st.stopPaint();
-        else void st.startPaint(st.selectedIds[0], 'seam');
-      } else if (matchesShortcut(e, 'placeOnFace')) st.setPlaceOnFace(!st.placeOnFace);
-      else if (matchesShortcut(e, 'cut')) {
-        // T-044: the panel of the single selected instance; C closes it again
-        if (st.cutOpen) st.closeCut();
-        else if (st.selectedIds.length === 1) st.openCut();
-      } else if (matchesShortcut(e, 'move')) st.setTransformMode('translate');
-      else if (matchesShortcut(e, 'rotate')) st.setTransformMode('rotate');
-      else if (matchesShortcut(e, 'scale')) st.setTransformMode('scale');
-      else if (matchesShortcut(e, 'undo')) {
+      } else if (toolForShortcut(e)) {
+        // T-046: every tool key comes from the registry; an open tool is toggled off by its own key
+        const tool = toolForShortcut(e);
+        if (tool) st.openTool(tool.id);
+      } else if (matchesShortcut(e, 'undo')) {
         e.preventDefault();
         st.undo();
       } else if (matchesShortcut(e, 'redo')) {
@@ -87,9 +78,8 @@ export function useKeyboardShortcuts(onCamera: (req: CamRequest) => void, toggle
       } else if (matchesShortcut(e, 'arrangeSelection')) st.arrangeSelection();
       else if (matchesShortcut(e, 'arrange')) st.arrange();
       else if (matchesShortcut(e, 'escape')) {
-        if (st.paintMode) st.stopPaint();
-        else if (st.placeOnFace) st.setPlaceOnFace(false);
-        else if (st.cutOpen) st.closeCut();
+        // T-046: Esc closes the open tool and puts the plater back into normal mode
+        if (st.activeTool) st.closeTool();
         else st.select([]);
       }
     };

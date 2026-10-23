@@ -83,14 +83,24 @@ web/src/
 ## 5. Web specifics
 
 - **Store slices:** `store.ts` is split into slice creators (`createPlaterSlice`, `createPresetSlice`,
-  `createJobSlice`, `createPreviewSlice`, `createUiSlice`, `createHistorySlice`) combined in one
-  `useStore`. Slices call pure functions from `shared/` / `web/src/plater/` for all calculations.
+  `createJobSlice`, `createPreviewSlice`, `createUiSlice`, `createHistorySlice`, `createToolsSlice`)
+  combined in one `useStore`. Slices call pure functions from `shared/` / `web/src/plater/` for all
+  calculations.
 - **Components:** presentational components receive props; container components read the store.
   Repeated UI patterns (numeric XYZ fields, section headers, toolbar buttons with shortcut tooltip,
   modal frame) become shared components in `components/common/`.
 - **Viewer:** `Viewer.tsx` becomes a composition of hooks/modules (`useScene`, `usePlaterObjects`,
   `useGizmo`, `useGcodePreview`, `usePainting`, `useKeyboardShortcuts`). Keyboard shortcuts are
   defined once in a table that the handler _and_ the help dialog read.
+- **Tools:** a plater tool (cut, paint, place on face, variable layer height, the transform gizmo) is
+  one entry in `web/src/tools/registry.ts`: id, title, icon, group, panel kind, shortcut, `aboutAt`
+  (its place in the About line) and `isAvailable(state)`. The left tool bar, the shortcut table and
+  the About dialog are generated from that list, and opening/closing goes through
+  `openTool`/`closeTool` (the `tools` slice, lifecycle in `tools/activate.ts`), so a new tool needs
+  no button, shortcut or help line. A tool with panel options adds a component under
+  `components/tools/panels/` and a `panel` kind in `ToolDock.tsx`; it builds its body from the shared
+  frame (`ToolPanel`) and the field blocks under `components/tools/fields/`. The panel's position and
+  size live in CSS only. Tool options do not go into the sidebar.
 - Hooks start with `use`, live next to their consumer or in `web/src/hooks/` when reused.
 
 ## 6. Server specifics

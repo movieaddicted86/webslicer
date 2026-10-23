@@ -13,6 +13,9 @@ import { useScene } from './viewer/useScene';
 import { useShells } from './viewer/useShells';
 import { useCutPlane } from './viewer/useCutPlane';
 import { normalizeColor } from '../gcode/colorprint';
+import { paintKindOf } from '../tools/paintKind';
+import { ToolBar } from '../components/tools/ToolBar';
+import { ToolDock } from '../components/tools/ToolDock';
 
 export { VOLUME_COLORS } from './viewer/colors';
 
@@ -42,8 +45,9 @@ export function Viewer() {
   const customGcodes = useStore((s) => s.customGcodes);
   const filamentColour = useStore((s) => s.presets.filament[0]?.current.filament_colour);
   const toolColorKey = useStore((s) => s.presets.filament.map((f) => normalizeColor(f.current.filament_colour)).join(','));
-  const placeOnFace = useStore((s) => s.placeOnFace);
-  const paintMode = useStore((s) => s.paintMode);
+  const placeOnFace = useStore((s) => s.activeTool === 'placeOnFace');
+  // the paint kind of the open paint tool, what the stroke code and the object colours read (T-046)
+  const paintMode = useStore((s) => paintKindOf(s.activeTool));
   /** "Shells": the plater meshes shown translucent over the toolpaths */
   const shells = useStore((s) => s.previewShowShells) && view === 'preview' && !!gcode;
   // vendor bed model/texture of the selected printer ("vendor|model.stl|texture.svg", empty when none)
@@ -104,6 +108,9 @@ export function Viewer() {
 
   return (
     <div className={`viewer ${placeOnFace ? 'place-on-face' : ''}`} ref={containerRef}>
+      {/* T-046: the tool bar on the left edge and the open tool's panel next to it, over the 3D view */}
+      <ToolBar />
+      <ToolDock />
       {placeOnFace && <div className="viewer-banner">Place on face: click the face that should lie flat on the bed (Esc to cancel)</div>}
       {paintMode && (
         <div className="viewer-banner">

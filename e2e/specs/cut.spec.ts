@@ -52,13 +52,13 @@ test.describe('cut', () => {
     await app.evaluate((objectId) => {
       const s = window.webslicer.getState();
       s.select([objectId]);
-      s.openCut();
+      s.openTool('cut');
       s.setCutSettings({ z: 10, keep: 'both', placeOnCut: false, flipUpper: false });
     }, id);
     await settle(app, 400);
-    await expect(app.locator('.cut-panel')).toBeVisible();
+    await expect(app.locator('.tool-panel')).toBeVisible();
 
-    await app.locator('.cut-panel button:has-text("Perform cut")').click();
+    await app.locator('.tool-panel button:has-text("Perform cut")').click();
     // the server cuts with the CLI and the two models come back; the viewer loads them
     await app.waitForFunction(
       (prev) => {
@@ -72,7 +72,7 @@ test.describe('cut', () => {
 
     const after = await state(app);
     expect(after.objects).toHaveLength(2);
-    expect(after.cutOpen).toBe(false);
+    expect(after.activeTool).toBeUndefined();
     for (const o of after.objects) {
       expect(o.name).toMatch(/cube/i);
       // 20 × 20 × 10 mm – halves of the 20 mm cube
@@ -96,13 +96,13 @@ test.describe('cut', () => {
       const s = window.webslicer.getState();
       const id = s.objects[0].id;
       s.select([id]);
-      s.openCut();
+      s.openTool('cut');
       // the middle of the object, tilted about its X axis
       s.setCutSettings({ z: 10, rotX: 30, rotY: 0, keep: 'both' });
     });
     await settle(app, 400);
-    await expect(app.locator('.cut-panel')).toBeVisible();
-    await app.locator('.cut-panel button:has-text("Perform cut")').click();
+    await expect(app.locator('.tool-panel')).toBeVisible();
+    await app.locator('.tool-panel button:has-text("Perform cut")').click();
     await app.waitForFunction(() => window.webslicer.getState().objects.length === 2, null, { timeout: 180_000 });
     await settle(app, 800);
 
@@ -127,9 +127,9 @@ test.describe('cut', () => {
     const before = await state(app);
     const id = before.objects[0].id;
     await press(app, 'c');
-    await expect(app.locator('.cut-panel')).toBeVisible();
+    await expect(app.locator('.tool-panel')).toBeVisible();
     await app.evaluate(() => window.webslicer.getState().setCutSettings({ z: 10, keep: 'both' }));
-    await app.locator('.cut-panel button:has-text("Perform cut")').click();
+    await app.locator('.tool-panel button:has-text("Perform cut")').click();
     await app.waitForFunction(() => window.webslicer.getState().objects.length === 2, null, { timeout: 180_000 });
     await settle(app, 800);
 

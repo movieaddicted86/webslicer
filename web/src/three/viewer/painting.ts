@@ -9,9 +9,13 @@
  */
 import * as THREE from 'three';
 import { selectedInstance, useStore } from '../../state/store';
+import { paintKindOf } from '../../tools/paintKind';
 import { computeCentroids, trianglesInSphere, type PaintKind } from '../paint';
 import { EXTRUDER_COLORS } from './colors';
 import type { SceneRefs } from './types';
+
+/** The paint kind of the open tool (T-046: the tools slice holds the tool, not the kind). */
+const paintModeOf = (state: ReturnType<typeof useStore.getState>): PaintKind | undefined => paintKindOf(state.activeTool);
 
 interface Painting {
   /** a press: true when it started a stroke, so the scene keeps that press away from picking */
@@ -38,7 +42,7 @@ export function createPainting(refs: SceneRefs): Painting {
   const centroidCache = new WeakMap<THREE.BufferGeometry, Float32Array>();
   const pickPaintHit = (e: PointerEvent) => {
     const st = useStore.getState();
-    if (!st.paintMode || st.selectedIds.length !== 1) return null;
+    if (!paintModeOf(st) || st.selectedIds.length !== 1) return null;
     const node = refs.nodes.get(st.selectedIds[0]);
     if (!node) return null;
     const rect = renderer.domElement.getBoundingClientRect();
@@ -73,13 +77,14 @@ export function createPainting(refs: SceneRefs): Painting {
   };
   const down = (e: PointerEvent) => {
     const st = useStore.getState();
-    if (st.paintMode && (e.button === 0 || e.button === 2)) {
+    const kind = paintModeOf(st);
+    if (kind && (e.button === 0 || e.button === 2)) {
       const p = pickPaintHit(e);
       if (p) {
         let value: number;
-        if (st.paintMode === 'mmu') value = e.shiftKey || e.button === 2 ? 0 : st.paintExtruder;
+        if (kind === 'mmu') value = e.shiftKey || e.button === 2 ? 0 : st.paintExtruder;
         else value = e.button === 2 ? 2 : e.shiftKey ? 0 : st.paintTool === 'enforcer' ? 1 : st.paintTool === 'blocker' ? 2 : 0;
-        const stroke = { objectId: p.st.selectedIds[0], value, kind: st.paintMode, button: e.button };
+        const stroke = { objectId: p.st.selectedIds[0], value, kind, button: e.button };
         paintStroke = stroke;
         controls.enabled = false;
         st.beginPaintStroke(stroke.objectId);
@@ -92,7 +97,8 @@ export function createPainting(refs: SceneRefs): Painting {
   };
   const move = (e: PointerEvent) => {
     const st = useStore.getState();
-    if (!st.paintMode) {
+    const kind = paintModeOf(st);
+    if (!kind) {
       brushCursor.visible = false;
       return;
     }
@@ -106,7 +112,7 @@ export function createPainting(refs: SceneRefs): Painting {
       brushCursor.scale.setScalar(st.brushRadius);
       const c = paintStroke
         ? paintStroke.value
-        : st.paintMode === 'mmu'
+        : kind === 'mmu'
           ? st.paintExtruder
           : st.paintTool === 'enforcer'
             ? 1
@@ -114,7 +120,7 @@ export function createPainting(refs: SceneRefs): Painting {
               ? 2
               : 0;
       const col =
-        st.paintMode === 'mmu'
+        kind === 'mmu'
           ? c
             ? EXTRUDER_COLORS[(c - 1) % EXTRUDER_COLORS.length]
             : 0xffffff
@@ -132,7 +138,7 @@ export function createPainting(refs: SceneRefs): Painting {
     controls.enabled = !refs.dragging;
   };
   const contextMenu = (e: Event) => {
-    if (useStore.getState().paintMode) e.preventDefault();
+    if (paintModeOf(useStore.getState())) e.preventDefault();
   };
 
   return { down, move, endStroke, contextMenu };

@@ -223,7 +223,7 @@ test.describe('sidebar: volumes and height ranges (UAT-10, UAT-11)', () => {
 });
 
 test.describe('sidebar: the paint panel (UAT-09)', () => {
-  test('the paint button opens the panel, the tool radios and brush slider drive the state, Done leaves it', async ({ app }) => {
+  test('the tool bar opens the paint panel, the tool radios and brush slider drive the state, close leaves it', async ({ app }) => {
     await importFile(app, CUBE);
     await app.evaluate(() => {
       const s = window.webslicer.getState();
@@ -231,19 +231,22 @@ test.describe('sidebar: the paint panel (UAT-09)', () => {
     });
     await settle(app, 700);
 
-    await click(app, '.paint-panel button:has-text("Supports")', 800);
-    expect(await read(app, (s) => s.paintMode)).toBe('supports');
+    // T-046: painting left the sidebar – the left tool bar of the 3D view opens its panel
+    await click(app, '.tool-bar button[title="Paint supports (L)"]', 800);
+    expect(await read(app, (s) => s.activeTool)).toBe('paintSupports');
+    await expect(app.locator('.tool-panel')).toBeVisible();
     expect(await app.locator('.paint-tools .tool').count()).toBe(3);
-    expect(await app.locator('.paint-panel .manip-actions button').first().isDisabled()).toBe(true);
+    expect(await app.locator('.tool-panel-foot .tool-clear').isDisabled()).toBe(true);
 
     await click(app, '.paint-tools .tool.blocker input', 600);
-    await fill(app, '.paint-panel .brush input[type=range]', '4.5', 600);
+    await fill(app, '.tool-panel .brush input[type=range]', '4.5', 600);
     const tools = await read(app, (s) => ({ tool: s.paintTool, brush: s.brushRadius }));
     expect(tools).toEqual({ tool: 'blocker', brush: 4.5 });
-    await expect(app.locator('.brush span')).toHaveText(/Brush 4\.5 mm/);
+    await expect(app.locator('.tool-panel .brush span')).toHaveText(/Brush 4\.5 mm/);
 
-    await click(app, '.paint-panel .section-head button', 800);
-    expect(await read(app, (s) => s.paintMode ?? null)).toBeNull();
+    await click(app, '.tool-panel-close', 800);
+    expect(await read(app, (s) => s.activeTool ?? null)).toBeNull();
+    expect(await app.locator('.tool-panel').count()).toBe(0);
   });
 
   test('a paint stroke marks triangles of the support enforcer', async ({ app }) => {
@@ -259,7 +262,7 @@ test.describe('sidebar: the paint panel (UAT-09)', () => {
     await settle(app, 700);
     await press(app, 'l');
     await app.waitForTimeout(1800);
-    expect(await read(app, (s) => s.paintMode)).toBe('supports');
+    expect(await read(app, (s) => s.activeTool)).toBe('paintSupports');
 
     // a short stroke over the middle of the model; the triangle mask is what changes
     const box = await canvasBox(app);
@@ -288,7 +291,7 @@ test.describe('sidebar: the paint panel (UAT-09)', () => {
 
     await press(app, 'Escape');
     await app.waitForTimeout(700);
-    expect(await read(app, (s) => s.paintMode ?? null)).toBeNull();
+    expect(await read(app, (s) => s.activeTool ?? null)).toBeNull();
   });
 });
 
@@ -488,9 +491,12 @@ test.describe('sidebar: the extruder palette (F-21)', () => {
     await app.evaluate(() => window.webslicer.getState().setOption('printer', 'nozzle_diameter', '0.4,0.4,0.4,0.4,0.4,0.4'));
     await app.waitForTimeout(1800);
     expect(await read(app, (s) => s.extruderCount())).toBe(6);
-    expect(await app.locator('.paint-panel button').count()).toBe(3);
+    // T-046: the tool bar lists the extruder tool, and it is only enabled with several extruders
+    await expect(app.locator('.tool-bar button[title="Paint extruder"]')).toBeEnabled();
+    await expect(app.locator('.tool-bar button[title="Paint supports (L)"]')).toBeEnabled();
 
-    await click(app, '.paint-panel button:has-text("Extruder")', 900);
+    await click(app, '.tool-bar button[title="Paint extruder"]', 900);
+    expect(await read(app, (s) => s.activeTool)).toBe('paintMmu');
     const palette = await app.evaluate(() => ({
       swatches: Array.from(document.querySelectorAll('.paint-tools .tool.extruder .swatch')).map(
         (s) => getComputedStyle(s).backgroundColor,
@@ -500,12 +506,16 @@ test.describe('sidebar: the extruder palette (F-21)', () => {
     expect(palette.swatches).toHaveLength(6);
     expect(palette.swatches[0]).toBe('rgb(230, 184, 74)');
     expect(palette.swatches[5]).toBe('rgb(169, 169, 245)');
+    expect(palette.labels.map((l) => l?.replace(/\s+/g, ' ').trim())).toEqual(['1', '2', '3', '4', '5', '6']);
 
-    await click(app, '.paint-panel .section-head button', 800);
+    // back to a single extruder: the panel closes by its ✕, and the bar disables the tool with the reason
+    await click(app, '.tool-panel-close', 800);
+    expect(await read(app, (s) => s.activeTool ?? null)).toBeNull();
     await app.evaluate(() => window.webslicer.getState().setOption('printer', 'nozzle_diameter', '0.4'));
     await settle(app, 900);
     expect(await read(app, (s) => s.extruderCount())).toBe(1);
     expect(await app.locator('.paint-tools .tool.extruder .swatch').count()).toBe(0);
+    await expect(app.locator('.tool-bar button[title="Paint extruder: Needs a multi-extruder printer"]')).toBeDisabled();
   });
 });
 

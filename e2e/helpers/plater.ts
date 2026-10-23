@@ -12,10 +12,10 @@ export interface PlaterSnapshot {
   selectedInstanceId: string | null;
   selectedVolumeId: string | null;
   transformMode: string;
-  paintMode: string | null;
+  /** the open tool panel (T-046); null when no tool is active */
+  activeTool: string | null;
   paintTool: string;
   brushRadius: number;
-  placeOnFace: boolean;
   view: string;
   mode: string;
   sliceDirty: boolean;
@@ -46,10 +46,9 @@ export function plater(page: Page): Promise<PlaterSnapshot> {
       selectedInstanceId: s.selectedInstanceId ?? null,
       selectedVolumeId: s.selectedVolumeId ?? null,
       transformMode: s.transformMode,
-      paintMode: s.paintMode ?? null,
+      activeTool: s.activeTool ?? null,
       paintTool: s.paintTool,
       brushRadius: s.brushRadius,
-      placeOnFace: s.placeOnFace,
       view: s.view,
       mode: s.mode,
       sliceDirty: s.sliceDirty,

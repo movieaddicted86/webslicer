@@ -1,24 +1,29 @@
 /**
- * The painting part of the plater slice (R-6): the paint tool, the brush and the paint strokes.
- * Split out of `plater.ts` to stay inside the §4 file limit (and because painting is one concern);
- * `createPlaterSlice` spreads this creator into itself, so the store keeps composing the six named
- * slices.
+ * The painting part of the plater slice (R-6, tools T-046): the paint tool, the brush and the paint
+ * strokes. Split out of `plater.ts` to stay inside the §4 file limit (and because painting is one
+ * concern); `createPlaterSlice` spreads this creator into itself, so the store keeps composing the six
+ * named slices.
+ *
+ * Which paint tool is open is the tools slice's `activeTool`; `startPaint` opens that tool through the
+ * registry, so both ways in (the bar/shortcut and this action) run the same lifecycle.
  */
 import { api } from '../../api';
 import { remapPaint, subdivideForPainting, type PaintKind } from '../../three/paint';
 import { geometryToStl } from '../../three/geometry';
 import { clampExtruder } from '../../plater/extruders';
+import { paintToolOf } from '../../tools/paintKind';
 import type { SlicePart } from '../types';
 
 export interface PaintSlice {
-  /** the paint tool the plater is in, `undefined` when not painting */
-  paintMode?: PaintKind;
+  /** the brush mode of the open paint tool: enforcer, blocker or erase */
   paintTool: 'enforcer' | 'blocker' | 'erase';
   /** extruder painted in MMU mode (1-based) */
   paintExtruder: number;
   setPaintExtruder: (n: number) => void;
   brushRadius: number;
+  /** open a paint tool on the object (subdividing the mesh first when needed) */
   startPaint: (objectId: string, kind: PaintKind) => Promise<void>;
+  /** close the open tool (the paint panel's Done, Esc, and the L/P shortcuts use it) */
   stopPaint: () => void;
   setPaintTool: (t: 'enforcer' | 'blocker' | 'erase') => void;
   setBrushRadius: (r: number) => void;
@@ -33,7 +38,11 @@ export const createPaintSlice: SlicePart<PaintSlice> = (set, get) => ({
   startPaint: async (objectId, kind) => {
     const o = get().objects.find((x) => x.id === objectId);
     if (!o) return;
-    set({ selectedIds: [objectId], selectedVolumeId: undefined, paintMode: kind, placeOnFace: false, view: 'plater' });
+    set({ selectedIds: [objectId], selectedVolumeId: undefined, view: 'plater' });
+    // the tool opens through the registry, like a click in the bar: one lifecycle for both ways in.
+    // Its `onEnter` calls this function again, so only the outer call (no paint tool open yet) opens.
+    const id = paintToolOf(kind);
+    if (get().activeTool !== id) get().openTool(id);
     if (o.paintReady) return;
     // subdivide the mesh so the brush has a useful resolution
     get().recordHistory();
@@ -53,7 +62,7 @@ export const createPaintSlice: SlicePart<PaintSlice> = (set, get) => ({
       get().toast('error', `Upload of ${o.name} failed: ${(e as Error).message}`);
     }
   },
-  stopPaint: () => set({ paintMode: undefined }),
+  stopPaint: () => get().closeTool(),
   setPaintTool: (paintTool) => set({ paintTool }),
   paintExtruder: 1,
   setPaintExtruder: (n) => {

@@ -165,7 +165,7 @@ export function useScene(refsRef: RefObject<SceneRefs | null>, containerRef: Ref
       }
       const hits = refs.raycaster.intersectObjects(pickables, false);
       const st = useStore.getState();
-      if (st.placeOnFace) {
+      if (st.activeTool === 'placeOnFace') {
         // lay the clicked face flat on the bed
         const hit = hits.find(
           (h) =>
@@ -180,7 +180,7 @@ export function useScene(refsRef: RefObject<SceneRefs | null>, containerRef: Ref
             hit.object.userData.kind === 'volume' ? (hit.object.parent!.userData.id as string) : (hit.object.userData.id as string);
           st.select([objectId]);
           st.placeObjectOnFace(objectId, [normal.x, normal.y, normal.z]);
-        } else st.setPlaceOnFace(false);
+        } else st.closeTool();
         return;
       }
       if (hits.length) {
