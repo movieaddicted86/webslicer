@@ -285,7 +285,7 @@ test.describe('viewer: keyboard shortcuts', () => {
     await press(app, 'r');
     await app.waitForTimeout(400);
     // an undoable plater change: a second copy. `addInstances` records the add and the arrange it
-    // runs afterwards, so two Ctrl+Z steps are needed to get back to one copy.
+    // runs afterwards as ONE history step (T-052), so one Ctrl+Z gets back to one copy.
     await press(app, '+');
     await app.waitForTimeout(700);
     const start = await plater(app);
@@ -294,27 +294,16 @@ test.describe('viewer: keyboard shortcuts', () => {
     await press(app, 'Control+z');
     await app.waitForTimeout(700);
     const undone = await plater(app);
+    expect(undone.objects[0].instances).toHaveLength(1);
     expect(undone.undo).toBe(start.undo - 1);
     expect(undone.redo).toBe(start.redo + 1);
-
-    await press(app, 'Control+z');
-    await app.waitForTimeout(700);
-    const undoneTwice = await plater(app);
-    expect(undoneTwice.objects[0].instances).toHaveLength(1);
-    expect(undoneTwice.undo).toBe(start.undo - 2);
 
     await press(app, 'Control+Shift+z');
     await app.waitForTimeout(700);
     const redone = await plater(app);
-    expect(redone.undo).toBe(start.undo - 1);
-    expect(redone.redo).toBe(start.redo + 1);
-
-    await press(app, 'Control+Shift+z');
-    await app.waitForTimeout(700);
-    const redoneTwice = await plater(app);
-    expect(redoneTwice.objects[0].instances).toHaveLength(2);
-    expect(redoneTwice.undo).toBe(start.undo);
-    expect(redoneTwice.redo).toBe(start.redo);
+    expect(redone.objects[0].instances).toHaveLength(2);
+    expect(redone.undo).toBe(start.undo);
+    expect(redone.redo).toBe(start.redo);
 
     await press(app, 'Control+z');
     await app.waitForTimeout(700);
