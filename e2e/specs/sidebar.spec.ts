@@ -354,7 +354,7 @@ test.describe('sidebar: quick settings and the mode switch', () => {
       rows: document.querySelectorAll('.object-row').length,
       tools: document.querySelectorAll('.objects .section-head .tools button').length,
     }));
-    expect(advanced).toEqual({ mode: 'advanced', rows: 1, tools: 14 });
+    expect(advanced).toEqual({ mode: 'advanced', rows: 1, tools: 15 });
   });
 
   test('every toolbar action shows its own 18 px SVG icon, grouped, without overflow at 320 px (T-036)', async ({ app }) => {
@@ -394,6 +394,8 @@ test.describe('sidebar: quick settings and the mode switch', () => {
       'Arrange settings',
       'Add instance (+)',
       'Remove the last instance (−)',
+      // T-044: one object without modifiers or parts is selected, so the cut is available
+      'Cut the selected instance with a plane (C)',
       // T-042: disabled with one selected object, so it shows the prompt for the merge
       'Merge: select two or more objects with a single instance',
       'Duplicate',
@@ -403,13 +405,13 @@ test.describe('sidebar: quick settings and the mode switch', () => {
     // the tooltip stays the shortcut line and is also the accessible name
     expect(toolbar.buttons.every((b) => b.title === b.label)).toBe(true);
     expect(toolbar.buttons.every((b) => b.text === '')).toBe(true);
-    expect(toolbar.buttons.map((b) => b.icon)).toEqual(Array(14).fill('18'));
+    expect(toolbar.buttons.map((b) => b.icon)).toEqual(Array(15).fill('18'));
     expect(toolbar.buttons.every((b) => (b.stroke ?? 0) > 0)).toBe(true);
     // the hit area is at least 30 px high
     expect(toolbar.buttons.every((b) => b.size >= 30)).toBe(true);
-    // four groups: history | transform tools | arrange (+ settings)/instances/merge | duplicate/delete
+    // four groups: history | transform tools | arrange (+ settings)/instances | cut/merge/duplicate/delete
     expect(toolbar.separators).toBe(3);
-    expect(new Set(toolbar.paths).size).toBe(14);
+    expect(new Set(toolbar.paths).size).toBe(15);
 
     // AC-2: the narrowest sidebar width wraps the toolbar instead of shrinking it
     const narrow = await app.evaluate(() => {
