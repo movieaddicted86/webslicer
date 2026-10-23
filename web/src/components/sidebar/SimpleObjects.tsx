@@ -75,8 +75,8 @@ export function SimpleObjects() {
         </div>
       )}
       <div className="muted small">
-        Simple mode: move objects with the gizmo in the 3D view. Switch to <b>Advanced</b> or <b>Expert</b> (top right) for the object list,
-        per-object settings, modifiers, painting and height ranges.
+        Simple mode: move objects with the gizmo in the 3D view, and use the tools in the bar on the left. Switch to <b>Advanced</b> or{' '}
+        <b>Expert</b> (top right) for the object list, per-object settings, modifiers and height ranges.
       </div>
     </section>
   );
