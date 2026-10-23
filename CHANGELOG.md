@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+- **Plater (T-044 – cut tool):** the selected object can be cut with a plane (**C** or the scissors in
+  the object toolbar). The panel sets the height along the object's own Z axis (slider and numeric
+  field) and two tilt angles (X/Y); a translucent plane in the 3D view shows where the cut runs. The
+  options are the ones PrusaSlicer offers – keep both/upper/lower, "place on cut" (the cut face of
+  each part goes onto the bed) and "flip upper part". The cutting runs on the server with the
+  PrusaSlicer CLI (`--cut`), like the STEP conversion: the mesh is turned into a frame where the plane
+  is horizontal (shared matrix maths), cut, and both results are turned back and placed in the world –
+  so the caps stay closed and no mesh code lives in the app. The new `POST /api/cut` (zod-validated)
+  answers with one or two new model ids, each in its own coordinates plus the world position of its
+  origin; each kept part becomes an object of its own at that position. Objects with modifiers or parts
+  are refused (the button says "Remove modifiers and parts first"); paint and height ranges are dropped
+  with an info toast, because the triangles they painted do not survive the cut. One Ctrl+Z restores
+  the uncut object. Connectors (dowels/buttons) are still open.
+
 - **Plater (T-043 – arrange settings and "arrange selection"):** Arrange gained a gear with the
   settings PrusaSlicer offers: the spacing between objects in mm (an empty field keeps using the
   print profile's value), "enable rotations" (the packer turns an item by 90° when that makes it
