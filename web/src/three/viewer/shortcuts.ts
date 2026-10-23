@@ -6,7 +6,8 @@
  * The order of `SHORTCUTS` is the handler's order and is significant: the chain is an `else if`, so
  * `Ctrl+A` reaches `selectAll` before the plain `A` branch, while `Cmd+A` (no `ctrlKey`) falls through
  * to `arrange` – both as before. `Shift+A` ("arrange selection", T-043) is tested before plain `A`,
- * and `arrange` requires Shift off, so the two never fire for the same keypress.
+ * and `arrange` requires Shift off, so the two never fire for the same keypress. `C` (cut, T-044)
+ * keeps Ctrl off like the camera keys and comes after the mode keys, so no earlier branch takes it.
  */
 import { viewByKey } from '../../plater/camera';
 
@@ -55,6 +56,7 @@ export const SHORTCUTS: Shortcut[] = [
   { id: 'paintSupports', keys: ['L'], match: ['l', 'L'], label: 'paint supports' },
   { id: 'paintSeam', keys: ['P'], match: ['p', 'P'], label: 'paint seam' },
   { id: 'placeOnFace', keys: ['F'], match: ['f', 'F'], label: 'place on face' },
+  { id: 'cut', keys: ['C'], match: ['c', 'C'], ctrl: 'no-mod', label: 'cut', aboutAt: 13 },
   { id: 'rename', keys: ['F2'], match: ['F2'], label: 'rename' },
   { id: 'move', keys: ['M'], match: ['m', 'M'], label: 'move', aboutAt: 1 },
   { id: 'rotate', keys: ['R'], match: ['r', 'R'], label: 'rotate', aboutAt: 2 },

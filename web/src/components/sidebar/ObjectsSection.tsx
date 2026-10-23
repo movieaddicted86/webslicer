@@ -8,6 +8,7 @@ import { ObjectRow } from './ObjectRow';
 import { ObjectManipulation } from './ObjectManipulation';
 import { VolumeManipulation } from './VolumeManipulation';
 import { ArrangeSettingsMenu } from './ArrangeSettingsMenu';
+import { CutPanel } from './CutPanel';
 import { useDeleteSelection, useInstanceActions, useSelectedObjects } from './selection';
 
 /**
@@ -33,6 +34,8 @@ export function ObjectsSection() {
   const autosaveError = useStore((s) => s.autosaveError);
   const discardAutosave = useStore((s) => s.discardAutosave);
   const openDialog = useStore((s) => s.openDialog);
+  const openCut = useStore((s) => s.openCut);
+  const cutOpen = useStore((s) => s.cutOpen);
   const [addMenuFor, setAddMenuFor] = useState<string | null>(null);
   // which objects show their instance sub-list (like the volume list, collapsed by default)
   const [instancesOpen, setInstancesOpen] = useState<Record<string, boolean>>({});
@@ -60,6 +63,15 @@ export function ObjectsSection() {
     : selected.length > 1
       ? 'Only objects with a single instance can be merged'
       : 'Merge: select two or more objects with a single instance';
+
+  // T-044: one instance of one object, without modifiers or parts (the tooltip says why)
+  const cutTargetObject = selected.length === 1 ? selected[0] : undefined;
+  const canCut = !!cutTargetObject && cutTargetObject.volumes.length === 0;
+  const cutTitle = cutTargetObject
+    ? cutTargetObject.volumes.length
+      ? 'Remove modifiers and parts first'
+      : 'Cut the selected instance with a plane (C)'
+    : 'Cut: select one object';
 
   return (
     <section className="objects">
@@ -104,6 +116,7 @@ export function ObjectsSection() {
             disabled={selected.length !== 1 || instanceCount <= 1}
           />
           <span className="tool-sep" aria-hidden="true" />
+          <ToolbarButton title={cutTitle} icon={ACTION_ICONS.cut} active={cutOpen} onClick={() => openCut()} disabled={!canCut} />
           <ToolbarButton title={mergeTitle} icon={ACTION_ICONS.merge} onClick={() => void mergeObjects(selectedIds)} disabled={!canMerge} />
           <ToolbarButton
             title="Duplicate"
@@ -168,6 +181,7 @@ export function ObjectsSection() {
       </ul>
       {selected.length === 1 && selectedVolume && <VolumeManipulation o={selected[0]} v={selectedVolume} />}
       {selected.length === 1 && !selectedVolume && <ObjectManipulation o={selected[0]} />}
+      {selected.length === 1 && cutOpen && <CutPanel o={selected[0]} />}
       {selected.length > 1 && <div className="muted small">{selected.length} objects selected</div>}
     </section>
   );

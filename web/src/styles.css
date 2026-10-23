@@ -1749,3 +1749,30 @@ body {
   border: 1px solid #0006;
   flex: none;
 }
+/* Cut panel (T-044): the height slider, the tilt angles and the keep/place options of the plane */
+.cut-panel {
+  border-top: 1px dashed var(--border);
+  padding-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.cut-panel .manip-row {
+  display: grid;
+  grid-template-columns: 64px 1fr 72px auto;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+.cut-panel .manip-row input[type='range'] {
+  width: 100%;
+}
+.cut-panel .manip-row input[type='number'] {
+  width: 100%;
+}
+.cut-panel .manip-row select {
+  grid-column: 2 / -1;
+}
+.cut-panel .arrange-check {
+  font-size: 12px;
+}

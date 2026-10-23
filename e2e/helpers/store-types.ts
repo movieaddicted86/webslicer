@@ -105,6 +105,17 @@ export interface E2EArrangeSettings {
   alignment: 'center' | 'corner';
 }
 
+/** The cut panel's settings (T-044). */
+export interface E2ECutSettings {
+  /** height of the plane above the object's bottom, object frame */
+  z: number;
+  rotX: number;
+  rotY: number;
+  keep: 'both' | 'upper' | 'lower';
+  placeOnCut: boolean;
+  flipUpper: boolean;
+}
+
 export interface E2EState {
   ready: boolean;
   fatal?: string;
@@ -129,6 +140,13 @@ export interface E2EState {
   setArrangeSettings: (patch: Partial<E2EArrangeSettings>) => void;
   /** arrange only the selected instances around the others (Shift+A, T-043) */
   arrangeSelection: () => boolean;
+  /** the cut panel (T-044) */
+  cutOpen: boolean;
+  cutSettings: E2ECutSettings;
+  openCut: () => boolean;
+  closeCut: () => void;
+  setCutSettings: (patch: Partial<E2ECutSettings>) => void;
+  cutSelection: () => Promise<void>;
   transformMode: 'translate' | 'rotate' | 'scale';
   paintMode?: 'supports' | 'seam' | 'mmu';
   paintTool: string;

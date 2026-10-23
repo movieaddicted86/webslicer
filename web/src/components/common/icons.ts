@@ -12,6 +12,7 @@ import {
   RotateCw,
   Save,
   Scaling,
+  Scissors,
   Settings,
   Split,
   SquarePlus,
@@ -51,6 +52,8 @@ export const ACTION_ICONS = {
   splitToParts: Ungroup,
   /** merge the selected objects into one */
   merge: Combine,
+  /** cut the selected object with a plane (T-044) */
+  cut: Scissors,
   remove: X,
   close: X,
   refresh: RefreshCw,
