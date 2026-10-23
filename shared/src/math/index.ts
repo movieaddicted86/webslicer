@@ -5,4 +5,5 @@
 export * from './bounds.js';
 export * from './matrix.js';
 export * from './mesh.js';
+export * from './cut.js';
 export * from './threemf.js';
