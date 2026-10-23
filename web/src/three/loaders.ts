@@ -4,13 +4,15 @@ import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { ThreeMFLoader } from 'three/examples/jsm/loaders/3MFLoader.js';
 import { AMFLoader } from 'three/examples/jsm/loaders/AMFLoader.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { api } from '../api';
 
 interface LoadedModel {
   name: string;
   geometry: THREE.BufferGeometry;
 }
 
-export const SUPPORTED_EXTENSIONS = ['stl', 'obj', '3mf', 'amf'];
+/** `step`/`stp` are converted by the server (`POST /api/convert/step`) and then load like an STL. */
+export const SUPPORTED_EXTENSIONS = ['stl', 'obj', '3mf', 'amf', 'step', 'stp'];
 
 function collectMeshes(root: THREE.Object3D, baseName: string, splitObjects: boolean): LoadedModel[] {
   root.updateMatrixWorld(true);
@@ -70,16 +72,26 @@ export function load3mfBuildItems(buf: ArrayBuffer): THREE.BufferGeometry[] {
   return out;
 }
 
+/** A binary STL buffer as one geometry (only the positions survive: the plater rebuilds normals). */
+function stlModel(buf: ArrayBuffer, name: string): LoadedModel {
+  const g = new STLLoader().parse(buf);
+  for (const attr of Object.keys(g.attributes)) if (attr !== 'position') g.deleteAttribute(attr);
+  return { name, geometry: g };
+}
+
 /** Load a model file into one or more geometries (Z-up, millimeters). */
 export async function loadModelFile(file: File): Promise<LoadedModel[]> {
   const ext = file.name.split('.').pop()?.toLowerCase() || '';
   const base = file.name.replace(/\.[^.]+$/, '');
   const buf = await file.arrayBuffer();
   switch (ext) {
-    case 'stl': {
-      const g = new STLLoader().parse(buf);
-      for (const name of Object.keys(g.attributes)) if (name !== 'position') g.deleteAttribute(name);
-      return [{ name: base, geometry: g }];
+    case 'stl':
+      return [stlModel(buf, base)];
+    case 'step':
+    case 'stp': {
+      // T-009: the CLI reads STEP, the browser does not – the server converts it to a binary STL
+      const stl = await api.convertStep(buf, file.name);
+      return [stlModel(stl, base)];
     }
     case 'obj': {
       const text = new TextDecoder().decode(buf);

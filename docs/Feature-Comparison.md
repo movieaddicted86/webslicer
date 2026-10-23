@@ -10,7 +10,7 @@ Priority: **P1** needed for version 1.0 · **P2** important afterwards · **P3**
 | PrusaSlicer feature                          | WebSlicer | Prio | Note                                                                     |
 | -------------------------------------------- | --------- | ---- | ------------------------------------------------------------------------ |
 | Import STL / OBJ / 3MF / AMF                 | ✅        | –    | drag & drop, import button, library                                      |
-| Import STEP                                  | ❌        | P2   | the CLI can read STEP (`--export-stl`), the server can convert           |
+| Import STEP                                  | ✅        | –    | converted on the server (`--export-stl`), then the STL path (T-009)      |
 | Import SVG (emboss)                          | ❌        | P3   | together with text embossing                                             |
 | Save / load project (3MF with all data)      | ✅        | –    | library + autosave; PrusaSlicer projects are read                        |
 | Recent projects                              | 🟡        | P3   | library shows dates; no "recent" list                                    |
@@ -134,5 +134,5 @@ Priority: **P1** needed for version 1.0 · **P2** important afterwards · **P3**
 
 Covered are the complete slicing core, profiles, per-object settings, volumes, painting, height
 ranges, library and print hosts. The largest remaining gaps are in **object tools** (cut, measure,
-emboss) and in the **preview** (model checks, G-code text window), followed by **STEP import**,
+emboss) and in the **preview** (model checks, G-code text window), followed by **STEP import** (done, T-009),
 **online profile updates** and the **G-code viewer**.

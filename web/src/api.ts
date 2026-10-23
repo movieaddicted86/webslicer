@@ -86,6 +86,25 @@ export const api = {
       headers: { 'Content-Type': 'application/octet-stream', 'X-Filename': encodeURIComponent(filename) },
       body: stl,
     }).then((r) => handle<{ id: string; name: string; triangles: number }>(r)),
+  /** T-009: the server converts a STEP file with the slicer CLI and answers its binary STL. */
+  convertStep: async (step: ArrayBuffer, filename: string): Promise<ArrayBuffer> => {
+    const r = await fetch('/api/convert/step', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/octet-stream', 'X-Filename': encodeURIComponent(filename) },
+      body: step,
+    });
+    if (!r.ok) {
+      let msg = `cannot convert ${filename} (${r.status})`;
+      try {
+        const j = (await r.json()) as { error?: string };
+        if (j?.error) msg = j.error;
+      } catch {
+        /* not JSON */
+      }
+      throw new Error(msg);
+    }
+    return r.arrayBuffer();
+  },
   parseProject: (data: ArrayBuffer) =>
     fetch('/api/projects/parse', { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: data }).then((r) =>
       handle<{ config: Config; objects: ProjectObject[]; customGcodes?: CustomGcode[]; buildOrder: number[] }>(r),

@@ -39,6 +39,8 @@ export async function importFiles(files: FileList | File[]) {
       continue;
     }
     try {
+      // T-009: a STEP file is converted on the server, which takes a moment – say so while it runs
+      if (ext === 'step' || ext === 'stp') st.toast('info', `Converting ${f.name}…`);
       if (ext === '3mf') {
         // project config (if any)
         try {

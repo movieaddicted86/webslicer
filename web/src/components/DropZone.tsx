@@ -18,7 +18,7 @@ export function DropZone({ children }: { children: ReactNode }) {
       }}
     >
       {children}
-      {over && <div className="drop-overlay">Drop STL / OBJ / 3MF / AMF files here</div>}
+      {over && <div className="drop-overlay">Drop STL / OBJ / 3MF / AMF / STEP files here</div>}
     </div>
   );
 }

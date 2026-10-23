@@ -13,7 +13,8 @@ import { config } from '../config.js';
 import { NotFoundError, ValidationError } from '../errors.js';
 import { safeName as sharedSafeName, type LibraryEntry } from '@webslicer/shared';
 
-export const MODEL_EXT = new Set(['.stl', '.obj', '.3mf', '.amf']);
+/** Step files are models too (T-009): the listing shows them like an STL and the import converts them. */
+export const MODEL_EXT = new Set(['.stl', '.obj', '.3mf', '.amf', '.step', '.stp']);
 export const GCODE_EXT = new Set(['.gcode', '.bgcode', '.gco', '.g']);
 
 /**

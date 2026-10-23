@@ -8,7 +8,7 @@ to the browser. Runs as a Docker container or natively in a Proxmox LXC.
 
 ## Features
 
-- **3D plater** (Three.js): import STL / OBJ / 3MF / AMF (drag & drop), multiple objects,
+- **3D plater** (Three.js): import STL / OBJ / 3MF / AMF / STEP (drag & drop; STEP is converted on the server), multiple objects,
   move / rotate / scale (gizmo + numeric input), **place on face** (key F), arrange, duplicate,
   build-volume check, extruder assignment, **per-object settings** (overrides like in PrusaSlicer).
 - **Support, seam and MMU painting**: paint enforcers and blockers or the extruder directly onto the model
@@ -48,8 +48,8 @@ to the browser. Runs as a Docker container or natively in a Proxmox LXC.
   Mainsail/Fluidd/OctoPrint then show the print with an image.
 - **Multi-extruder / MMU**: filament preset per extruder, wipe tower settings, extruder count in the
   printer preset.
-- **File library**: a mounted directory (`/library`, e.g. a NAS share) with STL/OBJ/3MF/AMF, projects
-  and G-code. Files can be browsed and opened in the browser, projects stored as 3MF and finished G-code
+- **File library**: a mounted directory (`/library`, e.g. a NAS share) with STL/OBJ/3MF/AMF/STEP,
+  projects and G-code. Files can be browsed and opened in the browser, projects stored as 3MF and finished G-code
   dropped there, without uploading through the browser.
 - **Autosave**: the plater is saved automatically as a project and offered for restore after a reload
   or browser crash.
@@ -137,7 +137,7 @@ printer_). Then drag a model into the 3D view and click **Slice now**.
 | `PRUSASLICER_SHA256` (build arg)  | –                                           | SHA-256 of a custom AppImage; without it a custom URL/version is downloaded unverified (warning)                                                  |
 | `PORT`                            | `8080`                                      | HTTP port                                                                                                                                         |
 | `DATA_DIR`                        | `/data`                                     | Presets, models, jobs, printer list, autosave                                                                                                     |
-| `LIBRARY_DIR`                     | `/library` (Compose) or `$DATA_DIR/library` | File library for STL/3MF/G-code, meant to be mounted                                                                                              |
+| `LIBRARY_DIR`                     | `/library` (Compose) or `$DATA_DIR/library` | File library for STL/STEP/3MF/G-code, meant to be mounted                                                                                         |
 | `MAX_JOBS`                        | `2`                                         | Parallel slicing jobs                                                                                                                             |
 | `MAX_UPLOAD_BYTES`                | `524288000`                                 | Maximum upload size per model                                                                                                                     |
 | `JOB_RETENTION`                   | `50`                                        | Jobs (G-code) kept                                                                                                                                |
@@ -444,6 +444,7 @@ the server builds a 3MF from all objects + transforms, writes the merged configu
 | POST           | `/api/presets/:type/list`  | presets (with compatibility)               |
 | GET/PUT/DELETE | `/api/presets/:type/:name` | read preset / save as user preset / delete |
 | POST           | `/api/models`              | upload STL (body = binary STL)             |
+| POST           | `/api/convert/step`        | STEP → binary STL (`x-filename` = name)    |
 | POST           | `/api/slice`               | create job → `202 {id}`                    |
 | GET            | `/api/jobs/:id/events`     | progress (SSE)                             |
 | GET            | `/api/jobs/:id/gcode`      | result (`?download`)                       |

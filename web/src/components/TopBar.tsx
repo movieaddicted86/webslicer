@@ -77,14 +77,14 @@ export function TopBar() {
           ref={fileRef}
           type="file"
           multiple
-          accept=".stl,.obj,.3mf,.amf"
+          accept=".stl,.obj,.3mf,.amf,.step,.stp"
           style={{ display: 'none' }}
           onChange={(e) => {
             if (e.target.files?.length) void importFiles(e.target.files);
             e.target.value = '';
           }}
         />
-        <button onClick={() => fileRef.current?.click()} title="Import STL/OBJ/3MF/AMF from this computer (Ctrl+I)">
+        <button onClick={() => fileRef.current?.click()} title="Import STL/OBJ/3MF/AMF/STEP from this computer (Ctrl+I)">
           ⤓ Import
         </button>
         <button

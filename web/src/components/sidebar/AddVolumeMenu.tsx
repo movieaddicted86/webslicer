@@ -86,7 +86,7 @@ export function AddVolumeMenu({ o, onClose }: { o: PlaterObject; onClose: () => 
       <input
         ref={fileRef}
         type="file"
-        accept=".stl,.obj,.3mf,.amf"
+        accept=".stl,.obj,.3mf,.amf,.step,.stp"
         style={{ display: 'none' }}
         onChange={(e) => {
           const f = e.target.files?.[0];
