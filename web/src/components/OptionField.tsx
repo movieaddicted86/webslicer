@@ -27,19 +27,30 @@ function ScalarInput({
   value,
   onChange,
   disabled,
+  id,
 }: {
   def: OptionDef;
   value: string;
   onChange: (v: string) => void;
   disabled?: boolean;
+  /** the control's `id`: the row `<label htmlFor>` points at it (W10) */
+  id: string;
 }) {
   const scalarType = def.type.replace(/s$/, '').replace('floats_or_percent', 'float_or_percent');
   switch (scalarType) {
     case 'bool':
-      return <input type="checkbox" checked={toBool(value)} disabled={disabled} onChange={(e) => onChange(e.target.checked ? '1' : '0')} />;
+      return (
+        <input
+          id={id}
+          type="checkbox"
+          checked={toBool(value)}
+          disabled={disabled}
+          onChange={(e) => onChange(e.target.checked ? '1' : '0')}
+        />
+      );
     case 'enum':
       return (
-        <select value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)}>
+        <select id={id} value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)}>
           {!def.enumValues?.includes(value) && <option value={value}>{value}</option>}
           {def.enumValues?.map((v, i) => (
             <option key={v} value={v}>
@@ -50,11 +61,12 @@ function ScalarInput({
       );
     case 'int':
     case 'float':
-      return <NumericField text={value} onText={onChange} step={scalarType === 'int' ? 1 : 'any'} disabled={disabled} />;
+      return <NumericField id={id} text={value} onText={onChange} step={scalarType === 'int' ? 1 : 'any'} disabled={disabled} />;
     case 'string':
       if (def.multiline || def.gcode) {
         return (
           <TextField
+            id={id}
             value={value}
             onChange={onChange}
             multiline
@@ -65,10 +77,10 @@ function ScalarInput({
           />
         );
       }
-      return <TextField value={value} onChange={onChange} type="text" disabled={disabled} />;
+      return <TextField id={id} value={value} onChange={onChange} type="text" disabled={disabled} />;
     default:
       // percent, float_or_percent, point…
-      return <TextField value={value} onChange={onChange} type="text" className="short" disabled={disabled} />;
+      return <TextField id={id} value={value} onChange={onChange} type="text" className="short" disabled={disabled} />;
   }
 }
 
@@ -87,7 +99,7 @@ export function syncBedEditor(value: string, shown: string, state: BedEditorStat
   return { text: value, custom: parsePoints(value).length !== 4 };
 }
 
-function BedShapeEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+function BedShapeEditor({ value, onChange, idPrefix }: { value: string; onChange: (v: string) => void; idPrefix: string }) {
   const pts = parsePoints(value);
   const xs = pts.map((p) => p[0]);
   const ys = pts.map((p) => p[1]);
@@ -122,21 +134,43 @@ function BedShapeEditor({ value, onChange }: { value: string; onChange: (v: stri
     <div className="bed-editor">
       {!custom ? (
         <div className="bed-grid">
-          <label>Size X</label>
-          <input type="number" value={sizeX} onChange={(e) => setRect(Number(e.target.value), sizeY, originX, originY)} />
-          <label>Size Y</label>
-          <input type="number" value={sizeY} onChange={(e) => setRect(sizeX, Number(e.target.value), originX, originY)} />
-          <label>Origin X</label>
-          <input type="number" value={originX} onChange={(e) => setRect(sizeX, sizeY, Number(e.target.value), originY)} />
-          <label>Origin Y</label>
-          <input type="number" value={originY} onChange={(e) => setRect(sizeX, sizeY, originX, Number(e.target.value))} />
+          <label htmlFor={`${idPrefix}-size-x`}>Size X</label>
+          <input
+            id={`${idPrefix}-size-x`}
+            type="number"
+            value={sizeX}
+            onChange={(e) => setRect(Number(e.target.value), sizeY, originX, originY)}
+          />
+          <label htmlFor={`${idPrefix}-size-y`}>Size Y</label>
+          <input
+            id={`${idPrefix}-size-y`}
+            type="number"
+            value={sizeY}
+            onChange={(e) => setRect(sizeX, Number(e.target.value), originX, originY)}
+          />
+          <label htmlFor={`${idPrefix}-origin-x`}>Origin X</label>
+          <input
+            id={`${idPrefix}-origin-x`}
+            type="number"
+            value={originX}
+            onChange={(e) => setRect(sizeX, sizeY, Number(e.target.value), originY)}
+          />
+          <label htmlFor={`${idPrefix}-origin-y`}>Origin Y</label>
+          <input
+            id={`${idPrefix}-origin-y`}
+            type="number"
+            value={originY}
+            onChange={(e) => setRect(sizeX, sizeY, originX, Number(e.target.value))}
+          />
         </div>
       ) : (
         <textarea
+          id={`${idPrefix}-polygon`}
           rows={3}
           value={text}
           onChange={(e) => setText(e.target.value)}
           onBlur={() => onChange(text)}
+          aria-label="Polygon points"
           placeholder="0x0,250x0,250x210,0x210"
         />
       )}
@@ -154,24 +188,36 @@ export function OptionField({ def, value, savedValue, onChange, onReset, extrude
   const isVec =
     ['floats', 'ints', 'bools', 'strings', 'percents', 'floats_or_percents', 'points'].includes(def.type) && def.key !== 'bed_shape';
   let body;
+  // W10: the row label points at its control. A vector row has one control per element, so each of
+  // those gets its own id and the row is named after the first one only if there is just one.
+  const controlId = `opt-${def.key}-value`;
+  let labelledControl: string | null = controlId;
   if (def.key === 'bed_shape') {
-    body = <BedShapeEditor value={raw} onChange={onChange} />;
+    body = <BedShapeEditor value={raw} onChange={onChange} idPrefix={`opt-${def.key}`} />;
+    labelledControl = null;
   } else if (isVec) {
     const values = decodeVector(def, raw);
     const n = singleElement ? 1 : def.perExtruder ? extruders : def.key.startsWith('machine_') ? 2 : Math.max(1, values.length);
     while (values.length < n) values.push(values[values.length - 1] ?? decodeVector(def, def.default)[0] ?? '');
     const labels = def.key.startsWith('machine_') ? ['Normal', 'Stealth'] : Array.from({ length: n }, (_, i) => `#${i + 1}`);
+    labelledControl = n === 1 ? `${controlId}-0` : null;
     body = (
       <div className={`vector ${n > 1 ? 'multi' : ''}`}>
         {values.slice(0, n).map((v, i) => {
           const isNil = def.nullable && v === 'nil';
+          const id = `${controlId}-${i}`;
           return (
             <div key={i} className="vector-item">
-              {n > 1 && <span className="vec-label">{labels[i]}</span>}
+              {n > 1 && (
+                <label className="vec-label" htmlFor={id}>
+                  {labels[i]}
+                </label>
+              )}
               {def.nullable && (
                 <input
                   type="checkbox"
                   title="Override printer value"
+                  aria-label={`Use the printer value for ${labels[i] ?? def.label}`}
                   checked={!isNil}
                   onChange={(e) => {
                     const next = [...values];
@@ -181,6 +227,7 @@ export function OptionField({ def, value, savedValue, onChange, onReset, extrude
                 />
               )}
               <ScalarInput
+                id={id}
                 def={def}
                 value={isNil ? '' : v}
                 disabled={disabled || isNil}
@@ -197,7 +244,9 @@ export function OptionField({ def, value, savedValue, onChange, onReset, extrude
     );
   } else {
     const [v] = decodeVector(def, raw);
-    body = <ScalarInput def={def} value={v ?? ''} disabled={disabled} onChange={(nv) => onChange(encodeVector(def, [nv]))} />;
+    body = (
+      <ScalarInput id={controlId} def={def} value={v ?? ''} disabled={disabled} onChange={(nv) => onChange(encodeVector(def, [nv]))} />
+    );
   }
   return (
     <div
@@ -206,7 +255,7 @@ export function OptionField({ def, value, savedValue, onChange, onReset, extrude
       }`}
       id={`opt-${def.key}`}
     >
-      <label title={`${def.key}\n\n${def.tooltip}`}>
+      <label htmlFor={labelledControl ?? undefined} title={`${def.key}\n\n${def.tooltip}`}>
         {modified && <span className="dot" />}
         {def.label}
       </label>

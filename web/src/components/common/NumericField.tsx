@@ -14,6 +14,8 @@ interface NumericFieldProps {
   disabled?: boolean;
   className?: string;
   title?: string;
+  /** lets the caller's `<label htmlFor>` name the control (W10) */
+  id?: string;
 }
 
 /** A controlled number input (F-20) – a thin face over the one draft/commit skeleton. */
@@ -29,11 +31,13 @@ export function NumericField({
   disabled,
   className,
   title,
+  id,
 }: NumericFieldProps) {
   const field = useFieldDraft(text, onText, { apply, keepText });
   return (
     <input
       type="number"
+      id={id}
       className={className}
       step={step}
       min={min}

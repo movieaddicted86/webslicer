@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import { useStore, isModified, type PresetSlot } from '../state/store';
 import type { PresetSummary, PresetType } from '../api';
 import { ACTION_ICONS } from './common/icons';
@@ -51,6 +52,8 @@ export function PresetSelect({ type, slot, extruderIdx = 0, label }: Props) {
   const discard = useStore((s) => s.discardChanges);
   const toast = useStore((s) => s.toast);
   const modified = isModified(slot);
+  // W10: the label names the select; useId keeps it unique with several selects on screen
+  const selectId = useId();
 
   const entries = collapseAliases(list, slot.name, showIncompatible);
   const groups = new Map<string, typeof entries>();
@@ -71,9 +74,9 @@ export function PresetSelect({ type, slot, extruderIdx = 0, label }: Props) {
 
   return (
     <div className="preset-select">
-      <label>{label}</label>
+      <label htmlFor={selectId}>{label}</label>
       <div className="preset-row">
-        <select value={slot.name} onChange={(e) => change(e.target.value)} title={slot.name}>
+        <select id={selectId} value={slot.name} onChange={(e) => change(e.target.value)} title={slot.name}>
           {!entries.some((e) => e.value === slot.name) && <option value={slot.name}>{slot.name}</option>}
           {[...groups.entries()].map(([g, items]) => (
             <optgroup key={g} label={g}>

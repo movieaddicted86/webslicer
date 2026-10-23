@@ -135,6 +135,13 @@ textarea:focus {
   outline: 1px solid var(--blue);
 }
 
+/* Rows that act like buttons (W10) have no default focus ring; the keyboard still needs to see it. */
+[role='button']:focus-visible,
+[role='checkbox']:focus-visible {
+  outline: 1px solid var(--blue);
+  outline-offset: 1px;
+}
+
 textarea.gcode {
   font-family: ui-monospace, Consolas, monospace;
   font-size: 12px;

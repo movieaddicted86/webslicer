@@ -12,6 +12,8 @@ interface TextFieldProps {
   spellCheck?: boolean;
   disabled?: boolean;
   title?: string;
+  /** lets the caller's `<label htmlFor>` name the control (W10) */
+  id?: string;
 }
 
 /**
@@ -30,11 +32,13 @@ export function TextField({
   spellCheck,
   disabled,
   title,
+  id,
 }: TextFieldProps) {
   const field = useFieldDraft(value, onChange, { apply, keepText });
   if (multiline) {
     return (
       <textarea
+        id={id}
         className={className}
         rows={rows}
         spellCheck={spellCheck}
@@ -50,6 +54,7 @@ export function TextField({
   return (
     <input
       type={type}
+      id={id}
       className={className}
       spellCheck={spellCheck}
       disabled={disabled}
