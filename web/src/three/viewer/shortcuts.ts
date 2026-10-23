@@ -12,7 +12,7 @@
  * to `arrange` – both as before. `Shift+A` ("arrange selection", T-043) is tested before plain `A`,
  * and `arrange` requires Shift off, so the two never fire for the same keypress.
  */
-import { viewByKey } from '../../plater/camera';
+import { viewByKey } from './cameraMath';
 import { toolShortcutEntries, type ToolShortcutEntry } from '../../tools/registry';
 
 /**

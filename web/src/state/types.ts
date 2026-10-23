@@ -7,20 +7,8 @@
  * still says what it contributes.
  */
 import type { StateCreator } from 'zustand';
-import * as THREE from 'three';
-import type {
-  Config,
-  JobRecord,
-  LayerRangeInput,
-  Placement,
-  PresetType,
-  Schema,
-  ServerInfo,
-  ThumbnailInput,
-  Vec3,
-  VolumeType,
-} from '../api';
-import type { ThumbnailSpec } from '@webslicer/shared';
+import type * as THREE from 'three';
+import type { Config, JobRecord, LayerRangeInput, Placement, PresetType, Schema, ServerInfo, Vec3, VolumeType } from '../api';
 import type { ParsedGcode } from '../gcode/types';
 import type { UiSlice } from './slices/ui';
 import type { PresetSlice } from './slices/preset';
@@ -152,8 +140,6 @@ export interface CoreState {
   fatal?: string;
   info?: ServerInfo;
   schema?: Schema;
-  /** registered by the Viewer: renders G-code preview thumbnails of the plater */
-  renderThumbnails?: (specs: ThumbnailSpec[], colors: string[]) => ThumbnailInput[];
   dialog?: 'addPrinter' | 'physicalPrinters' | 'objectSettings' | 'sendToPrinter' | 'savePreset' | 'about' | 'library' | 'unsavedChanges';
   dialogPayload?: unknown;
   /** preset switch waiting for the user's answer in the "Unsaved Changes" dialog */

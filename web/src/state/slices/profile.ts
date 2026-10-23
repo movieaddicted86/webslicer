@@ -8,7 +8,7 @@
  * object. Every action is one undo step; the profile itself is what the slice request carries.
  */
 import { adaptiveProfile, applyBrush, smoothProfile } from '@webslicer/shared';
-import { geometrySoup } from '../../three/geometry';
+import { geometrySoup } from '../../plater/meshInfo';
 import type { SlicePart } from '../types';
 import { DEFAULT_PROFILE_SETTINGS, printerLayerLimits, type ProfileSettings } from '../../plater/layerProfile';
 

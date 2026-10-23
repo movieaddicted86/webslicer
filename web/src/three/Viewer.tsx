@@ -1,6 +1,6 @@
 import { useRef, useMemo } from 'react';
 import { useStore } from '../state/store';
-import { VIEWS } from '../plater/camera';
+import { VIEWS } from './viewer/cameraMath';
 import { printerLayerLimits } from '../plater/layerProfile';
 import { useKeyboardShortcuts } from './viewer/useKeyboardShortcuts';
 import type { SceneRefs } from './viewer/types';

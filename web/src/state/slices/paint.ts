@@ -7,11 +7,11 @@
  * Which paint tool is open is the tools slice's `activeTool`; `startPaint` opens that tool through the
  * registry, so both ways in (the bar/shortcut and this action) run the same lifecycle.
  */
-import { api } from '../../api';
-import { remapPaint, subdivideForPainting, type PaintKind } from '../../three/paint';
-import { geometryToStl } from '../../three/geometry';
+import { remapPaint, type PaintKind } from '../../plater/paintCodec';
+import { subdivideForPainting } from '../../plater/meshOps';
 import { clampExtruder } from '../../plater/extruders';
 import { paintToolOf } from '../../tools/paintKind';
+import { uploadMesh } from '../upload';
 import type { SlicePart } from '../types';
 
 export interface PaintSlice {
@@ -54,13 +54,12 @@ export const createPaintSlice: SlicePart<PaintSlice> = (set, get) => ({
       ? { supports: remapPaint(o.paint.supports, parent), seam: remapPaint(o.paint.seam, parent), mmu: remapPaint(o.paint.mmu, parent) }
       : undefined;
     get().updateObject(objectId, { geometry, triangles: tri, paint, paintReady: true, modelId: undefined, uploadError: undefined });
-    try {
-      const res = await api.uploadModel(geometryToStl(geometry), o.name);
-      get().updateObject(objectId, { modelId: res.id });
-    } catch (e) {
-      get().updateObject(objectId, { uploadError: (e as Error).message });
-      get().toast('error', `Upload of ${o.name} failed: ${(e as Error).message}`);
-    }
+    await uploadMesh(
+      geometry,
+      o.name,
+      (patch) => get().updateObject(objectId, patch),
+      (text) => get().toast('error', text),
+    );
   },
   stopPaint: () => get().closeTool(),
   setPaintTool: (paintTool) => set({ paintTool }),

@@ -4,7 +4,8 @@
  */
 import type { StateCreator } from 'zustand';
 import { api, autosaveApi, type Config, type PresetType, type SliceRequest } from '../../api';
-import { encodeMmu, encodePaint } from '../../three/paint';
+import { encodeMmu, encodePaint } from '../../plater/paintCodec';
+import { hasThumbnailRenderer, renderThumbnails } from '../thumbnailRenderer';
 import { decodeVector } from '../../values';
 import { parseThumbnailSpec, placementMatrix } from '@webslicer/shared';
 import { clientId } from '../client';
@@ -110,7 +111,7 @@ export const createJobSlice: StateCreator<State, [], [], JobSlice> = (set, get) 
         return;
       }
       // Previews for the printer display / print host (the slicer CLI cannot render them).
-      if (!s.binaryGcode && s.renderThumbnails) {
+      if (!s.binaryGcode && hasThumbnailRenderer()) {
         const pc = s.presets.printer.current;
         const specs = parseThumbnailSpec(pc.thumbnails, pc.thumbnails_format);
         if (specs.length) {
@@ -119,7 +120,7 @@ export const createJobSlice: StateCreator<State, [], [], JobSlice> = (set, get) 
             const colors = s.presets.filament.map(
               (f) => (colDef ? decodeVector(colDef, f.current.filament_colour)[0] : f.current.filament_colour) || '',
             );
-            req.thumbnails = s.renderThumbnails(specs, colors);
+            req.thumbnails = renderThumbnails(specs, colors);
           } catch (e) {
             console.warn('thumbnail rendering failed', e);
           }

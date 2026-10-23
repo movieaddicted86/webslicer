@@ -1,12 +1,10 @@
 /**
- * The plater's object math (R-6). Everything here works on the plater's own types with three.js
- * boxes; the algorithms themselves live in `@webslicer/shared` and `../three/matrix` is the only
- * place where a shared matrix/bounds turns into a THREE object.
+ * The plater's object math (R-6). Everything here works on the plater's own types and plain
+ * `{ min, max }` boxes; the algorithms themselves live in `@webslicer/shared` and the three.js
+ * adapters in `../three/matrix`. No three.js type is needed here (q4-web-store).
  */
-import * as THREE from 'three';
-import { instanceBounds as sharedInstanceBounds, placementMatrix, type Placement } from '@webslicer/shared';
-import { fromBox3, toBox3 } from '../three/matrix';
-import { geometrySize, triangleCount } from '../three/geometry';
+import { instanceBounds as sharedInstanceBounds, placementMatrix, type Bounds, type Placement } from '@webslicer/shared';
+import { geometrySize, triangleCount, type GeometryLike } from './meshInfo';
 import type { NewVolumeInput, PlaterInstance, PlaterObject, PlaterVolume } from '../state/types';
 
 /** Placement used for a mesh that arrives without an item transform (STL, OBJ, plain 3MF). */
@@ -33,28 +31,34 @@ export function pickedInstanceId(state: { selectedIds: string[]; selectedInstanc
   return id && o.instances.some((i) => i.id === id) ? id : undefined;
 }
 
-/** The bounding box of a geometry, computing it when needed; throws on a mesh without positions. */
-function boundsOf(g: THREE.BufferGeometry): THREE.Box3 {
+/** A plain axis-aligned box in world space: the shared `Bounds` shape as named components. */
+export interface BoundsBox {
+  min: { x: number; y: number; z: number };
+  max: { x: number; y: number; z: number };
+}
+
+/** The bounding box of a geometry as shared bounds (tuples), computing it when needed. */
+function geometryBoundsOf(g: GeometryLike): Bounds {
   if (!g.boundingBox) g.computeBoundingBox();
   const bb = g.boundingBox;
   if (!bb) throw new Error('geometry has no bounding box');
-  return bb;
+  return { min: [bb.min.x, bb.min.y, bb.min.z], max: [bb.max.x, bb.max.y, bb.max.z] };
 }
 
 /** World-space bounds of one instance (its own scale applies to the object's volumes too). */
-export function instanceBounds(o: PlaterObject, inst: PlaterInstance): THREE.Box3 {
+export function instanceBounds(o: PlaterObject, inst: PlaterInstance): BoundsBox {
   const im = placementMatrix(inst);
-  let box = sharedInstanceBounds(fromBox3(boundsOf(o.geometry)), im);
+  let box = sharedInstanceBounds(geometryBoundsOf(o.geometry), im);
   for (const v of o.volumes || []) {
     if (v.type !== 'ModelPart') continue;
     // the volume matrix first, then the instance's – Box3.applyMatrix4 chained did the same two hulls
-    const vb = sharedInstanceBounds(sharedInstanceBounds(fromBox3(boundsOf(v.geometry)), placementMatrix(v)), im);
+    const vb = sharedInstanceBounds(sharedInstanceBounds(geometryBoundsOf(v.geometry), placementMatrix(v)), im);
     box = {
       min: [Math.min(box.min[0], vb.min[0]), Math.min(box.min[1], vb.min[1]), Math.min(box.min[2], vb.min[2])],
       max: [Math.max(box.max[0], vb.max[0]), Math.max(box.max[1], vb.max[1]), Math.max(box.max[2], vb.max[2])],
     };
   }
-  return toBox3(box);
+  return { min: { x: box.min[0], y: box.min[1], z: box.min[2] }, max: { x: box.max[0], y: box.max[1], z: box.max[2] } };
 }
 
 /** next id of a plater object, same `obj-N` pattern as volumes, ranges and instances */
@@ -91,10 +95,10 @@ export function makeVolume(input: NewVolumeInput, offset: [number, number, numbe
     position = input.position;
   } else {
     // centre the geometry at its own origin and remember where it was (object frame)
-    const bb = boundsOf(g);
-    const cx = (bb.min.x + bb.max.x) / 2;
-    const cy = (bb.min.y + bb.max.y) / 2;
-    const cz = (bb.min.z + bb.max.z) / 2;
+    const bb = geometryBoundsOf(g);
+    const cx = (bb.min[0] + bb.max[0]) / 2;
+    const cy = (bb.min[1] + bb.max[1]) / 2;
+    const cz = (bb.min[2] + bb.max[2]) / 2;
     g.translate(-cx, -cy, -cz);
     g.computeBoundingBox();
     position = [cx + offset[0], cy + offset[1], cz + offset[2]];

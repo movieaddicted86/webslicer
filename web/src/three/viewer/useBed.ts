@@ -8,7 +8,7 @@ import type { RefObject } from 'react';
 import * as THREE from 'three';
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
 import { bedShapeOf } from '@webslicer/shared';
-import { viewDirection } from '../../plater/camera';
+import { viewDirection } from './cameraMath';
 import { bedBox, frameBox } from './camera';
 import { clearAndDispose } from './dispose';
 import type { BedAsset, SceneRefs } from './types';

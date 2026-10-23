@@ -1,12 +1,13 @@
 /**
- * Triangle painting (support enforcers/blockers, seam) on non-indexed geometries.
- * PrusaSlicer stores paint per triangle as a hex nibble string
- * (slic3rpe:custom_supports / slic3rpe:custom_seam); whole-triangle states encode as
- * "4" (enforcer) and "8" (blocker).
+ * Triangle painting (support enforcers/blockers, seam) on non-indexed geometries: subdivision,
+ * brush lookups and vertex colours. The wire codecs and `PaintKind` live in
+ * `web/src/plater/paintCodec.ts` (no three.js), so the store can encode paint without this module.
  */
 import * as THREE from 'three';
+import type { PaintKind } from '../plater/paintCodec';
 
-export type PaintKind = 'supports' | 'seam' | 'mmu';
+export type { PaintKind };
+
 const PAINT_ENFORCER = 1;
 const PAINT_BLOCKER = 2;
 
@@ -86,14 +87,6 @@ export function subdivideForPainting(
   return { geometry, parent: Uint32Array.from(parents) };
 }
 
-/** Map an old per-triangle paint array through the subdivision parent table. */
-export function remapPaint(old: Uint8Array | undefined, parent: Uint32Array): Uint8Array | undefined {
-  if (!old) return undefined;
-  const out = new Uint8Array(parent.length);
-  for (let i = 0; i < parent.length; i++) out[i] = old[parent[i]] || 0;
-  return out;
-}
-
 /** Triangle centroids (object space) for brush lookups. */
 export function computeCentroids(g: THREE.BufferGeometry): Float32Array {
   const p = g.getAttribute('position').array as Float32Array;
@@ -145,41 +138,4 @@ export function paintToColors(
     colors[o + 2] = colors[o + 5] = colors[o + 8] = b;
   }
   return colors;
-}
-
-/** Encode a paint array as PrusaSlicer per-triangle hex strings joined by nothing: one char per triangle. */
-export function encodePaint(paint: Uint8Array): string {
-  let s = '';
-  for (let i = 0; i < paint.length; i++) s += paint[i] === PAINT_ENFORCER ? '4' : paint[i] === PAINT_BLOCKER ? '8' : '0';
-  return s;
-}
-
-/** MMU paint: one hex char per triangle = extruder index */
-export function encodeMmu(paint: Uint8Array): string {
-  let s = '';
-  for (let i = 0; i < paint.length; i++) s += (paint[i] & 15).toString(16);
-  return s;
-}
-
-export function decodeMmu(s: string | undefined, triCount: number): Uint8Array | undefined {
-  if (!s) return undefined;
-  const out = new Uint8Array(triCount);
-  let any = false;
-  for (let i = 0; i < Math.min(s.length, triCount); i++) {
-    out[i] = parseInt(s[i], 16) || 0;
-    if (out[i]) any = true;
-  }
-  return any ? out : undefined;
-}
-
-export function decodePaint(s: string | undefined, triCount: number): Uint8Array | undefined {
-  if (!s) return undefined;
-  const out = new Uint8Array(triCount);
-  let any = false;
-  for (let i = 0; i < Math.min(s.length, triCount); i++) {
-    const c = s[i];
-    out[i] = c === '4' ? PAINT_ENFORCER : c === '8' ? PAINT_BLOCKER : 0;
-    if (out[i]) any = true;
-  }
-  return any ? out : undefined;
 }

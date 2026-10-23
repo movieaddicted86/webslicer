@@ -1,18 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
-import { useStore, VOLUME_LABELS, selectedInstance, type PlaterObject } from '../../state/store';
-import { bedShapeOf } from '@webslicer/shared';
-import { createPrimitive, type PrimitiveShape } from '../../three/primitives';
-import { loadModelFile } from '../../three/loaders';
+import { useStore, VOLUME_LABELS, type PlaterObject } from '../../state/store';
 import { VOLUME_ICONS } from './volumes';
+import type { PrimitiveShape } from '../../plater/meshOps';
 import type { VolumeType } from '../../api';
 
 /** Popover to add a sub-volume to an object */
 export function AddVolumeMenu({ o, onClose }: { o: PlaterObject; onClose: () => void }) {
-  const addVolume = useStore((s) => s.addVolume);
-  const toast = useStore((s) => s.toast);
-  const bedShape = useStore((s) => s.presets.printer.current.bed_shape || '');
-  const selectedIds = useStore((s) => s.selectedIds);
-  const selectedInstanceId = useStore((s) => s.selectedInstanceId);
+  const addPrimitiveVolume = useStore((s) => s.addPrimitiveVolume);
+  const addVolumeFromFile = useStore((s) => s.addVolumeFromFile);
   const fileRef = useRef<HTMLInputElement>(null);
   const [fileType, setFileType] = useState<VolumeType>('ModelPart');
   const ref = useRef<HTMLDivElement>(null);
@@ -24,30 +19,12 @@ export function AddVolumeMenu({ o, onClose }: { o: PlaterObject; onClose: () => 
     return () => document.removeEventListener('mousedown', onDown);
   }, [onClose]);
 
-  const bed = bedShapeOf({ bed_shape: bedShape });
-  const side = Math.max(5, 0.1 * Math.max(bed.max[0] - bed.min[0], bed.max[1] - bed.min[1]));
-  const objScale = selectedInstance({ selectedIds, selectedInstanceId }, o).scale;
-  const objSize: [number, number, number] = [o.size[0] * objScale[0], o.size[1] * objScale[1], o.size[2] * objScale[2]];
-
   const addPrimitive = async (type: VolumeType, shape: PrimitiveShape) => {
-    const geometry = createPrimitive(shape, side, [o.size[0], o.size[1], o.size[2]]);
-    geometry.computeBoundingBox();
-    const bb = geometry.boundingBox;
-    if (!bb) return;
-    const h = bb.max.z - bb.min.z;
-    // modifiers etc. start at the object centre; slabs and new parts sit on the bed
-    const position: [number, number, number] =
-      shape === 'slab' || type === 'ModelPart' ? [0, 0, h / 2] : [0, 0, objSize[2] / 2 / objScale[2]];
-    await addVolume(o.id, { name: `${VOLUME_LABELS[type]} ${shape}`, type, geometry, position });
+    await addPrimitiveVolume(o.id, type, shape);
     onClose();
   };
   const addFromFile = async (file: File) => {
-    try {
-      const models = await loadModelFile(file);
-      for (const m of models) await addVolume(o.id, { name: m.name, type: fileType, geometry: m.geometry });
-    } catch (e) {
-      toast('error', (e as Error).message);
-    }
+    await addVolumeFromFile(o.id, file, fileType);
     onClose();
   };
   const rows: Array<{ type: VolumeType; shapes: PrimitiveShape[] }> = [

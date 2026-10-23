@@ -93,6 +93,27 @@ export default defineConfig(
     },
   },
   {
+    // q4-web-store: three.js is imported where it belongs. Only `web/src/three/**` may import
+    // `three`/`three/examples`; `state/types.ts` keeps the one allowed type-only import (a
+    // BufferGeometry is still the geometry type of an object), and tests may build fixtures with
+    // three.js because they never ship.
+    files: ['web/src/**/*.{ts,tsx}'],
+    ignores: ['web/src/three/**', 'web/src/state/types.ts', 'web/src/**/*.test.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['/three', '/three/examples/**'],
+              message: 'three.js belongs in web/src/three/ (q4-web-store); call the plater seam (plater/meshOps) or move the code there.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     // The v7 `recommended` presets switch on a whole React Compiler rule set (static-components, purity,
     // refs, …). T-027 keeps the rule set of v5 – the two rules – so the upgrade changes nothing here;
     // the extra rules are a separate task (R-12).

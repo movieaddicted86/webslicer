@@ -82,7 +82,6 @@ beforeEach(() => {
     toasts: [],
     schema: undefined,
     binaryGcode: false,
-    renderThumbnails: undefined,
   });
 });
 

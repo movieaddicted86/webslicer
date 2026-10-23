@@ -9,10 +9,9 @@
  * changes). Paint and height ranges cannot survive a cut of the mesh, so they are dropped with an info
  * toast; objects with extra volumes are refused (the button is disabled with the reason).
  */
-import * as THREE from 'three';
 import { api, type CutPart, type CutResult } from '../../api';
-import { loadStoredModel } from '../../three/loaders';
-import { geometrySize, triangleCount } from '../../three/geometry';
+import { loadStoredModel } from '../../plater/meshOps';
+import { geometrySize, triangleCount } from '../../plater/meshInfo';
 import { placementMatrix } from '@webslicer/shared';
 import { mintInstanceId, mintObjectId, selectedInstance } from '../../plater/objects';
 import { cutPlaneWorld, defaultCutSettings, type CutSettings } from '../../plater/cut';
@@ -36,7 +35,7 @@ function cutTarget(objects: PlaterObject[], selectedIds: string[]): PlaterObject
  * bottom at z = 0) and sends the world position of that origin, which is exactly what an instance
  * placement is – so the geometry goes in unchanged.
  */
-function partObject(part: CutPart, source: PlaterObject, geometry: THREE.BufferGeometry): PlaterObject {
+function partObject(part: CutPart, source: PlaterObject, geometry: PlaterObject['geometry']): PlaterObject {
   geometry.computeBoundingBox();
   geometry.computeVertexNormals();
   return {

@@ -11,7 +11,8 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
 import { useStore, type PlaterObject } from '../../state/store';
-import { renderThumbnails } from '../thumbnail';
+import { renderThumbnails as renderSceneThumbnails } from '../thumbnail';
+import { setThumbnailRenderer } from '../../state/thumbnailRenderer';
 import { FOV, orthoHeightOf, setOrthoFrustum } from './camera';
 import { createPainting } from './painting';
 import type { SceneRefs } from './types';
@@ -81,7 +82,7 @@ export function useScene(refsRef: RefObject<SceneRefs | null>, containerRef: Ref
       shellsOn: false,
     };
     refsRef.current = refs;
-    useStore.setState({ renderThumbnails: (specs, colors) => renderThumbnails(scene, objectsGroup, specs, colors) });
+    setThumbnailRenderer((specs, colors) => renderSceneThumbnails(scene, objectsGroup, specs, colors));
 
     const applyToStore = (target: THREE.Object3D, commit: boolean) => {
       const st = useStore.getState();
@@ -229,7 +230,7 @@ export function useScene(refsRef: RefObject<SceneRefs | null>, containerRef: Ref
       renderer.dispose();
       container.removeChild(renderer.domElement);
       refsRef.current = null;
-      useStore.setState({ renderThumbnails: undefined });
+      setThumbnailRenderer(undefined);
     };
     // `containerRef`/`refsRef` are stable ref objects owned by the Viewer; the scene is built once
     // eslint-disable-next-line react-hooks/exhaustive-deps -- stable refs, not dependencies

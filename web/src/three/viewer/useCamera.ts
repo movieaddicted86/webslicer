@@ -11,7 +11,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 import { useStore } from '../../state/store';
-import { viewDirection } from '../../plater/camera';
+import { viewDirection } from './cameraMath';
 import { DEFAULT_BED, bedBox, focusBox, frameBox, readOrthoPref, switchCamera, writeOrthoPref } from './camera';
 import type { CamRequest, SceneRefs } from './types';
 
