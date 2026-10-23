@@ -16,8 +16,11 @@ export interface TransformSlice {
   /** rotate an object so that the given world-space face normal points down (-Z) */
   placeObjectOnFace: (id: string, worldNormal: Vec3) => void;
   dropToBed: (id: string) => void;
-  /** arrange every instance on the bed; false (and no change) when they do not all fit */
-  arrange: () => boolean;
+  /**
+   * Arrange every instance on the bed; false (and no change) when they do not all fit. `record:
+   * false` is for an action that already recorded its own undo step and arranges inside it (N8b).
+   */
+  arrange: (opts?: { record?: boolean }) => boolean;
   /** arrange only the selected instances around the others (Shift+A); false when it does not fit */
   arrangeSelection: () => boolean;
   /** the Arrange settings from the gear popover (T-043), remembered per browser */
@@ -61,7 +64,7 @@ export const createTransformSlice: SlicePart<TransformSlice> = (set, get) => ({
     if (Math.abs(box.min.z) > 1e-6)
       get().updateInstance(id, inst.id, { position: [inst.position[0], inst.position[1], inst.position[2] - box.min.z] });
   },
-  arrange: () => {
+  arrange: (opts = {}) => {
     const s = get();
     const updates = arrangePlan(s.objects, bedShapeOf(s.presets.printer.current), packOptionsOf(s.presets, s.arrangeSettings));
     if (!updates) {
@@ -69,7 +72,7 @@ export const createTransformSlice: SlicePart<TransformSlice> = (set, get) => ({
       s.toast('error', 'Not all objects fit on the bed');
       return false;
     }
-    get().recordHistory();
+    if (opts.record !== false) get().recordHistory();
     set((st) => ({ objects: withPlacements(st.objects, updates), sliceDirty: true }));
     return true;
   },

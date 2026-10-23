@@ -12,6 +12,7 @@ import { subdivideForPainting } from '../../plater/meshOps';
 import { clampExtruder } from '../../plater/extruders';
 import { paintToolOf } from '../../tools/paintKind';
 import { uploadMesh } from '../upload';
+import { paintForEdit } from './history';
 import type { SlicePart } from '../types';
 
 export interface PaintSlice {
@@ -78,11 +79,11 @@ export const createPaintSlice: SlicePart<PaintSlice> = (set, get) => ({
     const o = get().objects.find((x) => x.id === objectId);
     if (!o || !triangles.length) return;
     const paint = o.paint ? { ...o.paint } : {};
+    // N6: the array may be shared with a history snapshot – copy it before the first write
     let arr = paint[kind];
-    if (!arr) {
-      arr = new Uint8Array(o.triangles);
-      paint[kind] = arr;
-    }
+    if (!arr) arr = new Uint8Array(o.triangles);
+    arr = paintForEdit(arr);
+    paint[kind] = arr;
     for (const t of triangles) if (t < arr.length) arr[t] = value;
     set((s) => ({
       objects: s.objects.map((x) => (x.id === objectId ? { ...x, paint, paintVersion: (x.paintVersion || 0) + 1 } : x)),
