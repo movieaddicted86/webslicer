@@ -39,7 +39,9 @@ export async function openSlicedJob(page: Page, jobId: string): Promise<void> {
   await page.evaluate(async (id) => {
     const job = (await (await fetch(`/api/jobs/${id}`)).json()) as never;
     const s = window.webslicer.getState();
-    window.webslicer.setState({ job });
+    // `sliceDirty: false` + an empty log is what a slice that just finished leaves behind, so the
+    // panel reads exactly as if this page had sliced the cube itself
+    window.webslicer.setState({ job, sliceDirty: false, jobLog: [] });
     await s.loadGcodePreview(id);
   }, jobId);
   await settle(page, 1500);

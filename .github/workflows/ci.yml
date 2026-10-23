@@ -126,11 +126,14 @@ jobs:
           cache-from: type=gha,scope=e2e
       - name: Build the mock print host
         run: docker build -t webslicer-mock-host:e2e e2e/mock-host
+      - run: npm ci
       - name: Resolve the Playwright image tag
         # the single place is `package.json`; Dependabot's `playwright` group bumps the package and
-        # the image tag follows from it
+        # the image tag follows from it (a range like `^1.64.1` is stripped to the version)
         id: pw
-        run: echo "image=mcr.microsoft.com/playwright:v$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+        run: |
+          version=$(node -p "require('./package.json').devDependencies['@playwright/test']")
+          echo "image=mcr.microsoft.com/playwright:v${version//[^0-9.]/}" >> "$GITHUB_OUTPUT"
       - name: Start the app and the mock print host
         run: |
           set -euo pipefail
@@ -167,7 +170,6 @@ jobs:
           done
           # the app has to resolve the mock by name before the send spec runs
           docker exec e2e node -e "fetch('http://mock-host:8160/api/version').then(r=>r.json()).then(j=>console.log('mock host:',j.server)).catch(e=>{console.error(e);process.exit(1)})"
-      - run: npm ci
       - name: Run the E2E suite (shard ${{ matrix.shard }})
         # The suite runs in the Playwright image (browsers preinstalled), against the workspace the
         # runner already installed. The mock's log directory is mounted, host networking reaches the
