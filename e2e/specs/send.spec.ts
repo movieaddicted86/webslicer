@@ -356,7 +356,9 @@ test.describe('send: the send gate and the upload (S1-b, T-026)', () => {
     // the job record carries the scan of the finished file: the M500 blocks, the printer preset's own
     // M907 lines (start/end G-code) only warn – the case the rule set was adjusted for
     const preflight = await read(app, (s) => s.job?.info?.preflight);
-    expect(preflight?.version).toBe(1);
+    expect(preflight?.version).toBe(2);
+    // q6-preflight: the scan records the hottest hotend/bed the file asks for, for the send gate
+    expect(preflight?.maxTemperatures).toBeDefined();
     const forbidden = preflight?.issues.filter((i) => i.rule === 'gcode.forbidden_command') ?? [];
     expect(forbidden).toHaveLength(1);
     expect(forbidden[0]).toMatchObject({ severity: 'block' });
