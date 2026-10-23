@@ -3,6 +3,7 @@ import { useStore, isModified, type View } from '../state/store';
 import { importFiles } from '../importFiles';
 import { api, downloadBlob } from '../api';
 import type { Mode } from '../api';
+import { UpdateChip } from './UpdateChip';
 
 export function TopBar() {
   const view = useStore((s) => s.view);
@@ -72,6 +73,8 @@ export function TopBar() {
         ))}
       </nav>
       <div className="spacer" />
+      {/* T-058: a quiet, dismissible hint when the repository moved on – it never covers anything */}
+      <UpdateChip />
       <div className="menu">
         <input
           ref={fileRef}

@@ -22,6 +22,7 @@ import type {
   SendIssue,
   SendResult,
   SliceRequest,
+  UpdateStatus,
   Vendor,
 } from '@webslicer/shared';
 
@@ -67,6 +68,8 @@ const jsonInit = (method: string, body: unknown): RequestInit => ({
 
 export const api = {
   info: () => fetch('/api/info').then((r) => handle<ServerInfo>(r)),
+  /** T-058: the server's cached answer to "has the repository moved on?" */
+  updateStatus: () => fetch('/api/update-status').then((r) => handle<UpdateStatus>(r)),
   schema: () => fetch('/api/schema').then((r) => handle<Schema>(r)),
   vendors: () => fetch('/api/vendors').then((r) => handle<Vendor[]>(r)),
   installedPrinters: () => fetch('/api/installed-printers').then((r) => handle<InstalledPrinter[]>(r)),

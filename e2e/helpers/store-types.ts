@@ -213,6 +213,10 @@ export interface E2EState {
   selectPreset: (type: 'print' | 'filament' | 'printer', name: string, extruderIdx?: number) => Promise<void>;
   openDialog: (dialog: string, payload?: unknown) => void;
   closeDialog: () => void;
+  /** the server's update answer (T-058); `undefined` while unknown */
+  updateStatus?: { current: string; latest: string; behind: number; url: string; checkedAt: string | null; enabled: boolean; tag?: string };
+  /** fetch the update status (T-058): the specs seed the answer through `setState` instead */
+  refreshUpdateStatus: () => Promise<void>;
   slice: () => Promise<void>;
   /** the slice request of the current plate (T-042 exports it as 3MF to check the names round trip) */
   buildSliceRequest: () => unknown;

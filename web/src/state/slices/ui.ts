@@ -3,7 +3,7 @@
  * modal dialog – and `init`, which loads the server metadata every other slice works from.
  */
 import type { StateCreator } from 'zustand';
-import { api, type InstalledPrinter, type Mode, type PhysicalPrinter, type Vendor } from '../../api';
+import { api, type InstalledPrinter, type Mode, type PhysicalPrinter, type UpdateStatus, type Vendor } from '../../api';
 import { loadSelection, saveSelection } from './preset';
 import { MODE_RANK } from '../../values';
 import type { State, Toast, View } from '../types';
@@ -34,6 +34,10 @@ export interface UiSlice {
   setMode: (m: Mode) => void;
   openDialog: (d: State['dialog'], payload?: unknown) => void;
   closeDialog: () => void;
+  /** T-058: the server's last answer to "is there a newer version?"; `undefined` while unknown */
+  updateStatus?: UpdateStatus;
+  /** fetch the update status in the background; a failure is silent (the chip just stays away) */
+  refreshUpdateStatus: () => Promise<void>;
   init: () => Promise<void>;
 }
 
@@ -98,6 +102,13 @@ export const createUiSlice: StateCreator<State, [], [], UiSlice> = (set, get) =>
   openDialog: (dialog, dialogPayload) => set({ dialog, dialogPayload }),
   requestRename: (id) => set({ renameRequest: id }),
   closeDialog: () => set({ dialog: undefined, dialogPayload: undefined, pendingSwitch: undefined }),
+  refreshUpdateStatus: async () => {
+    try {
+      set({ updateStatus: await api.updateStatus() });
+    } catch {
+      // the notice is a convenience: an offline server or an old one without the route shows nothing
+    }
+  },
   init: async () => {
     try {
       const [info, schema, vendors, installed, physicalPrinters] = await Promise.all([
@@ -109,6 +120,8 @@ export const createUiSlice: StateCreator<State, [], [], UiSlice> = (set, get) =>
       ]);
       const sel = loadSelection();
       set({ info, schema, vendors, installed, physicalPrinters, mode: sel.mode || 'advanced' });
+      // T-058: a quiet extra request – never awaited, so a slow GitHub never delays the app
+      void get().refreshUpdateStatus();
       // restore selection
       const printerName = sel.printer || '- default FFF -';
       await get()

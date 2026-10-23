@@ -1135,6 +1135,41 @@ table.kv td:first-child {
   color: var(--muted);
 }
 
+/* ---- the update notice (T-058): one quiet chip, dismissible, never a modal or toast */
+.update-chip {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  max-width: 260px;
+  padding: 2px 2px 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg3);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.update-chip a {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--accent2);
+  text-decoration: none;
+}
+.update-chip a:hover {
+  text-decoration: underline;
+}
+.update-chip-dismiss {
+  padding: 0 5px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 18px;
+  cursor: pointer;
+}
+.update-chip-dismiss:hover {
+  color: var(--text);
+}
+
 /* ---- "Unsaved Changes" dialog */
 table.changes {
   width: 100%;
@@ -1617,6 +1652,14 @@ button.link:hover {
   flex-wrap: wrap;
   height: auto;
   min-height: 46px;
+}
+/* T-058: on a phone the tab strip and the menu wrap as well – their nowrap buttons are wider than
+   the screen on their own, and the update chip has to fit next to them without pushing the bar out */
+@media (max-width: 640px) {
+  .tabs,
+  .menu {
+    flex-wrap: wrap;
+  }
 }
 .main {
   min-width: 0;
