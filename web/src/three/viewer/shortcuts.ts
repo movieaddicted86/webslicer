@@ -54,6 +54,7 @@ export const SHORTCUTS: Shortcut[] = [
   { id: 'paintSupports', keys: ['L'], match: ['l', 'L'], label: 'paint supports' },
   { id: 'paintSeam', keys: ['P'], match: ['p', 'P'], label: 'paint seam' },
   { id: 'placeOnFace', keys: ['F'], match: ['f', 'F'], label: 'place on face' },
+  { id: 'rename', keys: ['F2'], match: ['F2'], label: 'rename' },
   { id: 'move', keys: ['M'], match: ['m', 'M'], label: 'move', aboutAt: 1 },
   { id: 'rotate', keys: ['R'], match: ['r', 'R'], label: 'rotate', aboutAt: 2 },
   { id: 'scale', keys: ['S'], match: ['s', 'S'], label: 'scale', aboutAt: 3 },

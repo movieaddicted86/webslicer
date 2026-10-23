@@ -40,6 +40,56 @@ export function multiply(a: Matrix4, b: Matrix4): Matrix4 {
   return out;
 }
 
+/**
+ * Inverse of an affine column-major 4x4 matrix, or `undefined` for a singular linear part (a scale
+ * of zero). Only the affine case is needed – every placement this app builds is `T · R · S` – so the
+ * last row is assumed to be `0 0 0 1`.
+ */
+export function invert(m: Matrix4): Matrix4 | undefined {
+  // rows 1-3 of the linear part, "column, row" labels as in the other functions here
+  const a = m[0],
+    b = m[4],
+    c = m[8];
+  const d = m[1],
+    e = m[5],
+    f = m[9];
+  const g = m[2],
+    h = m[6],
+    i = m[10];
+  const det = a * (e * i - f * h) - b * (d * i - f * g) + c * (d * h - e * g);
+  if (Math.abs(det) < 1e-12) return undefined;
+  const k = 1 / det;
+  // inverse of the 3x3 linear part, row by row
+  const r00 = (e * i - f * h) * k;
+  const r01 = (c * h - b * i) * k;
+  const r02 = (b * f - c * e) * k;
+  const r10 = (f * g - d * i) * k;
+  const r11 = (a * i - c * g) * k;
+  const r12 = (c * d - a * f) * k;
+  const r20 = (d * h - e * g) * k;
+  const r21 = (b * g - a * h) * k;
+  const r22 = (a * e - b * d) * k;
+  const [tx, ty, tz] = [m[12], m[13], m[14]];
+  return [
+    r00,
+    r10,
+    r20,
+    0,
+    r01,
+    r11,
+    r21,
+    0,
+    r02,
+    r12,
+    r22,
+    0,
+    -(r00 * tx + r01 * ty + r02 * tz),
+    -(r10 * tx + r11 * ty + r12 * tz),
+    -(r20 * tx + r21 * ty + r22 * tz),
+    1,
+  ];
+}
+
 /** Apply a column-major 4x4 matrix to one point. */
 export function apply(m: Matrix4, x: number, y: number, z: number): Vec3 {
   return [m[0] * x + m[4] * y + m[8] * z + m[12], m[1] * x + m[5] * y + m[9] * z + m[13], m[2] * x + m[6] * y + m[10] * z + m[14]];

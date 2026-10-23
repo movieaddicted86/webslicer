@@ -1,4 +1,5 @@
 import {
+  Combine,
   Copy,
   LayoutGrid,
   Minus,
@@ -45,6 +46,8 @@ export const ACTION_ICONS = {
   instanceToObject: SquareSplitHorizontal,
   splitToObjects: Split,
   splitToParts: Ungroup,
+  /** merge the selected objects into one */
+  merge: Combine,
   remove: X,
   close: X,
   refresh: RefreshCw,

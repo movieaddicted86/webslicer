@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useStore } from '../../state/store';
 import { retrySession } from '../../state/session';
 import { SectionHeader } from '../common/SectionHeader';
@@ -18,6 +18,7 @@ export function ObjectsSection() {
   const selectedIds = useStore((s) => s.selectedIds);
   const selectedVolumeId = useStore((s) => s.selectedVolumeId);
   const duplicate = useStore((s) => s.duplicateObjects);
+  const mergeObjects = useStore((s) => s.mergeObjects);
   const arrange = useStore((s) => s.arrange);
   const clear = useStore((s) => s.clearObjects);
   const transformMode = useStore((s) => s.transformMode);
@@ -34,11 +35,30 @@ export function ObjectsSection() {
   const [addMenuFor, setAddMenuFor] = useState<string | null>(null);
   // which objects show their instance sub-list (like the volume list, collapsed by default)
   const [instancesOpen, setInstancesOpen] = useState<Record<string, boolean>>({});
+  // the row whose name is being edited (double-click on the name or F2 on the selection)
+  const [renamingId, setRenamingId] = useState<string | null>(null);
 
   const selected = useSelectedObjects();
   const selectedVolume = selected.length === 1 ? selected[0].volumes.find((v) => v.id === selectedVolumeId) : undefined;
   const deleteSelection = useDeleteSelection();
   const { addInstance, removeOneInstance, instanceCount } = useInstanceActions();
+
+  // T-042: a rename requested elsewhere (F2, the workspace key handler) opens the inline field here
+  const renameRequest = useStore((s) => s.renameRequest);
+  useEffect(() => {
+    if (!renameRequest) return;
+    setRenamingId(renameRequest);
+    useStore.setState({ renameRequest: undefined });
+  }, [renameRequest]);
+
+  // only objects with a single instance can be merged (one world position per object, T-042)
+  const mergeSelection = selected.filter((o) => o.instances.length === 1);
+  const canMerge = selected.length > 1 && mergeSelection.length === selected.length;
+  const mergeTitle = canMerge
+    ? 'Merge the selected objects into one (the first keeps its settings and paint)'
+    : selected.length > 1
+      ? 'Only objects with a single instance can be merged'
+      : 'Merge: select two or more objects with a single instance';
 
   return (
     <section className="objects">
@@ -82,6 +102,7 @@ export function ObjectsSection() {
             disabled={selected.length !== 1 || instanceCount <= 1}
           />
           <span className="tool-sep" aria-hidden="true" />
+          <ToolbarButton title={mergeTitle} icon={ACTION_ICONS.merge} onClick={() => void mergeObjects(selectedIds)} disabled={!canMerge} />
           <ToolbarButton
             title="Duplicate"
             icon={ACTION_ICONS.duplicate}
@@ -111,6 +132,9 @@ export function ObjectsSection() {
             onMenu={(open) => setAddMenuFor(open ? o.id : null)}
             instancesShown={!!instancesOpen[o.id]}
             onToggleInstances={() => setInstancesOpen((m) => ({ ...m, [o.id]: !m[o.id] }))}
+            renaming={renamingId === o.id}
+            onRename={() => setRenamingId(o.id)}
+            onStopRename={() => setRenamingId(null)}
           />
         ))}
         {!objects.length && autosaveError && (

@@ -13,8 +13,18 @@ import * as THREE from 'three';
 import { api, type Config, type LayerRangeInput, type Placement, type Vec3 } from '../../api';
 import { decodeMmu, decodePaint, encodeMmu, encodePaint } from '../../three/paint';
 import { geometrySize, geometryToStl, objectFrameOffset, shellGeometry } from '../../three/geometry';
-import { apply as applyMatrix, bedShapeOf, fillCount, mirrorPlacement, packShelf, placementMatrix, type PackItem } from '@webslicer/shared';
+import {
+  apply as applyMatrix,
+  bedShapeOf,
+  fillCount,
+  mirrorPlacement,
+  packShelf,
+  placementMatrix,
+  transferredVolumePlacement,
+  type PackItem,
+} from '@webslicer/shared';
 import { splitShells } from '../../plater/split';
+import { mergeVolumes } from '../../plater/info';
 import {
   bedAndSpacing,
   fitsOnBed,
@@ -97,6 +107,17 @@ export interface PlaterSlice extends PaintSlice, RangeSlice {
    * stays the main mesh, every other one becomes a ModelPart volume. One undo step.
    */
   splitToParts: (objectId: string) => Promise<void>;
+  /**
+   * Merge the selected objects into the first one (T-042): every other object becomes ModelPart
+   * volumes of it, at exactly their world positions. Settings, paint and ranges of the first object
+   * are kept; paint of the others is dropped with an info toast. Only single-instance objects can be
+   * merged (the button is disabled otherwise).
+   */
+  mergeObjects: (ids: string[]) => Promise<void>;
+  /** rename an object (empty names are ignored); one undo step */
+  renameObject: (id: string, name: string) => void;
+  /** rename a sub-volume of an object (empty names are ignored); one undo step */
+  renameVolume: (objectId: string, volumeId: string, name: string) => void;
   removeObjects: (ids: string[]) => void;
   clearObjects: () => void;
   duplicateObjects: (ids: string[]) => Promise<void>;
@@ -635,5 +656,89 @@ export const createPlaterSlice: StateCreator<State, [], [], PlaterSlice> = (set,
     }
     for (const v of volumes) await get().uploadVolume(objectId, v);
     s.toast('info', `Split into 1 object and ${volumes.length} parts`);
+  },
+  mergeObjects: async (ids) => {
+    const s = get();
+    // the plater order decides which object is the target; its settings stay the object's own
+    const sources = s.objects.filter((o) => ids.includes(o.id));
+    if (sources.length < 2) return;
+    if (sources.some((o) => o.instances.length !== 1)) {
+      s.toast('error', 'Only objects with a single instance can be merged');
+      return;
+    }
+    const [target, ...rest] = sources;
+    const targetInstance = placementMatrix(target.instances[0]);
+    s.recordHistory();
+    const volumes: PlaterVolume[] = [];
+    let droppedPaint = false;
+    let droppedRanges = false;
+    for (const src of rest) {
+      const sourceInstance = placementMatrix(src.instances[0]);
+      // every volume of the source keeps its type and settings, moved into the target's frame
+      for (const v of src.volumes) {
+        const placement = transferredVolumePlacement(targetInstance, sourceInstance, v);
+        if (!placement) continue;
+        volumes.push({ ...v, id: mintVolumeId(), config: { ...v.config }, ...placement, modelId: undefined, uploadError: undefined });
+      }
+      // the source's own mesh becomes a ModelPart at exactly its world position
+      for (const mv of mergeVolumes(targetInstance, sourceInstance, { ...src, volumes: [] })) {
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.Float32BufferAttribute(Array.from(mv.vertices), 3));
+        geometry.computeVertexNormals();
+        geometry.computeBoundingBox();
+        volumes.push({
+          id: mintVolumeId(),
+          name: src.name,
+          type: 'ModelPart',
+          geometry,
+          position: [...mv.placement.position],
+          rotation: [...mv.placement.rotation],
+          scale: [...mv.placement.scale],
+          size: geometrySize(geometry),
+          config: { ...src.config },
+          extruder: src.extruder,
+          triangles: mv.vertices.length / 9,
+        });
+      }
+      // the target's paint is per triangle of its main mesh; the others' paint cannot follow a merge
+      if (src.paint && ['supports', 'seam', 'mmu'].some((kind) => src.paint?.[kind as 'supports' | 'seam' | 'mmu']?.some((v) => v))) {
+        droppedPaint = true;
+      }
+      if (src.ranges.some((r) => r.maxZ > r.minZ)) droppedRanges = true;
+    }
+    set((st) => ({
+      objects: st.objects
+        .filter((o) => o.id === target.id || !ids.includes(o.id))
+        // the target's own mesh is unchanged and already uploaded; only the new parts are uploaded below
+        .map((o) => (o.id === target.id ? { ...o, volumes: [...o.volumes, ...volumes] } : o)),
+      selectedIds: [target.id],
+      selectedVolumeId: undefined,
+      selectedInstanceId: undefined,
+      sliceDirty: true,
+    }));
+    if (droppedPaint) s.toast('info', 'Paint of the merged objects was dropped; only the first object keeps its paint');
+    if (droppedRanges) s.toast('info', 'Height ranges of the merged objects were dropped; only the first object keeps them');
+    // the target's mesh is unchanged, but its parts are new files on the server
+    for (const v of volumes) await get().uploadVolume(target.id, v);
+  },
+  renameObject: (id, name) => {
+    const o = get().objects.find((x) => x.id === id);
+    const next = name.trim();
+    if (!o || !next || next === o.name) return;
+    get().recordHistory();
+    set((s) => ({ objects: s.objects.map((x) => (x.id === id ? { ...x, name: next } : x)), sliceDirty: true }));
+  },
+  renameVolume: (objectId, volumeId, name) => {
+    const o = get().objects.find((x) => x.id === objectId);
+    const v = o?.volumes.find((x) => x.id === volumeId);
+    const next = name.trim();
+    if (!o || !v || !next || next === v.name) return;
+    get().recordHistory();
+    set((s) => ({
+      objects: s.objects.map((x) =>
+        x.id === objectId ? { ...x, volumes: x.volumes.map((vv) => (vv.id === volumeId ? { ...vv, name: next } : vv)) } : x,
+      ),
+      sliceDirty: true,
+    }));
   },
 });

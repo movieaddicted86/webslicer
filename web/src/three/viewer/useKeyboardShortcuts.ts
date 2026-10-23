@@ -71,6 +71,12 @@ export function useKeyboardShortcuts(onCamera: (req: CamRequest) => void, toggle
       } else if (matchesShortcut(e, 'redo')) {
         e.preventDefault();
         st.redo();
+      } else if (matchesShortcut(e, 'rename')) {
+        // T-042: rename the single selected object; the objects list opens the inline field
+        if (st.selectedIds.length === 1) {
+          e.preventDefault();
+          st.requestRename(st.selectedIds[0]);
+        }
       } else if (matchesShortcut(e, 'selectAll')) {
         e.preventDefault();
         st.select(st.objects.map((o) => o.id));

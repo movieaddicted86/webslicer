@@ -20,13 +20,33 @@ export function jobFile(id: string, name: string): string {
   return path.join(jobDir(id), name);
 }
 
+let writeSeq = 0;
+/** one write chain per job, so two saves of the same record never land out of order */
+const writeChains = new Map<string, Promise<void>>();
+
 /** Write the job record next to its files; a failure must never break the job it describes. */
-export async function saveJobRecord(job: JobRecord): Promise<void> {
-  try {
-    await fs.writeFile(jobFile(job.id, 'job.json'), JSON.stringify(job, null, 2));
-  } catch {
-    /* ignore */
-  }
+export function saveJobRecord(job: JobRecord): Promise<void> {
+  // write a sibling file and rename it into place: a reader that runs while the record is rewritten
+  // (loadJobRecords after a restart, a cancel test) must never see a half-written JSON (B6). The
+  // suffix is unique, so two writers cannot share one temporary file; the chain keeps the last write
+  // last, so the file never goes back to an older state.
+  const file = jobFile(job.id, 'job.json');
+  const data = JSON.stringify(job, null, 2);
+  const write = async () => {
+    const tmp = `${file}.${process.pid}.${++writeSeq}.tmp`;
+    try {
+      await fs.writeFile(tmp, data);
+      await fs.rename(tmp, file);
+    } catch {
+      /* ignore */
+    }
+  };
+  const next = (writeChains.get(job.id) ?? Promise.resolve()).then(write, write);
+  writeChains.set(job.id, next);
+  void next.finally(() => {
+    if (writeChains.get(job.id) === next) writeChains.delete(job.id);
+  });
+  return next;
 }
 
 /** Create the job directory and store the request that produced it. */

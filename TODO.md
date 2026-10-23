@@ -29,7 +29,7 @@ Priority by frequency of use in everyday printing and PrusaSlicer parity.
 - [x] G-code preflight before sending: forbidden commands, absurd temperatures, moves before homing (S1-c, T-031)
 - [x] Configuration limits while editing: server checks at the field, Slice disabled on a block (S1-e, T-041)
 - [x] STEP import through the CLI (`--export-stl`, T-009)
-- [ ] Merge objects; object info (volume, manifold check), rename
+- [x] Merge objects; object info (volume, manifold check), rename (T-042)
 - [ ] Arrange with settings (spacing, rotation) and "arrange selection"
 - [ ] Cut tool (cut plane; connectors later)
 - [ ] Continuous layer-height profile (smoothing, adaptive)

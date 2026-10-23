@@ -121,11 +121,11 @@ test('the About dialog lists the shortcuts in one line, without duplicates', () 
   );
   // every entry the dialog prints has keys to print
   assert.ok(about.every((s) => s.keys.length > 0 && (s.range || s.keys.length <= 3)));
-  // the entries the dialog does not print are the mode keys and the paint keys
+  // the entries the dialog does not print are the mode keys, the paint keys and F2 rename (T-042)
   assert.deepEqual(
     SHORTCUTS.filter((s) => s.aboutAt === undefined)
       .map((s) => s.id)
       .sort(),
-    ['escape', 'paintSeam', 'paintSupports', 'placeOnFace', 'redo', 'redo', 'undo'],
+    ['escape', 'paintSeam', 'paintSupports', 'placeOnFace', 'redo', 'redo', 'rename', 'undo'],
   );
 });

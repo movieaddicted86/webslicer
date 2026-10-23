@@ -102,14 +102,20 @@ test('B6: a cancel while the job is preparing ends it cancelled and never spawns
   let sawRunning = false;
   let cancelAccepted = false;
   let markAtCancel = true;
+  let sawCancelled = false;
   const off = subscribe(job.id, (ev) => {
-    if (ev.type !== 'status' || sawRunning) return;
-    sawRunning = true;
-    markAtCancel = fs.existsSync(MARK);
-    cancelAccepted = cancelJob(job.id);
+    if (ev.type !== 'status') return;
+    if (!sawRunning) {
+      sawRunning = true;
+      markAtCancel = fs.existsSync(MARK);
+      cancelAccepted = cancelJob(job.id);
+      return;
+    }
+    if (ev.job?.status === 'cancelled') sawCancelled = true;
   });
 
-  await waitFor(() => job.status === 'cancelled', 'the cancelled status');
+  // wait on the job's own event only – the disk write of the record happens before that emit
+  await waitFor(() => sawCancelled, 'the cancelled status');
   off();
 
   assert.equal(sawRunning, true, 'the run reached the preparing stage, so this is the early-cancel path');

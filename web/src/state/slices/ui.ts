@@ -28,6 +28,9 @@ export interface UiSlice {
   focusSetting: (target: SettingFocus) => void;
   /** where the settings view should jump to; cleared once it did */
   settingFocus?: SettingFocus;
+  /** renaming requested for an object (F2, T-042); the objects list starts the inline edit and clears it */
+  renameRequest?: string;
+  requestRename: (id: string) => void;
   setMode: (m: Mode) => void;
   openDialog: (d: State['dialog'], payload?: unknown) => void;
   closeDialog: () => void;
@@ -93,6 +96,7 @@ export const createUiSlice: StateCreator<State, [], [], UiSlice> = (set, get) =>
     if (needed && raise.mode) saveSelection(get());
   },
   openDialog: (dialog, dialogPayload) => set({ dialog, dialogPayload }),
+  requestRename: (id) => set({ renameRequest: id }),
   closeDialog: () => set({ dialog: undefined, dialogPayload: undefined, pendingSwitch: undefined }),
   init: async () => {
     try {

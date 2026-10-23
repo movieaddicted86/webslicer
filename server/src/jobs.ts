@@ -170,10 +170,18 @@ async function finishCancelled(job: JobRecord): Promise<void> {
   // reader that sees `cancelled` must not still find the files of the abandoned run
   await removeJobFile(job.id, 'config.ini');
   await removeJobFile(job.id, 'model.3mf');
-  job.status = 'cancelled';
-  job.message = 'Cancelled';
-  job.finishedAt = job.finishedAt || new Date().toISOString();
-  await saveJobRecord(job);
+  // the record goes to disk before the status changes in memory and is emitted: whoever reacts to
+  // `cancelled` (a restart, a test reading the job file) must find the same state on disk (B6)
+  const done: JobRecord = {
+    ...job,
+    status: 'cancelled',
+    message: 'Cancelled',
+    finishedAt: job.finishedAt || new Date().toISOString(),
+  };
+  await saveJobRecord(done);
+  job.status = done.status;
+  job.message = done.message;
+  job.finishedAt = done.finishedAt;
   emit(job.id, { type: 'status', job });
 }
 

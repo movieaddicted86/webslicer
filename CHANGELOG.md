@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- **Plater (T-042 – merge, object info, rename):** two or more selected objects can be merged into
+  one (toolbar button; only objects with a single instance – the button says why it is disabled). The
+  first selected object keeps its settings, paint and height ranges; every other object becomes a
+  `ModelPart` volume at exactly its world position (the volume matrix is `target⁻¹ · source · part`,
+  re-centred on its own origin so slicing is unchanged), and dropped paint/ranges are reported in an
+  info toast. Each object row now carries an info line – size, volume in cm³ (signed volume of the
+  welded triangle soup), triangle count, instance count and, in yellow, `Not manifold – N open edges`
+  – computed by pure helpers in `shared/src/math/mesh.ts` and shown in the manipulation panel too.
+  Object and volume names can be edited in place: double-click the name or press F2 on the selected
+  object, Enter or blur saves, Esc cancels (the shared shortcut table gained the `rename` entry),
+  and the names round-trip through the 3MF project.
+
 - **STEP import (T-009, P2):** `.step` / `.stp` files can be imported like STL – through **Import**,
   drag & drop, the library and the headless project API. The browser cannot read STEP, so the file
   goes to `POST /api/convert/step` (raw body, `x-filename` like the model upload, the same size
