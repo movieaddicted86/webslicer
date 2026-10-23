@@ -80,8 +80,9 @@ export function projectsRouter(): express.Router {
     if (body.outputName !== undefined) request.outputName = body.outputName;
     // no thumbnails here: rendering them needs a browser (concept §3.5, rasterizer comes in phase 3)
     validateSliceRequest(request);
-    // S1-d: the project's resolved settings face the same global limits as a REST slice
-    const configIssues = validateConfigLimits(request);
+    // S1-d/N3: the project's resolved settings face the same global limits as a REST slice – on the
+    // merged config, so a value from any of its presets is caught
+    const configIssues = validateConfigLimits(request, found.schema);
     const job = await createJob(request, found.schema, configIssues);
     await touchProject(found.project);
     res.status(202).json(job);

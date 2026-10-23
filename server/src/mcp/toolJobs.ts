@@ -35,8 +35,9 @@ export const jobTools: AnyTool[] = [
       const schema = await schemaOf();
       const request = toSliceRequest(project, schema);
       validateSliceRequest(request);
-      // S1-d: a typo in a temperature or the nozzle is refused here like on /api/slice
-      const configIssues = validateConfigLimits(request);
+      // S1-d/N3: a typo in a temperature or the nozzle is refused here like on /api/slice,
+      // checked on the merged config the slicer receives
+      const configIssues = validateConfigLimits(request, schema);
       const job = await createJob(request, schema, configIssues);
       await touchProject(project);
       return {

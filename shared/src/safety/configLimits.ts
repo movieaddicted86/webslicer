@@ -218,14 +218,7 @@ export function checkConfigValues(
   }
   if (type === 'printer') {
     out.push(
-      ...rangeIssues(
-        'config.nozzle_diameter',
-        'nozzle_diameter',
-        config.nozzle_diameter,
-        GLOBAL_LIMITS.nozzleDiameter,
-        (label, value, limit) =>
-          `${label} = ${num(value)} mm is outside the sensible ${limit} – a nozzle that size cannot be printed with.`,
-      ),
+      ...rangeIssues('config.nozzle_diameter', 'nozzle_diameter', config.nozzle_diameter, GLOBAL_LIMITS.nozzleDiameter, nozzleMessage),
     );
     return out;
   }
@@ -312,6 +305,100 @@ export interface ConfigLimitRequest {
   print?: { config?: Readonly<Config> };
   printer?: { config?: Readonly<Config> };
   filaments?: ReadonlyArray<{ config?: Readonly<Config> }>;
+}
+
+/**
+ * The temperature keys one config section may contribute, whatever section it is (q6-preflight, N3).
+ * A request can carry `temperature = 999` in its *printer* config: the slicer may or may not keep it
+ * after the merge, but a value that far off is a typo and must not reach it in the first place.
+ */
+function sectionTemperatures(
+  type: 'filament' | 'printer' | 'print' | 'sla_print' | 'sla_material',
+  config: Readonly<Config>,
+): ConfigIssue[] {
+  const out: ConfigIssue[] = [];
+  for (const key of HOTEND_KEYS) out.push(...temperatureIssues('config.hotend_limit', key, config[key], GLOBAL_LIMITS.hotend, 'hotend'));
+  for (const key of BED_KEYS) out.push(...temperatureIssues('config.bed_limit', key, config[key], GLOBAL_LIMITS.bed, 'bed'));
+  for (const key of CHAMBER_KEYS)
+    out.push(...temperatureIssues('config.chamber_limit', key, config[key], GLOBAL_LIMITS.chamber, 'chamber'));
+  if (type === 'filament') {
+    // a value that already broke a hard limit is not reported a second time as "unusual"
+    const blocked = new Set(out.map((i) => i.key));
+    out.push(...softRangeIssues(config).filter((i) => !blocked.has(i.key)));
+  }
+  return out;
+}
+
+/** A per-object or per-range `layer_height` at `where` (`object[1]`, `object[1].range[0]`). */
+export function objectLayerHeightIssues(layerHeight: string | undefined, nozzleDiameter: string | undefined, where: string): ConfigIssue[] {
+  return layerHeightIssues(layerHeight, nozzleDiameter).map((issue) => ({
+    ...issue,
+    key: `${where}.${issue.key}`,
+    message: `${where}: ${issue.message}`,
+  }));
+}
+
+/** The identity of an issue for de-duplication: the same finding reported by two views is one. */
+function issueId(issue: ConfigIssue): string {
+  return `${issue.rule}|${issue.key}|${issue.value}`;
+}
+
+/**
+ * Every limit issue of a slice request, the way the server checks it before queueing a job.
+ *
+ * On top of {@link checkConfigLimits} (the preset sections), this adds what the single-section view
+ * misses (q6-preflight, N3):
+ *
+ * - **temperatures in the printer and print sections** – a `temperature = 999` in a printer config is
+ *   checked like a filament one, and the soft ranges of a print section's `filament_type` too,
+ * - the **merged config** the slicer really receives (`options.merged`, from `mergeConfigs`) – so a
+ *   value that only becomes visible through the merge is still caught,
+ * - the **per-object and per-height-range `layer_height`** overrides, checked against the nozzle like
+ *   the print preset's.
+ *
+ * A finding that two of these views produce is reported once, under its first (most specific) key.
+ */
+export function checkRequestConfigLimits(
+  request: ConfigLimitRequest & {
+    objects?: ReadonlyArray<{ config?: Readonly<Config>; ranges?: ReadonlyArray<{ config?: Readonly<Config> }> }>;
+    merged?: Readonly<Config>;
+  },
+): ConfigIssue[] {
+  const out: ConfigIssue[] = [];
+  const seen = new Set<string>();
+  const add = (issues: ConfigIssue[]): void => {
+    for (const issue of issues) {
+      const id = issueId(issue);
+      if (seen.has(id)) continue;
+      seen.add(id);
+      out.push(issue);
+    }
+  };
+  add(checkConfigLimits(request));
+  const printer = request.printer?.config ?? {};
+  const print = request.print?.config ?? {};
+  add(sectionTemperatures('printer', printer));
+  add(sectionTemperatures('print', print));
+  const nozzle = printer.nozzle_diameter;
+  for (const [index, object] of (request.objects ?? []).entries()) {
+    add(objectLayerHeightIssues(object.config?.layer_height, nozzle, `object[${index}]`));
+    for (const [rangeIndex, range] of (object.ranges ?? []).entries()) {
+      add(objectLayerHeightIssues(range.config?.layer_height, nozzle, `object[${index}].range[${rangeIndex}]`));
+    }
+  }
+  if (request.merged) {
+    add(sectionTemperatures('print', request.merged));
+    add(
+      rangeIssues('config.nozzle_diameter', 'nozzle_diameter', request.merged.nozzle_diameter, GLOBAL_LIMITS.nozzleDiameter, nozzleMessage),
+    );
+    add(layerHeightIssues(request.merged.layer_height, request.merged.nozzle_diameter ?? nozzle));
+  }
+  return out;
+}
+
+/** The nozzle message, shared by the printer section and the merged view. */
+function nozzleMessage(label: string, value: number, limit: string): string {
+  return `${label} = ${num(value)} mm is outside the sensible ${limit} – a nozzle that size cannot be printed with.`;
 }
 
 /**

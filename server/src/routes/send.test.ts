@@ -14,6 +14,7 @@ import os from 'node:os';
 import path from 'node:path';
 import type { Server } from 'node:http';
 import type express from 'express';
+import { PREFLIGHT_VERSION } from '@webslicer/shared';
 
 const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'webslicer-send-'));
 process.env.DATA_DIR = DATA_DIR;
@@ -45,6 +46,10 @@ const JOB_BINARY_ID = 'dddddddd-eeee-ffff-0000-111111111111';
 const JOB_HOT_ID = 'ffffffff-0000-1111-2222-333333333333';
 /** A hot job from before S1-d: no stored temperatures, the stored request is the source. */
 const JOB_HOT_OLD_ID = '99999999-0000-1111-2222-333333333333';
+/** A job whose *file* heats the hotend to 300 °C in its custom start G-code (N3). */
+const JOB_FILE_HOT_ID = '77777777-0000-1111-2222-333333333333';
+/** The same file, but with a stored scan that predates the temperature maxima (N3 re-scan). */
+const JOB_FILE_HOT_STORED_ID = '88888888-0000-1111-2222-333333333333';
 const JOB_PRESET = 'Original Prusa MK4S HF0.4 nozzle';
 const OTHER_PRESET = 'Original Prusa MINI+ 0.4 nozzle';
 
@@ -128,7 +133,9 @@ before(async () => {
   seedJob(JOB_STORED_ID, JOB_PRESET, {
     text: 'G28\nG1 X10 Y10\n',
     preflight: {
-      version: 1,
+      version: PREFLIGHT_VERSION,
+      // N3: a result without the temperature maxima is not trusted – this one carries them
+      maxTemperatures: { hotend: 215, bed: 60 },
       counts: { 'gcode.forbidden_command': 1 },
       issues: [
         {
@@ -142,6 +149,13 @@ before(async () => {
     },
   });
   seedJob(JOB_BINARY_ID, JOB_PRESET, { name: 'part.bgcode', text: 'not really binary' });
+  // N3: the file commands 300 °C; the job asks for 215 °C, so only the file shows it
+  seedJob(JOB_FILE_HOT_ID, JOB_PRESET, { text: 'G28\nM104 S300 ; custom start g-code\nG1 X10 Y10\n' });
+  seedJob(JOB_FILE_HOT_STORED_ID, JOB_PRESET, {
+    text: 'G28\nM104 S300 ; custom start g-code\nG1 X10 Y10\n',
+    // a stored result of the current rule set but without the maxima: the gate re-scans
+    preflight: { version: PREFLIGHT_VERSION, issues: [], counts: {} },
+  });
   // S1-d: a job that asks for 250 °C / 90 °C – too hot for a PTFE hotend (240 °C)
   seedJob(JOB_HOT_ID, JOB_PRESET, { temperatures: { hotend: 250, bed: 90 } });
   seedJob(JOB_HOT_OLD_ID, JOB_PRESET);
@@ -520,4 +534,47 @@ test('a safety limit outside the global catcher is a 400', async () => {
   const res = await call('POST', '/api/printers', { name: 'Bad limit', host: 'x', safety: { maxHotend: 500 } });
   assert.equal(res.status, 400, JSON.stringify(res.json));
   assert.match((res.json as { error: string }).error, /maxHotend/);
+});
+
+// ---------------------------------------------------------------------------
+// N3: the file's own temperatures against the target printer
+// ---------------------------------------------------------------------------
+
+test('a file that heats to 300 °C is blocked for a 260 °C printer, even without a stored limit hit', async () => {
+  fs.rmSync(config.auditLog, { force: true });
+  const id = await addPrinter('260 host', JOB_PRESET, { maxHotend: 260 });
+  const before = uploads.length;
+  const res = await send(id, {}, JOB_FILE_HOT_ID);
+  assert.equal(res.status, 409, JSON.stringify(res.json));
+  const body = res.json as { issues: Array<{ rule: string; severity: string; message: string }> };
+  assert.deepEqual(
+    body.issues.map((i) => [i.rule, i.severity]).filter(([rule]) => rule === 'send.printer_limit'),
+    [['send.printer_limit', 'block']],
+  );
+  const limit = body.issues.find((i) => i.rule === 'send.printer_limit');
+  assert.match(limit?.message ?? '', /hotend to 300 °C/);
+  assert.match(limit?.message ?? '', /limited to 260 °C/);
+  assert.equal(uploads.length, before, 'a limit block never reaches the printer');
+});
+
+test('the same file passes on a printer that may reach 300 °C', async () => {
+  const id = await addPrinter('300 host', JOB_PRESET, { maxHotend: 300 });
+  const res = await send(id, {}, JOB_FILE_HOT_ID);
+  assert.equal(res.status, 200, JSON.stringify(res.json));
+  assert.deepEqual(
+    (res.json as { issues: Array<{ rule: string }> }).issues.map((i) => i.rule),
+    [],
+  );
+});
+
+test('a stored result without the temperature maxima is re-scanned (N3)', async () => {
+  // the stored result says "no findings", but it predates the maxima – the file has to be read again
+  const id = await addPrinter('260 host 2', JOB_PRESET, { maxHotend: 260 });
+  const res = await send(id, {}, JOB_FILE_HOT_STORED_ID);
+  assert.equal(res.status, 409, JSON.stringify(res.json));
+  // the re-scan uses the target's ceilings too, so the line itself is also a gcode.max_temp hit
+  assert.deepEqual(
+    (res.json as { issues: Array<{ rule: string }> }).issues.map((i) => i.rule),
+    ['gcode.max_temp', 'send.printer_limit'],
+  );
 });

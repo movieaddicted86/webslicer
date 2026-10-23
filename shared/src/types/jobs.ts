@@ -111,6 +111,12 @@ export interface PreflightResult {
   issues: PreflightIssue[];
   /** how often each rule fired – the capped-out issues included */
   counts: Record<string, number>;
+  /**
+   * The highest hotend/bed temperature the file really commands (q6-preflight, N3). The stored rule
+   * set keeps only the global catchers, so this is what the send gate compares with the target
+   * printer's `safety` limits. A result without it (an older rule set) is re-scanned.
+   */
+  maxTemperatures?: MaxTemperatures;
 }
 
 /** What the server parsed out of a G-code; every field is optional because the slicer may skip it. */

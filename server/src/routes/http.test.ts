@@ -330,6 +330,28 @@ test('POST /api/slice refuses a configuration limit as a 400 with its issues (S1
   assert.equal(body.issues[0].limit, '150–450 °C (or 0)');
 });
 
+test('POST /api/slice refuses a temperature from the printer config and an object layer height (N3)', async () => {
+  // AC-2.2: the filament sets no temperature; the printer config carries the typo
+  const printer = await call(
+    'POST',
+    '/api/slice',
+    sliceRequestTop({ printer: { name: 'pr', config: { temperature: '999', nozzle_diameter: '0.4' } } }),
+  );
+  assert.equal(printer.status, 400, JSON.stringify(printer.json));
+  assert.match(errorOf(printer) ?? '', /temperature = 999/);
+  // AC-2.3: an object's own layer_height override faces the same rule, against the printer's nozzle
+  const object = await call(
+    'POST',
+    '/api/slice',
+    sliceRequestTop({
+      printer: { name: 'pr', config: { nozzle_diameter: '0.4' } },
+      objects: [{ modelId: '11111111-1111-1111-1111-111111111111', name: 'cube', transform: IDENTITY, config: { layer_height: '10' } }],
+    }),
+  );
+  assert.equal(object.status, 400, JSON.stringify(object.json));
+  assert.match(errorOf(object) ?? '', /object\[0\]: layer_height = 10/);
+});
+
 test('POST /api/slice accepts a soft-range value and carries its warning into the job (S1-d)', async () => {
   // the mock here is the schema-less test app: the job is queued, not sliced
   const res = await call(
@@ -383,6 +405,23 @@ test('POST /api/projects and /api/library/project refuse an injected slot key wi
   });
   assert.equal(library.status, 400);
   assert.match(errorOf(library) ?? '', /invalid config key/);
+});
+
+test('POST /api/slice refuses a value with a lone carriage return with 400 naming the key (q6-preflight)', async () => {
+  // Marlin reads a lone `\r` as a line end, so "G28\rM500" would hide M500 behind G28
+  const res = await call('POST', '/api/slice', sliceRequestTop({ print: { name: 'p', config: { start_gcode: 'G28\rM500' } } }));
+  assert.equal(res.status, 400, JSON.stringify(res.json));
+  assert.match(errorOf(res) ?? '', /invalid config value of "start_gcode"/);
+  // a CRLF is an ordinary line end inside a custom G-code and is accepted
+  const crlf = await call('POST', '/api/slice', sliceRequestTop({ print: { name: 'p', config: { start_gcode: 'G28\r\nM104 S200' } } }));
+  assert.equal(crlf.status, 202, JSON.stringify(crlf.json));
+  // an object override and a height-range config are the same rule
+  const object = await call('POST', '/api/slice', sliceRequest({ config: { start_gcode: 'G28\rM500' } }));
+  assert.equal(object.status, 400);
+  assert.match(errorOf(object) ?? '', /invalid config value of "start_gcode"/);
+  const range = await call('POST', '/api/slice', sliceRequest({ ranges: [{ minZ: 0, maxZ: 1, config: { start_gcode: 'G1 X1\rM500' } }] }));
+  assert.equal(range.status, 400);
+  assert.match(errorOf(range) ?? '', /invalid config value of "start_gcode"/);
 });
 
 // ---------------------------------------------------------------------------

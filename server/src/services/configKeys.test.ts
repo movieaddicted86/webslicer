@@ -120,6 +120,13 @@ test('the writer escapes newlines in a value as before – only the key is refus
   assert.equal(serializeIni({ start_gcode: 'G28\nG1' }), 'start_gcode = G28\\nG1\n');
 });
 
+test('the writer refuses a value with a lone carriage return, and escapes a CRLF like a newline (q6-preflight)', () => {
+  assert.throws(() => serializeIni({ start_gcode: 'G28\rM500' }), /invalid config value of "start_gcode"/);
+  // a CRLF is an ordinary line end: it becomes the same literal \n
+  assert.equal(serializeIni({ start_gcode: 'G28\r\nM500' }), 'start_gcode = G28\\nM500\n');
+  assert.equal(serializeIni({ start_gcode: 'G28\nM500' }), 'start_gcode = G28\\nM500\n');
+});
+
 test('a well-formed key the schema does not know is dropped, not thrown', () => {
   const merged = mergeConfigs(SCHEMA, request({ no_such_option: '1', layer_height: '0.2' }));
   assert.equal(merged.no_such_option, undefined);

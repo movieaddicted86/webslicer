@@ -334,10 +334,11 @@ export function apiRouter(): express.Router {
     } catch (e) {
       return badRequest(res, (e as Error).message);
     }
-    // S1-d: a typo in a temperature, a nozzle or the layer height is a 400 with its issues; a soft
-    // range only warns and travels with the job
-    const configIssues = validateConfigLimits(body);
+    // S1-d/N3: a typo in a temperature, a nozzle or the layer height is a 400 with its issues; the
+    // check runs on the merged config the slicer receives, so a value from a print or printer preset
+    // is caught as well. A soft range only warns and travels with the job.
     const s = await schemaOf();
+    const configIssues = validateConfigLimits(body, s);
     const job = await createJob(body, s, configIssues);
     res.status(202).json(job);
   });

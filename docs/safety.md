@@ -38,18 +38,23 @@ endstops. Once a job finishes, the server therefore reads the produced file once
 (`shared/src/safety/gcodePreflight.ts`, in chunks – a 60 MB file takes about 3.6 s on the development
 machine) and stores what it finds on the job. The rules of v1:
 
-| rule                      | severity | finding                                                                                |
-| ------------------------- | -------- | -------------------------------------------------------------------------------------- |
-| `gcode.forbidden_command` | block    | `M500`, `M502`, `M211 S0`, `M92`, `M997`, `M851`                                       |
-| `gcode.max_temp`          | block    | `M104`/`M109` above 450 °C, `M140`/`M190` above 150 °C                                 |
-| `gcode.no_homing`         | block    | a move with X/Y/Z before the first `G28`                                               |
-| `gcode.macro_before_move` | warn     | the same, but a printer macro (`PRINT_START`, …) came first and may home               |
-| `gcode.firmware_limit`    | warn     | `M201`/`M203`/`M204`/`M205` above the printer preset's `machine_max_*` (Normal)        |
-| `gcode.motor_current`     | warn     | `M906`/`M907` – PrusaSlicer's own presets set the extruder current in start/end G-code |
-| `gcode.not_scanned`       | warn     | binary `.bgcode`, which v1 does not read                                               |
+| rule                      | severity | finding                                                                                                                                                                                      |
+| ------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `gcode.forbidden_command` | block    | `M500`, `M502`, `M211 S0`, `M92`, `M997`, `M851`, `M121`, `M302` (unconditional forms), Klipper `SAVE_CONFIG`                                                                                |
+| `gcode.max_temp`          | block    | `M104`/`M109` above 450 °C, `M140`/`M190` above 150 °C, chamber above 100 °C, and the targets of `M303`, `M141`/`M191`, RRF `G10`/`M568`, Klipper `SET_HEATER_TEMPERATURE HEATER=… TARGET=…` |
+| `gcode.no_homing`         | block    | a move with X/Y/Z before the first `G28`                                                                                                                                                     |
+| `gcode.macro_before_move` | warn     | the same, but a printer macro (`PRINT_START`, …) came first and may home                                                                                                                     |
+| `gcode.firmware_limit`    | warn     | `M201`/`M203`/`M204`/`M205` above the printer preset's `machine_max_*` (Normal)                                                                                                              |
+| `gcode.motor_current`     | warn     | `M906`/`M907` – PrusaSlicer's own presets set the extruder current in start/end G-code                                                                                                       |
+| `gcode.not_scanned`       | warn     | binary `.bgcode`, which v1 does not read                                                                                                                                                     |
 
-Comments (`;…`, `(…)`), lowercase and `N`/checksum line numbers are understood; a finding names its
-line and shows the line itself. The send gate merges the findings with the preset issues of S1-b: a
+Comments (`;…`, `(…)`), lowercase, `N`/checksum line numbers and all three Marlin line ends (`
+`,
+`
+`, `
+`) are understood, and `M 500` (a blank after the letter) is the command `M500`; a finding
+names its line and shows the line itself. The result also records the highest hotend and bed
+temperature the file asks for, so the send gate can compare it with the target printer's profile. The send gate merges the findings with the preset issues of S1-b: a
 block refuses the upload with 409 until it is overridden with a reason (audited), a warning is shown
 and only has to be confirmed when the print should start right away. The limits of the target machine
 are S1-d: a physical printer can carry `safety.maxHotend`/`safety.maxBed` (the dialog has a
@@ -64,8 +69,9 @@ and records the override in `data/audit.log`.
 
 The same 409 carries the findings of the **G-code preflight** (`shared/src/safety/gcodePreflight.ts`)
 that scans the finished output once and stores the result on the job (`info.preflight`): a
-`gcode.forbidden_command` (`M500`, `M502`, `M211 S0`, `M92`, `M997`, `M851`), `gcode.max_temp` (a
-hotend above 450 °C or a bed above 150 °C) or `gcode.no_homing` (a move before the first `G28`) blocks
+`gcode.forbidden_command` (`M500`, `M502`, `M211 S0`, `M92`, `M997`, `M851`, `M121`, an
+unconditional `M302`, Klipper `SAVE_CONFIG`), `gcode.max_temp` (a hotend above 450 °C, a bed above
+150 °C or a chamber above 100 °C) or `gcode.no_homing` (a move before the first `G28`) blocks
 and is overridable exactly like a preset mismatch, with the line behind the issue. `gcode.motor_current`
 (`M906`/`M907`), `gcode.firmware_limit` (`M201`/`M203`/`M204`/`M205` above the printer preset's
 `machine_max_*`), `gcode.macro_before_move` (a macro such as `PRINT_START` before the first move) and

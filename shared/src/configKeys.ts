@@ -39,3 +39,25 @@ export function invalidConfigKeyMessage(key: string): string {
 export function assertValidConfigKey(key: string): void {
   if (!isValidConfigKey(key)) throw new Error(invalidConfigKeyMessage(key));
 }
+
+/**
+ * Whether a config *value* carries a lone carriage return (q6-preflight, N2).
+ *
+ * A CRLF is an ordinary line end inside a custom G-code and is escaped as one `\n`. A lone `\r` is
+ * not: PrusaSlicer keeps it, Marlin reads it as a line end, and a value such as `G28\rM500` therefore
+ * hides a command from anything that only splits on `\n`. The server refuses such a value (400) and
+ * the INI writer refuses it too, so it can never reach the slicer or a print file.
+ */
+export function hasLoneCarriageReturn(value: string): boolean {
+  return /\r(?!\n)/.test(value);
+}
+
+/** The error for a config value with a lone carriage return; it names the key. */
+export function invalidConfigValueMessage(key: string): string {
+  return `invalid config value of ${JSON.stringify(key)}: a carriage return would hide the commands behind it`;
+}
+
+/** Throw for a config value that carries a lone carriage return – the INI writer's last guard. */
+export function assertValidConfigValue(key: string, value: string): void {
+  if (hasLoneCarriageReturn(value)) throw new Error(invalidConfigValueMessage(key));
+}

@@ -3,7 +3,7 @@
  * PrusaSlicer configs are flat "key = value" files; vendor bundles use [sections].
  * Newlines inside string values are stored as a literal backslash-n.
  */
-import { assertValidConfigKey, type Config } from '@webslicer/shared';
+import { assertValidConfigKey, assertValidConfigValue, type Config } from '@webslicer/shared';
 
 /** One INI section; the shared `Config` (same shape – the name keeps the INI reading local). */
 export type IniSection = Config;
@@ -52,6 +52,10 @@ export function parseGcodeConfigBlock(text: string): IniSection {
  * PrusaSlicer. So the writer refuses a key that is not a well-formed config key (SEC-2): a newline,
  * `=`, `;`, `#`, `[` or whitespace in a key would change the meaning of the file, and a key like
  * `"x\npost_process = …"` wrote a command line into the `config.ini` the slicer loads.
+ *
+ * A **value** with a lone `\r` is refused for the same reason (q6-preflight, N2): `escapeIniValue`
+ * turns `\n` and `\r\n` into one literal `\n`, but a lone `\r` would stay and hide the commands
+ * behind it from a reader that splits on `\n`.
  */
 export function serializeIni(section: IniSection, header?: string): string {
   const lines: string[] = [];
@@ -59,6 +63,7 @@ export function serializeIni(section: IniSection, header?: string): string {
   for (const key of Object.keys(section).sort()) {
     assertValidConfigKey(key);
     const v = section[key] ?? '';
+    assertValidConfigValue(key, String(v));
     lines.push(`${key} = ${escapeIniValue(String(v))}`);
   }
   return lines.join('\n') + '\n';

@@ -81,6 +81,8 @@ export interface E2EPreflight {
   version: number;
   issues: Array<{ rule: string; severity: string; message: string; line: number; text: string }>;
   counts: Record<string, number>;
+  /** the highest temperatures the file commands (q6-preflight) – the send gate compares them with the printer */
+  maxTemperatures?: { hotend: number; bed: number };
 }
 
 export interface E2EGcode {
