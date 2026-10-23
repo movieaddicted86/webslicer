@@ -42,7 +42,32 @@ jobs:
   # (5.3 min). The weights give 27 / 22 / 33 tests, i.e. 5.3 / 8.7 / 8.3 min of test time locally.
   # `PWTEST_SHARD_WEIGHTS` is read by Playwright's own sharding; if a later version drops it, the
   # split falls back to the equal (count-based) one, which still fits the gate with a cached browser.
+  # A push that only touches docs (Markdown, docs/, LICENSE) skips the E2E shards; `check` (lint,
+  # format incl. Markdown, unit tests) always runs. Unknown base (new branch, force push) → run all.
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.diff.outputs.code }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: diff
+        run: |
+          base="${{ github.event.before }}"
+          if [ "${{ github.event_name }}" = "pull_request" ]; then base="${{ github.event.pull_request.base.sha }}"; fi
+          if [ -z "$base" ] || ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+            echo "code=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          if git diff --name-only "$base" HEAD | grep -qvE '(\.md$|^docs/|^LICENSE$)'; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "code=false" >> "$GITHUB_OUTPUT"
+          fi
+
   e2e:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     # the job only builds images and runs tests; the GHA cache needs no repository write scope
     permissions:
