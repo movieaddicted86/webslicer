@@ -1,0 +1,66 @@
+/* LayerCodes: the styles of this component. */
+
+.layer-codes {
+  margin: 6px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.layer-codes-add {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.layer-codes-add button {
+  padding: 2px 7px;
+  font-size: 12px;
+}
+
+.code-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.code-list li {
+  display: grid;
+  grid-template-columns: 44px auto 1fr auto;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.code-list li.current {
+  background: #2a3b55;
+}
+
+.code-list .code-z {
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+.code-list input[type='color'] {
+  width: 32px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid var(--border);
+  background: none;
+}
+
+.code-list .code-text {
+  width: 100%;
+  min-width: 0;
+  font-size: 12px;
+}
+
+.code-list textarea.code-text {
+  font-family: ui-monospace, Consolas, monospace;
+}

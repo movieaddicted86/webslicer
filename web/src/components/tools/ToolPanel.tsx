@@ -7,6 +7,7 @@
 import type { ReactNode } from 'react';
 import { CLOSE_ICON } from '../common/icons';
 import { ToolbarButton } from '../common/ToolbarButton';
+import './ToolPanel.css';
 
 export function ToolPanel({
   title,

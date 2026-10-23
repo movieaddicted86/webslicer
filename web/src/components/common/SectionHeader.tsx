@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import './SectionHeader.css';
 
 /**
  * The heading of a sidebar section (F-13): a title on the left, the tools or the one action of the

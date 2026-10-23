@@ -115,13 +115,18 @@ export default defineConfig(
   },
   {
     // The v7 `recommended` presets switch on a whole React Compiler rule set (static-components, purity,
-    // refs, …). T-027 keeps the rule set of v5 – the two rules – so the upgrade changes nothing here;
-    // the extra rules are a separate task (R-12).
+    // refs, …). The rule set stayed at v5 across the upgrade; the compiler rules run as warnings, so
+    // the remaining offenders are visible and fixable before the compiler itself is enabled.
     files: ['web/src/**/*.{ts,tsx}'],
     plugins: { 'react-hooks': reactHooks },
     rules: {
       'react-hooks/rules-of-hooks': 'error',
       'react-hooks/exhaustive-deps': 'warn',
+      ...Object.fromEntries(
+        Object.entries(reactHooks.configs.recommended.rules)
+          .filter(([name]) => name !== 'react-hooks/rules-of-hooks' && name !== 'react-hooks/exhaustive-deps')
+          .map(([name]) => [name, 'warn']),
+      ),
     },
   },
 );

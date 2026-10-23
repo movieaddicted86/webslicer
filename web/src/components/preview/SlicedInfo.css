@@ -1,0 +1,27 @@
+/* SlicedInfo: the styles of this component. */
+
+.stats table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.stats td {
+  padding: 2px 0;
+  vertical-align: top;
+}
+
+.stats td:first-child {
+  color: var(--muted);
+  width: 110px;
+}
+
+.stats td:last-child {
+  overflow-wrap: anywhere;
+}
+
+.stats .actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}

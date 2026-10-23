@@ -1,0 +1,46 @@
+/* Field rows inside a tool panel (SliderField.tsx, ToggleRow.tsx, ToolSection.tsx, CutToolPanel.tsx). */
+
+.tool-section {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.tool-section-title {
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.tool-field {
+  display: grid;
+  grid-template-columns: 58px 1fr 64px auto;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.tool-field-label {
+  color: var(--text);
+}
+
+.tool-field input[type='range'] {
+  width: 100%;
+  min-width: 0;
+}
+
+.tool-field-number {
+  width: 100%;
+}
+
+.tool-field-select {
+  grid-column: 2 / -1;
+}
+
+.tool-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}

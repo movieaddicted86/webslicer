@@ -4,6 +4,7 @@ import { FEATURE_COLORS, type ParsedGcode } from '../../gcode/types';
 import { RANGE_SCHEMES, legendSteps, schemeRange, type PreviewColorMode } from '../../gcode/colorschemes';
 import { colorPrintSegments, normalizeColor } from '../../gcode/colorprint';
 import { fmtFeatureTime, fmtLayerTime, fmtZ } from '../../format';
+import './Legend.css';
 
 /** Gradient legend of a range colour scheme (speed, fan, temperature, …), maximum on top like PrusaSlicer. */
 function RangeLegend({ gcode, mode, estimatedSeconds }: { gcode: ParsedGcode; mode: PreviewColorMode; estimatedSeconds?: number }) {
@@ -86,7 +87,20 @@ export function PreviewLegend({
   return (
     <ul className="legend features" title="Time, share of the print time (without travel) and extruded length">
       {gcode.featureTypes.map((f) => (
-        <li key={f} className={vis[f] === false ? 'off' : ''} onClick={() => toggle(f)}>
+        <li
+          key={f}
+          className={vis[f] === false ? 'off' : ''}
+          role="checkbox"
+          aria-checked={vis[f] !== false}
+          tabIndex={0}
+          title={`${vis[f] === false ? 'Show' : 'Hide'} ${f} in the preview`}
+          onClick={() => toggle(f)}
+          onKeyDown={(e) => {
+            if (e.key !== 'Enter' && e.key !== ' ') return;
+            e.preventDefault();
+            toggle(f);
+          }}
+        >
           <span className="swatch" style={{ background: FEATURE_COLORS[f] || FEATURE_COLORS.Unknown }} />
           <span className="name">{f}</span>
           <span className="muted time">{fmtFeatureTime((gcode.featureTime[f] || 0) * featureTimeScale)}</span>

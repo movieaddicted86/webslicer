@@ -3,6 +3,7 @@ import { useStore, VOLUME_LABELS, type PlaterObject } from '../../state/store';
 import { VOLUME_ICONS } from './volumes';
 import type { PrimitiveShape } from '../../plater/meshOps';
 import type { VolumeType } from '../../api';
+import './AddVolumeMenu.css';
 
 /** Popover to add a sub-volume to an object */
 export function AddVolumeMenu({ o, onClose }: { o: PlaterObject; onClose: () => void }) {

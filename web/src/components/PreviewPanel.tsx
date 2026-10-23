@@ -10,6 +10,8 @@ import { Preflight } from './preview/Preflight';
 import { SlicedInfo } from './preview/SlicedInfo';
 import { fmtZ } from '../format';
 import { sumTimes } from './preview/formats';
+import './PreviewPanel.css';
+import './common/progress.css';
 
 /**
  * The preview of the sidebar (F-14): the state of the job, the sliced info and the layer view. The

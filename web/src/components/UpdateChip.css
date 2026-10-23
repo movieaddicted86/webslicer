@@ -1,0 +1,39 @@
+/* UpdateChip: the styles of this component. */
+
+.update-chip {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  max-width: 260px;
+  padding: 2px 2px 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg3);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.update-chip a {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--accent2);
+  text-decoration: none;
+}
+
+.update-chip a:hover {
+  text-decoration: underline;
+}
+
+.update-chip-dismiss {
+  padding: 0 5px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 18px;
+  cursor: pointer;
+}
+
+.update-chip-dismiss:hover {
+  color: var(--text);
+}

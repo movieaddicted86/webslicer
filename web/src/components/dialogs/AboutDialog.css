@@ -1,0 +1,9 @@
+/* AboutDialog: the styles of this component. */
+
+table.kv td {
+  padding: 2px 10px 2px 0;
+}
+
+table.kv td:first-child {
+  color: var(--muted);
+}

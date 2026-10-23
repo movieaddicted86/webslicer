@@ -2,6 +2,7 @@ import { useStore, type PlaterObject } from '../../state/store';
 import { NumericField } from '../common/NumericField';
 import { SectionHeader } from '../common/SectionHeader';
 import { ACTION_ICONS } from '../common/icons';
+import './RangePanel.css';
 
 /** Height range modifiers of the selected object (variable layer height and per-range settings) */
 export function RangePanel({ o }: { o: PlaterObject }) {

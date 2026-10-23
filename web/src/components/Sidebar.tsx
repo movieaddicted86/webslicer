@@ -5,6 +5,7 @@ import { QuickSettings } from './sidebar/QuickSettings';
 import { ObjectsSection } from './sidebar/ObjectsSection';
 import { SimpleObjects } from './sidebar/SimpleObjects';
 import { SlicePanel } from './sidebar/SlicePanel';
+import './Sidebar.css';
 
 /**
  * The sidebar (F-13): the presets and the quick settings on top, then either the preview panel or

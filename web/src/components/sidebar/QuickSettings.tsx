@@ -1,5 +1,6 @@
 import { useStore } from '../../state/store';
 import { toBool } from '../../values';
+import './QuickSettings.css';
 
 /**
  * PrusaSlicer-style quick settings on the plater: supports, infill density, brim.

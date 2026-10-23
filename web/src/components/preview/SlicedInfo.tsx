@@ -2,6 +2,7 @@ import { useStore } from '../../state/store';
 import { api } from '../../api';
 import { SectionHeader } from '../common/SectionHeader';
 import { fmtMegabytes, fmtTime } from '../../format';
+import './SlicedInfo.css';
 
 /** PrusaSlicer's "Sliced info": the numbers of the finished job and what can be done with the G-code. */
 export function SlicedInfo() {

@@ -9,6 +9,7 @@ import { ObjectManipulation } from './ObjectManipulation';
 import { VolumeManipulation } from './VolumeManipulation';
 import { ArrangeSettingsMenu } from './ArrangeSettingsMenu';
 import { useDeleteSelection, useInstanceActions, useSelectedObjects } from './selection';
+import './ObjectsSection.css';
 
 /**
  * The object list of the plater: the toolbar above it, the rows with their sub-lists, and the

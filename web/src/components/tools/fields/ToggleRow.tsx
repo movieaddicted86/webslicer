@@ -1,3 +1,4 @@
+import './toolFields.css';
 /** A checkbox with its label inside a tool panel (T-046), styled like the arrange options. */
 export function ToggleRow({
   label,

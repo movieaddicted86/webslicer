@@ -8,6 +8,7 @@ import { OptionField } from './OptionField';
 import { ServerOnlyOption } from './ServerOnlyOption';
 import { MODE_RANK } from '../values';
 import type { PresetType } from '../api';
+import './SettingsView.css';
 
 export function SettingsView() {
   const view = useStore((s) => s.view) as PresetType;

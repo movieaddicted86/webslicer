@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { useStore, VOLUME_LABELS, type PlaterObject, type PlaterVolume } from '../../state/store';
 import { objectInfo } from '../../plater/info';
 import { objectIsOutside } from '../../plater/plateCheck';
@@ -6,6 +6,7 @@ import { fmt } from '../../format';
 import { ACTION_ICONS } from '../common/icons';
 import { VOLUME_ICONS } from './volumes';
 import { AddVolumeMenu } from './AddVolumeMenu';
+import './ObjectRow.css';
 
 /**
  * An inline text field for renaming (T-042): Enter or blur saves, Esc cancels. It starts in edit mode
@@ -105,11 +106,22 @@ export function ObjectRow({
   const splitLabel = o.volumes.length ? 'Remove modifiers and parts first' : 'Split to objects';
   // the info is a full mesh measurement: keep it off the render path of every unrelated store change
   const info = useMemo(() => objectInfo(o), [o]);
+  const selectOnKey = (e: KeyboardEvent) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    // the buttons inside the row handle their own keys
+    if ((e.target as HTMLElement).closest('input, button')) return;
+    e.preventDefault();
+    select([o.id]);
+  };
   return (
     <li className="object-item">
       <div
         className={`object-row ${isSel && !selectedVolumeId ? 'selected' : ''} ${objectIsOutside(o, bedShape, maxHeight) ? 'outside' : ''}`}
+        role="button"
+        aria-pressed={isSel && !selectedVolumeId}
+        tabIndex={0}
         onClick={(e) => select([o.id], e.ctrlKey || e.shiftKey)}
+        onKeyDown={selectOnKey}
         onDoubleClick={(e) => {
           // a double-click on the row (not on a button) starts the rename, like PrusaSlicer
           if ((e.target as HTMLElement).closest('input, button')) return;
@@ -211,8 +223,17 @@ export function ObjectRow({
             <li
               key={inst.id}
               className={`instance-row ${isSel && selectedInstanceId === inst.id ? 'selected' : ''}`}
+              role="button"
+              aria-pressed={isSel && selectedInstanceId === inst.id}
+              tabIndex={0}
               onClick={(e) => {
                 e.stopPropagation();
+                selectInstance(o.id, inst.id);
+              }}
+              onKeyDown={(e) => {
+                if (e.key !== 'Enter' && e.key !== ' ') return;
+                if ((e.target as HTMLElement).closest('button')) return;
+                e.preventDefault();
                 selectInstance(o.id, inst.id);
               }}
               title={`Instance ${i + 1} of ${o.instances.length}`}
@@ -294,8 +315,17 @@ function VolumeRow({
   return (
     <li
       className={`volume-row ${selected ? 'selected' : ''}`}
+      role="button"
+      aria-pressed={selected}
+      tabIndex={0}
       onClick={(e) => {
         e.stopPropagation();
+        onSelect();
+      }}
+      onKeyDown={(e) => {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        if ((e.target as HTMLElement).closest('input, button')) return;
+        e.preventDefault();
         onSelect();
       }}
       onDoubleClick={(e) => {

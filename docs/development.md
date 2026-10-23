@@ -26,14 +26,16 @@ For local development PrusaSlicer must be reachable (`PRUSASLICER_BIN`); on Wind
 shared/   @webslicer/shared – pure TypeScript used by web AND server (no React, no Express, no three.js)
 web/      React + Three.js + Zustand (Vite)      → plater, settings UI, G-code preview (web worker)
 server/   Node 22 + Express
-  slicer/cli.ts        invoking prusa-slicer
+  routes/              one router per resource, validate → service → respond
+  services/            use cases shared by REST and MCP
+  slicer/cli.ts        the one seam that invokes prusa-slicer
   slicer/schema.ts     option schema from --help-fff/--help-sla + curated tab layout
   slicer/bundles.ts    vendor bundles (resources/profiles/*.ini) with inheritance
   slicer/condition.ts  evaluation of compatible_*_condition
   slicer/presets.ts    system/user presets, installed printers
-  slicer/threemf.ts    STL parser, 3MF writer (transforms, volumes, paint, height ranges)
+  slicer/threemf/      STL parser, 3MF writer/reader (transforms, volumes, paint, height ranges)
   jobs.ts              job queue, progress (SSE), G-code statistics
-  printers.ts          PrusaLink / OctoPrint / Moonraker upload
+  mcp/                 the /mcp endpoint and its tools
 proxmox/  LXC helper (host) + installer (container)
 e2e/      Playwright suite (specs, helpers, mock print host, Docker runner)
 samples/  the sample models the image seeds the library with

@@ -1,0 +1,34 @@
+/* Toasts: the styles of this component. */
+
+.toasts {
+  position: fixed;
+  right: 14px;
+  bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 200;
+}
+
+.toast {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--blue);
+  border-radius: 4px;
+  padding: 8px 12px;
+  max-width: 380px;
+  cursor: pointer;
+  box-shadow: 0 4px 12px #0006;
+}
+
+.toast.error {
+  border-left-color: var(--red);
+}
+
+.toast.success {
+  border-left-color: var(--green);
+}
+
+.toast-action {
+  margin-left: 10px;
+}

@@ -627,7 +627,7 @@
 
 ## 1.0.0-rc.2 – 2026-10-17
 
-UAT run (docs/UAT-Report.md): UAT-01 to 14, 16 and 17 passed. Fixed findings:
+UAT run (docs/archive/UAT-Report.md): UAT-01 to 14, 16 and 17 passed. Fixed findings:
 
 - custom printer: falls back to "- default FFF -" instead of keeping an incompatible vendor print profile
 - camera follows the bed size when switching printers

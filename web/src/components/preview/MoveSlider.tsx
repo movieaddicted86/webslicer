@@ -2,6 +2,7 @@ import { useId, useMemo } from 'react';
 import { useStore } from '../../state/store';
 import { layerMoves, toolPosition } from '../../gcode/moves';
 import type { ParsedGcode } from '../../gcode/types';
+import './MoveSlider.css';
 
 /**
  * PrusaSlicer's horizontal slider: plays the moves of the top visible layer one by one. The range is

@@ -4,6 +4,7 @@ import { ACTION_ICONS } from '../common/icons';
 import { colorAtZ, normalizeColor, suggestColor } from '../../gcode/colorprint';
 import { fmtZ } from '../../format';
 import { CODE_LABEL } from './formats';
+import './LayerCodes.css';
 
 /**
  * Colour changes, pauses and custom G-code at layers – PrusaSlicer's "+" on the vertical slider.

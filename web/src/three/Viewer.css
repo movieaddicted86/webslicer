@@ -1,0 +1,70 @@
+/* The 3D view shell: canvas, view toolbar, banners (Viewer.tsx). */
+
+.viewer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.viewer canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.viewer-hint {
+  position: absolute;
+  left: 10px;
+  bottom: 8px;
+  color: var(--muted);
+  font-size: 11px;
+  pointer-events: none;
+}
+
+.viewer-fit {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+}
+
+.viewer-toolbar {
+  position: absolute;
+  right: 52px;
+  top: 10px;
+  display: flex;
+  gap: 2px;
+  align-items: center;
+  background: rgba(27, 30, 36, 0.75);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px;
+}
+
+.viewer-toolbar button {
+  padding: 2px 7px;
+  font-size: 11px;
+  background: transparent;
+  border-color: transparent;
+}
+
+.viewer-toolbar button:hover:not(:disabled) {
+  background: var(--bg4);
+}
+
+.viewer.place-on-face canvas {
+  cursor: crosshair;
+}
+
+.viewer-banner {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--accent);
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-weight: 600;
+  pointer-events: none;
+  z-index: 2;
+}

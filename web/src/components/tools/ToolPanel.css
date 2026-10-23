@@ -1,0 +1,49 @@
+/* ToolPanel: the styles of this component. */
+
+.tool-panel {
+  position: absolute;
+  left: 58px;
+  top: 10px;
+  z-index: 3;
+  width: 300px;
+  max-width: 320px;
+  max-height: calc(100% - 20px);
+  display: flex;
+  flex-direction: column;
+  background: rgba(27, 30, 36, 0.96);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 6px 24px #0008;
+}
+
+.tool-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px 6px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tool-panel-title {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.tool-panel-body {
+  padding: 8px 10px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  min-height: 0;
+}
+
+.tool-panel-foot {
+  border-top: 1px solid var(--border);
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: stretch;
+}

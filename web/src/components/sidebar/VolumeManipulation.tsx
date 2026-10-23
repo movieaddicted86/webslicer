@@ -2,6 +2,7 @@ import { VOLUME_TYPES } from '@webslicer/shared';
 import { useStore, VOLUME_LABELS, type PlaterObject, type PlaterVolume } from '../../state/store';
 import { TransformInputs } from './TransformInputs';
 import type { VolumeType } from '../../api';
+import './manipulation.css';
 
 /** The manipulation panel of a selected sub-volume (type, placement, settings) */
 export function VolumeManipulation({ o, v }: { o: PlaterObject; v: PlaterVolume }) {

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Modal } from './Modal';
 import { useStore } from '../../state/store';
 import { api, type PhysicalPrinter } from '../../api';
+import './PhysicalPrintersDialog.css';
 
 /** A limit field as a number: an empty or broken input means "not set". */
 function numberOrUndefined(value: string): number | undefined {

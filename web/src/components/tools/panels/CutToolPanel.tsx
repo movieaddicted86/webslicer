@@ -3,6 +3,7 @@ import { SliderField } from '../fields/SliderField';
 import { ToggleRow } from '../fields/ToggleRow';
 import { ToolSection } from '../fields/ToolSection';
 import { ToolPanel } from '../ToolPanel';
+import '../fields/toolFields.css';
 
 /**
  * The cut panel (T-046, moved out of the sidebar; the tool itself is T-044): the height and tilt of

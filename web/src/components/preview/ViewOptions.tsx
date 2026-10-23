@@ -2,6 +2,7 @@ import { useStore } from '../../state/store';
 import { MARKER_COLORS, MARKER_KINDS } from '../../gcode/types';
 import { COLOR_MODES, type PreviewColorMode } from '../../gcode/colorschemes';
 import { MARKER_LABEL } from './formats';
+import './ViewOptions.css';
 
 /** What the preview draws: travel moves, markers, shells and the colour mode of the toolpaths. */
 export function ViewOptions() {

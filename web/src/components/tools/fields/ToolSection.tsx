@@ -1,5 +1,6 @@
 /** A titled group of fields inside a tool panel (T-046). */
 import type { ReactNode } from 'react';
+import './toolFields.css';
 
 export function ToolSection({ title, children }: { title?: string; children: ReactNode }) {
   return (

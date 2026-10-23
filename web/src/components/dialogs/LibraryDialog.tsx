@@ -6,6 +6,7 @@ import { fmtSize } from '../../format';
 import { Modal } from './Modal';
 import { ACTION_ICONS } from '../common/icons';
 import { FolderPlus, Upload } from 'lucide-react';
+import './LibraryDialog.css';
 
 export type LibraryMode = 'open' | 'saveProject' | 'saveGcode';
 
@@ -178,7 +179,21 @@ export function LibraryDialog({ onClose, mode }: { onClose: () => void; mode: Li
         {error && <div className="error small">{error}</div>}
         <ul className="library-list">
           {shown.map((e) => (
-            <li key={e.path} className={`${e.dir ? 'dir' : e.kind || ''}`} onDoubleClick={() => open(e)}>
+            <li
+              key={e.path}
+              className={`${e.dir ? 'dir' : e.kind || ''}`}
+              role="button"
+              tabIndex={0}
+              title={e.dir ? `Open folder ${e.name}` : e.name}
+              onDoubleClick={() => open(e)}
+              onKeyDown={(ev) => {
+                if (ev.key !== 'Enter' && ev.key !== ' ') return;
+                if ((ev.target as HTMLElement).closest('button, a')) return;
+                ev.preventDefault();
+                if (e.dir || mode === 'open') void open(e);
+                else setName(e.name);
+              }}
+            >
               <span className="icon">{e.dir ? '📁' : ICONS[e.kind || 'other']}</span>
               <span className="name" onClick={() => (e.dir || mode === 'open' ? open(e) : setName(e.name))} title={e.path}>
                 {e.name}

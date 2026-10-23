@@ -3,6 +3,7 @@ import { useStore } from '../../state/store';
 import type { ParsedGcode } from '../../gcode/types';
 import { fmtZ } from '../../format';
 import { CODE_LABEL, layerIndexOfZ } from './formats';
+import './LayerSlider.css';
 
 /** The top and bottom layer sliders; the marks on the top one are the colour changes and pauses. */
 export function LayerSlider({ gcode }: { gcode: ParsedGcode }) {
