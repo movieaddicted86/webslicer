@@ -187,6 +187,45 @@ test('arrange packs the instances into the bed, on the bed and apart', async () 
   assert.deepEqual(project.objects[0].instances, once);
 });
 
+test('arrange takes spacing and corner alignment (T-043)', async () => {
+  const project = await newProject();
+  await addModelFromLibrary(project, libraryFile('cube20.stl'), 2);
+  await arrange(project, schema, { spacing: 20, alignment: 'corner' });
+  const placed = project.objects[0].instances;
+  const xs = placed.map((m) => m[12]).sort((a, b) => a - b);
+  // two 20 mm cubes with 20 mm between them, from the bed corner: centres at 20 and 60
+  assert.ok(Math.abs(xs[0] - 20) < 1e-9, `corner x = ${xs[0]}`);
+  assert.ok(Math.abs(xs[1] - xs[0] - 40) < 1e-9, `20 mm gap: ${xs[0]} -> ${xs[1]}`);
+  assert.ok(
+    placed.every((m) => Math.abs(m[13] - 20) < 1e-9),
+    'corner y',
+  );
+});
+
+test('arrange turns the instances when rotations are on (T-043)', async () => {
+  // the app's usual 250 x 210 bed (the schema stub's preset has no bed_shape of its own)
+  const project = await newProject({ printer: { name: DEFAULT_PRINTER, config: { bed_shape: '0x0,250x0,250x210,0x210' } } });
+  await addModelFromLibrary(project, libraryFile('bar.stl'), 5);
+  const o = project.objects[0];
+  // the 20 mm cube scaled to a 150 x 50 x 10 bar: five upright bars need 250 mm of the 210 mm
+  // depth, five lying ones fit one row (5 x 50 mm across) with no clearance
+  o.instances = o.instances.map(() => [7.5, 0, 0, 0, 0, 2.5, 0, 0, 0, 0, 0.5, 0, 0, 0, 0, 1]);
+  await assert.rejects(() => arrange(project, schema, { spacing: 0 }), /Not all objects fit/);
+  await arrange(project, schema, { rotations: true, spacing: 0 });
+  for (const m of o.instances) {
+    const box = instanceBounds(o.bounds, m);
+    const w = box.max[0] - box.min[0];
+    const h = box.max[1] - box.min[1];
+    assert.ok(Math.abs(w - 50) < 1e-9 && Math.abs(h - 150) < 1e-9, `turned footprint: ${w} x ${h}`);
+    assert.ok(Math.abs(box.min[2]) < 1e-9, 'on the bed');
+    assert.ok(box.min[0] >= -1e-9 && box.max[0] <= 250 + 1e-9 && box.min[1] >= -1e-9 && box.max[1] <= 210 + 1e-9, 'inside the bed');
+  }
+  // arranging again gives the same layout
+  const once = o.instances.map((m) => [...m]);
+  await arrange(project, schema, { rotations: true, spacing: 0 });
+  assert.deepEqual(o.instances, once);
+});
+
 test('arrange reports objects that do not fit on the bed', async () => {
   const tall = { vertices: Float32Array.from([0, 0, 0, 400, 0, 0, 0, 20, 0]), indices: Uint32Array.from([0, 1, 2]) };
   const project = await newProject();

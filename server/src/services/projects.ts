@@ -36,10 +36,24 @@ import {
   type Bounds,
   type CustomGcode,
   type Matrix4,
+  type PackAlignment,
   type PresetType,
   type Schema,
   type SliceRequest,
 } from '@webslicer/shared';
+
+/** The arrange knobs a headless caller has – the same ones as the browser's Arrange settings (T-043). */
+export interface ArrangeOptions {
+  /** clearance in mm; default: the print preset's arrangement spacing */
+  spacing?: number;
+  /** try every instance turned by 90° when the plain layout does not fit */
+  rotations?: boolean;
+  /** where the packed block sits in the bed; default `center`, as before */
+  alignment?: PackAlignment;
+}
+
+/** Quarter turn around Z, column-major – `Rz(90°)` in the browser's placement convention. */
+const QUARTER_TURN: Matrix4 = [0, 1, 0, 0, -1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
 
 /** hours a project stays alive after its last use */
 export const PROJECT_TTL_HOURS = envNumberAtLeast('PROJECT_TTL_HOURS', 1, 24);
@@ -244,32 +258,45 @@ export async function addModelFromLibrary(project: Project, libraryPath: string,
 /**
  * Arrange every instance with the shared shelf packing (`@webslicer/shared`, the algorithm the
  * browser uses as well):
- * footprints including the clearance, largest first, then each instance is moved so its centre
- * lands on the packed centre and its minimum Z on the bed.
+ * footprints, largest first, then each instance is moved so its centre lands on the packed centre
+ * and its minimum Z on the bed. `options` carry the same spacing/rotations/alignment the browser's
+ * Arrange settings offer (T-043); the defaults reproduce the old layout.
  */
-export async function arrange(project: Project, schema: Schema): Promise<Project> {
+export async function arrange(project: Project, schema: Schema, options: ArrangeOptions = {}): Promise<Project> {
   if (!project.objects.length) throw new ValidationError('Project has no objects');
   const cfg = resolvedConfigs(project, schema);
   const bed = bedShapeOf(cfg.printer.config);
-  const spacing = arrangementSpacing(cfg.print.config);
+  const spacing = options.spacing ?? arrangementSpacing(cfg.print.config);
   const items = project.objects.flatMap((o) =>
     o.instances.map((m, i) => ({ o, index: i, key: `${o.id}:${i}`, box: instanceBounds(o.bounds, m) })),
   );
   const packed = packShelf(
-    items.map((it) => ({ id: it.key, width: it.box.max[0] - it.box.min[0] + spacing, height: it.box.max[1] - it.box.min[1] + spacing })),
+    items.map((it) => ({ id: it.key, width: it.box.max[0] - it.box.min[0], height: it.box.max[1] - it.box.min[1] })),
     bed,
+    { spacing, rotations: options.rotations, alignment: options.alignment },
   );
   if (!packed) throw new ValidationError('Not all objects fit on the bed');
   const byKey = new Map(items.map((it) => [it.key, it]));
   for (const p of packed) {
     const it = byKey.get(p.id);
     if (!it) continue;
-    const dx = p.x - (it.box.min[0] + it.box.max[0]) / 2;
-    const dy = p.y - (it.box.min[1] + it.box.max[1]) / 2;
-    const dz = -it.box.min[2];
-    it.o.instances[it.index] = multiply(translate(dx, dy, dz), it.o.instances[it.index]);
+    // a turned item is rotated around its own footprint centre first, then placed as usual
+    const m = p.rotated ? quarterTurn(it.o.bounds, it.o.instances[it.index]) : it.o.instances[it.index];
+    const box = instanceBounds(it.o.bounds, m);
+    const dx = p.x - (box.min[0] + box.max[0]) / 2;
+    const dy = p.y - (box.min[1] + box.max[1]) / 2;
+    const dz = -box.min[2];
+    it.o.instances[it.index] = multiply(translate(dx, dy, dz), m);
   }
   return touchProject(project);
+}
+
+/** Turn an instance by 90° around Z through its footprint centre, so it stays where it is. */
+function quarterTurn(bounds: Bounds, m: Matrix4): Matrix4 {
+  const box = instanceBounds(bounds, m);
+  const cx = (box.min[0] + box.max[0]) / 2;
+  const cy = (box.min[1] + box.max[1]) / 2;
+  return multiply(translate(cx, cy, 0), multiply(QUARTER_TURN, multiply(translate(-cx, -cy, 0), m)));
 }
 
 // ---------------------------------------------------------------------------
