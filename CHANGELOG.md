@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+- **Plater (T-055 – tool bar labels, tidier sidebar):** the left tool bar names its tools now. The
+  registry carries a short **`label`** per tool ("Move", "Rotate", "Scale", "Place on face", "Cut",
+  "Paint supports", "Paint seam", "Paint extruder", "Layer height"), and the bar shows it next to the
+  icon while the 3D view is **at least 1100 px wide** – measured on the view (`ResizeObserver`), not
+  on the window, so the sidebar and the planned mobile layout change it correctly. Below that the
+  bar stays icon-only with the existing tooltips, and the bar never covers more than ~170 px of the
+  view. A **toggle at the end of the bar** ("Show tool labels" / "Hide tool labels") overrides the
+  width either way and the browser remembers the choice (`webslicer.toolLabels` in `localStorage`,
+  try/catch). The **object toolbar** of the sidebar no longer repeats the tools: move, rotate, scale,
+  place on face and cut were removed from it (and from Simple mode), so every action exists once –
+  the sidebar keeps only object actions (undo/redo, arrange + settings, instances, merge, duplicate,
+  delete, delete all). Shortcuts and the About dialog are unchanged.
+
 - **Plater (T-046 – tool framework):** the tools of the plater now live in a **left tool bar** at the
   edge of the 3D view, and each one opens its own **panel** docked next to the bar (at most 320 px
   wide, scrolling body, sticky footer for the primary action). Cut, place on face, paint supports/

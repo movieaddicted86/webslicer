@@ -150,8 +150,8 @@ test.describe('cut', () => {
     });
     await waitUploads(app);
     await settle(app, 800);
-    // the toolbar's cut button, not the row's "split to objects" (which carries the same tooltip)
-    const button = app.locator('.objects .tools button[title="Remove modifiers and parts first"]');
+    // T-055: the cut button lives in the 3D view's tool bar, not in the object toolbar
+    const button = app.locator('.tool-bar button[title="Cut (C): Remove modifiers and parts first"]');
     await expect(button).toBeDisabled();
     // and the endpoint refuses a plane without direction, whatever the UI does
     const res = await rest(app, 'POST', '/api/cut', {

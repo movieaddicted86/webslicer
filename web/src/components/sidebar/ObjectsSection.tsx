@@ -13,7 +13,9 @@ import { useDeleteSelection, useInstanceActions, useSelectedObjects } from './se
 /**
  * The object list of the plater: the toolbar above it, the rows with their sub-lists, and the
  * manipulation panel of whatever is selected. Tool options are not here any more (T-046): a tool's
- * panel is docked next to its button in the 3D view (`components/tools/`).
+ * panel is docked next to its button in the 3D view (`components/tools/`), and since T-055 the
+ * toolbar holds only object actions – move/rotate/scale, place on face and cut live in the tool bar
+ * alone, so no action exists twice.
  */
 export function ObjectsSection() {
   const objects = useStore((s) => s.objects);
@@ -23,10 +25,6 @@ export function ObjectsSection() {
   const mergeObjects = useStore((s) => s.mergeObjects);
   const arrange = useStore((s) => s.arrange);
   const clear = useStore((s) => s.clearObjects);
-  const transformMode = useStore((s) => s.transformMode);
-  const setTransformMode = useStore((s) => s.setTransformMode);
-  const activeTool = useStore((s) => s.activeTool);
-  const openTool = useStore((s) => s.openTool);
   const undo = useStore((s) => s.undo);
   const redo = useStore((s) => s.redo);
   const canUndo = useStore((s) => s.undoStack.length > 0);
@@ -62,48 +60,12 @@ export function ObjectsSection() {
       ? 'Only objects with a single instance can be merged'
       : 'Merge: select two or more objects with a single instance';
 
-  // T-044/T-046: one instance of one object, without modifiers or parts (the tooltip says why).
-  // The button opens the cut panel, which lives in the 3D view's tool dock now.
-  const cutTargetObject = selected.length === 1 ? selected[0] : undefined;
-  const canCut = !!cutTargetObject && cutTargetObject.volumes.length === 0;
-  const cutTitle = cutTargetObject
-    ? cutTargetObject.volumes.length
-      ? 'Remove modifiers and parts first'
-      : 'Cut the selected instance with a plane (C)'
-    : 'Cut: select one object';
-
   return (
     <section className="objects">
       <SectionHeader title={`Objects (${objects.length})`}>
         <div className="tools">
           <ToolbarButton title="Undo (Ctrl+Z)" icon={ACTION_ICONS.undo} onClick={undo} disabled={!canUndo} />
           <ToolbarButton title="Redo (Ctrl+Y)" icon={ACTION_ICONS.redo} onClick={redo} disabled={!canRedo} />
-          <span className="tool-sep" aria-hidden="true" />
-          <ToolbarButton
-            title="Move (M)"
-            icon={ACTION_ICONS.move}
-            active={transformMode === 'translate'}
-            onClick={() => setTransformMode('translate')}
-          />
-          <ToolbarButton
-            title="Rotate (R)"
-            icon={ACTION_ICONS.rotate}
-            active={transformMode === 'rotate'}
-            onClick={() => setTransformMode('rotate')}
-          />
-          <ToolbarButton
-            title="Scale (S)"
-            icon={ACTION_ICONS.scale}
-            active={transformMode === 'scale'}
-            onClick={() => setTransformMode('scale')}
-          />
-          <ToolbarButton
-            title="Place on face (F): click a face in the 3D view to lay it flat on the bed"
-            icon={ACTION_ICONS.placeOnFace}
-            active={activeTool === 'placeOnFace'}
-            onClick={() => void openTool('placeOnFace')}
-            disabled={!objects.length}
-          />
           <span className="tool-sep" aria-hidden="true" />
           <ToolbarButton title="Arrange (A)" icon={ACTION_ICONS.arrange} onClick={arrange} disabled={!objects.length} />
           <ArrangeSettingsMenu />
@@ -115,13 +77,6 @@ export function ObjectsSection() {
             disabled={selected.length !== 1 || instanceCount <= 1}
           />
           <span className="tool-sep" aria-hidden="true" />
-          <ToolbarButton
-            title={cutTitle}
-            icon={ACTION_ICONS.cut}
-            active={activeTool === 'cut'}
-            onClick={() => void openTool('cut')}
-            disabled={!canCut}
-          />
           <ToolbarButton title={mergeTitle} icon={ACTION_ICONS.merge} onClick={() => void mergeObjects(selectedIds)} disabled={!canMerge} />
           <ToolbarButton
             title="Duplicate"
