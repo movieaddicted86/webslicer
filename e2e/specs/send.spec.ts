@@ -10,8 +10,8 @@
  * preset only warns, an unbound host warns and asks for a second confirmation before it may start a
  * print, the upload really happens, and the server enforces the same gate on its own (409).
  */
-import { CUBE, importFile, read, settle, sliceAndWait } from '../helpers/app';
-import { expect, test } from '../helpers/fixtures';
+import { read, settle, sliceAndWait } from '../helpers/app';
+import { expect, openSharedSlice, sliceOnce, test } from '../helpers/fixtures';
 import { E2E_PRINTER } from '../global-setup';
 import { dialogSnapshot, openDialog } from '../helpers/dom';
 import {
@@ -43,7 +43,29 @@ interface Hosts {
 test.describe('send: the send gate and the upload (S1-b, T-026)', () => {
   test.skip(!HAS_MOCK_HOST, 'the send tests need the mock print host – run them with `npm run e2e:docker`');
 
+  /*
+   * T-057: the seven tests that talk about the *unedited* cube job share one slice (same cube, same
+   * fixture preset) instead of slicing per test; only the two tests that change the plate before
+   * slicing (a custom G-code, a higher temperature) still slice for themselves. The hosts are created
+   * per test – they are server state the tests assert on.
+   */
+  let sharedJob = '';
+
+  test.beforeAll(async ({ browser }) => {
+    sharedJob = await sliceOnce(browser);
+  });
+
   let created: TestPrinter[] = [];
+
+  /*
+   * T-057: the printer list and the mock's upload log are **server state** – two workers on the same
+   * instance would see each other's hosts (the send dialog preselects the exact match, the printers
+   * dialog lists the rows) and each other's uploads. Every test that creates a host or reads the log
+   * therefore takes one lock; the tests of this file still run one after another, the other specs of
+   * the shard keep running in parallel. Tests inside the file are serial anyway (`fullyParallel`
+   * stays off) – the lock only orders this file against the other files of its shard.
+   */
+  test.describe.configure({ lock: 'server-state' });
 
   test.afterEach(async ({ app }) => {
     await removePrinters(app, created);
@@ -58,8 +80,8 @@ test.describe('send: the send gate and the upload (S1-b, T-026)', () => {
    * falls back to the first host is caught.
    */
   async function prepare(app: Page, which: Array<keyof Hosts> = ['exact', 'derived', 'unbound', 'mismatch']): Promise<Partial<Hosts>> {
-    await importFile(app, CUBE);
-    await sliceAndWait(app);
+    // the shared slice: the cube and the fixture preset of every test that does not change the plate
+    await openSharedSlice(app, sharedJob);
     const job = await read(app, (s) => ({ id: s.job?.id, preset: s.job?.presets?.printer }));
     expect(job.id, 'the slice finished with a job').toBeTruthy();
     expect(job.preset).toBe(E2E_PRINTER);
@@ -456,6 +478,8 @@ test.describe('send: the send gate and the upload (S1-b, T-026)', () => {
 
 test.describe('send: the printer dialog sees the mock host', () => {
   test.skip(!HAS_MOCK_HOST, 'the send tests need the mock print host – run them with `npm run e2e:docker`');
+  // T-057: the printers dialog lists every host on the server, so this group shares the lock above
+  test.describe.configure({ lock: 'server-state' });
 
   test('the physical printers dialog lists a configured host instead of the form', async ({ app }) => {
     const created = [await addPrinter(app, { name: 'Listed host', presetName: E2E_PRINTER })];

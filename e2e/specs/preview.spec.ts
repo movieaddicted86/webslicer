@@ -9,23 +9,43 @@
 import fs from 'node:fs';
 import { CUBE, importFile, read, settle, sliceAndWait, waitSliceDone } from '../helpers/app';
 import { census, gcodeScene, markerKindProbe, visibleMeshes } from '../helpers/canvas';
-import { expect, test } from '../helpers/fixtures';
+import { expect, openSharedSlice, sliceOnce, test } from '../helpers/fixtures';
 import { click, fill, outline } from '../helpers/dom';
 
-/** Slice the cube and open the preview, the state every test below starts from. */
-async function sliceAndOpenPreview(app: Parameters<typeof sliceAndWait>[0]): Promise<string> {
-  await importFile(app, CUBE);
-  await sliceAndWait(app);
-  await app.evaluate(() => window.webslicer.getState().setView('preview'));
-  await settle(app, 1500);
-  const jobId = await read(app, (s) => s.job?.id ?? '');
-  expect(jobId).not.toBe('');
-  return jobId;
+/*
+ * T-057: the 12 tests below only *read* the sliced result – they move sliders, toggle markers, ask
+ * for the stats or download the file, and none of them changes the plate. They therefore share one
+ * slice (same cube, same fixture preset), made once in `beforeAll`; every test loads that job into its
+ * own page instead of slicing again. The three WebGL resource tests at the end slice for themselves:
+ * they measure what a slice allocates and frees.
+ */
+let sharedJob = '';
+
+/*
+ * T-057: the tests read the shared job and each gets its own page, so they need no order and can fill
+ * both workers. `fullyParallel` stays off for the suite as a whole – the specs that edit the plater
+ * rely on one file running its tests one at a time. Here nothing is shared but the job id: Playwright
+ * splits a parallel file with hooks into two groups for two workers, and `beforeAll` runs once per
+ * group, so the file slices twice instead of 15 times.
+ */
+test.describe.configure({ mode: 'parallel' });
+
+test.beforeAll(async ({ browser }) => {
+  sharedJob = await sliceOnce(browser);
+});
+
+/** The state every shared-slice test starts from: the cube in the plater, the preview open. */
+async function openPreview(app: Parameters<typeof sliceAndWait>[0]): Promise<string> {
+  await openSharedSlice(app, sharedJob);
+  expect(sharedJob).not.toBe('');
+  return sharedJob;
 }
 
 test.describe('preview: the sliced result (UAT-14)', () => {
-  test('the slice finishes, the panel replaces the object list and the stats list the file', async ({ app }) => {
-    const jobId = await sliceAndOpenPreview(app);
+  // T-057: the send button is disabled only while the server has no host – a host another worker's
+  // send test created would enable it, so this test shares the `server-state` lock
+  test('the slice finishes, the panel replaces the object list and the stats list the file', { lock: 'server-state' }, async ({ app }) => {
+    const jobId = await openPreview(app);
     const slice = await read(app, (s) => ({
       status: s.job?.status,
       outputName: s.job?.outputName,
@@ -65,7 +85,7 @@ test.describe('preview: the sliced result (UAT-14)', () => {
   });
 
   test('Export G-code downloads the file with its thumbnail blocks', async ({ app }) => {
-    await sliceAndOpenPreview(app);
+    await openPreview(app);
     const [download] = await Promise.all([
       app.waitForEvent('download', { timeout: 90_000 }),
       app.locator('.stats a.button.primary').click(),
@@ -85,7 +105,7 @@ test.describe('preview: the sliced result (UAT-14)', () => {
 
 test.describe('preview: the sliders (UAT-06, UAT-19)', () => {
   test('the layers section has both layer sliders, the marker track and the three code buttons', async ({ app }) => {
-    await sliceAndOpenPreview(app);
+    await openPreview(app);
     const layers = await read(app, (s) => s.gcode?.layerCount ?? 0);
     const panel = await app.evaluate(() => ({
       head: document.querySelector('.layers .section-head')?.textContent,
@@ -114,7 +134,7 @@ test.describe('preview: the sliders (UAT-06, UAT-19)', () => {
   });
 
   test('the top layer slider draws fewer toolpaths on a shorter range', async ({ app }) => {
-    await sliceAndOpenPreview(app);
+    await openPreview(app);
     const layers = await read(app, (s) => s.gcode?.layerCount ?? 0);
     const steps: Array<{ frac: number; segs: number; range: number[] }> = [];
     for (const frac of [1, 0.6, 0.3, 0.05]) {
@@ -132,7 +152,7 @@ test.describe('preview: the sliders (UAT-06, UAT-19)', () => {
   });
 
   test('the top layer slider of the panel sets the range, the field follows', async ({ app }) => {
-    await sliceAndOpenPreview(app);
+    await openPreview(app);
     const top = app.locator('.layers .slider-with-markers input[type=range]');
     await fill(app, '.layers .slider-with-markers input[type=range]', '10', 800);
     expect(await read(app, (s) => s.previewLayerRange)).toEqual([0, 10]);
@@ -141,7 +161,7 @@ test.describe('preview: the sliders (UAT-06, UAT-19)', () => {
   });
 
   test('the Move slider cuts the top layer and puts it back', async ({ app }) => {
-    await sliceAndOpenPreview(app);
+    await openPreview(app);
     // the markers make the cut observable: the drawn markers are exactly the ones up to the cut
     await app.evaluate(() => window.webslicer.getState().togglePreviewMarker('retract'));
     await app.waitForTimeout(1200);
@@ -170,7 +190,7 @@ test.describe('preview: the sliders (UAT-06, UAT-19)', () => {
   });
 
   test('the code buttons add a colour change and a pause with their slider markers', async ({ app }) => {
-    const jobId = await sliceAndOpenPreview(app);
+    const jobId = await openPreview(app);
     await fill(app, '.layers .slider-with-markers input[type=range]', '10', 800);
     await click(app, '.layer-codes-add button:has-text("Color")', 700);
     await waitSliceDone(app, jobId);
@@ -200,6 +220,9 @@ test.describe('preview: the sliders (UAT-06, UAT-19)', () => {
     const beforeRemove = await read(app, (s) => s.job?.id);
     await click(app, '.code-list li:has(.code-type:text-is("Pause")) button.icon', 800);
     await waitSliceDone(app, beforeRemove);
+    // the panel renders its list with the frame after the re-slice, so wait for the row instead of
+    // reading the DOM once right after `waitSliceDone` returned (the assertions below are unchanged)
+    await app.waitForFunction(() => document.querySelectorAll('.code-list li').length === 1, null, { timeout: 60_000 });
     const after = await app.evaluate(() => ({
       codes: window.webslicer.getState().customGcodes.map((c) => c.type),
       rows: document.querySelectorAll('.code-list li').length,
@@ -210,7 +233,7 @@ test.describe('preview: the sliders (UAT-06, UAT-19)', () => {
 
 test.describe('preview: what is drawn (UAT-19)', () => {
   test('the view options list the six markers and Shells, and the toggles reach the store', async ({ app }) => {
-    await sliceAndOpenPreview(app);
+    await openPreview(app);
     const options = await app.evaluate(() => ({
       labels: Array.from(document.querySelectorAll('.view-options label')).map((l) => ({
         text: l.textContent?.trim(),
@@ -262,7 +285,7 @@ test.describe('preview: what is drawn (UAT-19)', () => {
   });
 
   test('toggling a marker kind draws its markers, and Show travel draws the travel moves', async ({ app }) => {
-    await sliceAndOpenPreview(app);
+    await openPreview(app);
     const base = await gcodeScene(app);
     const kinds = ['retract', 'deretract', 'seam', 'wipe', 'tool_change', 'color_change'];
     const drawn: Record<string, number> = {};
@@ -289,7 +312,7 @@ test.describe('preview: what is drawn (UAT-19)', () => {
   });
 
   test('hiding a feature collapses its toolpaths, and the legend toggles it', async ({ app }) => {
-    await sliceAndOpenPreview(app);
+    await openPreview(app);
     const base = await gcodeScene(app);
     const features = await read(app, (s) => s.previewFeatureVisibility);
     const counts = await read(app, (s) => {
@@ -329,7 +352,7 @@ test.describe('preview: what is drawn (UAT-19)', () => {
   });
 
   test('every colour mode keeps the toolpaths and shows more than a headline', async ({ app }) => {
-    await sliceAndOpenPreview(app);
+    await openPreview(app);
     const ref = (await gcodeScene(app)).segs;
     const modes = await app.evaluate(() =>
       Array.from(document.querySelectorAll('.view-mode select option')).map((o) => (o as HTMLOptionElement).value),
@@ -360,7 +383,7 @@ test.describe('preview: what is drawn (UAT-19)', () => {
   });
 
   test('Shells draws the plater meshes over the toolpaths', async ({ app }) => {
-    await sliceAndOpenPreview(app);
+    await openPreview(app);
     await app.evaluate(() => window.webslicer.getState().setPreviewShowShells(false));
     await app.waitForTimeout(1000);
     const off = await visibleMeshes(app);

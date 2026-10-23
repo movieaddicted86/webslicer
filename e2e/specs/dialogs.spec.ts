@@ -6,8 +6,8 @@
  * views, which are the only place every `OptionField` variant shows: number, text, checkbox, select,
  * vector, bed editor and the multiline G-code box with its commit-on-blur behaviour.
  */
-import { CUBE, importFile, read, settle, sliceAndWait } from '../helpers/app';
-import { expect, test } from '../helpers/fixtures';
+import { CUBE, importFile, read, settle } from '../helpers/app';
+import { expect, openSharedSlice, sliceOnce, test } from '../helpers/fixtures';
 import { click, closeDialog, dialogKind, fill, openDialog } from '../helpers/dom';
 import { plater } from '../helpers/plater';
 import type { Page } from '@playwright/test';
@@ -20,6 +20,13 @@ async function findSetting(app: Page, view: string, key: string): Promise<void> 
 }
 
 const objectConfig = (app: Page) => read(app, (s) => s.objects[0].config);
+
+/* T-057: one slice for the whole file – the send dialog below only *reads* the cube job. */
+let sharedJob = '';
+
+test.beforeAll(async ({ browser }) => {
+  sharedJob = await sliceOnce(browser);
+});
 
 test.describe('dialogs: the per-object, per-volume and per-range settings (S6)', () => {
   test.beforeEach(async ({ app }) => {
@@ -175,7 +182,9 @@ test.describe('dialogs: the app dialogs (S11)', () => {
     await closeDialog(app, 'escape');
   });
 
-  test('the physical printer form offers the three host types and starts with Save disabled', async ({ app }) => {
+  // T-057: these two read and write the server's printer list – the other files' host tests share the
+  // same lock, so two workers never see each other's hosts
+  test('the physical printer form offers the three host types and starts with Save disabled', { lock: 'server-state' }, async ({ app }) => {
     // the fixture data configures no host, so the dialog opens straight on the form of a new one
     await openDialog(app, 'physicalPrinters');
     const form = await app.evaluate(() => ({
@@ -202,31 +211,35 @@ test.describe('dialogs: the app dialogs (S11)', () => {
     await closeDialog(app, 'escape');
   });
 
-  test('the PTFE preset fills the hotend limit and the limits travel with the saved host (S1-d)', async ({ app }) => {
-    await openDialog(app, 'physicalPrinters');
-    await app.getByRole('button', { name: 'PTFE hotend (max 240 °C)' }).click();
-    await app.locator('.form input').nth(0).fill('PTFE host');
-    await app.locator('.form input').nth(1).fill('10.0.0.9');
-    const hotend = app.locator('fieldset.safety-limits input').first();
-    await expect(hotend).toHaveValue('240');
-    await app.getByRole('button', { name: 'Save', exact: true }).click();
-    await expect(app.locator('.printer-list')).toContainText('PTFE host');
-    const saved = await app.evaluate(async () => {
-      const res = await fetch('/api/printers');
-      return (await res.json()) as Array<{ id: string; name: string; safety?: { maxHotend?: number } }>;
-    });
-    const host = saved.find((p) => p.name === 'PTFE host');
-    expect(host?.safety).toEqual({ maxHotend: 240 });
-    // the fixture data seeds no host; leave it that way for the other specs
-    await app.evaluate(async (id) => {
-      await fetch(`/api/printers/${id}`, { method: 'DELETE' });
-    }, host?.id);
-    await closeDialog(app, 'escape');
-  });
+  test(
+    'the PTFE preset fills the hotend limit and the limits travel with the saved host (S1-d)',
+    { lock: 'server-state' },
+    async ({ app }) => {
+      await openDialog(app, 'physicalPrinters');
+      await app.getByRole('button', { name: 'PTFE hotend (max 240 °C)' }).click();
+      await app.locator('.form input').nth(0).fill('PTFE host');
+      await app.locator('.form input').nth(1).fill('10.0.0.9');
+      const hotend = app.locator('fieldset.safety-limits input').first();
+      await expect(hotend).toHaveValue('240');
+      await app.getByRole('button', { name: 'Save', exact: true }).click();
+      await expect(app.locator('.printer-list')).toContainText('PTFE host');
+      const saved = await app.evaluate(async () => {
+        const res = await fetch('/api/printers');
+        return (await res.json()) as Array<{ id: string; name: string; safety?: { maxHotend?: number } }>;
+      });
+      const host = saved.find((p) => p.name === 'PTFE host');
+      expect(host?.safety).toEqual({ maxHotend: 240 });
+      // the fixture data seeds no host; leave it that way for the other specs
+      await app.evaluate(async (id) => {
+        await fetch(`/api/printers/${id}`, { method: 'DELETE' });
+      }, host?.id);
+      await closeDialog(app, 'escape');
+    },
+  );
 
-  test('the send dialog names the sliced file and the ✕ closes it', async ({ app }) => {
-    await importFile(app, CUBE);
-    await sliceAndWait(app);
+  // T-057: the dialog lists the server's hosts; another worker's host must not enable the upload
+  test('the send dialog names the sliced file and the ✕ closes it', { lock: 'server-state' }, async ({ app }) => {
+    await openSharedSlice(app, sharedJob);
     const job = await read(app, (s) => ({ id: s.job?.id, outputName: s.job?.outputName }));
 
     await openDialog(app, 'sendToPrinter');

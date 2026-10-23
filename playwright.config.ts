@@ -10,7 +10,11 @@
  * `npm run e2e:docker` builds the image, starts it with a copy of `e2e/fixtures/data` and sets the
  * base URL; CI does the same.
  *
- * Specs share one plater and one slice queue, so they run one after the other in a single worker.
+ * Every test gets its own browser context, printer preset and autosave id, so files are independent of
+ * each other and two workers can run at once (T-057, CI only – one worker locally keeps the local
+ * machine's slice queue and the Docker instance's CPU free). Tests inside a file stay serial
+ * (`fullyParallel: false`): they share one plater. The few tests that read or write server state the
+ * others also see – the printer list, the mock host's upload log – take the `server-state` test lock.
  * `retries` stays 0: a flaky test has to show up as a failure (AC-5), not be hidden by a retry.
  */
 import { defineConfig } from '@playwright/test';
@@ -21,7 +25,8 @@ export default defineConfig({
   testDir: './e2e/specs',
   globalSetup: './e2e/global-setup.ts',
   fullyParallel: false,
-  workers: 1,
+  // T-057: CI runs two workers per shard; the flag there decides, this is the local default
+  workers: process.env.CI ? 2 : 1,
   retries: 0,
   forbidOnly: !!process.env.CI,
   // one slice on the software rasterizer is slow; a spec that hangs must fail, not block the run

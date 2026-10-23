@@ -403,15 +403,35 @@ before it writes anything. A hand-started server for the suite therefore needs t
 marker copied into it); never point it at your working install.
 
 - Specs by area: `smoke`, `viewer`, `camera`, `sidebar`, `dialogs`, `preview`, `send`, `api-smoke`.
-- `retries: 0`, one worker: a flaky test is a failure, not a retry.
+- `retries: 0`: a flaky test is a failure, not a retry. Locally one worker runs; CI runs **two**
+  (`playwright.config.ts`). Every test gets its own browser context and autosave id; the few tests
+  that read or write the server's printer list or the mock host's upload log take the `server-state`
+  test lock, so two workers cannot see each other's hosts.
+- Tests inside a spec run one after another (`fullyParallel: false`), because most specs edit one
+  plater between tests. `preview.spec.ts` and `sidebar.spec.ts` are the exception: every test there
+  gets its own page and its own import, so they turn on `test.describe.configure({ mode: 'parallel' })`
+  for themselves and use both workers. A new spec may do the same only if nothing carries between its
+  tests (no module-level plater state, no server write).
+- Specs whose tests only read the sliced result share **one slice per spec** (`sliceOnce` in
+  `e2e/helpers/fixtures.ts`, called from `beforeAll`); the tests load that job into their own page.
 - On failure Playwright keeps a trace, a screenshot and the error context in `test-results/`; in CI each
   shard uploads its own `playwright-report-shard-<n>` artifact.
-- Slicing is the slow part (software WebGL in CI): a full run takes ~20–25 min, so CI runs the suite
-  **sharded over three jobs** (`--shard=1/3` … `3/3`, each with its own app + mock host), weighted by
-  the measured time of each spec (`PWTEST_SHARD_WEIGHTS`, set in the workflow) so the shards carry
-  5 / 9 / 10 min of suite time on a runner instead of 12 / 7 / 5. The Playwright browsers are cached
-  per `package-lock.json`: with a warm cache a shard job takes 6–11 min, and the first run after a
-  dependency bump pays the browser download on all three shards at once.
+- CI runs the whole suite in the **official Playwright image** (`mcr.microsoft.com/playwright:v<version>`,
+  the version taken from `@playwright/test`), so browsers and their system libraries are preinstalled
+  and there is no `playwright install` step. The app image is built **once** in a `build` job and the
+  four shards only load it from the build cache. The shards are weighted by the measured time of each
+  spec (`PWTEST_SHARD_WEIGHTS`, set in the workflow), two workers each. A push to a branch cancels the
+  run it supersedes; `main` runs are never cancelled.
+- `PWTEST_SHARD_WEIGHTS` is Playwright-internal (undocumented): it weights the shard sizes, while
+  Playwright still hands out contiguous **file groups**, so only the boundaries move. The current
+  weights make the groups 33 / 23 / 32 / 29 tests across the 117-test suite, and give each shard at
+  most one **expensive** locked spec (`preview`, `send`, `dialogs`): Playwright's `lock` applies
+  to the whole file group, so two locked specs in one shard run strictly one after the other. Shard 1
+  also holds `api-smoke`, whose lock covers a 3-second file. After a
+  Playwright bump (the Dependabot `playwright` group) re-check the assignment with
+  `for i in 1 2 3 4; do npx playwright test --list --shard=$i/4; done` (with `E2E_MOCK_URL` and
+  `E2E_MOCK_DIR` set, otherwise the send tests are skipped and the counts shift). If the variable is
+  ever ignored, the shards fall back to the count-based split – correct, just less balanced.
 
 ### Architecture
 

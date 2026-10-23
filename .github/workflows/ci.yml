@@ -4,6 +4,13 @@ on:
   push:
   pull_request:
 
+# T-057: a new push to the same branch cancels the run it supersedes, so a stale E2E run does not
+# occupy the runners (and the eight-minute budget) for nothing. `main` is never cancelled: its runs
+# are the history the branch runs are compared against.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 # W6: read-only by default. Neither job publishes anything, so every token this workflow hands to a
 # step (including a dependency's install script or a pulled action) can only read the repository.
 permissions:
@@ -28,20 +35,25 @@ jobs:
 
   # The browser net (T-030): the real image, the real PrusaSlicer CLI, the fixture data dir, and the
   # mock print host the send spec uploads to (a sibling container on a private network – no real
-  # printer, no host port). The PrusaSlicer layer is the expensive part of the image (~3 min) – it is
-  # built as its own target and cached in the GHA cache, so a normal run only rebuilds the app layers.
+  # printer, no host port).
   #
-  # The suite is **sharded over three jobs**: one full pass took ~24 min on a runner, i.e. over the
-  # 15-min gate. Each shard builds the (cached) image, starts its own app + mock host on its own
-  # runner and runs its share (`--shard=<n>/3`). Playwright splits by file group, and the measured
-  # balance of the three shards is in the T-030 report.
-  #
-  # The shard sizes are **weighted by the measured test time**, not by the test count: `preview`
-  # (one real slice per test, ~5 min) and `dialogs` (~3 min) are the heavy files, and the count-based
-  # split put all four files before it in shard 1 (40 tests, 11.8 min) and left shard 3 with 19 tests
-  # (5.3 min). The weights give 27 / 22 / 33 tests, i.e. 5.3 / 8.7 / 8.3 min of test time locally.
-  # `PWTEST_SHARD_WEIGHTS` is read by Playwright's own sharding; if a later version drops it, the
-  # split falls back to the equal (count-based) one, which still fits the gate with a cached browser.
+  # T-057 changed how the shards are set up:
+  # - the **image is built once** in `build` and handed over through the GHA build cache. A `docker
+  #   save` artifact would be ~430 MB per shard (1.3 GB uncompressed); restoring the cached layers is
+  #   smaller and does not need an upload. The four shards only `--load` the cached result.
+  # - the **suite runs inside the official Playwright image**, whose tag is derived from the
+  #   `@playwright/test` version in `package.json` (one place, and Dependabot's `playwright` group
+  #   moves the package and this tag together). Browsers and their system libraries are preinstalled,
+  #   so the `npx playwright install --with-deps` step – 11 s warm but 12 min on a cold runner – is
+  #   gone. The container gets host networking (the app publishes 8080) and the mock's log directory.
+  # - **two workers per shard**: the specs were isolated for it (a fresh browser context per test, a
+  #   per-context autosave id, and the tests that create printers or read the mock's upload log take
+  #   the `server-state` test lock).
+  # - **four shards, weighted** by the per-file times measured in run 39940568907: the alphabetical
+  #   split put `preview` and `sidebar` into the same shard (21.5 min of tests against 10.9 and 7.7).
+  #   Playwright shards contiguous file groups, so only the *boundaries* can move; the weights below
+  #   are the test counts those boundaries need: 10.9 / 12.0 / 9.6 / 7.7 min of tests, four shards
+  #   against 10.9 / 21.5 / 7.7 with equal weights (`.ai/reports/T-057.md`).
   # A push that only touches docs (Markdown, docs/, LICENSE) skips the E2E shards; `check` (lint,
   # format incl. Markdown, unit tests) always runs. Unknown base (new branch, force push) → run all.
   changes:
@@ -65,23 +77,56 @@ jobs:
             echo "code=false" >> "$GITHUB_OUTPUT"
           fi
 
-  e2e:
+  # The one build of the app image (T-057). `mode=max` keeps the intermediate layers too, so the
+  # PrusaSlicer stage (~3 min, the download of the AppImage) is a cache hit on every run after the
+  # first. This job is the only writer of the `e2e` cache scope: the shards read it.
+  build:
     needs: changes
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
-    # the job only builds images and runs tests; the GHA cache needs no repository write scope
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build the app image into the build cache
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          cache-from: type=gha,scope=e2e
+          cache-to: type=gha,mode=max,scope=e2e
+  e2e:
+    needs: [changes, build]
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    # the job only loads images and runs tests; the GHA cache needs no repository write scope
     permissions:
       contents: read
     strategy:
       fail-fast: false
       matrix:
-        shard: ['1/3', '2/3', '3/3']
-    # a shard runs ~⅓ of the suite; the cap is a backstop against a hung slice, not the target
+        shard: ['1/4', '2/4', '3/4', '4/4']
+    # a shard runs ~¼ of the suite; the cap is a backstop against a hung slice, not the target
     timeout-minutes: 30
     env:
       E2E_BASE_URL: http://localhost:8080
       E2E_MOCK_URL: http://mock-host:8160
-      PWTEST_SHARD_WEIGHTS: 27:22:33
+      # `PWTEST_SHARD_WEIGHTS` is read by Playwright's own `filterForShard` (undocumented, but present
+      # since 1.4x and still there in 1.64.1). It weights the shards; Playwright still hands out
+      # **contiguous file groups**, so only the boundaries move. Without it the split is by test count
+      # (an alphabetical walk), which is what put `preview` and `sidebar` into one shard.
+      # The numbers are the test counts of the four file groups (33 / 23 / 32 / 29 of 117); the times
+      # behind them are in `.ai/reports/T-057.md`. The split keeps **one expensive locked file per
+      # shard**: Playwright attaches a `lock` to the whole file group, so two locked files in one shard
+      # run strictly one after the other – that cost 10.6 min in run 39946406732, where `preview` and
+      # `send` shared a shard. Shard 1 holds two locked files (`dialogs` and `api-smoke`), but the
+      # `api-smoke` lock covers a 3-second file, so it does not serialise anything. **After a
+      # Playwright bump** (the Dependabot `playwright` group) re-check the assignment locally:
+      #   for i in 1 2 3 4; do npx playwright test --list --shard=$i/4; done
+      # with `E2E_MOCK_URL`/`E2E_MOCK_DIR` set (otherwise the send tests are skipped and the counts
+      # shift). If the env var is ever dropped, the shards fall back to the count-based split – still
+      # correct, just less balanced.
+      # quoted on purpose: unquoted `a:b:c:d` is a sexagesimal integer to YAML 1.1 parsers
+      PWTEST_SHARD_WEIGHTS: '33:23:32:29'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -89,32 +134,25 @@ jobs:
           node-version: 22
           cache: npm
       - uses: docker/setup-buildx-action@v3
-      - name: Build the image
-        # `mode=max` keeps the intermediate layers too, so the PrusaSlicer stage (~3 min, the
-        # download of the AppImage) is a cache hit on every run after the first. The three shards
-        # build at the same time, so each exports to its own cache scope (one GHA cache scope cannot
-        # be written by two builds) and reads the shared scope first.
+      - name: Load the image built by `build`
+        # cache-from only: the build job owns the scope, and a cached layer set is restored without
+        # running the PrusaSlicer stage again
         uses: docker/build-push-action@v6
         with:
           context: .
           load: true
           tags: webslicer:e2e
-          cache-from: |
-            type=gha,scope=e2e
-            type=gha,scope=e2e-${{ strategy.job-index }}
-          cache-to: type=gha,mode=max,scope=e2e-${{ strategy.job-index }}
+          cache-from: type=gha,scope=e2e
       - name: Build the mock print host
         run: docker build -t webslicer-mock-host:e2e e2e/mock-host
       - run: npm ci
-      - name: Cache the Playwright browsers
-        # the browser build is a ~170 MB download per job and one shard took 12 min for it in the first
-        # three-way run; the cache key is the Playwright version, so a dependency bump invalidates it
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-          restore-keys: playwright-${{ runner.os }}-
-      - run: npx playwright install --with-deps chromium
+      - name: Resolve the Playwright image tag
+        # the single place is `package.json`; Dependabot's `playwright` group bumps the package and
+        # the image tag follows from it (a range like `^1.64.1` is stripped to the version)
+        id: pw
+        run: |
+          version=$(node -p "require('./package.json').devDependencies['@playwright/test']")
+          echo "image=mcr.microsoft.com/playwright:v${version//[^0-9.]/}" >> "$GITHUB_OUTPUT"
       - name: Start the app and the mock print host
         run: |
           set -euo pipefail
@@ -152,10 +190,23 @@ jobs:
           # the app has to resolve the mock by name before the send spec runs
           docker exec e2e node -e "fetch('http://mock-host:8160/api/version').then(r=>r.json()).then(j=>console.log('mock host:',j.server)).catch(e=>{console.error(e);process.exit(1)})"
       - name: Run the E2E suite (shard ${{ matrix.shard }})
-        # the mock's log dir is a path on the runner; the `runner` context only exists inside a step
+        # The suite runs in the Playwright image (browsers preinstalled), against the workspace the
+        # runner already installed. The mock's log directory is mounted, host networking reaches the
+        # published app port, and the container runs as the runner user so the reports the later
+        # steps read stay owned by it.
         env:
           E2E_MOCK_DIR: ${{ runner.temp }}/e2e/mock
-        run: npm run e2e -- --shard=${{ matrix.shard }}
+        run: |
+          set -euo pipefail
+          # `--ipc=host`: the browser's shared memory – the default 64 MB /dev/shm is too small for
+          # several Chromium instances and crashes them (the documented Playwright container setup)
+          docker run --rm --network host --ipc=host \
+            --user "$(id -u):$(id -g)" -e HOME=/tmp \
+            -v "$GITHUB_WORKSPACE:/work" -w /work \
+            -v "$E2E_MOCK_DIR:/mock-data" \
+            -e CI -e E2E_BASE_URL -e E2E_MOCK_URL -e E2E_MOCK_DIR=/mock-data -e PWTEST_SHARD_WEIGHTS \
+            "${{ steps.pw.outputs.image }}" \
+            npx playwright test --shard=${{ matrix.shard }}
       - name: Server log (on failure)
         if: failure()
         run: |
@@ -164,7 +215,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
-          # one report per shard: the three jobs run on different runners, so the file sets cannot
+          # one report per shard: the four jobs run on different runners, so the file sets cannot
           # be merged and must not overwrite each other
           name: playwright-report-shard-${{ strategy.job-index }}
           path: |

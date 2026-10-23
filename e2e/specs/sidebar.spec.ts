@@ -19,6 +19,14 @@ const instance = (app: Parameters<typeof settle>[0]) =>
     return { rotation: i.rotation.map(r), scale: i.scale.map(r), position: i.position.map(r) };
   });
 
+/*
+ * T-057: every test gets its own page, imports its own copy of the model and edits only its own
+ * plater/store, so the describes do not depend on each other's order and the file can fill both
+ * workers. `fullyParallel` stays off for the suite (the specs whose tests share a plate need it) and
+ * this file opts in for itself. Sidebar writes nothing to the server.
+ */
+test.describe.configure({ mode: 'parallel' });
+
 test.describe('sidebar: the plater view with one object', () => {
   test.beforeEach(async ({ app }) => {
     await importFile(app, CUBE);
