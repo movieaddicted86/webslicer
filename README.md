@@ -414,8 +414,9 @@ marker copied into it); never point it at your working install.
 - CI runs the whole suite in the **official Playwright image** (`mcr.microsoft.com/playwright:v<version>`,
   the version taken from `@playwright/test`), so browsers and their system libraries are preinstalled
   and there is no `playwright install` step. The app image is built **once** in a `build` job and the
-  three shards only load it from the build cache. A push to a branch cancels the run it supersedes;
-  `main` runs are never cancelled.
+  four shards only load it from the build cache. The shards are weighted by the measured time of each
+  spec (`PWTEST_SHARD_WEIGHTS`, set in the workflow), two workers each. A push to a branch cancels the
+  run it supersedes; `main` runs are never cancelled.
 
 ### Architecture
 
