@@ -238,6 +238,43 @@ test.describe('api: the REST contract the app depends on', () => {
     expect((await api('GET', `/api/autosave/${client}`)).status).toBe(404);
   });
 
+  test('a STEP file is converted and a project takes it from the library', async () => {
+    // AC-3: the headless plater loads a STEP from the library through the same conversion
+    const step = fs.readFileSync(path.resolve(process.cwd(), 'samples', 'calibration_cube_20mm.step'));
+    const converted = await api('POST', '/api/convert/step', step, { 'x-filename': encodeURIComponent('cube.step') });
+    expect(converted.status).toBe(200);
+    expect(converted.bytes.subarray(0, 5).toString('latin1')).not.toBe('ISO-1');
+
+    // a broken STEP is a 400 with the CLI's message, never a hung request
+    const broken = await api<{ error?: string }>('POST', '/api/convert/step', Buffer.from('ISO-10303-21;\nDATA;\n#1=BROKEN(;\n'), {
+      'x-filename': encodeURIComponent('broken.stp'),
+    });
+    expect(broken.status).toBe(400);
+    expect(broken.body.error).toMatch(/cannot convert STEP/);
+
+    const created = await api<{ id: string }>('POST', '/api/projects', {
+      printer: E2E_PRINTER,
+      print: '- default FFF -',
+      filaments: [],
+      owner: 'e2e',
+    });
+    expect(created.status).toBe(201);
+    const added = await api<{ objects?: Array<{ name: string; bounds: { min: number[]; max: number[] } }> }>(
+      'POST',
+      `/api/projects/${created.body.id}/models`,
+      { libraryPath: 'samples/calibration_cube_20mm.step' },
+    );
+    expect(added.status).toBe(200);
+    const bounds = added.body.objects?.[0]?.bounds;
+    expect(bounds).toBeTruthy();
+    expect(bounds!.max[0] - bounds!.min[0]).toBeCloseTo(20, 1);
+    expect((await api('GET', `/api/library?path=samples`)).body).toEqual(
+      expect.objectContaining({
+        entries: expect.arrayContaining([expect.objectContaining({ name: 'calibration_cube_20mm.step', kind: 'model' })]),
+      }),
+    );
+  });
+
   test('a project is created, filled from the library, arranged and sliced', async () => {
     const created = await api<{ id: string; objects: unknown[] }>('POST', '/api/projects', {
       printer: E2E_PRINTER,

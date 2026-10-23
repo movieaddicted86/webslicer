@@ -98,7 +98,7 @@ COPY --from=build /app/shared/dist ./shared/dist
 COPY --from=build /app/server/package.json ./server/
 COPY --from=build /app/server/dist ./server/dist
 COPY --from=build /app/web/dist ./web/dist
-COPY samples/*.stl ./samples/
+COPY samples/*.stl samples/*.step ./samples/
 # S6: the licence and the third-party notices travel with the image
 COPY LICENSE THIRD_PARTY_NOTICES.md /usr/share/doc/webslicer/
 

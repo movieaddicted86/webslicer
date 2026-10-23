@@ -1,8 +1,9 @@
 /**
- * Headless model import: STL and 3MF from the library, without a browser.
+ * Headless model import: STL, 3MF and STEP from the library, without a browser.
  *
  * STL: one model, placed by the identity matrix (an STL has no position of its own – the browser
  * behaves the same way).
+ * STEP: converted by the slicer CLI (`--export-stl`, `slicer/step.ts`) and then an STL like above.
  * 3MF: one model per `<object>` in `3D/3dmodel.model`, its mesh in object coordinates, and the
  * `<build><item>` transforms of that object as its instances. Modifiers, parts and paint are
  * **not** imported in this phase (chosen for T-005; see the report) – a 3MF object is taken as one
@@ -15,6 +16,7 @@ import { parse3mfBuild, parseStl, type Mesh } from '../slicer/threemf/index.js';
 import { assertZipReasonable, readZipEntryText } from '../slicer/threemf/zipLimits.js';
 import { IDENTITY, type Matrix4 } from '@webslicer/shared';
 import { ValidationError } from '../errors.js';
+import { convertStep, isStepFile } from '../slicer/step.js';
 
 export interface LoadedModel {
   name: string;
@@ -24,7 +26,7 @@ export interface LoadedModel {
   instances: Matrix4[];
 }
 
-/** Read a model file by its extension (`.stl` or `.3mf`). */
+/** Read a model file by its extension (`.stl`, `.3mf`, `.step` or `.stp`). */
 export async function loadModelFile(file: string): Promise<LoadedModel[]> {
   const buf = fs.readFileSync(file);
   return loadModelBuffer(buf, path.basename(file));
@@ -36,7 +38,9 @@ export async function loadModelBuffer(buf: Buffer, filename: string): Promise<Lo
   const name = path.basename(filename, path.extname(filename)) || 'model';
   if (ext === '.stl') return [{ name, mesh: parseStl(buf), instances: [IDENTITY] }];
   if (ext === '.3mf') return read3mfMeshes(buf);
-  throw new ValidationError(`Unsupported model format "${ext || filename}" (STL and 3MF only)`);
+  // T-009: STEP is converted by the slicer CLI and then takes the STL path
+  if (isStepFile(filename)) return [{ name, mesh: parseStl(await convertStep(buf, filename)), instances: [IDENTITY] }];
+  throw new ValidationError(`Unsupported model format "${ext || filename}" (STL, 3MF and STEP)`);
 }
 
 /** Value of an XML attribute inside a captured tag string. */

@@ -130,6 +130,9 @@ export interface E2EState {
   dialogPayload?: unknown;
   pendingSwitch?: unknown;
   autosaveState: string;
+  /** the messages the app currently shows (T-009 reads the STEP conversion's progress and error) */
+  toasts: Array<{ id: number; kind: 'info' | 'error' | 'success'; text: string }>;
+  dismissToast: (id: number) => void;
   /** set when the automatic restore of the previous session failed */
   autosaveError?: string;
   installed: unknown[];

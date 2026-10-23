@@ -21,6 +21,7 @@ import {
   userPresetExists,
 } from '../slicer/presets.js';
 import { read3mfProject } from '../slicer/threemf/index.js';
+import { convertStepFile, createStepTempDir, isStepFile } from '../slicer/step.js';
 import { createJob, getJob, listJobs, subscribe, cancelJob, deleteJob, jobOutputPath, readJobLog } from '../jobs.js';
 import { isPresetType, type PhysicalPrinter, type PresetType, type SliceRequest } from '@webslicer/shared';
 import { listPrinters, upsertPrinter, deletePrinter, getPrinter, testPrinter } from '../services/printers.js';
@@ -31,7 +32,7 @@ import { firstIssueMessage } from '../validation/common.js';
 import { ValidationError } from '../errors.js';
 import { libraryRouter } from './library.js';
 import { projectsRouter } from './projects.js';
-import { withReceivedFile } from './uploads.js';
+import { receiveToFile, withReceivedFile } from './uploads.js';
 import type { IniSection } from '../slicer/ini.js';
 
 function badRequest(res: Response, msg: string) {
@@ -186,6 +187,33 @@ export function apiRouter(): express.Router {
       }
     });
     res.json(stored);
+  });
+
+  // ---- STEP conversion (T-009) --------------------------------------------
+  // The CLI reads STEP, the browser cannot: the uploaded file is written to a temp dir, converted to
+  // a binary STL and sent back, so the client can take the normal STL path. The file name only
+  // decides the format (and has to be .step/.stp: the CLI goes by the extension), the body is raw
+  // like `POST /api/models` and streamed to disk with the same size limit.
+  r.post('/convert/step', async (req, res) => {
+    let filename: string;
+    try {
+      filename = decodeURIComponent(String(req.header('x-filename') || 'model.step'));
+    } catch {
+      return badRequest(res, 'invalid file name');
+    }
+    if (!isStepFile(filename)) return badRequest(res, `not a STEP file: ${filename}`);
+    const dir = await createStepTempDir();
+    let stl: Buffer;
+    try {
+      const input = path.join(dir, `input${path.extname(filename).toLowerCase()}`);
+      const bytes = await receiveToFile(req, input);
+      if (!bytes) throw new ValidationError('empty body');
+      stl = await convertStepFile(input, { workDir: dir });
+    } finally {
+      // the temp directory is gone before the answer goes out: a client sees no state of the conversion
+      await fs.rm(dir, { recursive: true, force: true }).catch(() => undefined);
+    }
+    res.type('application/octet-stream').send(stl);
   });
 
   r.get('/models/:id', async (req, res) => {

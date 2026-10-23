@@ -17,5 +17,8 @@ what makes the runs deterministic and independent of a developer's own `data/`.
   (the t18 check that opened straight on a form of a seeded host was a fixture accident).
 
 The library directory is created empty next to `data/`; the server seeds it with the bundled sample
-STLs on first start (`server/src/samples.ts`). `e2e:docker` mounts a temp copy of both, so a run never
-writes into this folder.
+models (STL and the STEP cube) on first start (`server/src/samples.ts`). `e2e:docker` mounts a temp
+copy of both, so a run never writes into this folder.
+
+`broken.step` is not part of the app data: the STEP spec imports it from this file path to check the
+error path (the CLI refuses it, the app shows a toast and no object appears).

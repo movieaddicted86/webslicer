@@ -16,6 +16,10 @@ export const CUBE = path.join(SAMPLE_DIR, 'calibration_cube_20mm.stl');
 export const PAIR = path.join(SAMPLE_DIR, 'cylinder_with_cube.stl');
 export const BRIDGE = path.join(SAMPLE_DIR, 'bridge_table.stl');
 export const PYRAMID = path.join(SAMPLE_DIR, 'stepped_pyramid.stl');
+/** T-009: a 20 mm STEP cube the library seeds and the server converts with the CLI. */
+export const STEP_CUBE = path.join(SAMPLE_DIR, 'calibration_cube_20mm.step');
+/** A text file that is not valid STEP – the error path of the import (AC-2). */
+export const BROKEN_STEP = path.resolve('e2e/fixtures/broken.step');
 
 /** Load the app and wait until the store has its server metadata. */
 export async function openApp(page: Page): Promise<void> {

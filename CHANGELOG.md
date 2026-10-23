@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- **STEP import (T-009, P2):** `.step` / `.stp` files can be imported like STL – through **Import**,
+  drag & drop, the library and the headless project API. The browser cannot read STEP, so the file
+  goes to `POST /api/convert/step` (raw body, `x-filename` like the model upload, the same size
+  limit, a 120 s timeout) where the PrusaSlicer CLI converts it with `--export-stl` inside a temp
+  directory that is always removed; the returned binary STL then takes the normal STL path, so size,
+  placement and slicing behave exactly as for an STL. A toast says "Converting …" while the server
+  works, and a broken file is a **400** naming the CLI's first relevant log line (no hanging
+  request, no temp files). The headless plater (`server/src/plater/meshes.ts`) converts through the
+  same module without an HTTP round trip, and the library lists STEP files as models. The image now
+  ships a small generated `calibration_cube_20mm.step` sample (15 kB, OCCT export of a 20 mm box).
+
 - **Safety (S1-e – configuration limits in the UI):** the checks the server runs before slicing
   (S1-d) now run in the editor as well, over the presets the plater would send and through the same
   shared `checkConfigLimits` – no second copy of any limit. A blocking value (hotend/bed/chamber
