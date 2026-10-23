@@ -1,10 +1,11 @@
 /**
  * T-042: merge objects, the object info and renaming.
  *
- * AC-1 merges two cubes and checks that one object with one part is left, that the parts sit where
- * the cubes sat (the object's bounding box covers both) and that the filament of the merged plate
- * stays within 1 % of the two separate cubes. AC-2 checks the info panel (20 mm cube → 8 cm³, clean
- * mesh) and renaming through the DOM (double-click, Enter, Esc) plus a 3MF round trip of the names.
+ * The merge test slices the plate with two separate cubes first, then merges them and checks that one
+ * object with one part is left, that the part sits where the second cube sat and that the filament of
+ * the merged plate stays within 1 % of the two separate cubes. The second test checks the info panel
+ * (20 mm cube → 8 cm³, clean mesh) and the third checks renaming through the DOM (double-click, Enter,
+ * Esc, F2) plus a 3MF round trip of the object and volume names.
  */
 import { CUBE, importFile, read, settle, sliceAndWait, state, waitUploads } from '../helpers/app';
 import { expect, test } from '../helpers/fixtures';
@@ -17,16 +18,25 @@ const filament = (app: Parameters<typeof read>[0]) => read(app, (s) => (s.job?.i
 
 test.describe('merge, object info and rename', () => {
   test('two cubes merge into one object whose filament is unchanged', async ({ app }) => {
-    // one cube, sliced: the reference filament
+    // two separate cubes, sliced: the reference filament. No skirt, brim or infill: those are laid
+    // out per object and are not what a merge changes – the merged geometry has to print the same.
     await importFile(app, CUBE);
-    await sliceAndWait(app);
-    const single = await filament(app);
-    expect(single).toBeGreaterThan(0);
-
-    // a second cube, then select both
+    await app.evaluate(() => {
+      const s = window.webslicer.getState();
+      s.setOption('print', 'skirts', '0');
+      s.setOption('print', 'brim_type', 'no_brim');
+      s.setOption('print', 'fill_density', '0%');
+    });
     await app.locator('input[type="file"]').first().setInputFiles(CUBE);
     await waitUploads(app);
     await settle(app, 1200);
+    await sliceAndWait(app);
+    const separate = await filament(app);
+    expect(separate).toBeGreaterThan(0);
+    // slicing switches to the preview; the merge button lives in the plater's object toolbar
+    await app.evaluate(() => window.webslicer.getState().setView('plater'));
+    await settle(app, 500);
+
     const before = await state(app);
     expect(before.objects).toHaveLength(2);
     const ids = before.objects.map((o) => o.id);
@@ -53,10 +63,10 @@ test.describe('merge, object info and rename', () => {
     expect(Math.hypot(volume.position[0] - dx, volume.position[1] - dy)).toBeLessThan(1);
 
     // the plate still slices, and the filament is the same as the two separate cubes (±1 % of double)
-    // `before.job` is the single-cube job: the merged slice has to be a new one
+    // `before.job` is the two-cube job: the merged slice has to be a new one
     await sliceAndWait(app, before.job?.id);
     const merged = await filament(app);
-    expect(Math.abs(merged - 2 * single) / (2 * single)).toBeLessThan(0.01);
+    expect(Math.abs(merged - separate) / separate, `separate ${separate} mm, merged ${merged} mm`).toBeLessThan(0.01);
   });
 
   test('the object info reports 8 cm³ for the 20 mm cube and no open edges', async ({ app }) => {
