@@ -1805,6 +1805,32 @@ body {
   align-items: center;
   justify-content: center;
 }
+/* T-055: with labels the bar widens to icon + name, but never covers more than ~170 px of the view */
+.tool-bar.with-labels {
+  max-width: 170px;
+}
+.tool-bar.with-labels button {
+  width: auto;
+  justify-content: flex-start;
+  gap: 7px;
+  padding: 0 8px 0 7px;
+}
+.tool-bar.with-labels .btn-label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 12px;
+}
+/* the toggle itself stays a short button at the end of the bar (after the label rule, so it wins) */
+.tool-bar button.tool-bar-labels {
+  width: 34px;
+  padding: 0;
+  justify-content: center;
+}
+/* T-055: the panel docks to the right of the bar, so a labelled bar moves it along */
+.viewer:has(.tool-bar.with-labels) .tool-panel {
+  left: 186px;
+}
 .tool-panel {
   position: absolute;
   left: 58px;

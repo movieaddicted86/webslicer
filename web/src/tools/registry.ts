@@ -45,6 +45,8 @@ export interface ToolDefinition {
   id: ToolId;
   /** the name of the tool panel and of its bar button */
   title: string;
+  /** the short name the bar shows next to the icon when labels are on (T-055) */
+  label: string;
   icon: LucideIcon;
   group: ToolGroup;
   /** the panel docked next to the bar; absent for the transform tools (gizmo only) */
@@ -79,6 +81,7 @@ function needsObjects(state: State): ToolAvailability {
 export const TOOLS: ToolDefinition[] = [
   {
     id: 'move',
+    label: 'Move',
     title: 'Move',
     icon: ACTION_ICONS.move,
     group: 'transform',
@@ -89,6 +92,7 @@ export const TOOLS: ToolDefinition[] = [
   },
   {
     id: 'rotate',
+    label: 'Rotate',
     title: 'Rotate',
     icon: ACTION_ICONS.rotate,
     group: 'transform',
@@ -99,6 +103,7 @@ export const TOOLS: ToolDefinition[] = [
   },
   {
     id: 'scale',
+    label: 'Scale',
     title: 'Scale',
     icon: ACTION_ICONS.scale,
     group: 'transform',
@@ -109,6 +114,7 @@ export const TOOLS: ToolDefinition[] = [
   },
   {
     id: 'placeOnFace',
+    label: 'Place on face',
     title: 'Place on face',
     icon: ACTION_ICONS.placeOnFace,
     group: 'edit',
@@ -119,6 +125,7 @@ export const TOOLS: ToolDefinition[] = [
   },
   {
     id: 'cut',
+    label: 'Cut',
     title: 'Cut',
     icon: ACTION_ICONS.cut,
     group: 'edit',
@@ -137,6 +144,7 @@ export const TOOLS: ToolDefinition[] = [
   },
   {
     id: 'paintSupports',
+    label: 'Paint supports',
     title: 'Paint supports',
     icon: TOOL_ICONS.paintSupports,
     group: 'paint',
@@ -151,6 +159,7 @@ export const TOOLS: ToolDefinition[] = [
   },
   {
     id: 'paintSeam',
+    label: 'Paint seam',
     title: 'Paint seam',
     icon: TOOL_ICONS.paintSeam,
     group: 'paint',
@@ -165,6 +174,7 @@ export const TOOLS: ToolDefinition[] = [
   },
   {
     id: 'paintMmu',
+    label: 'Paint extruder',
     title: 'Paint extruder',
     icon: TOOL_ICONS.paintMmu,
     group: 'paint',
@@ -181,6 +191,7 @@ export const TOOLS: ToolDefinition[] = [
   },
   {
     id: 'layerHeight',
+    label: 'Layer height',
     title: 'Variable layer height',
     icon: TOOL_ICONS.layerHeight,
     group: 'edit',

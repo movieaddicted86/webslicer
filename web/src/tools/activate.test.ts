@@ -93,3 +93,12 @@ test('the transform tools share the one transform mode – only one is shown as 
   assert.equal(toolById('cut')?.panel, 'cut');
   assert.equal(toolById('move')?.panel, undefined, 'a transform tool has no panel');
 });
+
+test('every tool carries a short bar label (T-055)', () => {
+  for (const t of TOOLS) {
+    assert.ok(t.label.trim().length > 0, `${t.id} has a label`);
+    // the bar is capped at 170 px: a label that wraps or truncates makes the bar wider than that
+    assert.ok(t.label.length <= 14, `${t.id}: "${t.label}" is a short label`);
+  }
+  assert.equal(toolById('layerHeight')?.label, 'Layer height');
+});

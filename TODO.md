@@ -39,6 +39,7 @@ Priority by frequency of use in everyday printing and PrusaSlicer parity.
 - [x] Camera: views (iso/top/front/…), orthographic, zoom to selection
 - [x] Object toolbar with real SVG icons (lucide), grouped, 18 px, readable tooltips (T-036)
 - [x] Tool framework: left tool bar at the 3D view + one panel per tool, registry-driven (T-046)
+- [x] Tool bar labels on a wide view + no tool buttons left in the object toolbar (T-055)
 - [ ] Printer status / upload queue (needs hardware test)
 - [x] Session survives reload and browser close: automatic restore, flush on hide/close, "Start empty" (T-035)
 - [ ] Localized UI (German, …)

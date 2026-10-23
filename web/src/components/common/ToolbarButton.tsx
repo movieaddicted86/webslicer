@@ -8,6 +8,7 @@ export function ToolbarButton({
   disabled,
   active,
   className,
+  label,
 }: {
   title: string;
   /** the SVG icon of the action – the same icon everywhere the action appears */
@@ -17,12 +18,19 @@ export function ToolbarButton({
   /** draws the pressed state of a mode button (move/rotate/scale, place on face) */
   active?: boolean;
   className?: string;
+  /** a visible name next to the icon (the wide tool bar, T-055); without it the button is icon-only */
+  label?: string;
 }) {
   const cls = [active && 'active', className].filter(Boolean).join(' ');
-  // The buttons show an icon only, so the tooltip is also the accessible name.
+  // Icon-only buttons show the tooltip as the accessible name; a labelled one carries the name itself.
   return (
     <button className={cls || undefined} title={title} aria-label={title} onClick={onClick} disabled={disabled}>
       <Icon size={18} strokeWidth={2} aria-hidden="true" focusable="false" />
+      {label && (
+        <span className="btn-label" aria-hidden="true">
+          {label}
+        </span>
+      )}
     </button>
   );
 }
