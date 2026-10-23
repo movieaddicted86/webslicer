@@ -5,6 +5,7 @@ import { MAX_ARRANGE_SPACING } from '../../plater/arrangeSettings';
 import { NumericField } from '../common/NumericField';
 import { ToolbarButton } from '../common/ToolbarButton';
 import { ACTION_ICONS } from '../common/icons';
+import './ArrangeSettingsMenu.css';
 
 /**
  * The gear next to Arrange (T-043): spacing, rotations and alignment of an arrangement. The values

@@ -5,6 +5,7 @@ import { decodeVector, encodeVector, parsePoints, serializePoints, toBool } from
 import { NumericField } from './common/NumericField';
 import { TextField } from './common/TextField';
 import { ACTION_ICONS } from './common/icons';
+import './OptionField.css';
 
 interface Props {
   def: OptionDef;

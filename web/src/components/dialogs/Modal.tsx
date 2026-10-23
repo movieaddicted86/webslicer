@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, type ReactNode } from 'react';
 import { ACTION_ICONS } from '../common/icons';
+import './Modal.css';
 
 /** Everything inside a dialog that the Tab key may reach, in DOM order. */
 const FOCUSABLE =

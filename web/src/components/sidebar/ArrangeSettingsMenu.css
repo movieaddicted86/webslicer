@@ -1,0 +1,54 @@
+/* ArrangeSettingsMenu: the styles of this component. */
+
+.arrange-menu {
+  position: relative;
+  display: inline-flex;
+}
+
+.arrange-popover {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 30;
+  width: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px #0006;
+  font-weight: 400;
+  text-align: left;
+}
+
+.arrange-popover-title {
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.arrange-field {
+  display: grid;
+  grid-template-columns: 1fr 72px auto;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.arrange-field .unit {
+  color: var(--muted);
+}
+
+.arrange-field input,
+.arrange-field select {
+  width: 100%;
+  min-width: 0;
+}
+
+.arrange-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}

@@ -1,0 +1,146 @@
+/* One slicer option row, in the settings and in the per-object overrides (OptionField.tsx). */
+
+.option {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  align-items: start;
+  gap: 8px;
+  padding: 4px 0;
+  border-top: 1px solid #ffffff0a;
+}
+
+.option.block {
+  grid-template-columns: 1fr;
+}
+
+.option > label {
+  padding-top: 5px;
+  cursor: help;
+}
+
+.option.modified > label {
+  color: var(--accent2);
+}
+
+.option .control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.option .control input[type='number'],
+.option .control input.short {
+  width: 110px;
+}
+
+.option .control input[type='text'] {
+  flex: 1;
+  min-width: 200px;
+}
+
+.option .control select {
+  min-width: 160px;
+}
+
+.option .control textarea {
+  width: 100%;
+  min-width: 300px;
+}
+
+.option.block .control textarea {
+  flex: 1;
+}
+
+.option.server-only > label {
+  color: var(--muted);
+  cursor: help;
+}
+
+.option.server-only .note {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.option.issue-block .control input,
+.option.issue-block .control select,
+.option.issue-block .control textarea,
+.option.issue-warn .control input,
+.option.issue-warn .control select,
+.option.issue-warn .control textarea {
+  border-color: #7a2a2a;
+}
+
+.option.issue-block .control input:focus,
+.option.issue-block .control select:focus,
+.option.issue-block .control textarea:focus {
+  outline-color: var(--red);
+}
+
+.option.issue-warn .control input,
+.option.issue-warn .control select,
+.option.issue-warn .control textarea {
+  border-color: #7a5d1a;
+}
+
+.option.issue-warn .control input:focus,
+.option.issue-warn .control select:focus,
+.option.issue-warn .control textarea:focus {
+  outline-color: #f0d080;
+}
+
+.field-issue {
+  flex-basis: 100%;
+  margin: 2px 0 0;
+  font-size: 12px;
+}
+
+.field-issue.block {
+  color: #f08a84;
+}
+
+.field-issue.warn {
+  color: #f0d080;
+}
+
+.sidetext {
+  color: var(--muted);
+}
+
+.vector {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.vector-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.vector.multi .vector-item {
+  background: var(--bg3);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.vec-label {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.bed-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.bed-grid {
+  display: grid;
+  grid-template-columns: auto 110px auto 110px;
+  gap: 6px 10px;
+  align-items: center;
+}

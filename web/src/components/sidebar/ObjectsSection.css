@@ -1,0 +1,54 @@
+/* ObjectsSection: the styles of this component. */
+
+.object-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.object-list li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.object-list li:hover {
+  background: var(--bg3);
+}
+
+.object-list li.selected {
+  background: #2a3b55;
+}
+
+.object-list li.outside .name {
+  color: var(--red);
+}
+
+.object-list li .name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.object-list li.empty {
+  color: var(--muted);
+  cursor: default;
+  white-space: normal;
+}
+
+.object-list li.restore {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--text);
+}
+
+.object-list li.empty a {
+  color: var(--accent2);
+}

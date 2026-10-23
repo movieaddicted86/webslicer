@@ -15,6 +15,7 @@ import { SliderField } from '../fields/SliderField';
 import { ToggleRow } from '../fields/ToggleRow';
 import { ToolPanel } from '../ToolPanel';
 import { fmt } from '../../../format';
+import './LayerHeightPanel.css';
 
 /** The chart's size in SVG units (the CSS scales it to the panel width). */
 const W = 170;

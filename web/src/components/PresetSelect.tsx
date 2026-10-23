@@ -1,6 +1,7 @@
 import { useStore, isModified, type PresetSlot } from '../state/store';
 import type { PresetSummary, PresetType } from '../api';
 import { ACTION_ICONS } from './common/icons';
+import './PresetSelect.css';
 
 interface Props {
   type: PresetType;

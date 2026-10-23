@@ -19,6 +19,7 @@ import { Tags } from 'lucide-react';
 import { useStore } from '../../state/store';
 import { ToolbarButton } from '../common/ToolbarButton';
 import { isToolActive, toolsInGroup, TOOLS, type ToolGroup } from '../../tools/registry';
+import './ToolBar.css';
 
 const GROUPS: ToolGroup[] = ['transform', 'edit', 'paint'];
 

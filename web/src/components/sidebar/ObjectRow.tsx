@@ -6,6 +6,7 @@ import { fmt } from '../../format';
 import { ACTION_ICONS } from '../common/icons';
 import { VOLUME_ICONS } from './volumes';
 import { AddVolumeMenu } from './AddVolumeMenu';
+import './ObjectRow.css';
 
 /**
  * An inline text field for renaming (T-042): Enter or blur saves, Esc cancels. It starts in edit mode

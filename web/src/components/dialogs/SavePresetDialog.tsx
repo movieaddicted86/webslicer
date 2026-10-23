@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Modal } from './Modal';
 import { useStore, isModified } from '../../state/store';
 import type { PresetType } from '../../api';
+import './changes.css';
 
 /** "Save preset as…": the name, the overwrite warning and the system-preset guard. */
 export function SavePresetDialog({ onClose, payload }: { onClose: () => void; payload: { type: PresetType; extruderIdx: number } }) {

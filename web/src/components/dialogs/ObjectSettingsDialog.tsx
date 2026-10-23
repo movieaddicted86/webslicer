@@ -4,6 +4,7 @@ import { useStore } from '../../state/store';
 import { OptionField } from '../OptionField';
 import { ACTION_ICONS } from '../common/icons';
 import { MODE_RANK } from '../../values';
+import './ObjectSettingsDialog.css';
 
 /** Print settings that never make sense per object (they describe the whole plate or the output). */
 const OBJECT_SETTING_EXCLUDES = new Set([

@@ -4,6 +4,7 @@
  * uses it, so the panels look the same.
  */
 import { NumericField } from '../../common/NumericField';
+import './toolFields.css';
 
 export function SliderField({
   label,

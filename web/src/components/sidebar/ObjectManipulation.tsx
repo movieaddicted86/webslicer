@@ -7,6 +7,7 @@ import { RangePanel } from './RangePanel';
 import { AXES } from './axes';
 import { fmt } from '../../format';
 import type { Placement } from '../../api';
+import './manipulation.css';
 
 /**
  * The manipulation panel of the selected object (instance placement, copies, mirror, splits, height

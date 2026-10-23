@@ -3,6 +3,8 @@ import { useLimitIssues } from '../../state/useLimitIssues';
 import { issueTargetOf } from '../../safety/configIssues';
 import { plateIssues } from '../../plater/plateCheck';
 import { toBool } from '../../values';
+import './SlicePanel.css';
+import '../common/progress.css';
 
 /**
  * The plate checks in front of the slice (T-034): the issues PrusaSlicer would fail on (or that its

@@ -1,4 +1,5 @@
 import { useStore } from '../state/store';
+import './Toasts.css';
 
 /**
  * Toasts (W10). The container is a polite live region: a message that appears after a click or a

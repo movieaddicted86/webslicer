@@ -5,6 +5,7 @@ import { ToolbarButton } from '../common/ToolbarButton';
 import { ACTION_ICONS } from '../common/icons';
 import { useDeleteSelection, useInstanceActions, useSelectedObjects } from './selection';
 import { ArrangeSettingsMenu } from './ArrangeSettingsMenu';
+import './SimpleObjects.css';
 
 /** The reduced objects section of Simple mode: the five actions plus the arrange settings, no list. */
 export function SimpleObjects() {

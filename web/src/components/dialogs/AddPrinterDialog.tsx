@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Modal } from './Modal';
 import { useStore } from '../../state/store';
 import { api, type InstalledPrinter, type Vendor } from '../../api';
+import './AddPrinterDialog.css';
 
 /** "Add / remove printers…": vendor profiles to install, or a custom printer from the default profile. */
 export function AddPrinterDialog({ onClose }: { onClose: () => void }) {

@@ -1,0 +1,8 @@
+/* SimpleObjects: the styles of this component. */
+
+.objects.simple .restore {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 6px 0;
+}

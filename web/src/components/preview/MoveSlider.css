@@ -1,0 +1,18 @@
+/* MoveSlider: the styles of this component. */
+
+.move-slider {
+  display: grid;
+  grid-template-columns: 40px 1fr;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 0 2px;
+}
+
+.move-slider input[type='range'] {
+  width: 100%;
+}
+
+.move-slider > .muted {
+  grid-column: 2;
+  margin-top: -4px;
+}

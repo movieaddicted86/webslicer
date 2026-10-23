@@ -4,6 +4,7 @@ import { FEATURE_COLORS, type ParsedGcode } from '../../gcode/types';
 import { RANGE_SCHEMES, legendSteps, schemeRange, type PreviewColorMode } from '../../gcode/colorschemes';
 import { colorPrintSegments, normalizeColor } from '../../gcode/colorprint';
 import { fmtFeatureTime, fmtLayerTime, fmtZ } from '../../format';
+import './Legend.css';
 
 /** Gradient legend of a range colour scheme (speed, fan, temperature, …), maximum on top like PrusaSlicer. */
 function RangeLegend({ gcode, mode, estimatedSeconds }: { gcode: ParsedGcode; mode: PreviewColorMode; estimatedSeconds?: number }) {

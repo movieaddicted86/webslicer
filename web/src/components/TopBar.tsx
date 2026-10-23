@@ -4,6 +4,7 @@ import { importFiles } from '../importFiles';
 import { api, downloadBlob } from '../api';
 import type { Mode } from '../api';
 import { UpdateChip } from './UpdateChip';
+import './TopBar.css';
 
 export function TopBar() {
   const view = useStore((s) => s.view);

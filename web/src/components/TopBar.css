@@ -1,0 +1,128 @@
+/* TopBar: the styles of this component. */
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+  height: auto;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+  min-height: 46px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 15px;
+  margin-right: 10px;
+}
+
+.logo {
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  background: var(--accent)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M8 22h16M8 16h16M8 10h16' stroke='white' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E")
+    center/contain;
+}
+
+.tabs {
+  display: flex;
+  gap: 2px;
+}
+
+.tabs button {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  padding: 12px 9px;
+  white-space: nowrap;
+  color: var(--muted);
+  position: relative;
+}
+
+.tabs button.active {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+}
+
+.tabs .dot,
+.option .dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  margin-left: 5px;
+  vertical-align: middle;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.menu {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.menu button {
+  white-space: nowrap;
+}
+
+@media (max-width: 1100px) {
+  .brand span.text {
+    display: none;
+  }
+}
+
+.menu select.mode {
+  padding: 4px;
+}
+
+.dropdown {
+  position: relative;
+}
+
+.dropdown-menu {
+  display: none;
+  position: absolute;
+  right: 0;
+  top: 100%;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  min-width: 220px;
+  z-index: 20;
+  flex-direction: column;
+  padding: 4px;
+}
+
+.dropdown:hover .dropdown-menu,
+.dropdown:focus-within .dropdown-menu {
+  display: flex;
+}
+
+.dropdown-menu button {
+  background: transparent;
+  border: none;
+  text-align: left;
+  padding: 6px 10px;
+}
+
+.dropdown-menu button:hover:not(:disabled) {
+  background: var(--bg4);
+}
+
+@media (max-width: 640px) {
+  .tabs,
+  .menu {
+    flex-wrap: wrap;
+  }
+}

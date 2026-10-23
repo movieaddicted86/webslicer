@@ -2,6 +2,7 @@ import { Modal } from './Modal';
 import { useStore } from '../../state/store';
 import { aboutShortcuts } from '../../three/viewer/shortcuts';
 import { updateAvailable, updateLabel } from '@webslicer/shared';
+import './AboutDialog.css';
 
 /** Version, engine info, licence note and the shortcut table the key handler reads as well. */
 export function AboutDialog({ onClose }: { onClose: () => void }) {

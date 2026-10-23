@@ -2,6 +2,7 @@ import { useStore } from '../../../state/store';
 import { extruderCss } from '../../../palette';
 import { ToolSection } from '../fields/ToolSection';
 import { ToolPanel } from '../ToolPanel';
+import './PaintToolPanel.css';
 
 /**
  * The paint panel (T-046, moved out of the sidebar): the brush options of the open paint tool –

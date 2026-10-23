@@ -10,6 +10,7 @@ import { useState } from 'react';
 import { useStore } from '../state/store';
 import { updateLabel, updateAvailable } from '@webslicer/shared';
 import { dismissedLatest, dismissUpdate, showUpdateNotice } from '../state/updateNotice';
+import './UpdateChip.css';
 
 export function UpdateChip() {
   const status = useStore((s) => s.updateStatus);

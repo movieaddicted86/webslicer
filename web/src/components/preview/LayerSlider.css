@@ -1,0 +1,42 @@
+/* LayerSlider: the styles of this component. */
+
+.slider-with-markers {
+  position: relative;
+  padding-bottom: 8px;
+}
+
+.slider-with-markers input[type='range'] {
+  width: 100%;
+}
+
+.slider-markers {
+  position: absolute;
+  left: 7px;
+  right: 7px;
+  bottom: 0;
+  height: 8px;
+}
+
+.slider-markers .marker {
+  position: absolute;
+  top: 0;
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  margin-left: -4px;
+  border-radius: 2px;
+  border: 1px solid #000a;
+  background: var(--yellow);
+  cursor: pointer;
+}
+
+.slider-markers .marker.pause {
+  background: var(--red);
+  border-radius: 50%;
+}
+
+.slider-markers .marker.custom,
+.slider-markers .marker.template,
+.slider-markers .marker.tool_change {
+  background: #9aa3b2;
+}

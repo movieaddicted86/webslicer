@@ -1,0 +1,95 @@
+/* AddPrinterDialog: the styles of this component. */
+
+.subtabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.add-printer {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  grid-template-rows: 1fr auto;
+  gap: 10px;
+  height: 60vh;
+}
+
+.add-printer .modal-actions {
+  grid-column: 1 / -1;
+}
+
+.vendor-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+}
+
+.vendor-list ul,
+.model-list {
+  overflow-y: auto;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.vendor-list li {
+  padding: 5px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+}
+
+.vendor-list li.active {
+  background: var(--bg4);
+}
+
+.family h3 {
+  margin: 8px 0 4px;
+  font-size: 13px;
+  color: var(--accent2);
+}
+
+.model {
+  display: flex;
+  gap: 10px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin-bottom: 6px;
+  background: var(--bg3);
+}
+
+.model img {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  background: #e9ecf1;
+  border-radius: 4px;
+  padding: 2px;
+}
+
+.model-name {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.variants {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+
+.custom-printer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.custom-printer label {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  gap: 8px;
+  align-items: center;
+}

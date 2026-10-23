@@ -16,6 +16,7 @@ import { normalizeColor } from '../gcode/colorprint';
 import { paintKindOf } from '../tools/paintKind';
 import { ToolBar } from '../components/tools/ToolBar';
 import { ToolDock } from '../components/tools/ToolDock';
+import './Viewer.css';
 
 export { VOLUME_COLORS } from './viewer/colors';
 

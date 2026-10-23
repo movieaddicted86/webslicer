@@ -1,0 +1,28 @@
+/* PresetSelect: the styles of this component. */
+
+.preset-select {
+  margin-bottom: 8px;
+}
+
+.preset-select label {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  margin-bottom: 2px;
+}
+
+.preset-row {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+}
+
+.preset-row select {
+  flex: 1;
+  min-width: 0;
+}
+
+.preset-select select,
+.sidebar select {
+  max-width: 100%;
+}

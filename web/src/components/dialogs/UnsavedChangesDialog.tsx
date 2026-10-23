@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Modal } from './Modal';
 import { useStore, type PendingPresetSwitch } from '../../state/store';
 import { presetDiff, shortValue } from '../../plater/presetDiff';
+import './changes.css';
 
 /**
  * PrusaSlicer's "Unsaved Changes" dialog: the user picked another preset while the current one has

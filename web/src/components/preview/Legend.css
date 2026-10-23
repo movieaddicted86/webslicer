@@ -1,0 +1,65 @@
+/* Legend: the styles of this component. */
+
+.legend {
+  list-style: none;
+  padding: 0;
+  margin: 6px 0 0;
+}
+
+.legend li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+  cursor: pointer;
+}
+
+.legend li.off {
+  opacity: 0.4;
+  text-decoration: line-through;
+}
+
+.legend .swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  border: 1px solid #0006;
+}
+
+.legend .name {
+  flex: 1;
+}
+
+.legend li.static {
+  cursor: default;
+}
+
+.legend.features .time,
+.legend.features .pct,
+.legend.features .len {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.legend.features .time {
+  min-width: 58px;
+}
+
+.legend.features .pct {
+  min-width: 44px;
+}
+
+.legend.features .len {
+  min-width: 48px;
+}
+
+.legend.range li {
+  cursor: default;
+  padding: 0;
+}
+
+.legend.range .swatch {
+  height: 12px;
+  border-radius: 0;
+}

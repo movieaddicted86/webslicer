@@ -6,6 +6,7 @@ import { fmtSize } from '../../format';
 import { Modal } from './Modal';
 import { ACTION_ICONS } from '../common/icons';
 import { FolderPlus, Upload } from 'lucide-react';
+import './LibraryDialog.css';
 
 export type LibraryMode = 'open' | 'saveProject' | 'saveGcode';
 

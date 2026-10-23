@@ -1,7 +1,9 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
-import { App } from './App';
+// The global layer first: component sheets are imported along with their components, and the
+// element-level rules of `styles.css` (buttons, inputs) must still lose against them.
 import './styles.css';
+import { App } from './App';
 import { useStore } from './state/store';
 import { installAutosave } from './state/autosave';
 
