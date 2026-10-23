@@ -385,6 +385,23 @@ test('POST /api/projects and /api/library/project refuse an injected slot key wi
   assert.match(errorOf(library) ?? '', /invalid config key/);
 });
 
+test('POST /api/slice refuses a value with a lone carriage return with 400 naming the key (q6-preflight)', async () => {
+  // Marlin reads a lone `\r` as a line end, so "G28\rM500" would hide M500 behind G28
+  const res = await call('POST', '/api/slice', sliceRequestTop({ print: { name: 'p', config: { start_gcode: 'G28\rM500' } } }));
+  assert.equal(res.status, 400, JSON.stringify(res.json));
+  assert.match(errorOf(res) ?? '', /invalid config value of "start_gcode"/);
+  // a CRLF is an ordinary line end inside a custom G-code and is accepted
+  const crlf = await call('POST', '/api/slice', sliceRequestTop({ print: { name: 'p', config: { start_gcode: 'G28\r\nM104 S200' } } }));
+  assert.equal(crlf.status, 202, JSON.stringify(crlf.json));
+  // an object override and a height-range config are the same rule
+  const object = await call('POST', '/api/slice', sliceRequest({ config: { start_gcode: 'G28\rM500' } }));
+  assert.equal(object.status, 400);
+  assert.match(errorOf(object) ?? '', /invalid config value of "start_gcode"/);
+  const range = await call('POST', '/api/slice', sliceRequest({ ranges: [{ minZ: 0, maxZ: 1, config: { start_gcode: 'G1 X1\rM500' } }] }));
+  assert.equal(range.status, 400);
+  assert.match(errorOf(range) ?? '', /invalid config value of "start_gcode"/);
+});
+
 // ---------------------------------------------------------------------------
 // Host / Origin guard (SEC-2, DNS rebinding)
 // ---------------------------------------------------------------------------

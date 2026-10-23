@@ -244,6 +244,47 @@ test('CRLF line endings and a last line without a newline', () => {
   assert.equal(result.issues[0].line, 2);
 });
 
+test('a lone CR is a line end too – "G28\\rM500" hides nothing (N2)', () => {
+  const result = scanGcodeText('G28\rM500\r');
+  assert.deepEqual(
+    result.issues.map((i) => [i.rule, i.line, i.text]),
+    [['gcode.forbidden_command', 2, 'M500']],
+  );
+  // mixed ends in one file, and a CR at the very end of the file
+  assert.deepEqual(rules('G28\nG1 X1\rM500\nG1 X2'), ['gcode.forbidden_command']);
+  assert.deepEqual(rules('G28\rM500'), ['gcode.forbidden_command']);
+});
+
+test('a CRLF split over two chunks is one line end, so the line numbers stay right', () => {
+  const scan = new GcodePreflight();
+  scan.push('G28\r');
+  scan.push('\nG1 X5\r');
+  scan.push('\nM500\r\n');
+  const result = scan.finish();
+  assert.deepEqual(
+    result.issues.map((i) => [i.rule, i.line]),
+    [['gcode.forbidden_command', 3]],
+  );
+  // a lone CR at a chunk boundary is still a line end of its own
+  const scan2 = new GcodePreflight();
+  scan2.push('G28\r');
+  scan2.push('M500\n');
+  assert.deepEqual(
+    scan2.finish().issues.map((i) => [i.rule, i.line]),
+    [['gcode.forbidden_command', 2]],
+  );
+});
+
+test('a blank between the command letter and its number is Marlin syntax (N2)', () => {
+  for (const command of ['M 500', 'M  500', 'm 500', 'M\t500']) {
+    assert.deepEqual(rules(`${command}\n`), ['gcode.forbidden_command'], JSON.stringify(command));
+  }
+  assert.deepEqual(rules('G 28\nM 104 S999\n'), ['gcode.max_temp'], 'a spaced G28 still homes');
+  assert.deepEqual(rules('G 28\nG 1 X10\n'), [], 'the spaced G28 counts as the homing');
+  // M 5000 is still 5000, not 500
+  assert.deepEqual(rules('M 5000 S1\n'), []);
+});
+
 test('the issues of one rule are capped, the count is not', () => {
   const text = Array.from({ length: MAX_ISSUES_PER_RULE + 7 }, () => 'M500').join('\n');
   const result = scanGcodeText(text);

@@ -14,6 +14,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import type { JobRecord } from '@webslicer/shared';
+import { PREFLIGHT_VERSION } from '@webslicer/shared';
 
 const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'webslicer-jobs-'));
 process.env.DATA_DIR = DATA_DIR;
@@ -73,7 +74,7 @@ test('a job that is read while its file is being scanned is never done without i
   assert.equal(job.message, 'Done');
   assert.equal(job.info?.sizeBytes, size);
   assert.deepEqual(job.info?.warnings, ['a warning']);
-  assert.equal(job.info?.preflight?.version, 1);
+  assert.equal(job.info?.preflight?.version, PREFLIGHT_VERSION);
   assert.deepEqual(job.info?.preflight?.counts, { 'gcode.no_homing': 1 }, 'the scan of this file ran, not a stub');
 });
 
@@ -85,7 +86,7 @@ test('a job without an FFF G-code output still gets its info before it is done',
   await completeJob(job, file, [], {});
   assert.equal(job.status, 'done');
   assert.equal(job.info?.sizeBytes, 'SLA output'.length);
-  assert.deepEqual(job.info?.preflight, { version: 1, issues: [], counts: {} }, 'still scanned once, no findings here');
+  assert.deepEqual(job.info?.preflight, { version: PREFLIGHT_VERSION, issues: [], counts: {} }, 'still scanned once, no findings here');
 });
 
 test("the slicer's plate refusal reaches the user instead of a generic failure", () => {

@@ -16,8 +16,8 @@
  * parsed copy, and `services/slice.ts` writes the two fields back into the caller's request.
  */
 import { z } from 'zod';
-import { CUSTOM_GCODE_TYPES, VOLUME_TYPES, invalidConfigKeyMessage } from '@webslicer/shared';
-import { invalidKeyInRequest } from './config.js';
+import { CUSTOM_GCODE_TYPES, VOLUME_TYPES, invalidConfigKeyMessage, invalidConfigValueMessage } from '@webslicer/shared';
+import { invalidKeyInRequest, loneCarriageReturnInRequest } from './config.js';
 import { firstIssueMessage, ordered } from './common.js';
 
 // The messages are the API contract – pinned by `services/slice.test.ts`.
@@ -255,6 +255,12 @@ export const sliceRequestSchema = ordered(
   z.unknown().superRefine((v, ctx) => {
     const key = invalidKeyInRequest(v as Parameters<typeof invalidKeyInRequest>[0]);
     if (key !== undefined) ctx.addIssue({ code: 'custom', message: invalidConfigKeyMessage(key) });
+  }),
+  // q6-preflight: a lone `\r` in a value is a line end for Marlin and would hide a command. Checked
+  // after the key rule, so an injected key still reports as a key first.
+  z.unknown().superRefine((v, ctx) => {
+    const key = loneCarriageReturnInRequest(v as Parameters<typeof loneCarriageReturnInRequest>[0]);
+    if (key !== undefined) ctx.addIssue({ code: 'custom', message: invalidConfigValueMessage(key) });
   }),
 );
 

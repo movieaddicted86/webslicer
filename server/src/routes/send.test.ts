@@ -14,6 +14,7 @@ import os from 'node:os';
 import path from 'node:path';
 import type { Server } from 'node:http';
 import type express from 'express';
+import { PREFLIGHT_VERSION } from '@webslicer/shared';
 
 const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'webslicer-send-'));
 process.env.DATA_DIR = DATA_DIR;
@@ -128,7 +129,7 @@ before(async () => {
   seedJob(JOB_STORED_ID, JOB_PRESET, {
     text: 'G28\nG1 X10 Y10\n',
     preflight: {
-      version: 1,
+      version: PREFLIGHT_VERSION,
       counts: { 'gcode.forbidden_command': 1 },
       issues: [
         {

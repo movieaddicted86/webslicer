@@ -33,11 +33,17 @@
  *
  * The issues have the shape of a `SendIssue` plus the line number and the offending line, so the send
  * gate can merge them with its preset issues without a second format.
+ *
+ * The scanner splits on **every** line end Marlin treats as one: `\r\n`, a lone `\r` and `\n`
+ * (q6-preflight, N2). Splitting on `\n` alone let a lone `\r` hide a command – `G28\rM500` was one
+ * line for the scanner and two commands for the printer. PrusaSlicer 2.9.6 turns the `\r` of a preset
+ * value into a real line break itself (reproduced in the T-049 report), but the scanner must not rely
+ * on that. A command word may also carry blanks after its letter (`M 500`, accepted by Marlin).
  */
 import type { PreflightIssue, PreflightResult, SendIssue, SendIssueSeverity } from '../types/jobs.js';
 
 /** Version of the rule set; a stored result of another version is re-scanned. */
-export const PREFLIGHT_VERSION = 1;
+export const PREFLIGHT_VERSION = 2;
 
 /** Wide typo catchers of Q-005 – narrow per-printer limits are S1-d. */
 export const DEFAULT_HOTEND_LIMIT = 450;
@@ -109,6 +115,9 @@ function stripComments(line: string): string {
   return out;
 }
 
+/** A line ends at CRLF, a lone CR or LF – Marlin treats all three as one line end. */
+const LINE_END = /\r\n|\r|\n/;
+
 /** A numeric parameter of a command: `S230`, `X3996.12`, `E-2`. */
 const PARAM = /([A-Za-z])\s*(-?\d+(?:\.\d+)?)/g;
 
@@ -134,6 +143,13 @@ function parse(line: string): Parsed {
   const rest = s.slice(word.length);
   const command = /^([GM])(\d+)$/i.exec(word);
   if (command) return { kind: 'command', command: { letter: command[1].toUpperCase() as 'G' | 'M', number: Number(command[2]), rest } };
+  // Marlin accepts blanks between the letter and the number ("M 500"); `M 5000` is still 5000
+  const spaced = /^([GM])\s+(\d+)(?![A-Za-z0-9_])/i.exec(s);
+  if (spaced)
+    return {
+      kind: 'command',
+      command: { letter: spaced[1].toUpperCase() as 'G' | 'M', number: Number(spaced[2]), rest: s.slice(spaced[0].length) },
+    };
   // `T0` is a tool change, not a macro; a single letter is never a Klipper command
   if (word.length < 2 || /^T\d*$/i.test(word)) return { kind: 'other' };
   return { kind: 'macro', word };
@@ -249,13 +265,23 @@ export class GcodePreflight {
   push(chunk: string): void {
     let text = chunk;
     if (this.skipping) {
-      const end = text.indexOf('\n');
-      if (end < 0) return;
-      text = text.slice(end + 1);
+      const end = LINE_END.exec(text);
+      if (!end) return;
+      // a CRLF at the boundary is one line end, not two
+      const span = end[0] === '\r' && text[end.index + 1] === '\n' ? 2 : end[0].length;
+      text = text.slice(end.index + span);
       this.skipping = false;
     }
-    const lines = (this.carry + text).split('\n');
-    this.carry = lines.pop() ?? '';
+    let combined = this.carry + text;
+    // A CR at the end of a chunk may be the first half of a CRLF in the next one. It stays in the
+    // carry, so the next chunk turns "\r" + "\n" into one line end instead of two (line numbers).
+    let hold = false;
+    if (combined.endsWith('\r')) {
+      hold = true;
+      combined = combined.slice(0, -1);
+    }
+    const lines = combined.split(LINE_END);
+    this.carry = (lines.pop() ?? '') + (hold ? '\r' : '');
     for (const line of lines) this.line(line);
     if (this.carry.length > MAX_LINE_LENGTH) {
       // no command is that long: drop it rather than buffering the rest of a broken file
