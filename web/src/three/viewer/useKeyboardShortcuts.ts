@@ -5,9 +5,10 @@
  * The handler is registered once and reads the store through `useStore.getState()`, so it never holds
  * a stale closure and never re-registers. `onCamera` is the viewer's own camera command; the effect
  * keeps the empty dependency array the inline version had, so `onCamera`/`setOrtho` are read through
- * refs rather than closing over them.
+ * refs rather than closing over them. The refs are refreshed in a layout effect: writing them during
+ * render is a side effect the React Compiler (and the `react-hooks/refs` rule) rejects.
  */
-import { useEffect, useRef } from 'react';
+import { useLayoutEffect, useEffect, useRef } from 'react';
 import { useStore, pickedInstanceId } from '../../state/store';
 import { matchesShortcut, shortcutsBlocked } from './shortcuts';
 import { toolForShortcut } from '../../tools/registry';
@@ -18,8 +19,10 @@ export function useKeyboardShortcuts(onCamera: (req: CamRequest) => void, toggle
   // the handler is registered once; the callbacks live in refs so the effect can stay `[]`
   const cameraRef = useRef(onCamera);
   const orthoRef = useRef(toggleOrtho);
-  cameraRef.current = onCamera;
-  orthoRef.current = toggleOrtho;
+  useLayoutEffect(() => {
+    cameraRef.current = onCamera;
+    orthoRef.current = toggleOrtho;
+  });
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
