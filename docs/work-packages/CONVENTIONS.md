@@ -18,10 +18,14 @@ shared/src/types/             API contract types (SliceRequest, JobRecord, Confi
 shared/src/math/              Matrix4 helpers, placement compose/decompose, bounds, mirror
 shared/src/plater/            packing, normalisation, split, bed shape, spacing
 shared/src/values.ts          preset value codecs and their limits
-server/src/routes/api.ts      REST API (validate → service → respond)
+server/src/routes/           one router per resource (meta, presets, models, jobs, printers, exports,
+                             autosave, library, projects); validate → call one service → respond
+server/src/services/         use cases (slice, jobs, presets, printers, exports, autosave, library,
+                             projects) – no Express types; routes and MCP call these, never each other
+server/src/storage/          atomic JSON stores (jsonStore) shared by the server-side stores
 server/src/validation/        one zod schema per request payload, shared by REST and MCP
 server/src/jobs.ts            slice job queue, SliceRequest → 3MF → CLI
-server/src/slicer/threemf.ts  3MF writer/reader (PrusaSlicer extensions) + tests
+server/src/slicer/threemf/    3MF writer/reader (PrusaSlicer extensions) + tests
 web/src/state/store.ts        composes `useStore` from the slice creators and re-exports them
 web/src/state/slices/         one slice per area: plater, preset, job, preview, ui, history, paint, ranges
 web/src/three/Viewer.tsx      composition of the `three/viewer/` hooks, no logic of its own
