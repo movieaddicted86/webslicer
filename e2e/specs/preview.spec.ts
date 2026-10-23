@@ -21,6 +21,15 @@ import { click, fill, outline } from '../helpers/dom';
  */
 let sharedJob = '';
 
+/*
+ * T-057: the tests read the shared job and each gets its own page, so they need no order and can fill
+ * both workers. `fullyParallel` stays off for the suite as a whole – the specs that edit the plater
+ * rely on one file running its tests one at a time. Here nothing is shared but the job id: Playwright
+ * splits a parallel file with hooks into two groups for two workers, and `beforeAll` runs once per
+ * group, so the file slices twice instead of 15 times.
+ */
+test.describe.configure({ mode: 'parallel' });
+
 test.beforeAll(async ({ browser }) => {
   sharedJob = await sliceOnce(browser);
 });
@@ -211,11 +220,10 @@ test.describe('preview: the sliders (UAT-06, UAT-19)', () => {
     const beforeRemove = await read(app, (s) => s.job?.id);
     await click(app, '.code-list li:has(.code-type:text-is("Pause")) button.icon', 800);
     await waitSliceDone(app, beforeRemove);
-    const after = await app.evaluate(() => ({
-      codes: window.webslicer.getState().customGcodes.map((c) => c.type),
-      rows: document.querySelectorAll('.code-list li').length,
-    }));
-    expect(after).toEqual({ codes: ['color_change'], rows: 1 });
+    expect(await read(app, (s) => s.customGcodes.map((c) => c.type))).toEqual(['color_change']);
+    // the list only renders while the panel has a layer to point at, so wait for the row instead of
+    // reading the DOM once: under two workers the re-slice re-renders after `waitSliceDone` returned
+    await expect(app.locator('.code-list li')).toHaveCount(1);
   });
 });
 

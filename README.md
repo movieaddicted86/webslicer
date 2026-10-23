@@ -407,6 +407,11 @@ marker copied into it); never point it at your working install.
   (`playwright.config.ts`). Every test gets its own browser context and autosave id; the few tests
   that read or write the server's printer list or the mock host's upload log take the `server-state`
   test lock, so two workers cannot see each other's hosts.
+- Tests inside a spec run one after another (`fullyParallel: false`), because most specs edit one
+  plater between tests. `preview.spec.ts` and `sidebar.spec.ts` are the exception: every test there
+  gets its own page and its own import, so they turn on `test.describe.configure({ mode: 'parallel' })`
+  for themselves and use both workers. A new spec may do the same only if nothing carries between its
+  tests (no module-level plater state, no server write).
 - Specs whose tests only read the sliced result share **one slice per spec** (`sliceOnce` in
   `e2e/helpers/fixtures.ts`, called from `beforeAll`); the tests load that job into their own page.
 - On failure Playwright keeps a trace, a screenshot and the error context in `test-results/`; in CI each
