@@ -1,26 +1,24 @@
-// ESLint 9 flat config for all three workspaces (T-020).
+// ESLint 9 flat config for all three workspaces (T-020, Q1: `defineConfig` + `projectService`).
 // Rules: docs/work-packages/CONVENTIONS.md, CODING-GUIDELINES.md.
 import js from '@eslint/js';
 import reactHooks from 'eslint-plugin-react-hooks';
 import tseslint from 'typescript-eslint';
-import { fileURLToPath } from 'node:url';
-import path from 'node:path';
+import { defineConfig } from 'eslint/config';
 
-const rootDir = path.dirname(fileURLToPath(import.meta.url));
-
-export default tseslint.config(
+export default defineConfig(
   {
     ignores: ['**/dist/**', '**/node_modules/**', 'data/**', 'library/**', '.ai/**', '.claude/**', 'samples/**', 'proxmox/**'],
   },
   js.configs.recommended,
   tseslint.configs.recommended,
   {
-    // W7: type-aware linting. The projects below cover every linted file – `*.test.ts` is excluded
-    // from the build configs, so the `tsconfig.test.json` of a workspace is the one that includes it.
+    // Type-aware linting (W7). `projectService` finds the nearest tsconfig per file instead of a
+    // hand-kept `project` list; every workspace's `tsconfig.json` therefore includes its `*.test.ts`
+    // files and the emit settings live in `tsconfig.build.json`.
     languageOptions: {
       parserOptions: {
-        project: ['./shared/tsconfig.test.json', './server/tsconfig.test.json', './web/tsconfig.json', './e2e/tsconfig.json'],
-        tsconfigRootDir: rootDir,
+        projectService: true,
+        tsconfigRootDir: import.meta.dirname,
       },
     },
     rules: {
@@ -51,7 +49,7 @@ export default tseslint.config(
     // Plain Node modules (`e2e/run-docker.mjs`, the mock host) are not part of a TypeScript project,
     // so the type-aware parser has nothing to check them against; they keep the non-typed rules.
     files: ['**/*.mjs', '**/*.cjs'],
-    languageOptions: { parserOptions: { project: false } },
+    languageOptions: { parserOptions: { projectService: false } },
     rules: { '@typescript-eslint/no-floating-promises': 'off' },
   },
   {

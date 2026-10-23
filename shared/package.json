@@ -16,12 +16,13 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc -b",
+    "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.test.json",
     "test": "tsx --test \"src/**/*.test.ts\""
   },
   "devDependencies": {
+    "@types/node": "^22.10.2",
     "tsx": "^4.19.2",
-    "typescript": "^5.7.2"
+    "typescript": "~6.0.3"
   }
 }

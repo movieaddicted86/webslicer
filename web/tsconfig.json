@@ -4,10 +4,10 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "baseUrl": ".",
     "paths": {
       "@webslicer/shared": ["../shared/src/index.ts"]
     },
+    "types": ["node"],
     "jsx": "react-jsx",
     "strict": true,
     "skipLibCheck": true,

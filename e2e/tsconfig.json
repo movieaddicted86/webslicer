@@ -8,7 +8,6 @@
     "skipLibCheck": true,
     "noEmit": true,
     "resolveJsonModule": true,
-    "baseUrl": ".",
     "paths": {
       "@webslicer/shared": ["../shared/src/index.ts"],
       "@web/*": ["../web/src/*"]

@@ -4,7 +4,7 @@ A full-featured 3D printing slicer as a web application. WebSlicer runs the **or
 engine** (CLI) in the backend and brings plater, settings, profiles, G-code preview and printer upload
 to the browser. Runs as a Docker container or natively in a Proxmox LXC.
 
-![Stack](https://img.shields.io/badge/engine-PrusaSlicer%202.9.x-orange) ![Node](https://img.shields.io/badge/node-%E2%89%A520-green) ![License](https://img.shields.io/badge/license-AGPL--3.0-blue)
+![Stack](https://img.shields.io/badge/engine-PrusaSlicer%202.9.x-orange) ![Node](https://img.shields.io/badge/node-%E2%89%A522-green) ![License](https://img.shields.io/badge/license-AGPL--3.0-blue)
 
 ## Features
 
