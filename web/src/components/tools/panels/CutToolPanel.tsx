@@ -15,6 +15,7 @@ export function CutToolPanel() {
   const setSettings = useStore((s) => s.setCutSettings);
   const close = useStore((s) => s.closeTool);
   const run = useStore((s) => s.cutSelection);
+  const busy = useStore((s) => s.cutBusy);
   const selectedIds = useStore((s) => s.selectedIds);
   const selectedInstanceId = useStore((s) => s.selectedInstanceId);
   const o = useStore((s) => s.objects.find((x) => x.id === s.selectedIds[0]));
@@ -23,7 +24,7 @@ export function CutToolPanel() {
   // the object's height in the world is its own height times the instance scale (a mirrored scale
   // counts by its magnitude)
   const maxZ = Math.max(0, +(o.size[2] * Math.abs(inst.scale[2])).toFixed(2));
-  const canCut = !!o.modelId && !o.uploadError;
+  const canCut = !!o.modelId && !o.uploadError && !busy;
   return (
     <ToolPanel
       title="Cut"

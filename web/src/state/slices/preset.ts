@@ -105,6 +105,24 @@ function applySlotConfig(set: (fn: (s: State) => Partial<State>) => void, type: 
   });
 }
 
+/**
+ * B2: everything that remembers an extruder index follows the extruder count. Shrinking the count –
+ * by `setExtruderCount` or by switching to a printer with fewer extruders – leaves objects, volumes,
+ * MMU paint and the paint tool pointing past the end; the next `filament[i]` read is a TypeError and
+ * the slice request would carry an extruder the printer does not have.
+ */
+function extruderClampPatch(s: State, n: number): Pick<State, 'objects' | 'paintExtruder'> {
+  return { objects: clampObjectExtruders(s.objects, n), paintExtruder: clampExtruder(s.paintExtruder, n) || 1 };
+}
+
+/** The filament slots resized to `n`, new slots copying the last one like PrusaSlicer does. */
+function resizedFilaments(filament: PresetSlot[], n: number): PresetSlot[] {
+  const fil = [...filament];
+  while (fil.length < n) fil.push({ ...fil[fil.length - 1] });
+  fil.length = n;
+  return fil;
+}
+
 const LS_KEY = 'webslicer.selection';
 
 /** The preset selection and mode the browser remembered, as stored by `saveSelection`. */
@@ -193,12 +211,10 @@ export const createPresetSlice: StateCreator<State, [], [], PresetSlice> = (set,
     const st = get();
     if (type === 'printer') {
       set({ presets: { ...st.presets, printer: slot }, sliceDirty: true });
-      // resize filament slots to extruder count
+      // resize filament slots to the new extruder count, and clamp everything that remembers an
+      // extruder index exactly like `setExtruderCount` does (B2: a 5 → 1 switch left indices at 5)
       const n = get().extruderCount();
-      const fil = [...get().presets.filament];
-      while (fil.length < n) fil.push({ ...fil[fil.length - 1] });
-      fil.length = n;
-      set((s) => ({ presets: { ...s.presets, filament: fil } }));
+      set((s) => ({ presets: { ...s.presets, filament: resizedFilaments(s.presets.filament, n) }, ...extruderClampPatch(s, n) }));
       await get().ensureCompatiblePresets();
     } else if (type === 'filament') {
       const fil = [...st.presets.filament];
@@ -342,15 +358,11 @@ export const createPresetSlice: StateCreator<State, [], [], PresetSlice> = (set,
       const def = schema.options[key];
       if (def?.perExtruder) cur[key] = resizeVector(def, cur[key], n);
     }
-    const fil = [...s.presets.filament];
-    while (fil.length < n) fil.push({ ...fil[fil.length - 1] });
-    fil.length = n;
     // B2: objects, volumes, MMU paint and the paint tool may still point at a removed extruder;
     // without this the next `filament[i]` read is a TypeError (and the value is unselectable anyway)
     set({
-      presets: { ...s.presets, printer: { ...s.presets.printer, current: cur }, filament: fil },
-      objects: clampObjectExtruders(s.objects, n),
-      paintExtruder: clampExtruder(s.paintExtruder, n) || 1,
+      presets: { ...s.presets, printer: { ...s.presets.printer, current: cur }, filament: resizedFilaments(s.presets.filament, n) },
+      ...extruderClampPatch(s, n),
       sliceDirty: true,
     });
   },

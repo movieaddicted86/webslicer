@@ -2,6 +2,26 @@
 
 ## Unreleased
 
+- **Fixed (T-052 – remaining bugs from the 2026-10-23 review):**
+  **B2 (printer switch):** `selectPreset('printer')` resized the filament slots but did not clamp
+  the extruder indices, so a 5 → 1 switch left objects, volumes, MMU paint and the paint tool
+  pointing past the count (the next `filament[i]` read was a `TypeError`, and the slice request
+  carried extruder 5). It now clamps through the same helpers as `setExtruderCount`.
+  **B7 (lost updates):** `addModelFromLibrary`, `arrange` and `touchProject` load, change and save a
+  project across several `await`s, so concurrent REST/MCP calls dropped each other's objects. A
+  per-project promise-chain lock (`withProjectLock`) spans load → modify → save in the services and
+  in the route/MCP callers; 20 parallel adds now all land.
+  **N5 (cut races):** `cutSelection` wrote a server result back over a plater that may have changed
+  meanwhile. A `cutBusy` flag refuses a second request (the button is disabled) and a deleted
+  object or a moved instance discards the result with an info toast and no history entry.
+  **N6/N8b (undo):** history snapshots copied every paint array of every object (up to 50 copies per
+  painted object); snapshots now share the arrays and the paint action copies one before its first
+  write (copy-on-write), so fifty drags allocate no paint arrays. Import, duplicate and
+  add-instance each record one undo step and arrange inside it instead of adding a second.
+  **N8c/B1:** the keepalive autosave compares the request's **byte** length with the 60 KiB budget
+  and writes its pending marker before the local cache write; the plater disposes the height-range
+  slab materials (not only their geometries) when an instance or a slab layout goes.
+
 - **Web (T-051 – plater slice split, three.js boundary):** `state/slices/plater.ts` shrank from
   35.4 KB to 2.0 KB and is now the composition only: the actions live in `objects`, `volumes`,
   `instances`, `transform`, `split` and `merge` next to `paint`, `ranges`, `cut` and `profile`, all

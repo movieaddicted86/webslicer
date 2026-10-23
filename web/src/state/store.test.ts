@@ -472,41 +472,28 @@ test('undo and redo step through import, instances, arrange and mirror', async (
   st().mirror(0);
   const afterMirror = snapshot();
   assert.equal(st().objects[0].instances.length, 3);
-  // import (state before + arrange), the copies (before + arrange) and the mirror
-  assert.equal(st().undoStack.length, 5);
+  // N8b: the import and its arrange are one step, so are the copies and their arrange; plus the mirror
+  assert.equal(st().undoStack.length, 3);
 
   st().undo();
   assert.deepEqual(snapshot(), afterInstances, 'the mirror is undone');
   st().undo();
-  assert.deepEqual(
-    st().objects[0].instances.map((i) => i.position),
-    [
-      [125, 105, 0],
-      [125, 105, 0],
-      [125, 105, 0],
-    ],
-    'the arrange of the copies is undone, the copies stay',
-  );
-  st().undo();
-  assert.equal(st().objects[0].instances.length, 1, 'the copies are undone');
-  // the import itself and the arrange that followed it
-  st().undo();
+  assert.equal(st().objects[0].instances.length, 1, 'one undo drops the copies (and their arrange)');
+  closePoint(st().objects[0].instances[0].position, [125, 105, 0], 'the single copy sits where the import put it');
   st().undo();
   assert.deepEqual(snapshot(), [], 'the import is undone');
   assert.deepEqual(st().selectedIds, []);
   assert.equal(st().undoStack.length, 0);
-  assert.equal(st().redoStack.length, 5);
+  assert.equal(st().redoStack.length, 3);
 
   st().redo();
   assert.equal(st().objects.length, 1);
   assert.equal(st().objects[0].modelId, 'model-1', 'the upload bookkeeping survives the round trip');
   st().redo();
   st().redo();
-  st().redo();
-  st().redo();
   assert.deepEqual(snapshot(), afterMirror);
   assert.equal(st().redoStack.length, 0);
-  assert.equal(st().undoStack.length, 5);
+  assert.equal(st().undoStack.length, 3);
 });
 
 test('a preset switch with unsaved changes asks, transfer carries them onto the target', async () => {
@@ -598,6 +585,45 @@ test('B2: shrinking the extruder count clamps objects, volumes, MMU paint and th
   assert.equal(st().presets.filament.length, 1);
 });
 
+test('B2: switching to a printer with fewer extruders clamps like setExtruderCount', async () => {
+  // a 5-extruder printer the fake server knows (the printer count is the nozzle_diameter list)
+  server.presets.printer['Five Extruders'] = {
+    bed_shape: BED,
+    nozzle_diameter: '0.4,0.4,0.4,0.4,0.4',
+    default_print_profile: '0.20mm NORMAL',
+    default_filament_profile: 'Prusament PLA',
+  };
+  await st().selectPreset('printer', 'Five Extruders');
+  useStore.setState({ schema: B2_SCHEMA });
+  assert.equal(st().extruderCount(), 5);
+
+  await importOne(twoCubes());
+  const o = st().objects[0];
+  st().updateObject(o.id, { extruder: 5 });
+  await st().addVolume(o.id, { name: 'part', type: 'ModelPart', geometry: box(5) });
+  const volId = st().objects[0].volumes[0].id;
+  st().updateVolume(o.id, volId, { extruder: 5 });
+  st().updateObject(o.id, { paint: { mmu: Uint8Array.from([0, 5, 3, 1]) } });
+  st().setPaintExtruder(5);
+  assert.equal(st().paintExtruder, 5);
+
+  // the printer switch must clamp exactly like `setExtruderCount(1)` does
+  await st().selectPreset('printer', PRINTER);
+  const after = st().objects[0];
+  assert.equal(st().extruderCount(), 1);
+  assert.equal(st().presets.filament.length, 1);
+  assert.equal(after.extruder, 1, 'the object falls back to extruder 1');
+  assert.equal(after.volumes[0].extruder, 1, 'so does its volume');
+  assert.deepEqual([...(after.paint?.mmu ?? [])], [0, 1, 1, 1], 'MMU paint above the count becomes extruder 1');
+  assert.equal(st().paintExtruder, 1, 'the paint tool cannot stay on a removed extruder');
+  // nothing the slicer would receive may point past the count
+  const req = st().buildSliceRequest();
+  for (const obj of req.objects) {
+    assert.ok(!obj.extruder || obj.extruder <= 1, `object extruder ${obj.extruder}`);
+    for (const v of obj.volumes ?? []) assert.ok(!v.extruder || v.extruder <= 1, `volume extruder ${v.extruder}`);
+  }
+});
+
 test('B2: the slot actions stay on a filament slot that still exists', async () => {
   useStore.setState({ schema: B2_SCHEMA });
   st().setExtruderCount(3);
@@ -640,13 +666,66 @@ test('B3: undo after a paint stroke restores exactly the previous paint', async 
   assert.deepEqual([...(st().objects[0].paint?.mmu ?? [])], before.mmu, 'the second undo is not aliased to the live arrays');
 });
 
-test('B3: a snapshot never shares paint arrays with the live objects', async () => {
+test('B3: a snapshot shares the paint array until a stroke copies it (copy-on-write, N6)', async () => {
   await importOne(box(10));
   const o = st().objects[0];
   st().updateObject(o.id, { paint: { mmu: Uint8Array.from([1, 1, 1, 0]) } });
+  const live = st().objects[0].paint?.mmu;
   st().recordHistory();
   const snapshot = st().undoStack[st().undoStack.length - 1];
-  // painting mutates the live array in place, so the snapshot must not be the same object
+  assert.equal(snapshot[0].paint?.mmu, live, 'an unchanged paint array is shared, not copied');
+  // painting must not write through the shared array: it copies it first
   st().applyPaint(o.id, 'mmu', [0, 1, 2], 0);
-  assert.deepEqual([...(snapshot[0].paint?.mmu ?? [])], [1, 1, 1, 0], 'the recorded paint is a copy');
+  assert.deepEqual([...(snapshot[0].paint?.mmu ?? [])], [1, 1, 1, 0], 'the recorded paint keeps its colours');
+  assert.notEqual(st().objects[0].paint?.mmu, live, 'the stroke works on its own copy');
+});
+
+// ---------------------------------------------------------------------------
+// N6: undo memory and double undo steps
+// ---------------------------------------------------------------------------
+
+test('N6: 50 drags on a painted object allocate no new paint arrays', async () => {
+  await importOne(box(10));
+  const o = st().objects[0];
+  st().updateObject(o.id, { paint: { mmu: Uint8Array.from([1, 1, 1, 0]), supports: Uint8Array.from([0, 2, 0, 0]) } });
+  const paint = st().objects[0].paint!;
+  const depth = st().undoStack.length;
+  for (let i = 0; i < 50; i++) {
+    // one drag: the plater as the drag started, then the transform, then the history entry
+    const snapshot = st().objects;
+    st().updateInstance(o.id, o.instances[0].id, { position: [i, 0, 0] });
+    st().recordHistory(snapshot);
+  }
+  // the stack keeps the last 50 snapshots; the import's one may already have fallen out
+  assert.equal(st().undoStack.length, 50, 'every drag is one undo step');
+  assert.ok(st().undoStack.length > depth);
+  const recorded = st()
+    .undoStack.map((snap) => snap.find((x) => x.id === o.id)?.paint)
+    .filter((p) => !!p);
+  for (const p of recorded) {
+    assert.equal(p.mmu, paint.mmu, 'MMU paint is shared between the snapshots');
+    assert.equal(p.supports, paint.supports, 'so is the support paint');
+  }
+});
+
+test('N6: import, duplicate and add-instance are one undo step each', async () => {
+  await st().addObjects([{ name: 'cube.stl', geometry: box(10) }]);
+  assert.equal(st().undoStack.length, 1, 'the import and its arrange are one step');
+  st().undo();
+  assert.deepEqual(st().objects, [], 'one undo returns to the empty plater');
+
+  st().redo();
+  const o = st().objects[0];
+  const depth = st().undoStack.length;
+  await st().duplicateObjects([o.id]);
+  assert.equal(st().undoStack.length - depth, 1, 'duplicate and its arrange are one step');
+  st().undo();
+  assert.equal(st().objects.length, 1, 'one undo drops the copy again');
+
+  st().redo();
+  const before = st().undoStack.length;
+  st().addInstances(o.id, 2);
+  assert.equal(st().undoStack.length - before, 1, 'add-instance and its arrange are one step');
+  st().undo();
+  assert.equal(st().objects[0].instances.length, 1, 'one undo drops the copies again');
 });

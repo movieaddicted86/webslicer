@@ -247,13 +247,17 @@ export const createJobSlice: StateCreator<State, [], [], JobSlice> = (set, get) 
       // A keepalive request dies with the page, and browsers cap the total keepalive body at 64 KiB.
       // A plater past that (paint strings are long) is written to the local cache instead and replayed
       // on the next start, which is still faster than losing it.
-      if (opts.keepalive && JSON.stringify(req).length > KEEPALIVE_LIMIT) {
+      // N8c: the limit is in bytes, not characters – a name with umlauts is twice as many bytes as
+      // characters. And the marker goes first: the page may go away during the cache write, and a
+      // start that sees no marker would read a file one flush behind.
+      const body = JSON.stringify(req);
+      const tooLarge = opts.keepalive && new TextEncoder().encode(body).length > KEEPALIVE_LIMIT;
+      if (opts.keepalive) markPendingFlush(Date.now());
+      if (tooLarge) {
         await writeCachedRequest(Date.now(), req);
-        markPendingFlush(Date.now());
         return false;
       }
       set({ autosaveState: 'saving' });
-      if (opts.keepalive) markPendingFlush(Date.now());
       try {
         await autosaveApi.save(clientId(), req, !!opts.keepalive);
         set({ autosaveState: 'saved', autosaveError: undefined });

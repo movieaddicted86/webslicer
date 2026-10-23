@@ -25,6 +25,7 @@ const {
   loadProject,
   pruneProjects,
   registerProjectLifecycle,
+  saveProject,
   toSliceRequest,
   touchProject,
 } = await import('./projects.js');
@@ -126,6 +127,18 @@ test('addModelFromLibrary stores the mesh, normalises it and applies the copies'
   assert.deepEqual(reloaded.objects[0].bounds, o.bounds);
 });
 
+test('B7: parallel adds on one project are serialised and lose nothing', async () => {
+  const project = await newProject();
+  const file = libraryFile('parallel-cube.stl');
+  // 20 MCP calls on the same project at the same time: each loads the project, then adds and saves –
+  // load → modify → save must not interleave
+  await Promise.all(Array.from({ length: 20 }, async () => addModelFromLibrary((await loadProject(project.id))!, file, 1)));
+  const stored = await loadProject(project.id);
+  assert.equal(stored?.objects.length, 20, 'every add landed in the file');
+  const ids = new Set(stored?.objects.map((o) => o.id));
+  assert.equal(ids.size, 20, 'the object ids stay unique');
+});
+
 test('addModelFromLibrary rejects escapes, missing files, bad copies and unknown formats', async () => {
   const project = await newProject();
   await assert.rejects(() => addModelFromLibrary(project, '../secrets.stl'), /invalid path/);
@@ -210,9 +223,14 @@ test('arrange turns the instances when rotations are on (T-043)', async () => {
   // the 20 mm cube scaled to a 150 x 50 x 10 bar: five upright bars need 250 mm of the 210 mm
   // depth, five lying ones fit one row (5 x 50 mm across) with no clearance
   o.instances = o.instances.map(() => [7.5, 0, 0, 0, 0, 2.5, 0, 0, 0, 0, 0.5, 0, 0, 0, 0, 1]);
+  // B7: `arrange` runs under the project's lock and starts from the file's state, so the test's own
+  // edit of the loaded copy has to be saved first (a real caller changes projects through the service)
+  await saveProject(project);
   await assert.rejects(() => arrange(project, schema, { spacing: 0 }), /Not all objects fit/);
   await arrange(project, schema, { rotations: true, spacing: 0 });
-  for (const m of o.instances) {
+  // `arrange` replaces the object list with the saved state, so re-read it
+  const arranged = project.objects[0];
+  for (const m of arranged.instances) {
     const box = instanceBounds(o.bounds, m);
     const w = box.max[0] - box.min[0];
     const h = box.max[1] - box.min[1];
@@ -221,9 +239,9 @@ test('arrange turns the instances when rotations are on (T-043)', async () => {
     assert.ok(box.min[0] >= -1e-9 && box.max[0] <= 250 + 1e-9 && box.min[1] >= -1e-9 && box.max[1] <= 210 + 1e-9, 'inside the bed');
   }
   // arranging again gives the same layout
-  const once = o.instances.map((m) => [...m]);
+  const once = arranged.instances.map((m) => [...m]);
   await arrange(project, schema, { rotations: true, spacing: 0 });
-  assert.deepEqual(o.instances, once);
+  assert.deepEqual(project.objects[0].instances, once);
 });
 
 test('arrange reports objects that do not fit on the bed', async () => {
@@ -282,7 +300,6 @@ test('a second project keeps a shared model alive when the first one is deleted'
   const modelId = a.objects[0].modelId;
   const b = await newProject();
   b.objects.push({ ...a.objects[0], id: 'obj-1' });
-  const { saveProject } = await import('./projects.js');
   await saveProject(b);
 
   await deleteProject(a.id);

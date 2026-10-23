@@ -84,8 +84,8 @@ export const createInstanceSlice: SlicePart<InstanceSlice> = (set, get) => ({
       selectedVolumeId: undefined,
       sliceDirty: true,
     }));
-    // AC-1.1: the new copies go to free bed space
-    get().arrange();
+    // AC-1.1: the new copies go to free bed space; N8b: inside the same undo step
+    get().arrange({ record: false });
   },
   removeInstance: (objectId, instId) => {
     const s = get();

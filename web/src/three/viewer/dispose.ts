@@ -27,6 +27,17 @@ export function disposeSubtree(root: THREE.Object3D): void {
   });
 }
 
+/**
+ * Release a height-range slab group (B1): the slab boxes and their edge lines are built per range
+ * and per instance, and every rebuild dropped them without disposing their materials – the
+ * `MeshBasicMaterial` and `LineBasicMaterial` of each slab stayed on the GPU (their geometries were
+ * disposed, the materials were not). The caller removes the group from the scene itself.
+ */
+export function disposeSlabs(slabs: THREE.Group | undefined): void {
+  if (!slabs) return;
+  disposeSubtree(slabs);
+}
+
 /** Dispose a group's contents and empty it, so a rebuild does not leak the previous scene. */
 export function clearAndDispose(group: THREE.Group): void {
   disposeSubtree(group);

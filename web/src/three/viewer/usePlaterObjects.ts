@@ -15,7 +15,7 @@ import { layerHeightColors } from '../heightColors';
 import type { ParsedGcode } from '../../gcode/types';
 import type { View } from '../../state/types';
 import { EXTRUDER_COLORS, OBJECT_COLOR, OUTSIDE_COLOR, SELECTED_COLOR, VOLUME_COLORS } from './colors';
-import { disposeRemovedGeometries } from './dispose';
+import { disposeRemovedGeometries, disposeSlabs } from './dispose';
 import type { InstanceNode, SceneRefs } from './types';
 
 function makeVolumeMesh(v: PlaterVolume): THREE.Mesh {
@@ -136,7 +136,8 @@ export function usePlaterObjects(refsRef: RefObject<SceneRefs | null>, options: 
           node.group.remove(inode.group);
           (inode.mesh.material as THREE.Material).dispose();
           for (const vm of inode.volumes.values()) (vm.material as THREE.Material).dispose();
-          inode.slabs?.traverse((c) => (c as THREE.Mesh).geometry?.dispose());
+          // B1: the slab boxes and edge lines own their materials too, not only their geometries
+          disposeSlabs(inode.slabs);
           node.instances.delete(iid);
           if (refs.transform.object && refs.transform.object.parent === inode.group) refs.transform.detach();
         }
@@ -207,7 +208,7 @@ export function usePlaterObjects(refsRef: RefObject<SceneRefs | null>, options: 
         const slabKey = wantSlabs ? o.ranges.map((r) => `${r.minZ}:${r.maxZ}`).join(',') + `|${o.size.join('x')}` : '';
         if (inode.slabs && (!wantSlabs || inode.slabKey !== slabKey)) {
           inode.group.remove(inode.slabs);
-          inode.slabs.traverse((c) => (c as THREE.Mesh).geometry?.dispose());
+          disposeSlabs(inode.slabs);
           inode.slabs = undefined;
         }
         if (wantSlabs && !inode.slabs) {
@@ -299,7 +300,8 @@ export function usePlaterObjects(refsRef: RefObject<SceneRefs | null>, options: 
         for (const inode of node.instances.values()) {
           (inode.mesh.material as THREE.Material).dispose();
           for (const vm of inode.volumes.values()) (vm.material as THREE.Material).dispose();
-          inode.slabs?.traverse((c) => (c as THREE.Mesh).geometry?.dispose());
+          // B1: the slab boxes and edge lines own their materials too, not only their geometries
+          disposeSlabs(inode.slabs);
           removedInstances.add(inode);
         }
         refs.nodes.delete(id);

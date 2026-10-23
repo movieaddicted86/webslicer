@@ -7,25 +7,34 @@ import { mergeUploadState } from '../../plater/objects';
 import type { PlaterObject, State } from '../types';
 
 /**
- * A history snapshot with its own paint arrays (B3). The brush mutates the paint arrays in place
- * (`applyPaint`), so a snapshot that kept the same `Uint8Array`s would silently follow every later
- * stroke – undo restored the *current* paint, and an undo after a stroke wiped all MMU paint.
- * Everything else in a `PlaterObject` is replaced, not mutated, so only the paint needs copying;
- * a snapshot without paint keeps the object itself.
+ * Paint arrays that a history snapshot still shares with the live object (B3/N6). Copying every
+ * paint array into every snapshot made fifty drags allocate fifty fresh copies per painted object;
+ * instead a snapshot keeps the array it saw, and the *next* mutation copies it (copy-on-write):
+ * `paintForEdit` hands the brush or a paint action a private array, and the snapshots keep theirs.
  */
-function snapshotObject(o: PlaterObject): PlaterObject {
-  if (!o.paint) return o;
-  return {
-    ...o,
-    paint: {
-      supports: o.paint.supports?.slice(),
-      seam: o.paint.seam?.slice(),
-      mmu: o.paint.mmu?.slice(),
-    },
-  };
+const sharedPaint = new WeakSet<Uint8Array>();
+
+/** The array to mutate: the shared one when nothing else looks at it, a copy otherwise. */
+export function paintForEdit(arr: Uint8Array): Uint8Array {
+  if (!sharedPaint.has(arr)) return arr;
+  const copy = arr.slice();
+  sharedPaint.delete(arr);
+  return copy;
 }
 
-/** A copy of the plater for the undo stack; the array and the paint of every object are new. */
+/**
+ * A history snapshot (B3, N6). Everything in a `PlaterObject` is replaced, not mutated – except the
+ * paint arrays, which the brush writes in place. The snapshot marks those arrays as shared instead of
+ * duplicating them; `paintForEdit` copies before the first write, so no snapshot can follow a stroke.
+ */
+function snapshotObject(o: PlaterObject): PlaterObject {
+  const paint = o.paint;
+  if (!paint) return o;
+  for (const arr of [paint.supports, paint.seam, paint.mmu]) if (arr) sharedPaint.add(arr);
+  return { ...o, paint: { ...paint } };
+}
+
+/** A copy of the plater for the undo stack; the array and the object records are new. */
 export function snapshotObjects(objects: PlaterObject[]): PlaterObject[] {
   return objects.map(snapshotObject);
 }

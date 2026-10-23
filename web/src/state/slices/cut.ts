@@ -21,8 +21,15 @@ export interface CutSlice {
   /** the panel's settings (reset for every object the panel opens on) */
   cutSettings: CutSettings;
   setCutSettings: (patch: Partial<CutSettings>) => void;
+  /** a cut request is running: the button is disabled and a second call is a no-op (N5) */
+  cutBusy: boolean;
   /** cut the selected instance; one undo step */
   cutSelection: () => Promise<void>;
+}
+
+/** The placement of one instance, as a value to compare before and after the request (N5). */
+function placementOf(inst: PlaterObject['instances'][number]): string {
+  return JSON.stringify([inst.position, inst.rotation, inst.scale]);
 }
 
 /** The object the panel works on: the single selected object, or `undefined`. */
@@ -56,9 +63,12 @@ function partObject(part: CutPart, source: PlaterObject, geometry: PlaterObject[
 
 export const createCutSlice: SlicePart<CutSlice> = (set, get) => ({
   cutSettings: defaultCutSettings(0),
+  cutBusy: false,
   setCutSettings: (patch) => set((s) => ({ cutSettings: { ...s.cutSettings, ...patch } })),
   cutSelection: async () => {
     const s = get();
+    // N5: the request takes seconds; a second click (or a shortcut) while it runs must not cut twice
+    if (s.cutBusy) return;
     const o = cutTarget(s.objects, s.selectedIds);
     if (!o) return;
     if (!o.modelId) {
@@ -68,7 +78,10 @@ export const createCutSlice: SlicePart<CutSlice> = (set, get) => ({
     const inst = selectedInstance(s, o);
     const world = cutPlaneWorld(inst, s.cutSettings);
     const snapshot = s.objects;
+    // what the result is only valid for: the same object, still there, with the same transform
+    const before = { placement: placementOf(inst) };
     let result: CutResult;
+    set({ cutBusy: true });
     try {
       result = await api.cut({
         modelId: o.modelId,
@@ -79,11 +92,23 @@ export const createCutSlice: SlicePart<CutSlice> = (set, get) => ({
         flipUpper: s.cutSettings.flipUpper,
       });
     } catch (e) {
+      set({ cutBusy: false });
       s.toast('error', `Cut failed: ${(e as Error).message}`);
+      return;
+    }
+    // N5: the plater may have changed while the server cut – a deleted object or a moved instance
+    // makes the result wrong, so it is dropped (and the undo stack stays untouched)
+    const now = get();
+    const live = now.objects.find((x) => x.id === o.id);
+    const liveInst = live?.instances.find((i) => i.id === inst.id);
+    if (!live || !liveInst || placementOf(liveInst) !== before.placement) {
+      set({ cutBusy: false });
+      s.toast('info', 'Cut discarded: the object changed while cutting');
       return;
     }
     const parts = [result.upper, result.lower].filter((p): p is CutPart => !!p);
     if (!parts.length) {
+      set({ cutBusy: false });
       s.toast('info', 'The plane does not cut the object');
       return;
     }
@@ -96,6 +121,7 @@ export const createCutSlice: SlicePart<CutSlice> = (set, get) => ({
         const geometry = await loadStoredModel(part.modelId);
         created.push(partObject({ ...part, name: `${o.name} (${part === result.upper ? 'upper' : 'lower'})` }, o, geometry));
       } catch (e) {
+        set({ cutBusy: false });
         s.toast('error', `Cut failed: ${(e as Error).message}`);
         return;
       }
@@ -111,6 +137,7 @@ export const createCutSlice: SlicePart<CutSlice> = (set, get) => ({
       selectedInstanceId: undefined,
       selectedVolumeId: undefined,
       activeTool: undefined,
+      cutBusy: false,
       sliceDirty: true,
     }));
     const dropped = [o.paint ? 'paint' : '', o.ranges.length ? 'height ranges' : ''].filter(Boolean);

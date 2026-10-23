@@ -110,7 +110,8 @@ export const createObjectSlice: SlicePart<ObjectSlice> = (set, get) => ({
       selectedInstanceId: undefined,
       sliceDirty: true,
     }));
-    if (!opts.keepPositions) get().arrange();
+    // N8b: the import is one undo step – the arrange after it belongs to the same step
+    if (!opts.keepPositions) get().arrange({ record: false });
     // upload meshes
     for (const o of created) {
       await uploadMesh(
@@ -173,7 +174,7 @@ export const createObjectSlice: SlicePart<ObjectSlice> = (set, get) => ({
       selectedInstanceId: undefined,
       sliceDirty: true,
     }));
-    get().arrange();
+    get().arrange({ record: false });
   },
   select: (ids, additive = false) =>
     set((s) => ({
