@@ -9,7 +9,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
-import { clearAndDispose, disposeRemovedGeometries, disposeSubtree } from './dispose';
+import { clearAndDispose, disposeRemovedGeometries, disposeSlabs, disposeSubtree } from './dispose';
 
 function watch<T extends { addEventListener: (t: 'dispose', f: () => void) => void }>(resource: T): { disposed: () => boolean } {
   let disposed = false;
@@ -89,6 +89,29 @@ test('disposeRemovedGeometries keeps a geometry another object still shares', ()
   disposeRemovedGeometries([instanceNode(shared), instanceNode(own)], new Set([shared]));
   assert.equal(sharedWatch.disposed(), false, 'a duplicate still draws this geometry');
   assert.ok(ownWatch.disposed());
+});
+
+test('disposeSlabs releases the slab and edge materials, not only the geometries (B1)', () => {
+  // the height-range slabs of one instance: a translucent box per range plus its edge lines
+  const slabs = new THREE.Group();
+  const box = new THREE.BoxGeometry(1, 1, 1);
+  const slabMaterial = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.18 });
+  slabs.add(new THREE.Mesh(box, slabMaterial));
+  const edges = new THREE.EdgesGeometry(box);
+  const edgeMaterial = new THREE.LineBasicMaterial({ transparent: true, opacity: 0.8 });
+  slabs.add(new THREE.LineSegments(edges, edgeMaterial));
+  const watches = [watch(box), watch(slabMaterial), watch(edges), watch(edgeMaterial)];
+
+  disposeSlabs(slabs);
+  for (const [i, w] of watches.entries()) assert.ok(w.disposed(), `slab resource ${i} was disposed`);
+});
+
+test('disposeSlabs leaves the tree to its caller and is safe on an empty or missing group', () => {
+  const slabs = new THREE.Group();
+  slabs.add(new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshBasicMaterial()));
+  disposeSlabs(slabs);
+  assert.equal(slabs.children.length, 1, 'the caller removes the group itself');
+  assert.doesNotThrow(() => disposeSlabs(undefined));
 });
 
 test('disposeRemovedGeometries disposes a geometry shared by two removed instances only once', () => {
