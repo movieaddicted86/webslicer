@@ -62,6 +62,9 @@ Priority by frequency of use in everyday printing and PrusaSlicer parity.
 
 ## P4 – later or not planned
 
+- [ ] Adopt TypeScript 7 once typescript-eslint supports it; until then `tsgo` may be tried for
+      `typecheck` only (Q1 pins `typescript` to `~6.x`: TS 7 has no JavaScript API, so type-aware
+      linting cannot run on it)
 - [ ] User management, in stages: A) document login via a reverse proxy (Authentik/Authelia/
       Nginx Proxy Manager) – no code; B) built-in local users (scrypt, session cookie, roles
       admin/user, API/MCP tokens per user, per-user presets/library/printers/jobs/autosave,
