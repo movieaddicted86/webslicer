@@ -30,6 +30,21 @@ export async function openApp(page: Page): Promise<void> {
   await page.waitForTimeout(1200);
 }
 
+/**
+ * Open the preview of a job that another page already sliced (T-057): fetch the job record and its
+ * G-code into this page instead of slicing again. A spec whose tests only *read* the sliced result
+ * makes one shared slice in `beforeAll`; the per-test pages load that job.
+ */
+export async function openSlicedJob(page: Page, jobId: string): Promise<void> {
+  await page.evaluate(async (id) => {
+    const job = (await (await fetch(`/api/jobs/${id}`)).json()) as never;
+    const s = window.webslicer.getState();
+    window.webslicer.setState({ job });
+    await s.loadGcodePreview(id);
+  }, jobId);
+  await settle(page, 1500);
+}
+
 /** Wait for the app again after a reload or a second tab opened the same URL. */
 export async function waitReady(page: Page): Promise<void> {
   await page.waitForFunction(() => !!window.webslicer && window.webslicer.getState().ready, null, { timeout: 90_000 });

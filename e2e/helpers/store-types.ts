@@ -168,6 +168,8 @@ export interface E2EState {
   job?: E2EJob;
   gcode?: E2EGcode;
   gcodeLoading: boolean;
+  /** fetch and parse a finished job's G-code (the preview does it on a `done` event) */
+  loadGcodePreview: (jobId: string) => Promise<void>;
   previewLayerRange: [number, number];
   previewMarkers: Record<string, boolean>;
   previewFeatureVisibility: Record<string, boolean>;

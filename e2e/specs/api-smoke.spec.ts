@@ -323,7 +323,8 @@ test.describe('api: the REST contract the app depends on', () => {
     expect((await api('GET', `/api/jobs/${jobId}`)).status).toBe(404);
   });
 
-  test('the printer store masks the API key and keeps it on update', async () => {
+  // T-057: it writes the server's printer list, which the host dialogs of the other specs read
+  test('the printer store masks the API key and keeps it on update', { lock: 'server-state' }, async () => {
     const created = await api<{ id: string; name: string; host: string; hasApiKey: boolean; apiKey?: string }>('POST', '/api/printers', {
       name: 'E2E store host',
       type: 'octoprint',

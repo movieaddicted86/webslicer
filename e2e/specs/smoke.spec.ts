@@ -5,10 +5,20 @@
  * PrusaSlicer CLI → G-code preview) works against the fixture data, so a failure in the area specs
  * below is about the area and not about the stack.
  */
-import { CUBE, importFile, read, sliceAndWait, state } from '../helpers/app';
-import { expect, test } from '../helpers/fixtures';
+import { CUBE, importFile, read, settle, state } from '../helpers/app';
+import { expect, openSharedSlice, sliceOnce, test } from '../helpers/fixtures';
 import { E2E_PRINTER } from '../global-setup';
 import { frameProbe } from '../helpers/canvas';
+
+/*
+ * T-057: the last two tests read the same sliced cube, so they share one slice (made in `beforeAll`)
+ * instead of slicing per test. The two tests that only import a model keep their own page.
+ */
+let sharedJob = '';
+
+test.beforeAll(async ({ browser }) => {
+  sharedJob = await sliceOnce(browser);
+});
 
 test.describe('smoke: the app slice chain', () => {
   test('the fixture printer is selected and the plater is empty', async ({ app }) => {
@@ -38,8 +48,7 @@ test.describe('smoke: the app slice chain', () => {
   });
 
   test('the slice finishes and the preview has layers', async ({ app }) => {
-    await importFile(app, CUBE);
-    await sliceAndWait(app);
+    await openSharedSlice(app, sharedJob);
     const s = await state(app);
     expect(s.job?.status).toBe('done');
     expect(s.gcode).toBeTruthy();
@@ -51,10 +60,8 @@ test.describe('smoke: the app slice chain', () => {
   });
 
   test('the slice panel reports the job and the export link points at its G-code', async ({ app }) => {
-    await importFile(app, CUBE);
-    await sliceAndWait(app);
-    await app.evaluate(() => window.webslicer.getState().setView('preview'));
-    await app.waitForTimeout(1500);
+    await openSharedSlice(app, sharedJob);
+    await settle(app, 1500);
 
     const jobId = await read(app, (s) => s.job?.id);
     const href = await app.locator('.stats a.button.primary').first().getAttribute('href');
