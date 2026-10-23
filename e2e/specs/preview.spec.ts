@@ -220,10 +220,14 @@ test.describe('preview: the sliders (UAT-06, UAT-19)', () => {
     const beforeRemove = await read(app, (s) => s.job?.id);
     await click(app, '.code-list li:has(.code-type:text-is("Pause")) button.icon', 800);
     await waitSliceDone(app, beforeRemove);
-    expect(await read(app, (s) => s.customGcodes.map((c) => c.type))).toEqual(['color_change']);
-    // the list only renders while the panel has a layer to point at, so wait for the row instead of
-    // reading the DOM once: under two workers the re-slice re-renders after `waitSliceDone` returned
-    await expect(app.locator('.code-list li')).toHaveCount(1);
+    // the panel renders its list with the frame after the re-slice, so wait for the row instead of
+    // reading the DOM once right after `waitSliceDone` returned (the assertions below are unchanged)
+    await app.waitForFunction(() => document.querySelectorAll('.code-list li').length === 1, null, { timeout: 60_000 });
+    const after = await app.evaluate(() => ({
+      codes: window.webslicer.getState().customGcodes.map((c) => c.type),
+      rows: document.querySelectorAll('.code-list li').length,
+    }));
+    expect(after).toEqual({ codes: ['color_change'], rows: 1 });
   });
 });
 
