@@ -62,9 +62,9 @@ export function ObjectsSection() {
       : 'Merge: select two or more objects with a single instance';
 
   return (
-    <section className="objects">
+    <section className="objects" data-testid="object-list">
       <SectionHeader title={`Objects (${objects.length})`}>
-        <div className="tools">
+        <div className="tools" data-testid="object-toolbar">
           <ToolbarButton title="Undo (Ctrl+Z)" icon={ACTION_ICONS.undo} onClick={undo} disabled={!canUndo} />
           <ToolbarButton title="Redo (Ctrl+Y)" icon={ACTION_ICONS.redo} onClick={redo} disabled={!canRedo} />
           <span className="tool-sep" aria-hidden="true" />

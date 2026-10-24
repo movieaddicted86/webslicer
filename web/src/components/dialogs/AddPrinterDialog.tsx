@@ -391,9 +391,9 @@ export function AddPrinterDialog({ onClose }: { onClose: () => void }) {
               ))}
               {!models.length && <div className="muted">No models.</div>}
             </div>
-            <div className="modal-actions">
+            <div className="modal-actions" data-testid="modal-actions">
               <span className="muted small">{sel.length} printer variants selected</span>
-              <button className="primary" onClick={save}>
+              <button className="primary" data-testid="modal-primary" onClick={save}>
                 Apply
               </button>
             </div>
@@ -471,9 +471,9 @@ export function AddPrinterDialog({ onClose }: { onClose: () => void }) {
             Creates a user printer preset from the default profile. The next step asks for the filament that belongs to it; start/end G-code
             and retraction are adjusted afterwards in Printer Settings.
           </p>
-          <div className="modal-actions">
+          <div className="modal-actions" data-testid="modal-actions">
             <span className="muted small">Step 1 of 2 – Printer</span>
-            <button className="primary" disabled={nextBlocked} onClick={() => setStep(2)}>
+            <button className="primary" data-testid="modal-primary" disabled={nextBlocked} onClick={() => setStep(2)}>
               Next
             </button>
           </div>

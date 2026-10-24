@@ -60,18 +60,22 @@ test.describe('preview: the sliced result (UAT-14)', () => {
     // the whole range is shown when the preview opens
     expect(slice.range).toEqual([0, slice.layers - 1]);
 
-    expect(await app.locator('.preview-panel').count()).toBe(1);
+    expect(await app.locator('[data-testid="preview-panel"]').count()).toBe(1);
     expect(await app.locator('.object-list').count()).toBe(0);
-    expect(await app.locator('.quick-settings').count()).toBe(0);
+    expect(await app.locator('[data-testid="quick-settings"]').count()).toBe(0);
 
     const stats = await app.evaluate(() => ({
-      head: document.querySelector('.stats .section-head')?.textContent,
-      rows: Array.from(document.querySelectorAll('.stats table tr')).map((tr) =>
+      head: document.querySelector('[data-testid="sliced-info"] .section-head')?.textContent,
+      rows: Array.from(document.querySelectorAll('[data-testid="sliced-info"] table tr')).map((tr) =>
         Array.from(tr.children).map((td) => td.getAttribute('title') || td.textContent),
       ),
-      href: document.querySelector('.stats a.button.primary')?.getAttribute('href'),
-      actions: Array.from(document.querySelectorAll('.stats .actions a, .stats .actions button')).map((b) => b.textContent),
-      sendDisabled: (document.querySelector('.stats .actions button.secondary:last-of-type') as HTMLButtonElement | null)?.disabled,
+      href: document.querySelector('[data-testid="sliced-info"] a.button.primary')?.getAttribute('href'),
+      actions: Array.from(
+        document.querySelectorAll('[data-testid="sliced-info"] .actions a, [data-testid="sliced-info"] .actions button'),
+      ).map((b) => b.textContent),
+      sendDisabled: (
+        document.querySelector('[data-testid="sliced-info"] .actions button.secondary:last-of-type') as HTMLButtonElement | null
+      )?.disabled,
     }));
     expect(stats.head).toContain('Sliced info');
     const labels = stats.rows.map((r) => r[0]);
@@ -88,7 +92,7 @@ test.describe('preview: the sliced result (UAT-14)', () => {
     await openPreview(app);
     const [download] = await Promise.all([
       app.waitForEvent('download', { timeout: 90_000 }),
-      app.locator('.stats a.button.primary').click(),
+      app.locator('[data-testid="sliced-info"] a.button.primary').click(),
     ]);
     const file = await download.path();
     expect(file).toBeTruthy();
@@ -153,8 +157,8 @@ test.describe('preview: the sliders (UAT-06, UAT-19)', () => {
 
   test('the top layer slider of the panel sets the range, the field follows', async ({ app }) => {
     await openPreview(app);
-    const top = app.locator('.layers .slider-with-markers input[type=range]');
-    await fill(app, '.layers .slider-with-markers input[type=range]', '10', 800);
+    const top = app.locator('[data-testid="layer-slider"]');
+    await fill(app, '[data-testid="layer-slider"]', '10', 800);
     expect(await read(app, (s) => s.previewLayerRange)).toEqual([0, 10]);
     expect(await top.inputValue()).toBe('10');
     expect(await app.locator('.layers .section-head').textContent()).toContain('Layers 1 – 11');
@@ -181,23 +185,23 @@ test.describe('preview: the sliders (UAT-06, UAT-19)', () => {
     for (const step of steps) expect(step.drawn, 'the markers up to the cut').toBe(step.expected);
     expect(steps[0].drawn).toBeGreaterThan(steps[1].drawn);
 
-    const note = await app.locator('.move-slider .muted.small').textContent();
+    const note = await app.locator('[data-testid="move-slider-panel"] .muted.small').textContent();
     await app.evaluate(() => window.webslicer.getState().setPreviewMoveCut(undefined));
     await app.waitForTimeout(1000);
     expect((await markerKindProbe(app))?.drawn).toBe(probe.total);
-    expect(await app.locator('.move-slider .muted.small').textContent()).not.toBe(note);
+    expect(await app.locator('[data-testid="move-slider-panel"] .muted.small').textContent()).not.toBe(note);
     expect(note).toMatch(/\/ \d+ moves/);
   });
 
   test('the code buttons add a colour change and a pause with their slider markers', async ({ app }) => {
     const jobId = await openPreview(app);
-    await fill(app, '.layers .slider-with-markers input[type=range]', '10', 800);
+    await fill(app, '[data-testid="layer-slider"]', '10', 800);
     await click(app, '.layer-codes-add button:has-text("Color")', 700);
     await waitSliceDone(app, jobId);
     const afterColor = await read(app, (s) => s.job?.id);
     expect(afterColor).not.toBe(jobId);
 
-    await fill(app, '.layers .slider-with-markers input[type=range]', '20', 800);
+    await fill(app, '[data-testid="layer-slider"]', '20', 800);
     await click(app, '.layer-codes-add button:has-text("Pause")', 700);
     await waitSliceDone(app, afterColor);
 
@@ -339,14 +343,14 @@ test.describe('preview: what is drawn (UAT-19)', () => {
     // the legend row of the same feature is the second way to hide it
     await app.evaluate(() => window.webslicer.getState().setPreviewColorMode('feature'));
     await app.waitForTimeout(600);
-    const first = app.locator('.legend.features li:not(.static)').first();
+    const first = app.locator('[data-testid="legend"].features li:not(.static)').first();
     const name = (await first.locator('.name').textContent()) ?? '';
     expect(await first.locator('.pct').textContent()).toMatch(/%$/);
     expect(await first.locator('.len').textContent()).toMatch(/m$/);
     await first.click();
     await app.waitForTimeout(700);
     expect((await read(app, (s) => s.previewFeatureVisibility))[name]).toBe(false);
-    await expect(app.locator('.legend.features li', { hasText: name }).first()).toHaveClass(/off/);
+    await expect(app.locator('[data-testid="legend"].features li', { hasText: name }).first()).toHaveClass(/off/);
     await first.click();
     await app.waitForTimeout(500);
   });
@@ -361,13 +365,13 @@ test.describe('preview: what is drawn (UAT-19)', () => {
     for (const mode of modes) {
       await app.locator('.view-mode select').selectOption(mode);
       await app.waitForTimeout(800);
-      const legend = app.locator('.legend').first();
+      const legend = app.locator('[data-testid="legend"]').first();
       const has = await legend.count();
       seen[mode] = {
         mode: await read(app, (s) => s.previewColorMode),
         segs: (await gcodeScene(app)).segs,
         legend: has ? await legend.getAttribute('class') : null,
-        lines: has ? (await outline(app, '.legend')).length : 0,
+        lines: has ? (await outline(app, '[data-testid="legend"]')).length : 0,
       };
     }
     // the geometry is repainted, never rebuilt: every mode draws the same toolpaths

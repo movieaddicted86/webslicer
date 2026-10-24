@@ -11,7 +11,7 @@ import { CUBE, importFile, press, read, rest, settle, sliceAndWait, state, waitU
 import { expect, test } from '../helpers/fixtures';
 
 /** The object info lines of the object list, as text. */
-const infoLines = (app: Parameters<typeof read>[0]) => app.locator('.object-row + .object-info').allInnerTexts();
+const infoLines = (app: Parameters<typeof read>[0]) => app.locator('[data-testid="object-info"]').allInnerTexts();
 
 /** Total filament (mm) of the current job. */
 const filament = (app: Parameters<typeof read>[0]) => read(app, (s) => (s.job?.info?.filamentUsedMm || []).reduce((a, b) => a + b, 0));
@@ -56,9 +56,9 @@ test.describe('cut', () => {
       s.setCutSettings({ z: 10, keep: 'both', placeOnCut: false, flipUpper: false });
     }, id);
     await settle(app, 400);
-    await expect(app.locator('.tool-panel')).toBeVisible();
+    await expect(app.locator('[data-testid="tool-panel"]')).toBeVisible();
 
-    await app.locator('.tool-panel button:has-text("Perform cut")').click();
+    await app.locator('[data-testid="tool-panel"] button:has-text("Perform cut")').click();
     // the server cuts with the CLI and the two models come back; the viewer loads them
     await app.waitForFunction(
       (prev) => {
@@ -101,8 +101,8 @@ test.describe('cut', () => {
       s.setCutSettings({ z: 10, rotX: 30, rotY: 0, keep: 'both' });
     });
     await settle(app, 400);
-    await expect(app.locator('.tool-panel')).toBeVisible();
-    await app.locator('.tool-panel button:has-text("Perform cut")').click();
+    await expect(app.locator('[data-testid="tool-panel"]')).toBeVisible();
+    await app.locator('[data-testid="tool-panel"] button:has-text("Perform cut")').click();
     await app.waitForFunction(() => window.webslicer.getState().objects.length === 2, null, { timeout: 180_000 });
     await settle(app, 800);
 
@@ -127,9 +127,9 @@ test.describe('cut', () => {
     const before = await state(app);
     const id = before.objects[0].id;
     await press(app, 'c');
-    await expect(app.locator('.tool-panel')).toBeVisible();
+    await expect(app.locator('[data-testid="tool-panel"]')).toBeVisible();
     await app.evaluate(() => window.webslicer.getState().setCutSettings({ z: 10, keep: 'both' }));
-    await app.locator('.tool-panel button:has-text("Perform cut")').click();
+    await app.locator('[data-testid="tool-panel"] button:has-text("Perform cut")').click();
     await app.waitForFunction(() => window.webslicer.getState().objects.length === 2, null, { timeout: 180_000 });
     await settle(app, 800);
 
@@ -151,7 +151,7 @@ test.describe('cut', () => {
     await waitUploads(app);
     await settle(app, 800);
     // T-055: the cut button lives in the 3D view's tool bar, not in the object toolbar
-    const button = app.locator('.tool-bar button[title="Cut (C): Remove modifiers and parts first"]');
+    const button = app.locator('[data-testid="tool-cut"]');
     await expect(button).toBeDisabled();
     // and the endpoint refuses a plane without direction, whatever the UI does
     const res = await rest(app, 'POST', '/api/cut', {

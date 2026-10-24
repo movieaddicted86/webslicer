@@ -85,7 +85,7 @@ export function UnsavedChangesDialog({ onClose, payload }: { onClose: () => void
         </label>
         {nameTaken && <div className="error small">A system preset with this name exists; choose a different name.</div>}
       </div>
-      <div className="modal-actions">
+      <div className="modal-actions" data-testid="modal-actions">
         <button onClick={cancel}>Cancel</button>
         <button onClick={discard} disabled={busy}>
           Discard
@@ -95,6 +95,7 @@ export function UnsavedChangesDialog({ onClose, payload }: { onClose: () => void
         </button>
         <button
           className="primary"
+          data-testid="modal-primary"
           disabled={transferDisabled || busy}
           title={transferDisabled ? 'Printer settings are not transferred to another printer' : 'Keep the changes in the new preset'}
           onClick={transfer}

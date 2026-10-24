@@ -21,9 +21,9 @@ export function SimpleObjects() {
   const { addInstance, removeOneInstance, instanceCount } = useInstanceActions();
 
   return (
-    <section className="objects simple">
+    <section className="objects simple" data-testid="object-list">
       <SectionHeader title={`Objects (${objects.length})`}>
-        <div className="tools">
+        <div className="tools" data-testid="object-toolbar">
           <ToolbarButton title="Arrange (A)" icon={ACTION_ICONS.arrange} onClick={arrange} disabled={!objects.length} />
           <ArrangeSettingsMenu />
           <span className="tool-sep" aria-hidden="true" />

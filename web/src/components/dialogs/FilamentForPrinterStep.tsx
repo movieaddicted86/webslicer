@@ -111,10 +111,10 @@ export function FilamentForPrinterStep({ filamentName, onFilamentName, values, o
           A filament preset with this name exists and will be overwritten.
         </div>
       )}
-      <div className="modal-actions">
+      <div className="modal-actions" data-testid="modal-actions">
         <span className="muted small">Step 2 of 2 – Filament</span>
         <button onClick={onBack}>Back</button>
-        <button className="primary" onClick={onSave} disabled={saving || blocked || !filamentName.trim()}>
+        <button className="primary" data-testid="modal-primary" onClick={onSave} disabled={saving || blocked || !filamentName.trim()}>
           Save
         </button>
       </div>

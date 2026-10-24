@@ -173,9 +173,14 @@ export function SendToPrinterDialog({ onClose }: { onClose: () => void }) {
             and want to start the print
           </label>
         )}
-        <div className="modal-actions">
+        <div className="modal-actions" data-testid="modal-actions">
           <button onClick={onClose}>Cancel</button>
-          <button className="primary" onClick={send} disabled={busy || !printerId || blocked || warnUnconfirmed}>
+          <button
+            className="primary"
+            data-testid="modal-primary"
+            onClick={send}
+            disabled={busy || !printerId || blocked || warnUnconfirmed}
+          >
             {busy ? 'Uploading…' : 'Upload'}
           </button>
         </div>

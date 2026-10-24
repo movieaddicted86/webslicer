@@ -2,9 +2,10 @@
  * The DOM side: dialogs, the sidebar, the "DOM outline" the old t18 captures compared line by line.
  *
  * The outline is kept as a *diagnostic*: a failing assertion prints it, so the difference is visible
- * without a screenshot. The assertions themselves are roles, texts and classes.
+ * without a screenshot. The assertions themselves are roles, texts and the stable `data-testid` hooks.
  */
 import type { Page } from '@playwright/test';
+import { byId } from './hooks';
 
 export interface DialogSnapshot {
   title: string | null;
@@ -51,28 +52,28 @@ export async function outline(page: Page, selector: string): Promise<string[]> {
 /** Open one of the app's dialogs the way its own menu does, and wait for it to render. */
 export async function openDialog(page: Page, kind: string, payload?: unknown): Promise<void> {
   await page.evaluate(([k, p]) => window.webslicer.getState().openDialog(k as string, p), [kind, payload ?? null]);
-  await page.waitForSelector('.modal', { state: 'visible', timeout: 20_000 });
+  await page.waitForSelector('[data-testid="modal"]', { state: 'visible', timeout: 20_000 });
   await page.waitForTimeout(400);
 }
 
 export async function closeDialog(page: Page, how: 'escape' | 'x' | 'backdrop'): Promise<void> {
   if (how === 'escape') await page.keyboard.press('Escape');
-  else if (how === 'x') await page.locator('.modal-head button.icon').first().click();
-  else await page.locator('.modal-backdrop').click({ position: { x: 4, y: 4 } });
+  else if (how === 'x') await byId(page, 'modal-close').first().click();
+  else await page.locator('[data-testid="modal-backdrop"]').click({ position: { x: 4, y: 4 } });
   await page.waitForTimeout(500);
 }
 
 /** Title, outline and button labels of the open dialog. */
 export async function dialogSnapshot(page: Page): Promise<DialogSnapshot> {
   const title = await page
-    .locator('.modal-head h2')
+    .locator('[data-testid="modal-title"]')
     .first()
     .textContent()
     .catch(() => null);
   return {
     title: title?.trim() ?? null,
-    outline: await outline(page, '.modal'),
-    buttons: (await page.locator('.modal-actions button').allInnerTexts()).map((t) => t.trim()),
+    outline: await outline(page, '[data-testid="modal"]'),
+    buttons: (await page.locator('[data-testid="modal-actions"] button').allInnerTexts()).map((t) => t.trim()),
   };
 }
 

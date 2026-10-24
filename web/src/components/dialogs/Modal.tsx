@@ -60,11 +60,21 @@ export function Modal({ title, children, onClose, wide }: { title: string; child
   }, [onClose]);
 
   return (
-    <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className={`modal ${wide ? 'wide' : ''}`} ref={boxRef} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1}>
+    <div className="modal-backdrop" data-testid="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div
+        className={`modal ${wide ? 'wide' : ''}`}
+        ref={boxRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        data-testid="modal"
+      >
         <div className="modal-head">
-          <h2 id={titleId}>{title}</h2>
-          <button className="icon" aria-label="Close" onClick={onClose}>
+          <h2 id={titleId} data-testid="modal-title">
+            {title}
+          </h2>
+          <button className="icon" aria-label="Close" data-testid="modal-close" onClick={onClose}>
             <ACTION_ICONS.close size={16} strokeWidth={2} aria-hidden="true" focusable="false" />
           </button>
         </div>

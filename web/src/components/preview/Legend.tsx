@@ -21,7 +21,7 @@ function RangeLegend({ gcode, mode, estimatedSeconds }: { gcode: ParsedGcode; mo
   const label = (v: number) => (scheme.perLayer ? fmtLayerTime(v * timeScale) : v.toFixed(scheme.decimals));
   if (range[1] <= 0 && range[0] <= 0) return <div className="muted small">No data for this view in the G-code.</div>;
   return (
-    <ul className="legend range">
+    <ul className="legend range" data-testid="legend">
       {legendSteps(range, scheme.log).map((st, i) => (
         <li key={i}>
           <span className="swatch" style={{ background: st.color }} />
@@ -59,7 +59,7 @@ export function PreviewLegend({
   if (RANGE_SCHEMES[colorMode]) return <RangeLegend gcode={gcode} mode={colorMode} estimatedSeconds={estimatedSeconds} />;
   if (colorMode === 'tool') {
     return (
-      <ul className="legend">
+      <ul className="legend" data-testid="legend">
         {usedTools.map((t) => (
           <li key={t}>
             <span className="swatch" style={{ background: toolColors.split(',')[t] ?? baseColor }} />
@@ -71,7 +71,7 @@ export function PreviewLegend({
   }
   if (colorMode === 'colorprint') {
     return (
-      <ul className="legend">
+      <ul className="legend" data-testid="legend">
         {colorPrintSegments(baseColor, customGcodes, gcode.layerZ[gcode.layerCount - 1] ?? 0).map((s, i) => (
           <li key={i}>
             <span className="swatch" style={{ background: s.color }} />
@@ -85,7 +85,7 @@ export function PreviewLegend({
     );
   }
   return (
-    <ul className="legend features" title="Time, share of the print time (without travel) and extruded length">
+    <ul className="legend features" data-testid="legend" title="Time, share of the print time (without travel) and extruded length">
       {gcode.featureTypes.map((f) => (
         <li
           key={f}

@@ -196,7 +196,7 @@ test.describe('camera: the bed', () => {
 
   test('the object row marks an off-bed and a too-tall instance', async ({ app }) => {
     await importFile(app, CUBE);
-    const row = app.locator('.object-row').first();
+    const row = app.locator('[data-testid="object-row"]').first();
     await expect(row).not.toHaveClass(/outside/);
 
     // the instance goes off the bed (its x centre leaves the 250 mm plate) …

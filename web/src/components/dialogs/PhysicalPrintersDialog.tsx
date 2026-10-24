@@ -79,8 +79,8 @@ export function PhysicalPrintersDialog({ onClose }: { onClose: () => void }) {
             ))}
             {!printers.length && <li className="muted">No printers configured.</li>}
           </ul>
-          <div className="modal-actions">
-            <button className="primary" onClick={() => setEdit(empty)}>
+          <div className="modal-actions" data-testid="modal-actions">
+            <button className="primary" data-testid="modal-primary" onClick={() => setEdit(empty)}>
               Add printer
             </button>
           </div>
@@ -170,12 +170,12 @@ export function PhysicalPrintersDialog({ onClose }: { onClose: () => void }) {
             </button>
           </fieldset>
           {testing && <div className={`small ${testing.startsWith('✓') ? 'success' : 'error'}`}>{testing}</div>}
-          <div className="modal-actions">
+          <div className="modal-actions" data-testid="modal-actions">
             <button onClick={() => setEdit(null)}>Cancel</button>
             <button onClick={test} disabled={!edit.host}>
               Test connection
             </button>
-            <button className="primary" onClick={save} disabled={!edit.host || !edit.name}>
+            <button className="primary" data-testid="modal-primary" onClick={save} disabled={!edit.host || !edit.name}>
               Save
             </button>
           </div>

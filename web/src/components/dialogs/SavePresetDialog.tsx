@@ -37,9 +37,14 @@ export function SavePresetDialog({ onClose, payload }: { onClose: () => void; pa
         {exists?.system && <div className="error small">A system preset with this name exists; choose a different name.</div>}
         {exists && !exists.system && <div className="warn small">User preset will be overwritten.</div>}
         {!isModified(slot) && <div className="muted small">No changes yet – saving creates a copy of the current preset.</div>}
-        <div className="modal-actions">
+        <div className="modal-actions" data-testid="modal-actions">
           <button onClick={onClose}>Cancel</button>
-          <button className="primary" onClick={save} disabled={!name.trim() || name.trim().startsWith('-') || !!exists?.system}>
+          <button
+            className="primary"
+            data-testid="modal-primary"
+            onClick={save}
+            disabled={!name.trim() || name.trim().startsWith('-') || !!exists?.system}
+          >
             Save
           </button>
         </div>

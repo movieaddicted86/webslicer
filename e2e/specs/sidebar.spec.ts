@@ -38,9 +38,9 @@ test.describe('sidebar: the plater view with one object', () => {
   });
 
   test('the sidebar shows one object row, one manipulation panel and the slice panel', async ({ app }) => {
-    expect(await app.locator('.object-row').count()).toBe(1);
+    expect(await app.locator('[data-testid="object-row"]').count()).toBe(1);
     expect(await app.locator('.manip').count()).toBe(1);
-    expect(await app.locator('.slice-panel').count()).toBe(1);
+    expect(await app.locator('[data-testid="slice-panel"]').count()).toBe(1);
   });
 
   test('the manipulation panel has the four XYZ rows with three inputs each', async ({ app }) => {
@@ -110,18 +110,18 @@ test.describe('sidebar: the plater view with one object', () => {
     await field.fill('3');
     await settle(app, 900);
     expect(await read(app, (s) => s.objects[0].instances.length)).toBe(3);
-    await expect(app.locator('.object-row .badge.inst')).toHaveText('×3');
+    await expect(app.locator('[data-testid="object-instances-badge"]')).toHaveText('×3');
 
     // AC-2.1: an out-of-range count is rejected; the field keeps the typed text until it is left
     await field.fill('1001');
     await app.waitForTimeout(400);
     expect(await read(app, (s) => s.objects[0].instances.length)).toBe(3);
-    await app.locator('.slice-panel').click({ position: { x: 5, y: 5 } });
+    await app.locator('[data-testid="slice-panel"]').click({ position: { x: 5, y: 5 } });
     await app.waitForTimeout(500);
     expect(await read(app, (s) => s.objects[0].instances.length)).toBe(3);
     expect(await field.inputValue()).toBe('3');
 
-    await click(app, '.object-row .badge.inst', 700);
+    await click(app, '[data-testid="object-instances-badge"]', 700);
     expect(await app.locator('.instance-list .instance-row').count()).toBe(3);
 
     // rotating the second copy turns only that copy
@@ -139,7 +139,7 @@ test.describe('sidebar: the plater view with one object', () => {
   });
 
   test('the visibility checkbox toggles the printable flag', async ({ app }) => {
-    const box = app.locator('.object-row input[type=checkbox]').first();
+    const box = app.locator('[data-testid="object-row"] input[type=checkbox]').first();
     await expect(box).toHaveAttribute('title', 'Visible / printable');
     await box.click();
     await app.waitForTimeout(500);
@@ -161,7 +161,7 @@ test.describe('sidebar: volumes and height ranges (UAT-10, UAT-11)', () => {
   });
 
   test('the "+" menu adds a Modifier box, the volume panel edits it and deletes it', async ({ app }) => {
-    await click(app, '.object-row .icon.add', 700);
+    await click(app, '[data-testid="object-add-volume"]', 700);
     const menu = await app.evaluate(() => ({
       rows: Array.from(document.querySelectorAll('.add-volume-row')).map((r) =>
         Array.from(r.querySelectorAll('button')).map((b) => b.textContent),
@@ -202,7 +202,7 @@ test.describe('sidebar: volumes and height ranges (UAT-10, UAT-11)', () => {
     expect(await app.locator('.volume-row').count()).toBe(0);
 
     // and it can be added again
-    await click(app, '.object-row .icon.add', 600);
+    await click(app, '[data-testid="object-add-volume"]', 600);
     await click(app, '.add-volume-row:has-text("Modifier") button:text-is("box")', 800);
     await waitUploads(app);
     await settle(app, 1200);
@@ -210,7 +210,7 @@ test.describe('sidebar: volumes and height ranges (UAT-10, UAT-11)', () => {
   });
 
   test('"+ Range" adds a range row whose three fields edit minZ, maxZ and the layer height', async ({ app }) => {
-    await click(app, '.object-row', 400);
+    await click(app, '[data-testid="object-row"]', 400);
     await click(app, '.range-panel .section-head button', 800);
     const range = await read(app, (s) => {
       const r = s.objects[0].ranges[0];
@@ -240,21 +240,21 @@ test.describe('sidebar: the paint panel (UAT-09)', () => {
     await settle(app, 700);
 
     // T-046: painting left the sidebar – the left tool bar of the 3D view opens its panel
-    await click(app, '.tool-bar button[title="Paint supports (L)"]', 800);
+    await click(app, '[data-testid="tool-paintSupports"]', 800);
     expect(await read(app, (s) => s.activeTool)).toBe('paintSupports');
-    await expect(app.locator('.tool-panel')).toBeVisible();
+    await expect(app.locator('[data-testid="tool-panel"]')).toBeVisible();
     expect(await app.locator('.paint-tools .tool').count()).toBe(3);
-    expect(await app.locator('.tool-panel-foot .tool-clear').isDisabled()).toBe(true);
+    expect(await app.locator('[data-testid="tool-panel-foot"] .tool-clear').isDisabled()).toBe(true);
 
     await click(app, '.paint-tools .tool.blocker input', 600);
-    await fill(app, '.tool-panel .brush input[type=range]', '4.5', 600);
+    await fill(app, '[data-testid="tool-panel"] .brush input[type=range]', '4.5', 600);
     const tools = await read(app, (s) => ({ tool: s.paintTool, brush: s.brushRadius }));
     expect(tools).toEqual({ tool: 'blocker', brush: 4.5 });
-    await expect(app.locator('.tool-panel .brush span')).toHaveText(/Brush 4\.5 mm/);
+    await expect(app.locator('[data-testid="tool-panel"] .brush span')).toHaveText(/Brush 4\.5 mm/);
 
-    await click(app, '.tool-panel-close', 800);
+    await click(app, '[data-testid="tool-panel-close"]', 800);
     expect(await read(app, (s) => s.activeTool ?? null)).toBeNull();
-    expect(await app.locator('.tool-panel').count()).toBe(0);
+    expect(await app.locator('[data-testid="tool-panel"]').count()).toBe(0);
   });
 
   test('a paint stroke marks triangles of the support enforcer', async ({ app }) => {
@@ -306,7 +306,7 @@ test.describe('sidebar: the paint panel (UAT-09)', () => {
 test.describe('sidebar: quick settings and the mode switch', () => {
   test('the quick settings write the print preset and can be switched back', async ({ app }) => {
     await importFile(app, CUBE);
-    await app.locator('.quick-settings select').first().selectOption('enforcers');
+    await app.locator('[data-testid="quick-settings"] select').first().selectOption('enforcers');
     await app.waitForTimeout(900);
     const enforcers = await read(app, (s) => ({
       support: s.presets.print.current.support_material,
@@ -315,13 +315,13 @@ test.describe('sidebar: quick settings and the mode switch', () => {
     }));
     expect(enforcers).toEqual({ support: '1', auto: '0', buildplate: '0' });
 
-    await app.locator('.quick-settings select').nth(1).selectOption('40%');
+    await app.locator('[data-testid="quick-settings"] select').nth(1).selectOption('40%');
     await app.waitForTimeout(900);
     expect(await read(app, (s) => s.presets.print.current.fill_density)).toBe('40%');
-    expect(await app.locator('.quick-settings select').count()).toBe(3);
+    expect(await app.locator('[data-testid="quick-settings"] select').count()).toBe(3);
 
     // the brim checkbox toggles, so start from "off" whatever the preset carries
-    const brim = app.locator('.quick-settings label.checkbox input');
+    const brim = app.locator('[data-testid="quick-settings"] label.checkbox input');
     if (await brim.isChecked()) await brim.click();
     await app.waitForTimeout(600);
     await brim.click();
@@ -335,15 +335,15 @@ test.describe('sidebar: quick settings and the mode switch', () => {
     await expect(brim).toBeChecked();
 
     await brim.click();
-    await app.locator('.quick-settings select').first().selectOption('none');
-    await app.locator('.quick-settings select').nth(1).selectOption('15%');
+    await app.locator('[data-testid="quick-settings"] select').first().selectOption('none');
+    await app.locator('[data-testid="quick-settings"] select').nth(1).selectOption('15%');
     await settle(app, 900);
     const back = await read(app, (s) => ({
       support: s.presets.print.current.support_material,
       fill: s.presets.print.current.fill_density,
     }));
     expect(back).toEqual({ support: '0', fill: '15%' });
-    await expect(app.locator('.quick-settings button.link')).toHaveText('All print settings…');
+    await expect(app.locator('[data-testid="quick-settings"] button.link')).toHaveText('All print settings…');
   });
 
   test('Simple mode hides the object list and the manipulation panel, Advanced brings them back', async ({ app }) => {
@@ -353,8 +353,8 @@ test.describe('sidebar: quick settings and the mode switch', () => {
     const simple = await app.evaluate(() => ({
       classicList: document.querySelectorAll('.object-list').length,
       manip: document.querySelectorAll('.manip').length,
-      quick: document.querySelectorAll('.quick-settings').length,
-      tools: document.querySelectorAll('section.objects.simple .tools button').length,
+      quick: document.querySelectorAll('[data-testid="quick-settings"]').length,
+      tools: document.querySelectorAll('[data-testid="object-toolbar"] button').length,
     }));
     expect(simple).toEqual({ classicList: 0, manip: 0, quick: 1, tools: 6 });
 
@@ -362,8 +362,8 @@ test.describe('sidebar: quick settings and the mode switch', () => {
     await settle(app, 900);
     const advanced = await app.evaluate(() => ({
       mode: window.webslicer.getState().mode,
-      rows: document.querySelectorAll('.object-row').length,
-      tools: document.querySelectorAll('.objects .section-head .tools button').length,
+      rows: document.querySelectorAll('[data-testid="object-row"]').length,
+      tools: document.querySelectorAll('[data-testid="object-toolbar"] button').length,
     }));
     expect(advanced).toEqual({ mode: 'advanced', rows: 1, tools: 10 });
   });
@@ -374,7 +374,7 @@ test.describe('sidebar: quick settings and the mode switch', () => {
     await settle(app, 700);
 
     const toolbar = await app.evaluate(() => {
-      const tools = document.querySelector('.objects .section-head .tools') as HTMLElement;
+      const tools = document.querySelector('[data-testid="object-toolbar"]') as HTMLElement;
       return {
         buttons: Array.from(tools.querySelectorAll('button')).map((b) => ({
           label: b.getAttribute('aria-label'),
@@ -421,9 +421,9 @@ test.describe('sidebar: quick settings and the mode switch', () => {
 
     // AC-2: the narrowest sidebar width wraps the toolbar instead of shrinking it
     const narrow = await app.evaluate(() => {
-      const sidebar = document.querySelector('.sidebar') as HTMLElement;
+      const sidebar = document.querySelector('[data-testid="sidebar"]') as HTMLElement;
       sidebar.style.width = '320px';
-      const tools = document.querySelector('.objects .section-head .tools') as HTMLElement;
+      const tools = document.querySelector('[data-testid="object-toolbar"]') as HTMLElement;
       const buttons = Array.from(tools.querySelectorAll('button')).map((b) => Math.round(b.getBoundingClientRect().width));
       return {
         overflow: sidebar.scrollWidth - sidebar.clientWidth,
@@ -437,13 +437,13 @@ test.describe('sidebar: quick settings and the mode switch', () => {
     // the icons keep their size; the toolbar uses a second line
     expect(narrow.widths.every((w) => w >= 30)).toBe(true);
     expect(narrow.lines).toBeGreaterThan(1);
-    await app.evaluate(() => ((document.querySelector('.sidebar') as HTMLElement).style.width = ''));
+    await app.evaluate(() => ((document.querySelector('[data-testid="sidebar"]') as HTMLElement).style.width = ''));
 
     // the same icons in Simple mode
     await app.evaluate(() => window.webslicer.getState().setMode('simple'));
     await settle(app, 700);
     const simple = await app.evaluate(() =>
-      Array.from(document.querySelectorAll('section.objects.simple .tools button svg')).map((s) => s.getAttribute('width')),
+      Array.from(document.querySelectorAll('[data-testid="object-toolbar"] button svg')).map((s) => s.getAttribute('width')),
     );
     expect(simple).toEqual(Array(6).fill('18'));
     await app.evaluate(() => window.webslicer.getState().setMode('advanced'));
@@ -454,7 +454,7 @@ test.describe('sidebar: quick settings and the mode switch', () => {
     await importFile(app, CUBE);
     await importFile(app, CUBE, { clear: false });
     await settle(app, 700);
-    await click(app, '.section-head .tools button[title="Arrange settings"]');
+    await click(app, '[data-testid="object-toolbar"] button[title="Arrange settings"]');
     await expect(app.locator('.arrange-popover')).toBeVisible();
     const spacing = app.locator('.arrange-popover input[type="number"]');
     await spacing.fill('20');
@@ -463,23 +463,23 @@ test.describe('sidebar: quick settings and the mode switch', () => {
     expect(await read(app, (s) => s.arrangeSettings)).toEqual({ spacing: 20, rotations: false, alignment: 'center' });
     expect(await app.evaluate(() => localStorage.getItem('webslicer.arrange'))).toContain('"spacing":20');
 
-    await click(app, '.section-head .tools button[title="Arrange (A)"]');
+    await click(app, '[data-testid="object-toolbar"] button[title="Arrange (A)"]');
     await settle(app, 500);
     const wide = await read(app, (s) => s.objects.map((o) => o.instances[0].position[0]));
     // 20 mm cubes with 20 mm between them
     expect(Math.abs(wide[0] - wide[1])).toBeCloseTo(40, 5);
 
     // corner alignment puts the block into the bed corner instead of the middle
-    await click(app, '.section-head .tools button[title="Arrange settings"]');
+    await click(app, '[data-testid="object-toolbar"] button[title="Arrange settings"]');
     await app.locator('.arrange-popover select').selectOption('corner');
-    await click(app, '.section-head .tools button[title="Arrange (A)"]');
+    await click(app, '[data-testid="object-toolbar"] button[title="Arrange (A)"]');
     await settle(app, 500);
     const placed = await read(app, (s) => s.objects.flatMap((o) => o.instances.map((i) => i.position)));
     expect(Math.min(...placed.map((p) => p[0]))).toBeCloseTo(20, 5);
     expect(Math.min(...placed.map((p) => p[1]))).toBeCloseTo(20, 5);
 
     // an emptied field goes back to the print profile's spacing
-    await click(app, '.section-head .tools button[title="Arrange settings"]');
+    await click(app, '[data-testid="object-toolbar"] button[title="Arrange settings"]');
     await spacing.fill('');
     await spacing.press('Enter');
     await settle(app, 300);
@@ -495,10 +495,10 @@ test.describe('sidebar: the extruder palette (F-21)', () => {
     await app.waitForTimeout(1800);
     expect(await read(app, (s) => s.extruderCount())).toBe(6);
     // T-046: the tool bar lists the extruder tool, and it is only enabled with several extruders
-    await expect(app.locator('.tool-bar button[title="Paint extruder"]')).toBeEnabled();
-    await expect(app.locator('.tool-bar button[title="Paint supports (L)"]')).toBeEnabled();
+    await expect(app.locator('[data-testid="tool-paintMmu"]')).toBeEnabled();
+    await expect(app.locator('[data-testid="tool-paintSupports"]')).toBeEnabled();
 
-    await click(app, '.tool-bar button[title="Paint extruder"]', 900);
+    await click(app, '[data-testid="tool-paintMmu"]', 900);
     expect(await read(app, (s) => s.activeTool)).toBe('paintMmu');
     const palette = await app.evaluate(() => ({
       swatches: Array.from(document.querySelectorAll('.paint-tools .tool.extruder .swatch')).map(
@@ -512,20 +512,20 @@ test.describe('sidebar: the extruder palette (F-21)', () => {
     expect(palette.labels.map((l) => l?.replace(/\s+/g, ' ').trim())).toEqual(['1', '2', '3', '4', '5', '6']);
 
     // back to a single extruder: the panel closes by its ✕, and the bar disables the tool with the reason
-    await click(app, '.tool-panel-close', 800);
+    await click(app, '[data-testid="tool-panel-close"]', 800);
     expect(await read(app, (s) => s.activeTool ?? null)).toBeNull();
     await app.evaluate(() => window.webslicer.getState().setOption('printer', 'nozzle_diameter', '0.4'));
     await settle(app, 900);
     expect(await read(app, (s) => s.extruderCount())).toBe(1);
     expect(await app.locator('.paint-tools .tool.extruder .swatch').count()).toBe(0);
-    await expect(app.locator('.tool-bar button[title="Paint extruder: Needs a multi-extruder printer"]')).toBeDisabled();
+    await expect(app.locator('[data-testid="tool-paintMmu"]')).toBeDisabled();
   });
 });
 
 test.describe('sidebar: the DOM outline stays a diagnostic', () => {
   test('a failed sidebar assertion can print the outline it compared', async ({ app }) => {
     await importFile(app, CUBE);
-    const lines = await outline(app, '.sidebar');
+    const lines = await outline(app, '[data-testid="sidebar"]');
     expect(lines.length).toBeGreaterThan(10);
     expect(lines.some((l) => l.includes('.slice-panel'))).toBe(true);
     // the outline normalises dates, so a saved session cannot change it between two runs
@@ -560,11 +560,11 @@ test.describe('sidebar: the plate checks before slicing (T-034)', () => {
     });
     await settle(app, 800);
 
-    const button = app.locator('.slice-panel button.primary.big');
+    const button = app.locator('[data-testid="slice-button"]');
     await expect(button).toBeDisabled();
     await expect(button).toHaveAttribute('title', /skirt .* outside the print volume/);
     await expect(app.locator('.plate-issues li')).toHaveCount(1);
-    await expect(app.locator('.object-row')).not.toHaveClass(/outside/, { timeout: 2000 });
+    await expect(app.locator('[data-testid="object-row"]')).not.toHaveClass(/outside/, { timeout: 2000 });
 
     // back to the middle: the skirt fits and Slice is enabled again
     await app.evaluate(() => {
@@ -594,11 +594,11 @@ test.describe('sidebar: the plate checks before slicing (T-034)', () => {
     });
     await settle(app, 800);
 
-    const button = app.locator('.slice-panel button.primary.big');
+    const button = app.locator('[data-testid="slice-button"]');
     await expect(button).toBeDisabled();
     await expect(button).toHaveAttribute('title', /G-code path conflict/);
     // nothing is off the bed, so no row is red – the issue list carries the reason
-    await expect(app.locator('.object-row.outside')).toHaveCount(0);
+    await expect(app.locator('[data-testid="object-row"].outside')).toHaveCount(0);
     await expect(app.locator('.plate-issues li')).toHaveCount(1);
   });
 });

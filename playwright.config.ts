@@ -38,6 +38,9 @@ export default defineConfig({
   use: {
     baseURL,
     viewport: { width: 1280, height: 900 },
+    // the layout tasks move elements between regions, so the specs select them by their hook
+    // (`data-testid`, named by role – see `e2e/helpers/hooks.ts`), never by their place in a container
+    testIdAttribute: 'data-testid',
     // headless Chromium falls back to SwiftShader for WebGL; older builds need this switch
     launchOptions: { args: ['--enable-unsafe-swiftshader'] },
     trace: 'retain-on-failure',

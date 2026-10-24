@@ -38,7 +38,7 @@ export function SlicePanel() {
   const anyModified = isModified(presets.print) || isModified(presets.printer) || presets.filament.some(isModified);
 
   return (
-    <section className="slice-panel">
+    <section className="slice-panel" data-testid="slice-panel">
       {issues.length > 0 && (
         <ul className={`plate-issues ${blocking.length ? 'blocking' : ''}`}>
           {issues.map((i) => (
@@ -95,6 +95,7 @@ export function SlicePanel() {
       ) : (
         <button
           className="primary big"
+          data-testid="slice-button"
           onClick={slice}
           disabled={!objects.length || blocking.length > 0 || blockingLimits.length > 0}
           title={blockReason || undefined}

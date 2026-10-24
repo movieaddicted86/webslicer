@@ -22,13 +22,14 @@ export function MoveSlider({ gcode }: { gcode: ParsedGcode }) {
   const pos = toolPosition(gcode, value);
   const done = value - first + 1;
   return (
-    <div className="move-slider">
+    <div className="move-slider" data-testid="move-slider-panel">
       <label className="small" htmlFor={sliderId}>
         Move
       </label>
       <input
         id={sliderId}
         type="range"
+        data-testid="move-slider"
         min={first}
         max={last}
         value={value}

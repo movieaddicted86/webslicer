@@ -42,7 +42,7 @@ test.describe('dialogs: the per-object, per-volume and per-range settings (S6)',
     const name = (await plater(app)).objects[0].name;
     await click(app, '.manip .manip-row.extruder button.full', 800);
     const opened = await app.evaluate(() => ({
-      title: document.querySelector('.modal-head h2')?.textContent,
+      title: document.querySelector('[data-testid="modal-title"]')?.textContent,
       search: (document.querySelector('.object-settings-list input') as HTMLInputElement | null)?.placeholder,
       candidates: document.querySelectorAll('.object-settings-list li').length,
       empty: document.querySelector('.object-settings-values .muted')?.textContent?.trim(),
@@ -94,7 +94,7 @@ test.describe('dialogs: the per-object, per-volume and per-range settings (S6)',
   });
 
   test('a modifier offers only the per-volume settings, and the backdrop closes it', async ({ app }) => {
-    await click(app, '.object-row .icon.add', 700);
+    await click(app, '[data-testid="object-add-volume"]', 700);
     await click(app, '.add-volume-row:has-text("Modifier") button:text-is("box")', 900);
     await app.waitForTimeout(2000);
     await click(app, '.volume-row', 700);
@@ -102,7 +102,7 @@ test.describe('dialogs: the per-object, per-volume and per-range settings (S6)',
 
     await fill(app, '.object-settings-list input', 'layer', 700);
     const modifier = await app.evaluate(() => ({
-      title: document.querySelector('.modal-head h2')?.textContent,
+      title: document.querySelector('[data-testid="modal-title"]')?.textContent,
       empty: document.querySelector('.object-settings-values .muted')?.textContent?.trim(),
       labels: Array.from(document.querySelectorAll('.object-settings-list li span:first-child')).map((s) => s.textContent),
     }));
@@ -124,7 +124,7 @@ test.describe('dialogs: the per-object, per-volume and per-range settings (S6)',
 
     const name = (await plater(app)).objects[0].name;
     await click(app, '.range-row button.icon[title="Settings for this range"]', 800);
-    expect(await app.locator('.modal-head h2').textContent()).toBe(`Height range 1–6 mm – ${name}`);
+    expect(await app.locator('[data-testid="modal-title"]').textContent()).toBe(`Height range 1–6 mm – ${name}`);
     await closeDialog(app, 'x');
     expect(await dialogKind(app)).toBeUndefined();
 
@@ -139,13 +139,13 @@ test.describe('dialogs: the app dialogs (S11)', () => {
   test('the Printers dialog lists vendors, families and models, and its custom tab starts a two-step wizard', async ({ app }) => {
     await openDialog(app, 'addPrinter');
     const printers = await app.evaluate(() => ({
-      title: document.querySelector('.modal-head h2')?.textContent,
+      title: document.querySelector('[data-testid="modal-title"]')?.textContent,
       filter: (document.querySelector('.vendor-list input') as HTMLInputElement | null)?.placeholder,
       vendors: document.querySelectorAll('.vendor-list li').length,
       activeVendor: document.querySelector('.vendor-list li.active')?.textContent,
       families: Array.from(document.querySelectorAll('.model-list h3')).map((h) => h.textContent),
       models: document.querySelectorAll('.model-list .model').length,
-      actions: Array.from(document.querySelectorAll('.add-printer .modal-actions button')).map((b) => b.textContent),
+      actions: Array.from(document.querySelectorAll('.add-printer [data-testid="modal-actions"] button')).map((b) => b.textContent),
       tabs: Array.from(document.querySelectorAll('.subtabs button')).map((b) => b.textContent),
     }));
     expect(printers.title).toBe('Printers');
@@ -162,10 +162,10 @@ test.describe('dialogs: the app dialogs (S11)', () => {
       // the label text before the control only – a select's options are part of its textContent
       labels: Array.from(document.querySelectorAll('.custom-printer label')).map((l) => l.firstChild?.textContent?.trim()),
       flavors: Array.from(document.querySelectorAll('.custom-printer select option')).map((o) => (o as HTMLOptionElement).value),
-      action: document.querySelector('.custom-printer .modal-actions button')?.textContent,
-      disabled: (document.querySelector('.custom-printer .modal-actions button') as HTMLButtonElement | null)?.disabled,
+      action: document.querySelector('.custom-printer [data-testid="modal-actions"] button')?.textContent,
+      disabled: (document.querySelector('.custom-printer [data-testid="modal-actions"] button') as HTMLButtonElement | null)?.disabled,
       name: (document.querySelector('.custom-printer #custom-printer-name') as HTMLInputElement | null)?.value,
-      step: document.querySelector('.custom-printer .modal-actions .muted')?.textContent,
+      step: document.querySelector('.custom-printer [data-testid="modal-actions"] .muted')?.textContent,
     }));
     expect(custom.labels).toEqual([
       'Name',
@@ -182,7 +182,7 @@ test.describe('dialogs: the app dialogs (S11)', () => {
     expect(custom.name).toBe('My Printer');
     expect(custom.disabled).toBe(false);
     await fill(app, '.custom-printer #custom-printer-name', '', 500);
-    expect(await app.locator('.custom-printer .modal-actions button').isDisabled()).toBe(true);
+    expect(await app.locator('.custom-printer [data-testid="modal-actions"] button').isDisabled()).toBe(true);
     await closeDialog(app, 'escape');
   });
 
@@ -192,14 +192,14 @@ test.describe('dialogs: the app dialogs (S11)', () => {
     // the fixture data configures no host, so the dialog opens straight on the form of a new one
     await openDialog(app, 'physicalPrinters');
     const form = await app.evaluate(() => ({
-      title: document.querySelector('.modal-head h2')?.textContent,
+      title: document.querySelector('[data-testid="modal-title"]')?.textContent,
       // the label text before the control only – a select's options are part of its textContent
       labels: Array.from(document.querySelectorAll('.form label')).map((l) => l.firstChild?.textContent?.trim()),
       hostTypes: Array.from(document.querySelectorAll('.form select')).map((s) =>
         Array.from((s as HTMLSelectElement).options).map((o) => o.value),
       ),
       placeholders: Array.from(document.querySelectorAll('.form input')).map((i) => i.getAttribute('placeholder')),
-      actions: Array.from(document.querySelectorAll('.modal-actions button')).map(
+      actions: Array.from(document.querySelectorAll('[data-testid="modal-actions"] button')).map(
         (b) => `${b.textContent}${(b as HTMLButtonElement).disabled ? ' (disabled)' : ''}`,
       ),
       limitLegend: document.querySelector('.form fieldset legend')?.textContent,
@@ -248,10 +248,10 @@ test.describe('dialogs: the app dialogs (S11)', () => {
 
     await openDialog(app, 'sendToPrinter');
     const send = await app.evaluate(() => ({
-      title: document.querySelector('.modal-head h2')?.textContent,
+      title: document.querySelector('[data-testid="modal-title"]')?.textContent,
       labels: Array.from(document.querySelectorAll('.form label')).map((l) => l.textContent?.trim().split('\n')[0].trim()),
       filename: (document.querySelector('.form input') as HTMLInputElement | null)?.value,
-      actions: Array.from(document.querySelectorAll('.modal-actions button')).map((b) => b.textContent),
+      actions: Array.from(document.querySelectorAll('[data-testid="modal-actions"] button')).map((b) => b.textContent),
       slicedFor: document.querySelector('.form .muted')?.textContent,
     }));
     expect(send.title).toBe('Send G-code to printer');
@@ -259,7 +259,7 @@ test.describe('dialogs: the app dialogs (S11)', () => {
     expect(send.slicedFor).toContain('Sliced for the printer preset');
     expect(send.actions).toEqual(['Cancel', 'Upload']);
     // no host is configured in the fixture data, so there is nothing to send to
-    expect(await app.locator('.modal-actions button.primary').isDisabled()).toBe(true);
+    expect(await app.locator('[data-testid="modal-actions"] button.primary').isDisabled()).toBe(true);
 
     await closeDialog(app, 'x');
     expect(await dialogKind(app)).toBeUndefined();
@@ -268,11 +268,11 @@ test.describe('dialogs: the app dialogs (S11)', () => {
   test('the save-preset dialog suggests a copy and puts the focus in the name', async ({ app }) => {
     await openDialog(app, 'savePreset', { type: 'print', extruderIdx: 0 });
     const save = await app.evaluate(() => ({
-      title: document.querySelector('.modal-head h2')?.textContent,
+      title: document.querySelector('[data-testid="modal-title"]')?.textContent,
       label: document.querySelector('.form label')?.textContent?.trim().split('\n')[0].trim(),
       name: (document.querySelector('.form input') as HTMLInputElement | null)?.value,
       focused: document.activeElement?.tagName.toLowerCase(),
-      actions: Array.from(document.querySelectorAll('.modal-actions button')).map((b) => b.textContent),
+      actions: Array.from(document.querySelectorAll('[data-testid="modal-actions"] button')).map((b) => b.textContent),
     }));
     expect(save.title).toBe('Save print preset');
     expect(save.name).toMatch(/- Copy$/);
@@ -284,10 +284,10 @@ test.describe('dialogs: the app dialogs (S11)', () => {
   test('the About dialog lists the engine and the shortcut table', async ({ app }) => {
     await openDialog(app, 'about');
     const about = await app.evaluate(() => ({
-      title: document.querySelector('.modal-head h2')?.textContent,
+      title: document.querySelector('[data-testid="modal-title"]')?.textContent,
       rows: Array.from(document.querySelectorAll('.kv tr')).map((tr) => Array.from(tr.children).map((td) => td.textContent)),
-      shortcuts: document.querySelectorAll('.modal-body p:last-child kbd').length,
-      version: document.querySelector('.modal-body p')?.textContent,
+      shortcuts: document.querySelectorAll('[data-testid="modal"] .modal-body p:last-child kbd').length,
+      version: document.querySelector('[data-testid="modal"] .modal-body p')?.textContent,
     }));
     expect(about.title).toBe('About WebSlicer');
     expect(about.rows).toHaveLength(3);
@@ -303,7 +303,7 @@ test.describe('dialogs: the app dialogs (S11)', () => {
     await openDialog(app, 'library', 'open');
     await app.waitForSelector('.library-list li');
     const library = await app.evaluate(() => ({
-      title: document.querySelector('.modal-head h2')?.textContent,
+      title: document.querySelector('[data-testid="modal-title"]')?.textContent,
       crumbs: document.querySelector('.crumbs')?.textContent,
       entries: Array.from(document.querySelectorAll('.library-list li')).map((li) => li.textContent?.trim()),
     }));
@@ -325,7 +325,7 @@ test.describe('dialogs: the app dialogs (S11)', () => {
 
     // the switch goes through the preset select: its change handler asks the dialog
     const target = await app.evaluate(() => {
-      const sel = document.querySelector('.presets .preset-select select') as HTMLSelectElement;
+      const sel = document.querySelector('[data-testid="presets"] [data-testid^="preset-select-"] select') as HTMLSelectElement;
       return {
         from: sel.value,
         target: Array.from(sel.options)
@@ -335,16 +335,16 @@ test.describe('dialogs: the app dialogs (S11)', () => {
     });
     expect(target.target).toBeTruthy();
     await app
-      .locator('.presets .preset-select select')
+      .locator('[data-testid="presets"] [data-testid^="preset-select-"] select')
       .first()
       .selectOption(target.target as string);
     await app.waitForSelector('.changes tbody tr', { timeout: 20_000 });
 
     const unsaved = await app.evaluate(() => ({
-      title: document.querySelector('.modal-head h2')?.textContent,
+      title: document.querySelector('[data-testid="modal-title"]')?.textContent,
       head: Array.from(document.querySelectorAll('.changes thead th')).map((th) => th.textContent),
       changes: Array.from(document.querySelectorAll('.changes tbody tr')).map((tr) => Array.from(tr.children).map((td) => td.textContent)),
-      actions: Array.from(document.querySelectorAll('.modal-actions button')).map((b) => b.textContent),
+      actions: Array.from(document.querySelectorAll('[data-testid="modal-actions"] button')).map((b) => b.textContent),
     }));
     expect(unsaved.title).toBe('Unsaved Changes');
     expect(unsaved.head).toEqual(['Option', 'Old value', 'New value']);
@@ -352,7 +352,7 @@ test.describe('dialogs: the app dialogs (S11)', () => {
     expect(unsaved.changes.map((r) => r[0])).toContain('Perimeters');
     expect(unsaved.actions).toEqual(['Cancel', 'Discard', 'Save', 'Transfer']);
 
-    await click(app, '.modal-actions button:text-is("Cancel")', 800);
+    await click(app, '[data-testid="modal-actions"] button:text-is("Cancel")', 800);
     const after = await read(app, (s) => ({
       dialog: s.dialog ?? null,
       preset: s.presets.print.name,
@@ -361,7 +361,7 @@ test.describe('dialogs: the app dialogs (S11)', () => {
     }));
     expect(after).toEqual({ dialog: null, preset: target.from, perimeters: typed, pending: false });
     // the sidebar select shows the preset that is still loaded
-    await expect(app.locator('.presets .preset-select select').first()).toHaveValue(target.from as string);
+    await expect(app.locator('[data-testid="presets"] [data-testid^="preset-select-"] select').first()).toHaveValue(target.from as string);
   });
 });
 

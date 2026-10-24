@@ -64,7 +64,7 @@ test.describe('smoke: the app slice chain', () => {
     await settle(app, 1500);
 
     const jobId = await read(app, (s) => s.job?.id);
-    const href = await app.locator('.stats a.button.primary').first().getAttribute('href');
+    const href = await app.locator('[data-testid="sliced-info"] a.button.primary').first().getAttribute('href');
     expect(href).toBe(`/api/jobs/${jobId}/gcode?download`);
 
     // the file the link serves really is G-code with the preview's layers

@@ -37,7 +37,7 @@ test.describe('limits: configuration limits in the editor (S1-e)', () => {
   });
 
   test('a hotend far outside the window reddens the field and blocks the slice until it is fixed', async ({ app }) => {
-    const sliceButton = app.locator('.slice-panel button.primary.big');
+    const sliceButton = app.locator('[data-testid="slice-button"]');
     await expect(sliceButton).toBeEnabled();
 
     await openTemperature(app, '2150');
@@ -54,7 +54,7 @@ test.describe('limits: configuration limits in the editor (S1-e)', () => {
     await app.waitForTimeout(600);
     await expect(sliceButton).toBeDisabled();
     await expect(sliceButton).toHaveAttribute('title', /temperature = 2150 °C/);
-    const listed = app.locator('.slice-panel .plate-issues.limits li');
+    const listed = app.locator('[data-testid="slice-panel"] .plate-issues.limits li');
     await expect(listed).toHaveCount(1);
     await expect(listed.first()).toContainText('temperature');
     await expect(listed.first().locator('.badge-limit.block')).toHaveCount(1);
@@ -66,11 +66,11 @@ test.describe('limits: configuration limits in the editor (S1-e)', () => {
     await app.evaluate(() => window.webslicer.getState().setView('plater'));
     await app.waitForTimeout(600);
     await expect(sliceButton).toBeEnabled();
-    await expect(app.locator('.slice-panel .plate-issues.limits li')).toHaveCount(0);
+    await expect(app.locator('[data-testid="slice-panel"] .plate-issues.limits li')).toHaveCount(0);
   });
 
   test('an unusual value for the material only warns, and the job carries the warning', async ({ app }) => {
-    const sliceButton = app.locator('.slice-panel button.primary.big');
+    const sliceButton = app.locator('[data-testid="slice-button"]');
     await openTemperature(app, '265');
 
     // yellow field, a message with the usual window, and no block
@@ -84,8 +84,8 @@ test.describe('limits: configuration limits in the editor (S1-e)', () => {
     await app.evaluate(() => window.webslicer.getState().setView('plater'));
     await app.waitForTimeout(600);
     await expect(sliceButton).toBeEnabled();
-    await expect(app.locator('.slice-panel .plate-issues.limits li .badge-limit.warn')).toHaveCount(1);
-    await expect(app.locator('.slice-panel .plate-issues.limits li .badge-limit.block')).toHaveCount(0);
+    await expect(app.locator('[data-testid="slice-panel"] .plate-issues.limits li .badge-limit.warn')).toHaveCount(1);
+    await expect(app.locator('[data-testid="slice-panel"] .plate-issues.limits li .badge-limit.block')).toHaveCount(0);
 
     // the slice runs and the server reports the same warning on the job (S1-d behaviour, unchanged)
     await sliceAndWait(app);
@@ -99,7 +99,7 @@ test.describe('limits: configuration limits in the editor (S1-e)', () => {
     await openTemperature(app, '2150');
     await app.evaluate(() => window.webslicer.getState().setView('plater'));
     await app.waitForTimeout(600);
-    await app.locator('.slice-panel .plate-issues.limits button.link').first().click();
+    await app.locator('[data-testid="slice-panel"] .plate-issues.limits button.link').first().click();
     await app.waitForTimeout(700);
     expect(await read(app, (s) => s.view)).toBe('filament');
     await expect(app.locator('#opt-temperature')).toBeVisible();

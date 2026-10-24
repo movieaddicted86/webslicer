@@ -32,7 +32,7 @@ export function QuickSettings() {
   const densities = ['0%', '5%', '10%', '15%', '20%', '25%', '30%', '40%', '50%', '60%', '70%', '80%', '90%', '100%'];
   const brim = (c.brim_type || 'outer_only') !== 'no_brim' && Number(c.brim_width) > 0;
   return (
-    <div className="quick-settings">
+    <div className="quick-settings" data-testid="quick-settings">
       <label className="span">
         <span>Supports</span>
         <select value={supports} onChange={(e) => setSupports(e.target.value)}>

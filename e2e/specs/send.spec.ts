@@ -115,11 +115,11 @@ test.describe('send: the send gate and the upload (S1-b, T-026)', () => {
   /** Open the send dialog from the store and wait for its first render (the preselect runs once). */
   async function sendDialog(app: Page) {
     await openDialog(app, 'sendToPrinter');
-    await expect(app.locator('.modal .form select')).toHaveCount(1);
+    await expect(app.locator('[data-testid="modal"] .form select')).toHaveCount(1);
   }
 
-  const uploadButton = (app: Page) => app.locator('.modal-actions button.primary');
-  const checkbox = (app: Page, label: string) => app.locator(`.modal label.checkbox:has-text("${label}") input`);
+  const uploadButton = (app: Page) => app.locator('[data-testid="modal-actions"] button.primary');
+  const checkbox = (app: Page, label: string) => app.locator(`[data-testid="modal"] label.checkbox:has-text("${label}") input`);
 
   test('the dialog preselects the host set up for the job preset and blocks nothing', async ({ app }) => {
     const hosts = await prepare(app);
@@ -129,43 +129,45 @@ test.describe('send: the send gate and the upload (S1-b, T-026)', () => {
     expect(dialog.title).toBe('Send G-code to printer');
     expect(dialog.buttons).toEqual(['Cancel', 'Upload']);
     // the exact match wins even though the derived, unbound and mismatched host were created first
-    await expect(app.locator('.modal .form select')).toHaveValue(hosts.exact?.id ?? '');
-    await expect(app.locator('.modal .form select option:checked')).toContainText(`MK3S host (moonraker) · ${E2E_PRINTER}`);
+    await expect(app.locator('[data-testid="modal"] .form select')).toHaveValue(hosts.exact?.id ?? '');
+    await expect(app.locator('[data-testid="modal"] .form select option:checked')).toContainText(`MK3S host (moonraker) · ${E2E_PRINTER}`);
     // no block – but the MK3S preset's own start/end G-code writes "M907 E430"/"M907 E538", so the
     // preflight of S1-c warns for both lines (one warn box with two findings)
-    await expect(app.locator('.modal .warn')).toHaveCount(1);
-    await expect(app.locator('.modal .warn .gcode-line')).toHaveCount(2);
-    await expect(app.locator('.modal .warn')).toContainText('M907');
-    await expect(app.locator('.modal label.checkbox:has-text("Send anyway")')).toHaveCount(0);
+    await expect(app.locator('[data-testid="modal"] .warn')).toHaveCount(1);
+    await expect(app.locator('[data-testid="modal"] .warn .gcode-line')).toHaveCount(2);
+    await expect(app.locator('[data-testid="modal"] .warn')).toContainText('M907');
+    await expect(app.locator('[data-testid="modal"] label.checkbox:has-text("Send anyway")')).toHaveCount(0);
     await expect(uploadButton(app)).toBeEnabled();
     // the message names the preset the job was sliced for (`.first()`: the preflight findings below
     // use the same muted small style for their line)
-    await expect(app.locator('.modal .form .muted.small').first()).toContainText(`Sliced for the printer preset ${E2E_PRINTER}`);
+    await expect(app.locator('[data-testid="modal"] .form .muted.small').first()).toContainText(
+      `Sliced for the printer preset ${E2E_PRINTER}`,
+    );
     // and the file name starts as the job's output name
     const job = await read(app, (s) => s.job?.outputName);
-    await expect(app.locator('.modal .form input').first()).toHaveValue(job ?? '');
+    await expect(app.locator('[data-testid="modal"] .form input').first()).toHaveValue(job ?? '');
   });
 
   test('a mismatched host blocks the upload until an override with a written reason', async ({ app }) => {
     const hosts = await prepare(app, ['mismatch']);
     await sendDialog(app);
 
-    await app.locator('.modal .form select').selectOption(hosts.mismatch?.id ?? '');
+    await app.locator('[data-testid="modal"] .form select').selectOption(hosts.mismatch?.id ?? '');
     await app.waitForTimeout(300);
-    const block = await app.locator('.modal .warn').first().textContent();
+    const block = await app.locator('[data-testid="modal"] .warn').first().textContent();
     expect(block).toContain(`sliced for the printer preset "${E2E_PRINTER}"`);
     expect(block).toContain(`is set up for "${OTHER_PRESET}"`);
     // a block is not a warning: there is no second confirmation to tick, only the override. One warn
     // box for the block, one for the MK3S preset's own M907 lines (S1-c)
     await expect(uploadButton(app)).toBeDisabled();
-    await expect(app.locator('.modal .warn.issue-list')).toHaveCount(2);
-    await expect(app.locator('.modal .warn.issue-list').first()).toContainText('sliced for the printer preset');
+    await expect(app.locator('[data-testid="modal"] .warn.issue-list')).toHaveCount(2);
+    await expect(app.locator('[data-testid="modal"] .warn.issue-list').first()).toContainText('sliced for the printer preset');
 
     // the override alone does not help – it needs a reason the server can audit
     await checkbox(app, 'Send anyway').check();
     await app.waitForTimeout(200);
     await expect(uploadButton(app)).toBeDisabled();
-    const reason = app.locator('.modal input[placeholder*="Why this G-code"]');
+    const reason = app.locator('[data-testid="modal"] input[placeholder*="Why this G-code"]');
     await expect(reason).toBeVisible();
     await reason.fill('   ');
     await app.waitForTimeout(200);
@@ -175,27 +177,27 @@ test.describe('send: the send gate and the upload (S1-b, T-026)', () => {
     await expect(uploadButton(app)).toBeEnabled();
 
     // switching the host drops the override again: it belonged to that printer
-    await app.locator('.modal .form select').selectOption(hosts.mismatch?.id ?? '');
+    await app.locator('[data-testid="modal"] .form select').selectOption(hosts.mismatch?.id ?? '');
     await app.waitForTimeout(200);
     await expect(uploadButton(app)).toBeDisabled();
-    expect(await app.locator('.modal input[placeholder*="Why this G-code"]').count()).toBe(0);
+    expect(await app.locator('[data-testid="modal"] input[placeholder*="Why this G-code"]').count()).toBe(0);
   });
 
   test('a derived preset only warns; an unbound host warns and asks for a second confirmation', async ({ app }) => {
     const hosts = await prepare(app, ['derived', 'unbound']);
     await sendDialog(app);
 
-    await app.locator('.modal .form select').selectOption(hosts.derived?.id ?? '');
+    await app.locator('[data-testid="modal"] .form select').selectOption(hosts.derived?.id ?? '');
     await app.waitForTimeout(300);
-    const derived = await app.locator('.modal .warn').first().textContent();
+    const derived = await app.locator('[data-testid="modal"] .warn').first().textContent();
     expect(derived).toContain(`set up for the printer preset "${DERIVED_PRESET}"`);
     expect(derived).toContain(`which is derived from "${E2E_PRINTER}"`);
     await expect(uploadButton(app), 'a warning does not block the upload').toBeEnabled();
-    await expect(app.locator('.modal label.checkbox:has-text("Send anyway")')).toHaveCount(0);
+    await expect(app.locator('[data-testid="modal"] label.checkbox:has-text("Send anyway")')).toHaveCount(0);
 
-    await app.locator('.modal .form select').selectOption(hosts.unbound?.id ?? '');
+    await app.locator('[data-testid="modal"] .form select').selectOption(hosts.unbound?.id ?? '');
     await app.waitForTimeout(300);
-    const unbound = await app.locator('.modal .warn').first().textContent();
+    const unbound = await app.locator('[data-testid="modal"] .warn').first().textContent();
     expect(unbound).toContain('is not linked to a printer preset');
     await expect(uploadButton(app)).toBeEnabled();
 
@@ -214,7 +216,7 @@ test.describe('send: the send gate and the upload (S1-b, T-026)', () => {
     // ... and the confirmation goes away with "start printing"
     await checkbox(app, 'Start printing after upload').uncheck();
     await app.waitForTimeout(200);
-    expect(await app.locator('.modal label.checkbox:has-text("I understand the warning")').count()).toBe(0);
+    expect(await app.locator('[data-testid="modal"] label.checkbox:has-text("I understand the warning")').count()).toBe(0);
     await expect(uploadButton(app)).toBeEnabled();
   });
 
@@ -226,15 +228,15 @@ test.describe('send: the send gate and the upload (S1-b, T-026)', () => {
     // the preview's own button is the way in – it is enabled because a host exists now
     await app.evaluate(() => window.webslicer.getState().setView('preview'));
     await settle(app, 1200);
-    const send = app.locator('.stats .actions button', { hasText: 'Send to printer' });
+    const send = app.locator('[data-testid="send-button"]');
     await expect(send).toBeEnabled();
     await send.click();
-    await expect(app.locator('.modal .form select')).toHaveCount(1);
-    await expect(app.locator('.modal .form select')).toHaveValue(hosts.exact?.id ?? '');
+    await expect(app.locator('[data-testid="modal"] .form select')).toHaveCount(1);
+    await expect(app.locator('[data-testid="modal"] .form select')).toHaveValue(hosts.exact?.id ?? '');
 
     await uploadButton(app).click();
-    await expect(app.locator('.modal'), 'the dialog closes after a successful upload').toHaveCount(0, { timeout: 60_000 });
-    await expect(app.locator('.toast.success')).toContainText('Uploaded');
+    await expect(app.locator('[data-testid="modal"]'), 'the dialog closes after a successful upload').toHaveCount(0, { timeout: 60_000 });
+    await expect(app.locator('[data-testid="toast"].success')).toContainText('Uploaded');
 
     const sent = uploads();
     expect(sent).toHaveLength(1);
@@ -369,7 +371,7 @@ test.describe('send: the send gate and the upload (S1-b, T-026)', () => {
     // the preview panel states the count and lists the finding with its line
     await app.evaluate(() => window.webslicer.getState().setView('preview'));
     await settle(app, 1200);
-    const panel = app.locator('.preview-panel .preflight');
+    const panel = app.locator('[data-testid="preview-panel"] .preflight');
     await expect(panel).toHaveCount(1);
     await expect(panel.locator('summary')).toContainText('1 blocking');
     await expect(panel.locator('li.error').first()).toContainText('M500');
@@ -379,10 +381,10 @@ test.describe('send: the send gate and the upload (S1-b, T-026)', () => {
     // match is preselected and the upload is still disabled
     const hosts = { exact: created.find((p) => p.name === 'MK3S host') };
     await sendDialog(app);
-    await expect(app.locator('.modal .form select')).toHaveValue(hosts.exact?.id ?? '');
-    const block = await app.locator('.modal .warn').first().textContent();
+    await expect(app.locator('[data-testid="modal"] .form select')).toHaveValue(hosts.exact?.id ?? '');
+    const block = await app.locator('[data-testid="modal"] .warn').first().textContent();
     expect(block).toContain('M500');
-    await expect(app.locator('.modal .warn .gcode-line').first()).toContainText(`Line ${forbidden[0]?.line}:`);
+    await expect(app.locator('[data-testid="modal"] .warn .gcode-line').first()).toContainText(`Line ${forbidden[0]?.line}:`);
     await expect(uploadButton(app)).toBeDisabled();
 
     // the server refuses it with the same issue, line and text included, and uploads nothing
@@ -414,13 +416,13 @@ test.describe('send: the send gate and the upload (S1-b, T-026)', () => {
     expect(overridden.json.issues.map((i) => i.rule)).toContain('gcode.forbidden_command');
     expect(uploads()).toHaveLength(1);
     // the dialog's own button follows the same rule: the override needs its reason there too
-    await app.locator('.modal label.checkbox:has-text("Send anyway") input').check();
+    await app.locator('[data-testid="modal"] label.checkbox:has-text("Send anyway") input').check();
     await app.waitForTimeout(200);
     await expect(uploadButton(app)).toBeDisabled();
-    await app.locator('.modal input[placeholder*="Why this G-code"]').fill('checked by hand');
+    await app.locator('[data-testid="modal"] input[placeholder*="Why this G-code"]').fill('checked by hand');
     await app.waitForTimeout(200);
     await expect(uploadButton(app)).toBeEnabled();
-    await app.locator('.modal-actions button:has-text("Cancel")').click();
+    await app.locator('[data-testid="modal-actions"] button:has-text("Cancel")').click();
   });
 
   test('a job hotter than the host allows is a printer-limit block with an audited override (S1-d)', async ({ app }) => {
@@ -442,10 +444,10 @@ test.describe('send: the send gate and the upload (S1-b, T-026)', () => {
     created.push(ptfe);
     await app.evaluate(async () => window.webslicer.getState().refreshPhysicalPrinters());
     await sendDialog(app);
-    await app.locator('.modal .form select').selectOption(ptfe.id);
+    await app.locator('[data-testid="modal"] .form select').selectOption(ptfe.id);
     await settle(app, 300);
     // a block and a warn: the PTFE limit is the block, the preset's own M907 lines only warn
-    await expect(app.locator('.modal .warn').first()).toContainText('limited to 240 °C');
+    await expect(app.locator('[data-testid="modal"] .warn').first()).toContainText('limited to 240 °C');
     await expect(uploadButton(app)).toBeDisabled();
 
     // the server refuses with the same rule, and uploads nothing
@@ -493,9 +495,9 @@ test.describe('send: the printer dialog sees the mock host', () => {
       // with a host stored the dialog opens on the list (the fixture data seeds none, so the other
       // spec sees the empty form) – the second branch of the t18 check
       const list = await app.evaluate(() => ({
-        title: document.querySelector('.modal-head h2')?.textContent,
+        title: document.querySelector('[data-testid="modal-title"]')?.textContent,
         rows: Array.from(document.querySelectorAll('.printer-list li')).map((li) => li.textContent?.trim()),
-        actions: Array.from(document.querySelectorAll('.modal-actions button')).map((b) => b.textContent),
+        actions: Array.from(document.querySelectorAll('[data-testid="modal-actions"] button')).map((b) => b.textContent),
         form: document.querySelectorAll('.form').length,
       }));
       expect(list.title).toBe('Physical printers');
@@ -506,9 +508,9 @@ test.describe('send: the printer dialog sees the mock host', () => {
       expect(list.form).toBe(0);
 
       // the dialog's own form is the way back in
-      await app.locator('.modal-actions button:has-text("Add printer")').click();
+      await app.locator('[data-testid="modal-actions"] button:has-text("Add printer")').click();
       await expect(app.locator('.form label')).toHaveCount(7); // five fields, the two safety limits (S1-d)
-      await app.locator('.modal-head button').click();
+      await app.locator('[data-testid="modal"] [data-testid="modal-close"]').click();
     } finally {
       await removePrinters(app, created);
     }

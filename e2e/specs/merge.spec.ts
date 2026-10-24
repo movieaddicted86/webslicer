@@ -11,7 +11,7 @@ import { CUBE, importFile, read, settle, sliceAndWait, state, waitUploads } from
 import { expect, test } from '../helpers/fixtures';
 
 /** The object info line of the first row, read from the DOM. */
-const infoText = (app: Parameters<typeof read>[0]) => app.locator('.object-row + .object-info').first().innerText();
+const infoText = (app: Parameters<typeof read>[0]) => app.locator('[data-testid="object-info"]').first().innerText();
 
 /** Total filament (mm) of the current job. */
 const filament = (app: Parameters<typeof read>[0]) => read(app, (s) => (s.job?.info?.filamentUsedMm || []).reduce((a, b) => a + b, 0));
@@ -98,28 +98,28 @@ test.describe('merge, object info and rename', () => {
     await settle(app, 700);
 
     // double-click the name → inline field, Enter saves
-    const name = app.locator('.object-row .name').first();
+    const name = app.locator('[data-testid="object-row"] .name').first();
     await name.dblclick();
-    const field = app.locator('.object-row input.inline-name').first();
+    const field = app.locator('[data-testid="object-row"] input.inline-name').first();
     await expect(field).toBeVisible();
     await field.fill('Renamed cube');
     await field.press('Enter');
     await settle(app, 500);
     expect(await read(app, (s) => s.objects[0].name)).toBe('Renamed cube');
-    await expect(app.locator('.object-row .name').first()).toHaveText('Renamed cube');
+    await expect(app.locator('[data-testid="object-row"] .name').first()).toHaveText('Renamed cube');
 
     // Esc cancels and keeps the old name
-    await app.locator('.object-row .name').first().dblclick();
-    await app.locator('.object-row input.inline-name').first().fill('Should not stick');
-    await app.locator('.object-row input.inline-name').first().press('Escape');
+    await app.locator('[data-testid="object-row"] .name').first().dblclick();
+    await app.locator('[data-testid="object-row"] input.inline-name').first().fill('Should not stick');
+    await app.locator('[data-testid="object-row"] input.inline-name').first().press('Escape');
     await settle(app, 500);
     expect(await read(app, (s) => s.objects[0].name)).toBe('Renamed cube');
 
     // F2 on the selected object opens the field too
     await app.evaluate(() => document.activeElement instanceof HTMLElement && document.activeElement.blur());
     await app.keyboard.press('F2');
-    await expect(app.locator('.object-row input.inline-name').first()).toBeVisible();
-    await app.locator('.object-row input.inline-name').first().press('Escape');
+    await expect(app.locator('[data-testid="object-row"] input.inline-name').first()).toBeVisible();
+    await app.locator('[data-testid="object-row"] input.inline-name').first().press('Escape');
 
     // rename a part as well (add one through the store, then double-click its name)
     await app.evaluate(() => {

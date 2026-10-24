@@ -224,7 +224,7 @@ export function LibraryDialog({ onClose, mode }: { onClose: () => void; mode: Li
           )}
         </ul>
         {mode !== 'open' && (
-          <div className="modal-actions">
+          <div className="modal-actions" data-testid="modal-actions">
             <span className="muted small">Save in /{path}</span>
             <input
               value={name}
@@ -232,7 +232,7 @@ export function LibraryDialog({ onClose, mode }: { onClose: () => void; mode: Li
               onKeyDown={(e) => e.key === 'Enter' && save()}
               style={{ width: 260 }}
             />
-            <button className="primary" onClick={save} disabled={busy || !name.trim()}>
+            <button className="primary" data-testid="modal-primary" onClick={save} disabled={busy || !name.trim()}>
               {busy ? 'Saving…' : 'Save'}
             </button>
           </div>

@@ -107,9 +107,9 @@ export function FilamentStep({ onSave, onCancel }: { onSave: () => void; onCance
           </div>
         </div>
       )}
-      <div className="modal-actions">
+      <div className="modal-actions" data-testid="modal-actions">
         <button onClick={onCancel}>Cancel</button>
-        <button className="primary" onClick={() => void save()} disabled={busy || !catalog}>
+        <button className="primary" data-testid="modal-primary" onClick={() => void save()} disabled={busy || !catalog}>
           Apply
         </button>
       </div>
