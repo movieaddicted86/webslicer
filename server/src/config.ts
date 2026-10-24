@@ -66,6 +66,8 @@ export const config = {
   auditLog: path.join(dataDir, 'audit.log'),
   /** T-058: the last observation of the update check (kept across restarts) */
   updateStatusFile: path.join(dataDir, 'update-status.json'),
+  /** the last observation of the vendor profile check (installed → available versions) */
+  vendorUpdatesFile: path.join(dataDir, 'vendor-updates.json'),
   /** T-058: the branch this build follows (`GIT_BRANCH` build arg), `main` by default */
   gitBranch: process.env.GIT_BRANCH || 'main',
   /** T-058: the raw `WEBSLICER_UPDATE_CHECK` value; `off` disables every outbound call */
