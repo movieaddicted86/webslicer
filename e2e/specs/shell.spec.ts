@@ -12,13 +12,16 @@ import { byId } from '../helpers/hooks';
 import { dialogKind } from '../helpers/dom';
 import type { Page } from '@playwright/test';
 
-/** The scene container's width, and the size the renderer gave the canvas. */
+/** The scene container's rectangle, and the size the renderer gave the canvas. */
 async function sceneSizes(app: Page) {
   return app.evaluate(() => {
     const zone = document.querySelector('.dropzone') as HTMLElement;
     const canvas = document.querySelector('.viewer canvas') as HTMLCanvasElement;
+    const z = zone.getBoundingClientRect();
     return {
-      zone: Math.round(zone.getBoundingClientRect().width),
+      zone: Math.round(z.width),
+      height: Math.round(z.height),
+      left: Math.round(z.left),
       canvas: canvas ? Math.round(canvas.getBoundingClientRect().width) : 0,
       buffer: canvas ? canvas.width : 0,
     };
@@ -140,20 +143,21 @@ test.describe('shell: the rail and the slim top bar', () => {
     await app.waitForSelector('[data-testid="modal"]', { state: 'visible', timeout: 20_000 });
     await byId(app, 'preferences-reset-layout').click();
     await app.waitForTimeout(500);
-    // the stored choice is gone and the column is back at its default width
+    // the stored choice is gone and the card is back at its default width
     expect(await app.evaluate(() => localStorage.getItem('webslicer.leftWidth'))).toBeNull();
-    expect(await read(app, (s) => s.leftWidth)).toBe(300);
+    expect(await read(app, (s) => s.leftWidth)).toBe(276);
     await app.keyboard.press('Escape');
     await app.waitForTimeout(500);
   });
 
-  test('the hide-panels toggle frees the scene, survives a reload and keeps the canvas in step', async ({ app }) => {
+  test('the hide-panels toggle empties the scene of its cards, survives a reload and keeps the canvas in step', async ({ app }) => {
     await importFile(app, CUBE);
     await settle(app, 800);
 
     const shown = await sceneSizes(app);
     expect(shown.zone).toBeGreaterThan(0);
     await expect(byId(app, 'context-panel')).toBeVisible();
+    await expect(byId(app, 'left-column')).toBeVisible();
 
     const toggle = byId(app, 'hide-panels');
     await expect(toggle).toHaveAttribute('aria-pressed', 'false');
@@ -161,12 +165,24 @@ test.describe('shell: the rail and the slim top bar', () => {
     await settle(app, 800);
 
     const hidden = await sceneSizes(app);
-    // the freed width is the context panel's: the scene really grew, and the canvas followed it
-    expect(hidden.zone).toBeGreaterThan(shown.zone + 200);
+    // the cards float over the scene, so hiding them frees the view without moving it: the scene and
+    // its canvas keep their rectangle and only the overlays lose their edges
+    expect(hidden).toEqual(shown);
     expect(Math.abs(hidden.canvas - hidden.zone)).toBeLessThanOrEqual(2);
     expect(Math.abs(hidden.buffer - hidden.canvas)).toBeLessThanOrEqual(4);
     await expect(toggle).toHaveAttribute('aria-pressed', 'true');
     expect(await app.locator('[data-testid="context-panel"]').isVisible()).toBe(false);
+    expect(await app.locator('[data-testid="left-column"]').isVisible()).toBe(false);
+    // the strip uses the whole scene again: its pill clears the space the cards had
+    expect(
+      await app.evaluate(() => {
+        const pill = document.querySelector('[data-testid="tool-bar"]') as HTMLElement;
+        const viewer = document.querySelector('.viewer') as HTMLElement;
+        const p = pill.getBoundingClientRect();
+        const v = viewer.getBoundingClientRect();
+        return Math.round(p.left + p.width / 2 - (v.left + v.width / 2));
+      }),
+    ).toBeLessThan(20);
 
     // the choice is remembered per browser
     expect(await app.evaluate(() => localStorage.getItem('webslicer.panelsHidden'))).toBe('on');
@@ -176,11 +192,12 @@ test.describe('shell: the rail and the slim top bar', () => {
     await expect(byId(app, 'hide-panels')).toHaveAttribute('aria-pressed', 'true');
     expect(await app.locator('[data-testid="context-panel"]').isVisible()).toBe(false);
 
-    // and back: the panels return and the scene shrinks again
+    // and back: the cards return without moving the scene
     await byId(app, 'hide-panels').click();
     await settle(app, 800);
     await expect(byId(app, 'context-panel')).toBeVisible();
-    expect((await sceneSizes(app)).zone).toBeLessThanOrEqual(shown.zone + 2);
+    await expect(byId(app, 'left-column')).toBeVisible();
+    expect(await sceneSizes(app)).toEqual(shown);
   });
 
   test('the narrow layouts keep the app inside the window width', async ({ app }) => {

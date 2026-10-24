@@ -166,8 +166,15 @@ export interface E2EState {
   brushRadius: number;
   view: string;
   mode: 'simple' | 'advanced' | 'expert';
-  /** the width of the open left column in px (layout 3.0, remembered per browser) */
+  /** the width of the object list card in px (layout 3.0, remembered per browser) */
   leftWidth: number;
+  setLeftWidth: (width: number) => void;
+  /** whether the object list card is folded (remembered per browser) */
+  leftCollapsed?: boolean;
+  setLeftCollapsed: (collapsed: boolean) => void;
+  /** true hides both floating cards so the 3D view fills the scene */
+  panelsHidden: boolean;
+  togglePanels: () => void;
   sliceDirty: boolean;
   undoStack: unknown[];
   redoStack: unknown[];

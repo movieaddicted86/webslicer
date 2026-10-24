@@ -16,7 +16,7 @@ import {
   PRESET_PRINTERS_ENTRY,
   RAIL_ENTRIES,
   SETTINGS_ENTRIES,
-  STRIP_VIEW_ENTRIES,
+  VIEW_SWITCH_ENTRIES,
 } from '../../web/src/nav/navMap';
 import type { Page } from '@playwright/test';
 
@@ -125,12 +125,13 @@ test.describe('navigation: one home per function', () => {
       await expect.poll(() => read(app, (s) => s.view)).toBe(entry.action.view);
     }
 
-    // the Prepare | Preview switch is in the tool strip; the top bar carries no view tabs any more
+    // the Prepare | Preview switch is one segmented control in the top bar; the strip carries the tools
     await app.evaluate(() => window.webslicer.getState().setView('plater'));
     await app.waitForTimeout(400);
     expect(await app.locator('[data-testid="top-bar"] nav').count()).toBe(0);
-    expect(await navIds(app, '[data-testid="view-switch"] [data-nav-id]')).toEqual(STRIP_VIEW_ENTRIES.map((e) => e.id));
-    for (const entry of STRIP_VIEW_ENTRIES) {
+    expect(await app.locator('[data-testid="tool-bar"] [data-nav-id]').count()).toBe(0);
+    expect(await navIds(app, '[data-testid="view-switch"] [data-nav-id]')).toEqual(VIEW_SWITCH_ENTRIES.map((e) => e.id));
+    for (const entry of VIEW_SWITCH_ENTRIES) {
       if (entry.action.kind !== 'view') continue;
       await byId(app, entry.testId ?? entry.id).click();
       await expect.poll(() => read(app, (s) => s.view)).toBe(entry.action.view);

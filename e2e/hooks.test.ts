@@ -157,7 +157,6 @@ const HOOKS = [
   'hide-panels',
   'left-column',
   'left-column-toggle',
-  'left-objects-toggle',
   'left-sliced-toggle',
   'left-legend-toggle',
   'objects-drawer-toggle',

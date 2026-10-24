@@ -417,12 +417,12 @@ test.describe('context panel: quick settings and the mode switch', () => {
     expect(toolbar.separators).toBe(1);
     expect(new Set(toolbar.paths).size).toBe(3);
 
-    // AC-2: the toolbar fits the narrowest column on one line, without overflow
+    // AC-2: the toolbar fits the card on one line, without overflow – also at the narrowest width the
+    // user can drag the card to (220 px, the store clamps it)
+    await app.evaluate(() => window.webslicer.getState().setLeftWidth(220));
+    await settle(app, 500);
     const narrow = await app.evaluate(() => {
-      const shell = document.querySelector('[data-testid="app-shell"]') as HTMLElement;
       const column = document.querySelector('[data-testid="left-column"]') as HTMLElement;
-      // 220 px is the narrowest width the column can be dragged to
-      shell.style.setProperty('--left-track', '220px');
       const tools = document.querySelector('[data-testid="object-toolbar"]') as HTMLElement;
       const buttons = Array.from(tools.querySelectorAll('button')).map((b) => Math.round(b.getBoundingClientRect().width));
       return {
@@ -437,11 +437,9 @@ test.describe('context panel: quick settings and the mode switch', () => {
     // the icons keep their size; the three actions share one line
     expect(narrow.widths.every((w) => w >= 30)).toBe(true);
     expect(narrow.lines).toBe(1);
-    // back to the width the frame computes on its own (the same inline value React writes)
-    await app.evaluate(() => {
-      const shell = document.querySelector('[data-testid="app-shell"]') as HTMLElement;
-      shell.style.setProperty('--left-track', `${window.webslicer.getState().leftWidth}px`);
-    });
+    // back to the card's default width
+    await app.evaluate(() => window.webslicer.getState().setLeftWidth(276));
+    await settle(app, 400);
 
     // the same icon in Simple mode, where the list keeps only "delete all"
     await app.evaluate(() => window.webslicer.getState().setMode('simple'));

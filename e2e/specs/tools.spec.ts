@@ -1,10 +1,13 @@
 /**
  * The tool strip and the context panel's tool mode (layout 3.0, L-4).
  *
- * The strip is a floating pill at the top centre of the scene: it opens every registry tool, carries
- * the object commands on the selection and the Prepare | Preview switch that used to be two tabs in
- * the top bar. The open tool's controls are the context panel's tool mode (title, ✕, fields, sticky
- * primary action and the key-hint block of its registry entry), not a second box over the scene.
+ * The strip is a floating pill between the two cards at the top of the scene: it opens every registry
+ * tool and carries the object commands on the selection. The open tool's controls are the context
+ * panel's tool mode (title, ✕, fields, sticky primary action and the key-hint block of its registry
+ * entry), not a second box over the scene.
+ *
+ * The Prepare | Preview switch is the top bar's; the strip carries the tools only, and the switch's
+ * describe below reads it from there.
  *
  * The layout moves the controls between regions, so every locator is a hook: `tool-strip`,
  * `tool-bar`, `tool-<id>`, `tool-panel*`, `tool-hints`, `view-switch`.
@@ -25,8 +28,12 @@ test.describe('tool strip', () => {
       const host = document.querySelector('[data-testid="tool-strip"]') as HTMLElement;
       const pill = document.querySelector('[data-testid="tool-bar"]') as HTMLElement;
       const viewer = document.querySelector('.viewer') as HTMLElement;
+      const list = document.querySelector('[data-testid="left-column"]') as HTMLElement;
+      const panel = document.querySelector('[data-testid="context-panel"]') as HTMLElement;
       const p = pill.getBoundingClientRect();
       const v = viewer.getBoundingClientRect();
+      const l = list.getBoundingClientRect();
+      const r = panel.getBoundingClientRect();
       return {
         role: pill.getAttribute('role'),
         label: pill.getAttribute('aria-label'),
@@ -34,9 +41,12 @@ test.describe('tool strip', () => {
         separators: pill.querySelectorAll('.tool-bar-group > .tool-sep').length,
         labels: Array.from(pill.querySelectorAll('.tool-bar-group button')).map((b) => b.getAttribute('aria-label')),
         pressed: Array.from(pill.querySelectorAll('.tool-bar-group button')).map((b) => b.getAttribute('aria-pressed')),
-        // the pill floats over the top of the scene, centred on it
+        // the pill floats over the top of the scene, centred in the band between the two cards
         top: Math.round(p.top - v.top),
-        centre: Math.round(p.left + p.width / 2 - (v.left + v.width / 2)),
+        centre: Math.round(p.left + p.width / 2 - (l.right + (r.left - l.right) / 2)),
+        // and it never slides under a card
+        clearLeft: Math.round(p.left - l.right),
+        clearRight: Math.round(r.left - p.right),
         horizontal: p.width > p.height,
         hostPointerEvents: getComputedStyle(host).pointerEvents,
       };
@@ -46,6 +56,8 @@ test.describe('tool strip', () => {
     expect(strip.horizontal).toBe(true);
     expect(strip.top).toBeLessThan(20);
     expect(Math.abs(strip.centre)).toBeLessThan(20);
+    expect(strip.clearLeft).toBeGreaterThan(0);
+    expect(strip.clearRight).toBeGreaterThan(0);
     // the scene stays reachable around the pill
     expect(strip.hostPointerEvents).toBe('none');
 
@@ -237,8 +249,8 @@ test.describe('tool strip', () => {
   });
 });
 
-test.describe('tool strip: the Prepare | Preview switch', () => {
-  test('the switch is a radiogroup in the strip and drives the view like the old tabs', async ({ app }) => {
+test.describe('top bar: the Prepare | Preview switch', () => {
+  test('the switch is a radiogroup in the top bar and drives the view like the old tabs', async ({ app }) => {
     await importFile(app, CUBE);
     const sw = await app.evaluate(() => {
       const el = document.querySelector('[data-testid="view-switch"]') as HTMLElement;
@@ -257,8 +269,8 @@ test.describe('tool strip: the Prepare | Preview switch', () => {
     expect(sw.radios.map((r) => r.nav)).toEqual(['viewPlater', 'viewPreview']);
     expect(sw.radios[0].checked).toBe('true');
 
-    // icon only at a normal window width – the glyphs must still be drawn: the label's `span` rule
-    // once hid the SVG's own `.ui-icon` wrapper as well and left an empty button behind
+    // both glyphs are drawn at a normal window width: the label's `span` rule once hid the SVG's own
+    // `.ui-icon` wrapper as well and left an empty button behind
     const glyphs = await app.evaluate(() =>
       Array.from(document.querySelectorAll('[data-testid="view-switch"] button svg')).map((s) => {
         const box = s.getBoundingClientRect();
@@ -277,7 +289,8 @@ test.describe('tool strip: the Prepare | Preview switch', () => {
 
     await click(app, '[data-testid="view-plater"]', 800);
     expect(await read(app, (s) => s.view)).toBe('plater');
-    // the top bar carries no view tabs any more
+    // one home for the two views: the strip carries no switch and the bar no view tabs
+    expect(await app.evaluate(() => document.querySelector('[data-testid="tool-bar"] [data-testid="view-switch"]'))).toBeNull();
     expect(await app.evaluate(() => document.querySelectorAll('[data-testid="top-bar"] nav').length)).toBe(0);
   });
 });
