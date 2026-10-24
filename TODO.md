@@ -69,7 +69,7 @@ Priority by frequency of use in everyday printing and PrusaSlicer parity.
 - [ ] D-6 View cube and selectable mouse schemes (ours, Blender, Fusion)
 - [ ] D-7 Calibration generators (flow tower, temperature tower, later retraction/speed/PA) as server-side parametric project generators
 - [ ] D-9 Theme tokens: light and dark, one accent colour (decide with the mobile track)
-- [ ] D-2/D-3 Context-sensitive right panel and object list as overview (decide together with M-1 layout breakpoints)
+- [ ] **Layout 3.0 (Robert chose it 2026-10-24; draft `docs/design/Layout-3.0.md`):** L-0 stable test hooks → L-1 shell + rail → L-2 object list overview → L-3 context panel (D-2/D-3) → L-4 tool strip + tool mode → L-5 preview mode → L-6 responsive (with the mobile track M-1…M-5)
 - [ ] D-4 Settings dialog redesign (category rail, toggles, star column, compare/save footer) – after D-1 and D-9
 - [ ] D-10 Project tabs; D-11 multiple beds with their own printer preset (data-model note first); D-14 profile filter by filament type + fuzzy global search
 - [ ] 3.0 engine: stay on 2.9.x; re-assess at 3.0 beta with third-party profiles and a documented CLI (optional one-day CLI spike)
