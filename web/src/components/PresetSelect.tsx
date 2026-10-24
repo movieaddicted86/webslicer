@@ -4,6 +4,8 @@ import type { PresetSummary, PresetType } from '../api';
 import { filterSystemFilaments } from '../filamentVisibility';
 import './PresetSelect.css';
 import { Icon } from '../icons/Icon';
+import { PRESET_PRINTERS_ENTRY, settingsEntryFor } from '../nav/navMap';
+import { openNavDialog, runNavAction } from '../nav/actions';
 
 interface Props {
   type: PresetType;
@@ -67,8 +69,11 @@ export function PresetSelect({ type, slot, extruderIdx = 0, label }: Props) {
     groups.set(g, [...(groups.get(g) || []), e]);
   }
   const current = list.find((p) => p.name === slot.name);
+  // the cog of a preset row opens its view; SLA presets use the print/filament views like FFF ones
+  const settingsEntry = settingsEntryFor(type === 'sla_print' ? 'print' : type === 'sla_material' ? 'filament' : type);
   const change = async (name: string) => {
-    if (name === '__add_printer__') return openDialog('addPrinter');
+    // the dropdown's setup entry opens the one printers dialog on its vendor profiles tab
+    if (name === PRESET_PRINTERS_ENTRY.id) return openNavDialog('printers', { tab: 'vendor' });
     // modified presets go through the "Unsaved Changes" dialog (transfer / save / discard / cancel)
     try {
       await requestPresetSwitch(type, name, extruderIdx);
@@ -96,10 +101,21 @@ export function PresetSelect({ type, slot, extruderIdx = 0, label }: Props) {
           ))}
           {type === 'printer' && (
             <optgroup label="—">
-              <option value="__add_printer__">＋ Add / remove printers…</option>
+              <option value={PRESET_PRINTERS_ENTRY.id}>＋ {PRESET_PRINTERS_ENTRY.label}</option>
             </optgroup>
           )}
         </select>
+        {/* the one door to the full settings view of this preset: the cog (Icons-and-UX §2) */}
+        <button
+          className="icon"
+          title={`${settingsEntry.label}…`}
+          aria-label={`${settingsEntry.label}…`}
+          onClick={() => void runNavAction(settingsEntry.action)}
+          data-testid={`settings-open-${type}`}
+          data-nav-id={settingsEntry.id}
+        >
+          <Icon name="settings" size={14} />
+        </button>
         <button
           className={`icon ${modified ? 'accent' : ''}`}
           title="Save preset"

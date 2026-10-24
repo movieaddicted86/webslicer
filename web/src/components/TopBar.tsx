@@ -1,4 +1,4 @@
-import { useStore, isModified, type View } from '../state/store';
+import { useStore, type View } from '../state/store';
 import { AppMenu } from './AppMenu';
 import { Icon } from '../icons/Icon';
 import { useLeftColumn } from './left/useLeftColumn';
@@ -11,8 +11,9 @@ import './TopBar.css';
  * without a second click – undo/redo, the hide-panels toggle, the project name and the view tabs – so
  * the bar is one 46 px row at any width.
  *
- * The tabs are the old ones, unchanged: the Plater and the Preview, then the three settings views (the
- * rail's Preferences opens the same place). A modified preset keeps its dot.
+ * The tabs are the Plater and the Preview only. The three settings views open from the cog in their
+ * preset row (as in PrusaSlicer), so the bar no longer carries them; the tabs move into the tool strip
+ * of the next layout step.
  *
  * On a phone the object list is a drawer instead of a column, so the bar carries the button that
  * opens it; on a wide window the column's own chevron does that job.
@@ -20,7 +21,6 @@ import './TopBar.css';
 export function TopBar() {
   const view = useStore((s) => s.view);
   const setView = useStore((s) => s.setView);
-  const presets = useStore((s) => s.presets);
   const objects = useStore((s) => s.objects);
   const panelsHidden = useStore((s) => s.panelsHidden);
   const togglePanels = useStore((s) => s.togglePanels);
@@ -30,12 +30,11 @@ export function TopBar() {
   const canRedo = useStore((s) => s.redoStack.length > 0);
   const { phone, hidden: drawerHidden, toggle: toggleObjects } = useLeftColumn();
 
-  const tabs: Array<{ id: View; label: string; dot?: boolean }> = [
+  // the settings views are not tabs: their one door is the cog in the preset row (the Plater and the
+  // Preview keep theirs until the tool strip takes them)
+  const tabs: Array<{ id: View; label: string }> = [
     { id: 'plater', label: 'Plater' },
     { id: 'preview', label: 'Preview' },
-    { id: 'print', label: 'Print Settings', dot: isModified(presets.print) },
-    { id: 'filament', label: 'Filament Settings', dot: presets.filament.some(isModified) },
-    { id: 'printer', label: 'Printer Settings', dot: isModified(presets.printer) },
   ];
   // the settings views are a page without side panels: there is nothing for the toggle to hide
   const hideable = view === 'plater' || view === 'preview';
@@ -105,7 +104,6 @@ export function TopBar() {
             onClick={() => setView(t.id)}
           >
             {t.label}
-            {t.dot && <span className="dot" title="modified" />}
           </button>
         ))}
       </nav>
