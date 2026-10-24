@@ -35,9 +35,10 @@ web/src/plater/               plater logic without three.js: packing, bounds, sp
                               (meshInfo), paint codecs; meshOps is the one seam into three/
 web/src/three/Viewer.tsx      composition of the `three/viewer/` hooks, no logic of its own
 web/src/three/viewer/         scene, bed, cameraMath, plater objects, gizmo, G-code preview, shortcuts.ts
-web/src/components/left/      the left column: its cards, the fold/resize state hook
-web/src/components/sidebar/   object rows, manipulation, volumes, slice panel (rendered in the left column)
-web/src/components/common/    SectionHeader, TextField, NumericField, ToolbarButton, useFieldDraft
+web/src/components/left/      the left column: its cards, the object rows, the toolbar, the fold/resize state hook
+web/src/components/context/   the right context panel: its frame and cards, the preset rows, quick settings,
+                              slice panel, volumes and ranges, the destination row
+web/src/components/common/    SectionHeader, TextField, NumericField, ToolbarButton, useFieldDraft, InlineName
 web/src/components/dialogs/   one file per dialog on the shared Modal frame
 web/src/components/preview/   preview panel parts (layer slider, codes, options, legend)
 web/src/api.ts                web-side API client; its types come from `@webslicer/shared`
@@ -169,10 +170,12 @@ regions. A spec that encodes _where_ an element sits (`.sidebar .quick-settings`
 
 - Structural elements carry a `data-testid` hook named by **role, not place**: `app-shell`,
   `top-bar`, `rail` (+ `-slicing`, `-library`, `-printers`, `-preferences`, `-about`), `menu`,
-  `hide-panels`, `sidebar`, `left-column` (+ `-toggle`, `left-objects-toggle`,
-  `left-sliced-toggle`, `left-legend-toggle`, `objects-drawer-toggle`), `presets`,
-  `preset-select-<type>`, `object-list`, `object-toolbar`,
-  `object-row` (plus `data-object-id`), `object-info`, `quick-settings`, `slice-panel`,
+  `hide-panels`, `context-panel` (+ `-header`, `-footer`), `left-column` (+ `-toggle`,
+  `left-objects-toggle`, `left-sliced-toggle`, `left-legend-toggle`, `objects-drawer-toggle`),
+  `presets`, `preset-select-<type>`, `object-list`, `object-toolbar`,
+  `object-row` (plus `data-object-id`), `object-info`, `object-transform`, `object-settings-card`,
+  `object-settings`, `parts-card`, `object-add-volume`, `volume-list`, `range-card`, `range-list`,
+  `range-add`, `destination`, `multi-selection`, `quick-settings`, `slice-panel`,
   `slice-button`, `tool-bar`, `tool-<toolId>`, `tool-panel` (+ `-title`, `-foot`, `-close`),
   `modal` (+ `-title`, `-actions`, `-primary`, `-close`, `-backdrop`), `preview-panel`,
   `layer-slider`, `move-slider`, `legend`, `sliced-info`, `send-button`, `toast`. A hook must stay

@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+- **The context panel replaces the sidebar (layout 3.0, L-3):** the right column shows what the
+  current state is about, derived by a pure selector (`web/src/state/contextMode.ts`, tool > preview >
+  object > plate) instead of one fixed sidebar. With nothing selected it shows a **Printer** card
+  (preset, bed, height, nozzle), the preset rows and the quick settings; with one object selected the
+  same preset rows stay and four titled cards follow – **Transform** (position, rotation, scale, size,
+  instances and **Fill bed**, bounding box, object info, mirror, splits, resets), **Settings**
+  (extruder and the per-object overrides), **Parts** (the add menu, the volume rows with rename and the
+  manipulation of the picked volume) and **Layer ranges**. The object rows in the left column are plain
+  rows now (visibility, name, badges, instance count, info line, instance sub-list) – selecting one
+  shows its controls in the panel. A sticky header carries the object name and instance count, and a
+  sticky footer carries the new **Destination** choice (the print host for the send dialog, default
+  "Ask when sending") and the unchanged Slice button with its progress, cancel, error and blocked-by-
+  limits states. Simple mode keeps its reduced set (no object internals), other objects arriving with a
+  multi-selection are explained instead, and the Preview keeps its own panel without the footer. Every
+  control of the old sidebar and of the expanded object row is still reachable; `Sidebar.tsx` is gone.
 - **One home per function (layout 3.0, L-3):** the navigation is now a single table
   (`web/src/nav/navMap.ts`) that the rail, the menu and the preset rows render, so a function cannot
   grow a second door. The rail holds Slicing, Library, Printers, Preferences and About; the menu keeps

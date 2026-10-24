@@ -65,10 +65,20 @@ rail | left | scene | right          (top bar spans all four)
   column is a drawer over the scene. The column reads and writes that state through `useLeftColumn()`.
 - **scene** – the `DropZone` with the `Viewer`; three.js resizes through its `ResizeObserver`, so the
   canvas follows the grid without a second resize path.
-- **right** – the `Sidebar`: presets, quick settings and the slice panel, or the preview panel in the
-  Preview view.
-- The settings views (Print/Filament/Printer) replace the left column, the scene and the sidebar and
-  take the whole area right of the rail.
+- **right** – the `ContextPanel` (`components/context/ContextPanel.tsx`): a sticky header (the object
+  name and instance count, or "Plate" / "Preview"), the scrolling body and a sticky footer with the
+  **Destination** select and the Slice panel (`SlicePanel.tsx`, unchanged). The body follows the mode
+  the pure selector `contextMode` (`web/src/state/contextMode.ts`) derives – tool > preview > object >
+  plate – from `activeTool`, `view`, `selectedIds` and `objects`; nothing about the mode is stored, so
+  closing a tool, leaving the preview or deselecting switches the content on its own. `baseMode` reads
+  the same rule without the tool (the tool dock still opens next to the bar until the tool strip step):
+  the plate content (`PlateMode.tsx` – the printer card), the preset rows and quick settings
+  (`Presets.tsx`, in both plater modes, as they describe the print and not the selection) and, for one
+  selected object, the cards `TransformCard`, `SettingsCard`, `PartsCard` and the range card with
+  `RangePanel`. `PanelCard.tsx` is the card frame (a `section` with its `aside` heading, an icon and an
+  optional action slot). Simple mode shows the plate content only; the Preview keeps `PreviewPanel`.
+- The settings views (Print/Filament/Printer) replace the left column, the scene and the context panel
+  and take the whole area right of the rail.
 - The top bar (`TopBar.tsx`) is one row: the `Menu` dropdown (`AppMenu.tsx`), undo/redo, the
   hide-panels switch, the project name and the view tabs; on a phone it also carries the button that
   opens the object list drawer.
@@ -78,9 +88,9 @@ The shell state is the `layout` slice (`web/src/state/slices/layout.ts`): `panel
 (`leftCards`) and the phone drawer (`leftDrawerOpen`, not persisted). Hiding the panels takes both
 side columns out of the grid (they stay mounted, so their state survives) and the scene takes the
 freed width. New regions carry a `data-testid` hook (`rail`, `left-column`, `left-column-toggle`,
-`object-list`, …); `e2e/hooks.test.ts` keeps that list and the components in agreement, so a later
-layout step can move a region without rewriting the specs. The design is in
-[design/Layout-3.0.md](design/Layout-3.0.md).
+`context-panel`, `context-header`, `context-footer`, …); `e2e/hooks.test.ts` keeps that list and the
+components in agreement, so a later layout step can move a region without rewriting the specs. The
+design is in [design/Layout-3.0.md](design/Layout-3.0.md).
 
 ## Icons
 
@@ -164,7 +174,8 @@ marker copied into it); never point it at your working install.
   directly inside `page.evaluate`. Field labels, button texts and ARIA roles stay as they are. The
   full hook list and the rules are in `docs/work-packages/CONVENTIONS.md` (§5, "E2E selectors");
   `e2e/hooks.test.ts` runs with `npm test` and fails on a legacy structural selector.
-- Specs by area: `smoke`, `viewer`, `camera`, `sidebar`, `dialogs`, `preview`, `send`, `api-smoke`.
+- Specs by area: `smoke`, `viewer`, `camera`, `sidebar` (the context panel), `dialogs`, `preview`,
+  `send`, `api-smoke`.
 - `retries: 0`: a flaky test is a failure, not a retry. Locally one worker runs; CI runs **two**
   (`playwright.config.ts`). Every test gets its own browser context and autosave id; the few tests
   that read or write the server's printer list or the mock host's upload log take the `server-state`
