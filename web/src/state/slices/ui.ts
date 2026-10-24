@@ -20,6 +20,8 @@ export interface UiSlice {
   mode: Mode;
   view: View;
   showIncompatible: boolean;
+  /** the filament selector's escape hatch: ignore the wizard's ticked filaments for this session */
+  showAllFilaments: boolean;
   toasts: Toast[];
   toast: (kind: Toast['kind'], text: string, action?: Toast['action']) => void;
   dismissToast: (id: number) => void;
@@ -66,6 +68,7 @@ export const createUiSlice: StateCreator<State, [], [], UiSlice> = (set, get) =>
   mode: 'advanced',
   view: 'plater',
   showIncompatible: false,
+  showAllFilaments: false,
   toasts: [],
   toast: (kind, text, action) => {
     const id = ++toastId;
@@ -117,15 +120,16 @@ export const createUiSlice: StateCreator<State, [], [], UiSlice> = (set, get) =>
   },
   init: async () => {
     try {
-      const [info, schema, vendors, installed, physicalPrinters] = await Promise.all([
+      const [info, schema, vendors, installed, physicalPrinters, filaments] = await Promise.all([
         api.info(),
         api.schema(),
         api.vendors(),
         api.installedPrinters(),
         api.printers().catch(() => []),
+        api.visibleFilaments().catch(() => ({ names: [] })),
       ]);
       const sel = loadSelection();
-      set({ info, schema, vendors, installed, physicalPrinters, mode: sel.mode || 'advanced' });
+      set({ info, schema, vendors, installed, physicalPrinters, mode: sel.mode || 'advanced', visibleFilaments: filaments.names });
       // T-058: a quiet extra request – never awaited, so a slow GitHub never delays the app
       void get().refreshUpdateStatus();
       // restore selection

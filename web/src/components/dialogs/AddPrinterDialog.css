@@ -148,3 +148,97 @@
   gap: 8px;
   align-items: center;
 }
+
+/* ---- the filament step (configuration wizard) ---- */
+
+.filament-step {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 60vh;
+}
+
+.filament-step-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.filament-step-head input {
+  flex: 1;
+  min-width: 160px;
+}
+
+.filament-step-body {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: 10px;
+  min-height: 0;
+  flex: 1;
+}
+
+.filament-step-body .vendor-list {
+  overflow: hidden;
+}
+
+.filament-types {
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.filament-vendor-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.filament-vendor-head .name {
+  font-weight: 600;
+}
+
+.filament-vendor-head .muted {
+  flex: 1;
+}
+
+.filament-type {
+  margin-bottom: 10px;
+}
+
+.filament-type h4 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0 4px;
+  font-size: 13px;
+  color: var(--accent2);
+}
+
+.filament-entries {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 14px;
+}
+
+/* a blocked value in the custom-printer step reddens its field like the settings editor does */
+.custom-printer .option {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.custom-printer .option .control {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.custom-printer .field-issue {
+  flex-basis: 100%;
+  margin: 2px 0 0;
+  font-size: 12px;
+}

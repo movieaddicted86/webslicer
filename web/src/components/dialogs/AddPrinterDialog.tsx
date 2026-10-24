@@ -1,7 +1,11 @@
 import { useEffect, useState } from 'react';
+import { checkConfigValues, type ConfigIssue } from '@webslicer/shared';
 import { Modal } from './Modal';
 import { useStore } from '../../state/store';
 import { api, type BundleRefusal, type InstalledPrinter, type Vendor, type VendorUpdateList, type VendorUpdateResult } from '../../api';
+import { FilamentStep } from './FilamentStep';
+import { FilamentForPrinterStep } from './FilamentForPrinterStep';
+import type { CustomFilamentTemperatures } from '../../state/slices/preset';
 import './AddPrinterDialog.css';
 
 /** The refused bundle's findings, taken from the error the client raised from the 409 body. */
@@ -203,19 +207,63 @@ function VendorUpdates({ onChange }: { onChange: () => Promise<void> }) {
   );
 }
 
-/** "Add / remove printers…": vendor profiles to install, or a custom printer from the default profile. */
+/** The default filament of a new printer, named `<printer> – <filament>`. */
+const DEFAULT_FILAMENT = 'Generic';
+
+/** The filament values a new printer starts with: PLA, both layers alike, 1.75 mm. */
+const DEFAULT_TEMPERATURES: CustomFilamentTemperatures = {
+  temperature: 215,
+  firstLayerTemperature: 215,
+  bedTemperature: 60,
+  firstLayerBedTemperature: 60,
+  diameter: 1.75,
+};
+
+const FLAVORS = [
+  'marlin2',
+  'marlin',
+  'klipper',
+  'reprapfirmware',
+  'repetier',
+  'smoothie',
+  'sailfish',
+  'mach3',
+  'machinekit',
+  'teacup',
+  'no-extrusion',
+];
+
+/** The preset name of the new printer's filament; the en dash is what PrusaSlicer's wizard uses. */
+function filamentNameFor(printerName: string, filament = DEFAULT_FILAMENT): string {
+  return `${printerName.trim()} – ${filament}`;
+}
+
+/** The name rule of the preset routes: a stored preset cannot start with "-" or carry a path. */
+function printerNameProblem(name: string): string | undefined {
+  if (!name.trim()) return 'A name is required.';
+  if (name.trim().startsWith('-') || /[/\\]/.test(name)) return 'The name cannot start with "-" or contain a slash.';
+  return undefined;
+}
+
+/** "Add / remove printers…": vendor profiles to install, the filament filter, or a custom printer. */
 export function AddPrinterDialog({ onClose }: { onClose: () => void }) {
   const vendors = useStore((s) => s.vendors);
   const installed = useStore((s) => s.installed);
   const installPrinters = useStore((s) => s.installPrinters);
+  const createCustomPrinter = useStore((s) => s.createCustomPrinter);
   const refreshVendors = useStore((s) => s.refreshVendors);
   const selectPreset = useStore((s) => s.selectPreset);
   const toast = useStore((s) => s.toast);
   const [vendorId, setVendorId] = useState(vendors[0]?.id || '');
   const [filter, setFilter] = useState('');
   const [sel, setSel] = useState<InstalledPrinter[]>(installed);
-  const [tab, setTab] = useState<'vendor' | 'custom'>('vendor');
+  const [tab, setTab] = useState<'vendor' | 'filaments' | 'custom'>('vendor');
   const [custom, setCustom] = useState({ name: 'My Printer', x: 220, y: 220, z: 250, nozzle: 0.4, flavor: 'marlin2' });
+  const [step, setStep] = useState<1 | 2>(1);
+  const [temperatures, setTemperatures] = useState<CustomFilamentTemperatures>(DEFAULT_TEMPERATURES);
+  // until the user names the filament itself, it follows the printer name
+  const [ownFilamentName, setOwnFilamentName] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const vendor: Vendor | undefined = vendors.find((v) => v.id === vendorId);
   const has = (m: { vendorId: string; id: string }, variant: string) =>
     sel.some((i) => i.vendorId === m.vendorId && i.modelId === m.id && i.variant === variant);
@@ -227,6 +275,12 @@ export function AddPrinterDialog({ onClose }: { onClose: () => void }) {
     );
   const models = (vendor?.models || []).filter((m) => !filter || m.name.toLowerCase().includes(filter.toLowerCase()));
   const families = [...new Set(models.map((m) => m.family || 'Other'))];
+
+  // the printer step's own limits: the nozzle is the only bounded value it sets
+  const printerIssues = checkConfigValues('printer', { nozzle_diameter: String(custom.nozzle) }).filter((i) => i.severity === 'block');
+  const nameProblem = printerNameProblem(custom.name);
+  const nextBlocked = !!nameProblem || printerIssues.length > 0;
+  const filamentName = ownFilamentName ?? filamentNameFor(custom.name);
 
   const save = async () => {
     try {
@@ -246,23 +300,25 @@ export function AddPrinterDialog({ onClose }: { onClose: () => void }) {
       toast('error', (e as Error).message);
     }
   };
+
+  /** The second step: the printer preset and its filament, then both are selected. */
   const saveCustom = async () => {
+    setSaving(true);
     try {
-      const def = await api.getPreset('printer', '- default FFF -');
-      const cfg = {
-        ...def.config,
-        bed_shape: `0x0,${custom.x}x0,${custom.x}x${custom.y},0x${custom.y}`,
-        max_print_height: String(custom.z),
-        nozzle_diameter: String(custom.nozzle),
-        gcode_flavor: custom.flavor,
-        printer_technology: 'FFF',
-      };
-      await api.savePreset('printer', custom.name, cfg);
-      await useStore.getState().refreshPresetLists();
-      await selectPreset('printer', custom.name);
+      await createCustomPrinter({
+        name: custom.name.trim(),
+        bedX: custom.x,
+        bedY: custom.y,
+        height: custom.z,
+        nozzle: custom.nozzle,
+        flavor: custom.flavor,
+        filamentName,
+        temperatures,
+      });
       onClose();
     } catch (e) {
       toast('error', (e as Error).message);
+      setSaving(false);
     }
   };
 
@@ -272,11 +328,20 @@ export function AddPrinterDialog({ onClose }: { onClose: () => void }) {
         <button className={tab === 'vendor' ? 'active' : ''} onClick={() => setTab('vendor')}>
           Vendor profiles
         </button>
-        <button className={tab === 'custom' ? 'active' : ''} onClick={() => setTab('custom')}>
+        <button className={tab === 'filaments' ? 'active' : ''} onClick={() => setTab('filaments')}>
+          Filaments
+        </button>
+        <button
+          className={tab === 'custom' ? 'active' : ''}
+          onClick={() => {
+            setStep(1);
+            setTab('custom');
+          }}
+        >
           Custom printer
         </button>
       </div>
-      {tab === 'vendor' ? (
+      {tab === 'vendor' && (
         <>
           <VendorUpdates onChange={refreshVendors} />
           <div className="add-printer">
@@ -334,61 +399,96 @@ export function AddPrinterDialog({ onClose }: { onClose: () => void }) {
             </div>
           </div>
         </>
-      ) : (
+      )}
+      {tab === 'filaments' && <FilamentStep onSave={onClose} onCancel={() => setTab('vendor')} />}
+      {tab === 'custom' && step === 1 && (
         <div className="custom-printer">
-          <label>
-            Name <input value={custom.name} onChange={(e) => setCustom({ ...custom, name: e.target.value })} />
-          </label>
-          <label>
-            Bed size X (mm) <input type="number" value={custom.x} onChange={(e) => setCustom({ ...custom, x: Number(e.target.value) })} />
-          </label>
-          <label>
-            Bed size Y (mm) <input type="number" value={custom.y} onChange={(e) => setCustom({ ...custom, y: Number(e.target.value) })} />
-          </label>
-          <label>
-            Max print height (mm){' '}
-            <input type="number" value={custom.z} onChange={(e) => setCustom({ ...custom, z: Number(e.target.value) })} />
-          </label>
-          <label>
-            Nozzle diameter (mm){' '}
+          <label htmlFor="custom-printer-name">
+            Name{' '}
             <input
-              type="number"
-              step="0.05"
-              value={custom.nozzle}
-              onChange={(e) => setCustom({ ...custom, nozzle: Number(e.target.value) })}
+              id="custom-printer-name"
+              value={custom.name}
+              onChange={(e) => setCustom({ ...custom, name: e.target.value })}
+              aria-invalid={!!nameProblem}
             />
           </label>
-          <label>
+          <label htmlFor="custom-printer-x">
+            Bed size X (mm){' '}
+            <input
+              id="custom-printer-x"
+              type="number"
+              value={custom.x}
+              onChange={(e) => setCustom({ ...custom, x: Number(e.target.value) })}
+            />
+          </label>
+          <label htmlFor="custom-printer-y">
+            Bed size Y (mm){' '}
+            <input
+              id="custom-printer-y"
+              type="number"
+              value={custom.y}
+              onChange={(e) => setCustom({ ...custom, y: Number(e.target.value) })}
+            />
+          </label>
+          <label htmlFor="custom-printer-z">
+            Max print height (mm){' '}
+            <input
+              id="custom-printer-z"
+              type="number"
+              value={custom.z}
+              onChange={(e) => setCustom({ ...custom, z: Number(e.target.value) })}
+            />
+          </label>
+          <div className={`option ${printerIssues.length ? 'issue-block' : ''}`} id="opt-nozzle_diameter">
+            <label htmlFor="custom-printer-nozzle">Nozzle diameter (mm)</label>
+            <div className="control">
+              <input
+                id="custom-printer-nozzle"
+                type="number"
+                step="0.05"
+                value={custom.nozzle}
+                onChange={(e) => setCustom({ ...custom, nozzle: Number(e.target.value) })}
+              />
+              {printerIssues.map((issue: ConfigIssue) => (
+                <p key={issue.key} className="field-issue block" role="alert">
+                  {issue.message}
+                </p>
+              ))}
+            </div>
+          </div>
+          <label htmlFor="custom-printer-flavor">
             Firmware flavor
-            <select value={custom.flavor} onChange={(e) => setCustom({ ...custom, flavor: e.target.value })}>
-              {[
-                'marlin2',
-                'marlin',
-                'klipper',
-                'reprapfirmware',
-                'repetier',
-                'smoothie',
-                'sailfish',
-                'mach3',
-                'machinekit',
-                'teacup',
-                'no-extrusion',
-              ].map((f) => (
+            <select id="custom-printer-flavor" value={custom.flavor} onChange={(e) => setCustom({ ...custom, flavor: e.target.value })}>
+              {FLAVORS.map((f) => (
                 <option key={f} value={f}>
                   {f}
                 </option>
               ))}
             </select>
           </label>
+          {nameProblem && <div className="error small">{nameProblem}</div>}
           <p className="muted small">
-            Creates a user printer preset from the default profile. Adjust start/end G-code and retraction afterwards in Printer Settings.
+            Creates a user printer preset from the default profile. The next step asks for the filament that belongs to it; start/end G-code
+            and retraction are adjusted afterwards in Printer Settings.
           </p>
           <div className="modal-actions">
-            <button className="primary" onClick={saveCustom} disabled={!custom.name.trim()}>
-              Create printer
+            <span className="muted small">Step 1 of 2 – Printer</span>
+            <button className="primary" disabled={nextBlocked} onClick={() => setStep(2)}>
+              Next
             </button>
           </div>
         </div>
+      )}
+      {tab === 'custom' && step === 2 && (
+        <FilamentForPrinterStep
+          filamentName={filamentName}
+          onFilamentName={setOwnFilamentName}
+          values={temperatures}
+          onValues={setTemperatures}
+          saving={saving}
+          onBack={() => setStep(1)}
+          onSave={() => void saveCustom()}
+        />
       )}
     </Modal>
   );

@@ -1,6 +1,7 @@
 import { useId } from 'react';
 import { useStore, isModified, type PresetSlot } from '../state/store';
 import type { PresetSummary, PresetType } from '../api';
+import { filterSystemFilaments } from '../filamentVisibility';
 import { ACTION_ICONS } from './common/icons';
 import './PresetSelect.css';
 
@@ -46,6 +47,8 @@ function collapseAliases(
 export function PresetSelect({ type, slot, extruderIdx = 0, label }: Props) {
   const list = useStore((s) => s.presetLists[type]);
   const showIncompatible = useStore((s) => s.showIncompatible);
+  const showAllFilaments = useStore((s) => s.showAllFilaments);
+  const visibleFilaments = useStore((s) => s.visibleFilaments);
   const requestPresetSwitch = useStore((s) => s.requestPresetSwitch);
   const openDialog = useStore((s) => s.openDialog);
   const deletePreset = useStore((s) => s.deletePreset);
@@ -55,7 +58,9 @@ export function PresetSelect({ type, slot, extruderIdx = 0, label }: Props) {
   // W10: the label names the select; useId keeps it unique with several selects on screen
   const selectId = useId();
 
-  const entries = collapseAliases(list, slot.name, showIncompatible);
+  // the wizard's filament step is a filter over the system presets; user presets and the active one stay
+  const shown = type === 'filament' ? filterSystemFilaments(list, slot.name, visibleFilaments, showAllFilaments) : list;
+  const entries = collapseAliases(shown, slot.name, showIncompatible);
   const groups = new Map<string, typeof entries>();
   for (const e of entries) {
     const g = !e.p.system ? 'User presets' : e.p.vendorName ? `System presets – ${e.p.vendorName}` : 'Default';
