@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **Stable test hooks (T-062, internal):** the app's structural elements carry `data-testid` hooks named
+  by role (app shell, top bar, sidebar, object list, tool bar and its tools, tool panel, dialogs,
+  preview controls, toasts), and the E2E suite selects them by those hooks instead of by class and
+  position. Nothing visible changes – the hooks are the preparation for the layout rework, so moving
+  an element no longer breaks the browser tests. A unit test (`e2e/hooks.test.ts`, part of `npm test`)
+  fails when a spec reaches for a legacy structural class again.
 - **Configuration wizard (T-061):** the Printers dialog is now the whole setup wizard. A new **Filaments**
   tab lists the system filaments of the installed vendors grouped by vendor and material, with a text
   filter, counts, and **All** / **None** / **Only this type** per group. **Apply** stores the ticks

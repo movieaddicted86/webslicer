@@ -99,6 +99,12 @@ deletes jobs and writes presets, printers and autosave files, so it must only ev
 before it writes anything. A hand-started server for the suite therefore needs that data dir (or the
 marker copied into it); never point it at your working install.
 
+- Specs select the app's structure by its **hooks**, not by its class names: `data-testid`
+  attributes named by role (`tool-panel`, `object-row`, `modal`, …) that stay valid when the layout
+  moves an element. Use `byId(page, 'tool-panel')` from `e2e/helpers/hooks.ts`, or the attribute
+  directly inside `page.evaluate`. Field labels, button texts and ARIA roles stay as they are. The
+  full hook list and the rules are in `docs/work-packages/CONVENTIONS.md` (§5, "E2E selectors");
+  `e2e/hooks.test.ts` runs with `npm test` and fails on a legacy structural selector.
 - Specs by area: `smoke`, `viewer`, `camera`, `sidebar`, `dialogs`, `preview`, `send`, `api-smoke`.
 - `retries: 0`: a flaky test is a failure, not a retry. Locally one worker runs; CI runs **two**
   (`playwright.config.ts`). Every test gets its own browser context and autosave id; the few tests

@@ -111,8 +111,8 @@ with Vite. The dev machine is Windows 11 with Git Bash/PowerShell: set `MSYS_NO_
   components keep importing from `state/store`. Components read with selectors
   (`useStore((s) => s.objects)`), never mutate state directly, and call store actions.
 - Component styles live in a plain `*.css` file next to the component (`ObjectRow.css`) and are
-  imported for their side effect; selectors stay global because the E2E suite targets the class
-  names. Not CSS Modules: Vite 8 tree-shakes a `*.module.css` import whose class map is unused, so a
+  imported for their side effect; selectors stay global (the classes are still the styling handle
+  and the DOM outline prints them, even though the E2E specs select by hooks). Not CSS Modules: Vite 8 tree-shakes a `*.module.css` import whose class map is unused, so a
   component would silently lose its styles in the production build. Tokens, the reset, form
   controls and the app frame live in `web/src/styles.css`, which `main.tsx` imports **before** the
   app so the element-level rules lose against the component sheets.
@@ -159,6 +159,34 @@ A work package (and each phase of it) is done only when all of this holds:
    12 and 13 from `docs/UAT.md`.
 6. Docs updated: `CHANGELOG.md` (Unreleased), `TODO.md` checkbox, `docs/Feature-Comparison.md`
    row, a new UAT case in `docs/UAT.md` for user-visible features, README only if setup changes.
+
+### E2E selectors: hooks, not structure
+
+The layout work moves the sidebar, the tool bar, the top bar and the preview controls between
+regions. A spec that encodes _where_ an element sits (`.sidebar .quick-settings`,
+`.tool-bar button:nth-child(2)`, a descendant chain through a container) breaks on every move.
+
+- Structural elements carry a `data-testid` hook named by **role, not place**: `app-shell`,
+  `top-bar`, `sidebar`, `presets`, `preset-select-<type>`, `object-list`, `object-toolbar`,
+  `object-row` (plus `data-object-id`), `object-info`, `quick-settings`, `slice-panel`,
+  `slice-button`, `tool-bar`, `tool-<toolId>`, `tool-panel` (+ `-title`, `-foot`, `-close`),
+  `modal` (+ `-title`, `-actions`, `-primary`, `-close`, `-backdrop`), `preview-panel`,
+  `layer-slider`, `move-slider`, `legend`, `sliced-info`, `send-button`, `toast`. A hook must stay
+  correct when the element moves to another region; add one when the region changes, not when a
+  class is convenient.
+- Specs locate these with the hook, never with the structural class: `byId(page, 'tool-panel')`
+  from `e2e/helpers/hooks.ts` (or `[data-testid="tool-panel"]` inside a `page.evaluate`).
+  `playwright.config.ts` sets `testIdAttribute: 'data-testid'` explicitly so `getByTestId` cannot
+  drift from the app.
+- Locators that do **not** depend on position stay as they are: field labels, button texts, ARIA
+  roles, `title` tooltips and the element's own visual state classes (`.selected`, `.outside`,
+  `.primary`).
+- `e2e/hooks.test.ts` (run by `npm test`) fails when a spec uses `.sidebar`, `.tool-bar`,
+  `.tool-panel`, `.object-row`, `.slice-panel`, `.quick-settings`, `.presets`, `.objects` or
+  `.modal` as a selector, and when one of the hooks above disappears from the components. An
+  exception goes into its allow-list with a reason, and it has to keep occurring.
+- Hooks are additive: the class names stay (CSS and the DOM outline use them), and the production
+  build keeps the attributes – stripping them would make the E2E build differ from the shipped one.
 
 ## 6. Git
 
