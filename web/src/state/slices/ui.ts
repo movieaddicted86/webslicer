@@ -38,6 +38,8 @@ export interface UiSlice {
   updateStatus?: UpdateStatus;
   /** fetch the update status in the background; a failure is silent (the chip just stays away) */
   refreshUpdateStatus: () => Promise<void>;
+  /** reload the vendor list – a newly installed bundle can add or rename models */
+  refreshVendors: () => Promise<void>;
   init: () => Promise<void>;
 }
 
@@ -108,6 +110,10 @@ export const createUiSlice: StateCreator<State, [], [], UiSlice> = (set, get) =>
     } catch {
       // the notice is a convenience: an offline server or an old one without the route shows nothing
     }
+  },
+  refreshVendors: async () => {
+    // an installed bundle changes the models, so the dialog's list has to follow it
+    set({ vendors: await api.vendors() });
   },
   init: async () => {
     try {

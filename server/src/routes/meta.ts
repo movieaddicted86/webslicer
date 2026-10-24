@@ -1,6 +1,7 @@
 /**
  * Meta endpoints: health, build/slicer info, the cached update status, the option schema, the vendor
- * bundles and their assets, and the installed printer models.
+ * bundles and their assets, the installed printer models, and the vendor profile updates (check,
+ * install, revert, install from a file).
  */
 import express from 'express';
 import {
@@ -12,8 +13,11 @@ import {
   vendorAsset,
   vendorList,
 } from '../services/meta.js';
+import { profileUpdater } from '../services/profileUpdate.js';
+import { config } from '../config.js';
+import { withReceivedFile } from './uploads.js';
 import { sendJson } from './common.js';
-import type { InstalledPrinter, Schema, ServerInfo, UpdateStatus } from '@webslicer/shared';
+import type { InstalledPrinter, Schema, ServerInfo, UpdateStatus, VendorUpdateList, VendorUpdateResult } from '@webslicer/shared';
 
 /** The meta routes of the REST surface. */
 export function metaRouter(): express.Router {
@@ -38,6 +42,28 @@ export function metaRouter(): express.Router {
   // ---- vendors / printer models -----------------------------------------
   r.get('/vendors', (_req, res) => {
     sendJson(res, vendorList());
+  });
+
+  // ---- vendor profile updates -------------------------------------------
+  // A check runs at most once a day (or on `?refresh=1`); with `WEBSLICER_UPDATE_CHECK=off` the
+  // answer says so and nothing is requested.
+  r.get('/vendors/updates', async (req, res) => {
+    sendJson<VendorUpdateList>(res, await (await profileUpdater()).list(req.query.refresh === '1'));
+  });
+
+  r.post('/vendors/:vendor/update', async (req, res) => {
+    sendJson<VendorUpdateResult>(res, await (await profileUpdater()).install(req.params.vendor));
+  });
+
+  r.post('/vendors/:vendor/revert', async (req, res) => {
+    sendJson<VendorUpdateResult>(res, await (await profileUpdater()).revert(req.params.vendor));
+  });
+
+  // the same validation as an online install, for an air-gapped one: the vendor comes from the file
+  r.post('/vendors/install', async (req, res) => {
+    const updater = await profileUpdater();
+    const result = await withReceivedFile(req, config.cacheDir, (file) => updater.installFromFile(file));
+    sendJson<VendorUpdateResult>(res, result);
   });
 
   r.get('/vendors/:vendor/asset/:file', (req, res) => {

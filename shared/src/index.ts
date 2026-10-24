@@ -13,6 +13,7 @@ export * from './filenames.js';
 export * from './math/index.js';
 export * from './plater/index.js';
 export * from './presets.js';
+export * from './profiles.js';
 export * from './safety/index.js';
 export * from './serverOnly.js';
 export * from './types/index.js';

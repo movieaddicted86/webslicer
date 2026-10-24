@@ -34,7 +34,7 @@ Priority by frequency of use in everyday printing and PrusaSlicer parity.
 - [x] Cut tool (cut plane, via the CLI, T-044) – connectors (dowels/buttons) still open
 - [x] Continuous layer-height profile (adaptive, smoothing, brush, T-045)
 - [ ] Rename preset; config bundle import/export; import config from G-code
-- [ ] Update vendor profiles online (PrusaSlicer-settings)
+- [x] Update vendor profiles online (PrusaSlicer-settings, T-060)
 - [ ] Extend the configuration wizard (filaments per vendor, temperatures)
 - [x] Camera: views (iso/top/front/…), orthographic, zoom to selection
 - [x] Object toolbar with real SVG icons (lucide), grouped, 18 px, readable tooltips (T-036)

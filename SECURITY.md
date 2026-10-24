@@ -51,6 +51,19 @@ operator deliberately exposed the app to the internet without a reverse proxy th
 users. WebSlicer ships without login by design; see `docs/` and the README for the deployment
 recommendation.
 
+## Outbound requests
+
+The server makes exactly two kinds of outbound request, both switched off by
+`WEBSLICER_UPDATE_CHECK=off` (see [docs/installation.md](docs/installation.md#update-notice)):
+
+- `api.github.com` – the daily "is there a newer image?" check (no payload, `User-Agent: webslicer`).
+- `raw.githubusercontent.com/prusa3d/PrusaSlicer-settings` – the daily vendor profile check and, only
+  after a click in the Printers dialog, a vendor bundle and the bed models and thumbnails it names.
+  Vendor ids and file names are built by the server from fixed patterns; a downloaded bundle is
+  validated locally before it replaces the installed one. Upstream publishes no signature, so the
+  integrity of that download rests on TLS and the bundle validation, not on a signed artifact – an
+  operator who does not want it can switch the check off and install bundles from a file instead.
+
 ## Hardening you can do as an operator
 
 - Put WebSlicer behind a reverse proxy that requires authentication before exposing it beyond your

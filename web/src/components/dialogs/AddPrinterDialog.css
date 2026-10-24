@@ -14,6 +14,61 @@
   height: 60vh;
 }
 
+/* the update section above the vendor/model lists: one line per vendor, the actions at the end */
+.vendor-updates {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.vendor-updates-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.vendor-updates-head h3 {
+  margin: 0;
+  font-size: 13px;
+  color: var(--accent2);
+}
+
+.vendor-update-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 30vh;
+  overflow-y: auto;
+}
+
+.vendor-update-list li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 2px 0;
+}
+
+.vendor-update-list .name {
+  font-weight: 600;
+}
+
+.vendor-update-list .versions {
+  flex: 1;
+  min-width: 0;
+}
+
+.vendor-update-list a {
+  color: var(--blue);
+}
+
+.vendor-updates .refusals {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
 .add-printer .modal-actions {
   grid-column: 1 / -1;
 }
