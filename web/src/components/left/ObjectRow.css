@@ -10,8 +10,7 @@
   background: transparent;
 }
 
-.object-row,
-.volume-row {
+.object-row {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -20,13 +19,11 @@
   cursor: pointer;
 }
 
-.object-row:hover,
-.volume-row:hover {
+.object-row:hover {
   background: var(--bg3);
 }
 
-.object-row.selected,
-.volume-row.selected {
+.object-row.selected {
   background: #2a3b55;
 }
 
@@ -34,24 +31,11 @@
   color: var(--red);
 }
 
-.object-row .name,
-.volume-row .name {
+.object-row .name {
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.object-row .add,
-.object-row .split {
-  padding: 0 5px;
-  line-height: 1;
-}
-
-.volume-list {
-  list-style: none;
-  margin: 0;
-  padding: 0 0 2px 18px;
 }
 
 .instance-list {
@@ -97,37 +81,6 @@
   background: var(--bg4);
 }
 
-.manip-row.instances input {
-  width: 64px;
-}
-
-.volume-row {
-  padding: 3px 6px;
-  font-size: 12px;
-}
-
-.vtype {
-  font-size: 11px;
-  min-width: 14px;
-  text-align: center;
-}
-
-.vtype.ParameterModifier {
-  color: #ffe14d;
-}
-
-.vtype.SupportEnforcer {
-  color: #7f94ff;
-}
-
-.vtype.SupportBlocker {
-  color: #ff6b6b;
-}
-
-.vtype.NegativeVolume {
-  color: #a0a0a0;
-}
-
 .object-info {
   padding: 0 6px 4px 26px;
   line-height: 1.3;
@@ -135,23 +88,4 @@
 
 .object-info .not-manifold {
   color: var(--yellow);
-}
-
-.object-info-panel .not-manifold {
-  color: var(--yellow);
-}
-
-.inline-name {
-  flex: 1;
-  min-width: 0;
-  font: inherit;
-  color: inherit;
-  background: var(--bg);
-  border: 1px solid var(--accent2);
-  border-radius: 3px;
-  padding: 0 4px;
-}
-
-.vtype.ModelPart {
-  color: #e6b84a;
 }
