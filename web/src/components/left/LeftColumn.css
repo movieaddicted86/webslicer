@@ -4,7 +4,7 @@
  * strip with the chevron and the object count, and on a phone it lies over the scene as a drawer. */
 
 .left-column {
-  grid-area: left;
+  /* its grid area is the frame's (`AppShell.css`), the same way it places the sidebar */
   position: relative;
   display: flex;
   flex-direction: column;
