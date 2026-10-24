@@ -152,7 +152,8 @@ export const createUiSlice: StateCreator<State, [], [], UiSlice> = (set, get) =>
       }
       await get().ensureCompatiblePresets();
       set({ ready: true, view: loadView() });
-      if (!installed.length) get().openDialog('addPrinter');
+      // a fresh install has nothing to print with: the printers dialog opens on the vendor profiles
+      if (!installed.length) get().openDialog('printers', { tab: 'vendor' });
     } catch (e) {
       set({ fatal: (e as Error).message });
     }

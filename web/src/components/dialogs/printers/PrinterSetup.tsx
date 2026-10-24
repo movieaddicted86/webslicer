@@ -1,12 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { checkConfigValues, type ConfigIssue } from '@webslicer/shared';
-import { Modal } from './Modal';
-import { useStore } from '../../state/store';
-import { api, type BundleRefusal, type InstalledPrinter, type Vendor, type VendorUpdateList, type VendorUpdateResult } from '../../api';
-import { FilamentStep } from './FilamentStep';
-import { FilamentForPrinterStep } from './FilamentForPrinterStep';
-import type { CustomFilamentTemperatures } from '../../state/slices/preset';
-import './AddPrinterDialog.css';
+
+import { useStore } from '../../../state/store';
+import { api, type BundleRefusal, type InstalledPrinter, type Vendor, type VendorUpdateList, type VendorUpdateResult } from '../../../api';
+import { FilamentStep } from '../FilamentStep';
+import { FilamentForPrinterStep } from '../FilamentForPrinterStep';
+import type { CustomFilamentTemperatures } from '../../../state/slices/preset';
+import './PrinterSetup.css';
 
 /** The refused bundle's findings, taken from the error the client raised from the 409 body. */
 function refusalsOf(error: unknown): BundleRefusal[] {
@@ -245,8 +245,14 @@ function printerNameProblem(name: string): string | undefined {
   return undefined;
 }
 
-/** "Add / remove printers…": vendor profiles to install, the filament filter, or a custom printer. */
-export function AddPrinterDialog({ onClose }: { onClose: () => void }) {
+/**
+ * The printer setup of the Printers dialog: the body of the Vendor profiles, Filaments and Custom
+ * printer tabs. The dialog owns the tab strip; the component stays mounted for all three tabs, so a
+ * half-done selection survives a look at another tab. `onClose` is used where a step ends the dialog.
+ */
+export type PrinterSetupTab = 'vendor' | 'filaments' | 'custom';
+
+export function PrinterSetup({ tab, onClose }: { tab: PrinterSetupTab; onClose: () => void }) {
   const vendors = useStore((s) => s.vendors);
   const installed = useStore((s) => s.installed);
   const installPrinters = useStore((s) => s.installPrinters);
@@ -257,13 +263,18 @@ export function AddPrinterDialog({ onClose }: { onClose: () => void }) {
   const [vendorId, setVendorId] = useState(vendors[0]?.id || '');
   const [filter, setFilter] = useState('');
   const [sel, setSel] = useState<InstalledPrinter[]>(installed);
-  const [tab, setTab] = useState<'vendor' | 'filaments' | 'custom'>('vendor');
   const [custom, setCustom] = useState({ name: 'My Printer', x: 220, y: 220, z: 250, nozzle: 0.4, flavor: 'marlin2' });
   const [step, setStep] = useState<1 | 2>(1);
   const [temperatures, setTemperatures] = useState<CustomFilamentTemperatures>(DEFAULT_TEMPERATURES);
   // until the user names the filament itself, it follows the printer name
   const [ownFilamentName, setOwnFilamentName] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  // entering the custom printer starts at its first step, whatever a previous visit left
+  const previousTab = useRef(tab);
+  useEffect(() => {
+    if (tab === 'custom' && previousTab.current !== 'custom') setStep(1);
+    previousTab.current = tab;
+  }, [tab]);
   const vendor: Vendor | undefined = vendors.find((v) => v.id === vendorId);
   const has = (m: { vendorId: string; id: string }, variant: string) =>
     sel.some((i) => i.vendorId === m.vendorId && i.modelId === m.id && i.variant === variant);
@@ -323,24 +334,7 @@ export function AddPrinterDialog({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <Modal title="Printers" onClose={onClose} wide>
-      <div className="subtabs">
-        <button className={tab === 'vendor' ? 'active' : ''} onClick={() => setTab('vendor')}>
-          Vendor profiles
-        </button>
-        <button className={tab === 'filaments' ? 'active' : ''} onClick={() => setTab('filaments')}>
-          Filaments
-        </button>
-        <button
-          className={tab === 'custom' ? 'active' : ''}
-          onClick={() => {
-            setStep(1);
-            setTab('custom');
-          }}
-        >
-          Custom printer
-        </button>
-      </div>
+    <>
       {tab === 'vendor' && (
         <>
           <VendorUpdates onChange={refreshVendors} />
@@ -400,7 +394,7 @@ export function AddPrinterDialog({ onClose }: { onClose: () => void }) {
           </div>
         </>
       )}
-      {tab === 'filaments' && <FilamentStep onSave={onClose} onCancel={() => setTab('vendor')} />}
+      {tab === 'filaments' && <FilamentStep onSave={onClose} onCancel={onClose} />}
       {tab === 'custom' && step === 1 && (
         <div className="custom-printer">
           <label htmlFor="custom-printer-name">
@@ -490,6 +484,6 @@ export function AddPrinterDialog({ onClose }: { onClose: () => void }) {
           onSave={() => void saveCustom()}
         />
       )}
-    </Modal>
+    </>
   );
 }

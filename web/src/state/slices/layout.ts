@@ -88,6 +88,8 @@ export interface LayoutSlice {
   leftDrawerOpen: boolean;
   toggleLeftDrawer: () => void;
   setLeftDrawerOpen: (open: boolean) => void;
+  /** forget every stored layout choice and return to the defaults (the Preferences dialog) */
+  resetLayout: () => void;
 }
 
 export const createLayoutSlice: StateCreator<State, [], [], LayoutSlice> = (set, get) => ({
@@ -117,4 +119,22 @@ export const createLayoutSlice: StateCreator<State, [], [], LayoutSlice> = (set,
   leftDrawerOpen: false,
   toggleLeftDrawer: () => get().setLeftDrawerOpen(!get().leftDrawerOpen),
   setLeftDrawerOpen: (open) => set({ leftDrawerOpen: open }),
+  resetLayout: () => {
+    // every stored choice goes, so a reload starts like a first visit; the in-memory state follows so
+    // the change is visible without one
+    for (const key of [PANELS_KEY, LEFT_WIDTH_KEY, LEFT_COLLAPSED_KEY, LEFT_CARDS_KEY]) {
+      try {
+        localStorage.removeItem(key);
+      } catch {
+        /* private window: the state resets for this page anyway */
+      }
+    }
+    set({
+      panelsHidden: false,
+      leftWidth: LEFT_COLUMN_DEFAULT_WIDTH,
+      leftCollapsed: undefined,
+      leftCards: {},
+      leftDrawerOpen: false,
+    });
+  },
 });

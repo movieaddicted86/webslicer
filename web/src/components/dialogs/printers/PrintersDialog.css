@@ -1,0 +1,23 @@
+/* PrintersDialog: the frame and the tab strip of the unified printers dialog. Tokens only. */
+
+.subtabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.subtabs button {
+  background: transparent;
+  border-color: transparent;
+}
+
+.subtabs button:hover:not(:disabled) {
+  background: var(--bg4);
+}
+
+.subtabs button.active {
+  background: var(--bg4);
+  border-color: var(--border);
+  color: var(--text);
+}

@@ -142,8 +142,8 @@ export interface CoreState {
   info?: ServerInfo;
   schema?: Schema;
   dialog?:
-    | 'addPrinter'
-    | 'physicalPrinters'
+    | 'printers'
+    | 'preferences'
     | 'objectSettings'
     | 'sendToPrinter'
     | 'savePreset'
