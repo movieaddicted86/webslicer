@@ -94,6 +94,11 @@ WebSlicer data – no model names, no settings, no user identity (GitHub sees th
 Proxmox `/etc/webslicer/webslicer.env`) to stop the check completely: no outbound request is made and
 no notice appears. The default is on.
 
+The same switch covers the **vendor profile check** (Printers dialog → Vendor profiles): with the
+switch on, the server reads `raw.githubusercontent.com/prusa3d/PrusaSlicer-settings` at most once a
+day for the installed vendors and downloads a bundle only when the user presses Update. With the
+switch off, nothing is fetched and the dialog offers **Install from file** instead.
+
 ## Proxmox VE (LXC)
 
 Run on the Proxmox host as root:

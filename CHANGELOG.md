@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+- **Vendor profile updates (T-060):** the printer bundle no longer ages with the image. The Printers
+  dialog (Vendor profiles tab) lists every installed vendor with **installed → available**, checks the
+  official PrusaSlicer-settings repository at most once a day, and installs a newer bundle with one
+  click (per vendor or **Update all**) – nothing is installed without a click. Every bundle is
+  validated before it replaces the installed one (same vendor, higher `config_version`, the same limit
+  sweep and G-code preflight the bundled profiles go through); a bundle that trips a `block` finding
+  is refused, the old one stays and the dialog lists the presets and rules that refused it. The
+  installed file lives in `<DATA_DIR>/vendor/<Vendor>.ini`, the replaced one is kept as `.prev` for a
+  one-step **Revert**; a user preset that inherits from a removed system profile is reported and left
+  alone. `WEBSLICER_UPDATE_CHECK=off` (or `false`/`0`/`no`) makes no outbound request and the dialog
+  offers **Install from file** instead, with the same validation. Sources are fixed
+  (`raw.githubusercontent.com/prusa3d/PrusaSlicer-settings`, branch `master`); there is no signature
+  to verify, the checks are the validation above.
 - **Presets between installations (T-059):** a user preset can be **renamed** from the preset row; its
   file, every preset that inherits from it, physical printers bound to it, server projects and autosave
   3MFs follow the new name, and a clash or a mid-way failure leaves the store as it was. **Export
