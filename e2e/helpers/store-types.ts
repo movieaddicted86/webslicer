@@ -196,7 +196,11 @@ export interface E2EState {
   installed: unknown[];
   vendors: unknown[];
   physicalPrinters: unknown[];
-  presetLists: { printer: Array<{ name: string }> };
+  presetLists: {
+    printer: Array<{ name: string }>;
+    print: Array<{ name: string }>;
+    filament: Array<{ name: string }>;
+  };
   extruderCount: () => number;
   select: (ids: string[]) => void;
   selectVolume: (objectId: string, volumeId: string) => void;
