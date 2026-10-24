@@ -11,7 +11,7 @@ import './ArrangeSettingsMenu.css';
  * are remembered per browser by the plater slice; the spacing field stays empty to use the print
  * preset's value, which is what the old button did.
  */
-export function ArrangeSettingsMenu() {
+export function ArrangeSettingsMenu({ testId }: { testId?: string } = {}) {
   const settings = useStore((s) => s.arrangeSettings);
   const setSettings = useStore((s) => s.setArrangeSettings);
   const printCfg = useStore((s) => s.presets.print.current);
@@ -40,7 +40,14 @@ export function ArrangeSettingsMenu() {
   const defaultSpacing = arrangementSpacing(printCfg);
   return (
     <div className="arrange-menu" ref={ref}>
-      <ToolbarButton title="Arrange settings" icon="arrangeSettings" active={open} onClick={() => setOpen((v) => !v)} />
+      <ToolbarButton
+        title="Arrange settings"
+        icon="arrangeSettings"
+        active={open}
+        pressed={open}
+        testId={testId}
+        onClick={() => setOpen((v) => !v)}
+      />
       {open && (
         <div className="arrange-popover" role="dialog" aria-label="Arrange settings">
           <div className="arrange-popover-title">Arrange settings</div>

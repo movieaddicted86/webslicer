@@ -6,8 +6,7 @@ import { retrySession } from '../../state/session';
 import { ToolbarButton } from '../common/ToolbarButton';
 import { ObjectToolbar } from './ObjectToolbar';
 import { ObjectRow } from './ObjectRow';
-import { ArrangeSettingsMenu } from './ArrangeSettingsMenu';
-import { useDeleteSelection, useInstanceActions, useSelectedObjects } from './selection';
+import { useSelectedObjects } from './selection';
 import './ObjectsSection.css';
 
 /**
@@ -19,15 +18,15 @@ import './ObjectsSection.css';
  * selected object's manipulation, settings, parts and layer ranges are in the context panel, so a row
  * never grows into a settings form again.
  *
- * Tool options are not here: a tool's panel is docked next to its button in the 3D view
- * (`components/tools/`), and the toolbar holds object actions only.
+ * L-4: the actions that act on the plate or the selection as a whole – arrange and its settings, add
+ * and remove an instance, delete – live in the tool strip at the top of the scene. The toolbar keeps
+ * what is about the list itself: merge, duplicate and delete all. A function has one home.
  */
 export function ObjectsSection() {
   const objects = useStore((s) => s.objects);
   const selectedIds = useStore((s) => s.selectedIds);
   const duplicate = useStore((s) => s.duplicateObjects);
   const mergeObjects = useStore((s) => s.mergeObjects);
-  const arrange = useStore((s) => s.arrange);
   const clear = useStore((s) => s.clearObjects);
   const autosaveError = useStore((s) => s.autosaveError);
   const discardAutosave = useStore((s) => s.discardAutosave);
@@ -37,8 +36,6 @@ export function ObjectsSection() {
   const [renamingId, setRenamingId] = useState<string | null>(null);
 
   const selected = useSelectedObjects();
-  const deleteSelection = useDeleteSelection();
-  const { addInstance, removeOneInstance, instanceCount } = useInstanceActions();
 
   // a rename requested elsewhere (F2, the workspace key handler) opens the inline field here
   const renameRequest = useStore((s) => s.renameRequest);
@@ -60,25 +57,10 @@ export function ObjectsSection() {
   return (
     <section className="objects" data-testid="object-list">
       <ObjectToolbar>
-        {/* undo/redo have one home: the top bar */}
-        <ToolbarButton title="Arrange (A)" icon="arrange" onClick={arrange} disabled={!objects.length} />
-        <ArrangeSettingsMenu />
-        <ToolbarButton title="Add instance (+)" icon="addInstance" onClick={addInstance} disabled={selected.length !== 1} />
-        <ToolbarButton
-          title="Remove the last instance (−)"
-          icon="removeInstance"
-          onClick={removeOneInstance}
-          disabled={selected.length !== 1 || instanceCount <= 1}
-        />
-        <span className="tool-sep" aria-hidden="true" />
+        {/* the plate/selection commands are in the tool strip now; what stays is about the list */}
         <ToolbarButton title={mergeTitle} icon="merge" onClick={() => void mergeObjects(selectedIds)} disabled={!canMerge} />
         <ToolbarButton title="Duplicate" icon="duplicate" onClick={() => duplicate(selectedIds)} disabled={!selected.length} />
-        <ToolbarButton
-          title="Delete the picked instance, otherwise the selected object or volume (Del)"
-          icon="delete"
-          onClick={deleteSelection}
-          disabled={!selected.length}
-        />
+        <span className="tool-sep" aria-hidden="true" />
         <ToolbarButton
           title="Delete all"
           icon="deleteAll"

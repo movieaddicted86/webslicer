@@ -4,42 +4,22 @@ import { runNavAction } from '../../nav/actions';
 import { retrySession } from '../../state/session';
 import { ToolbarButton } from '../common/ToolbarButton';
 import { ObjectToolbar } from './ObjectToolbar';
-import { useDeleteSelection, useInstanceActions, useSelectedObjects } from './selection';
-import { ArrangeSettingsMenu } from './ArrangeSettingsMenu';
 import './SimpleObjects.css';
 
-/** The reduced objects section of Simple mode: the five actions plus the arrange settings, no list. */
+/**
+ * The reduced objects section of Simple mode: the list-level actions ("delete all") and the empty
+ * state, no list. The plate and selection commands (arrange, add/remove an instance, delete) are in
+ * the tool strip since L-4, next to the tools they share the scene with.
+ */
 export function SimpleObjects() {
   const objects = useStore((s) => s.objects);
-  const arrange = useStore((s) => s.arrange);
   const clear = useStore((s) => s.clearObjects);
   const autosaveError = useStore((s) => s.autosaveError);
   const discardAutosave = useStore((s) => s.discardAutosave);
 
-  const selected = useSelectedObjects();
-  const deleteSelection = useDeleteSelection();
-  const { addInstance, removeOneInstance, instanceCount } = useInstanceActions();
-
   return (
     <section className="objects simple" data-testid="object-list">
       <ObjectToolbar>
-        <ToolbarButton title="Arrange (A)" icon="arrange" onClick={arrange} disabled={!objects.length} />
-        <ArrangeSettingsMenu />
-        <span className="tool-sep" aria-hidden="true" />
-        <ToolbarButton title="Add instance (+)" icon="addInstance" onClick={addInstance} disabled={selected.length !== 1} />
-        <ToolbarButton
-          title="Remove the last instance (−)"
-          icon="removeInstance"
-          onClick={removeOneInstance}
-          disabled={selected.length !== 1 || instanceCount <= 1}
-        />
-        <span className="tool-sep" aria-hidden="true" />
-        <ToolbarButton
-          title="Delete the picked instance, otherwise the selected object (Del)"
-          icon="delete"
-          onClick={deleteSelection}
-          disabled={!selected.length}
-        />
         <ToolbarButton
           title="Delete all"
           icon="deleteAll"
@@ -74,8 +54,9 @@ export function SimpleObjects() {
         </div>
       )}
       <div className="muted small">
-        Simple mode: move objects with the gizmo in the 3D view, and use the tools in the bar on the left. Switch to <b>Advanced</b> or{' '}
-        <b>Expert</b> for the object list, per-object settings, modifiers and height ranges.
+        Simple mode: object commands (arrange, duplicate an instance, delete) are in the tool strip at the top of the view; move objects
+        with the gizmo in the 3D view. Switch to <b>Advanced</b> or <b>Expert</b> for the object list, per-object settings, modifiers and
+        height ranges.
       </div>
     </section>
   );

@@ -1,4 +1,4 @@
-import { useStore, type View } from '../state/store';
+import { useStore } from '../state/store';
 import { AppMenu } from './AppMenu';
 import { Icon } from '../icons/Icon';
 import { useLeftColumn } from './left/useLeftColumn';
@@ -8,19 +8,18 @@ import './TopBar.css';
  * The slim top bar of the 3.0 layout (L-1). Everything the wide bar carried as one button per action
  * has moved: the actions into the `Menu` dropdown (`AppMenu`), Library/Printers/About onto the rail,
  * the update notice onto the rail's About item. What stays is what a user reaches constantly and
- * without a second click – undo/redo, the hide-panels toggle, the project name and the view tabs – so
- * the bar is one 46 px row at any width.
+ * without a second click – undo/redo, the hide-panels toggle and the project name – so the bar is one
+ * 46 px row at any width.
  *
- * The tabs are the Plater and the Preview only. The three settings views open from the cog in their
- * preset row (as in PrusaSlicer), so the bar no longer carries them; the tabs move into the tool strip
- * of the next layout step.
+ * The Plater | Preview tabs left the bar in L-4: their switch now lives in the tool strip, next to the
+ * tools it shares the scene with (`view-switch`). The settings views never were tabs – their one door
+ * is the cog in their preset row (as in PrusaSlicer).
  *
  * On a phone the object list is a drawer instead of a column, so the bar carries the button that
  * opens it; on a wide window the column's own chevron does that job.
  */
 export function TopBar() {
   const view = useStore((s) => s.view);
-  const setView = useStore((s) => s.setView);
   const objects = useStore((s) => s.objects);
   const panelsHidden = useStore((s) => s.panelsHidden);
   const togglePanels = useStore((s) => s.togglePanels);
@@ -30,12 +29,6 @@ export function TopBar() {
   const canRedo = useStore((s) => s.redoStack.length > 0);
   const { phone, hidden: drawerHidden, toggle: toggleObjects } = useLeftColumn();
 
-  // the settings views are not tabs: their one door is the cog in the preset row (the Plater and the
-  // Preview keep theirs until the tool strip takes them)
-  const tabs: Array<{ id: View; label: string }> = [
-    { id: 'plater', label: 'Plater' },
-    { id: 'preview', label: 'Preview' },
-  ];
   // the settings views are a page without side panels: there is nothing for the toggle to hide
   const hideable = view === 'plater' || view === 'preview';
   const settings = view === 'print' || view === 'filament' || view === 'printer';
@@ -95,18 +88,6 @@ export function TopBar() {
       <span className="project-name" title="The project on the plater">
         {projectName}
       </span>
-      <nav className="tabs">
-        {tabs.map((t) => (
-          <button
-            key={t.id}
-            className={view === t.id ? 'active' : ''}
-            aria-current={view === t.id ? 'page' : undefined}
-            onClick={() => setView(t.id)}
-          >
-            {t.label}
-          </button>
-        ))}
-      </nav>
     </header>
   );
 }

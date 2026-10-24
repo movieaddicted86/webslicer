@@ -1,13 +1,21 @@
 import { Icon } from '../../icons/Icon';
 import type { IconName } from '../../icons/table';
 
-/** One button of a section toolbar (F-13) – the tools of the objects panel and of Simple mode. */
+/**
+ * One icon button of a toolbar – the tools of the strip, the object list and Simple mode, and the
+ * tool panels' chrome. The title is the button's accessible name and its tooltip ("Name (Key)", and
+ * the reason when it is disabled).
+ *
+ * `active` paints the button as the current mode; `pressed` says the same thing to assistive
+ * technology (`aria-pressed`) and is set on the buttons that are a toggle, such as the open tool.
+ */
 export function ToolbarButton({
   title,
   icon,
   onClick,
   disabled,
   active,
+  pressed,
   className,
   label,
   testId,
@@ -19,6 +27,8 @@ export function ToolbarButton({
   disabled?: boolean;
   /** draws the pressed state of a mode button (move/rotate/scale, place on face) */
   active?: boolean;
+  /** the button is a toggle and is currently on; announced as `aria-pressed` */
+  pressed?: boolean;
   className?: string;
   /** a visible name next to the icon (the wide tool bar, T-055); without it the button is icon-only */
   label?: string;
@@ -28,7 +38,15 @@ export function ToolbarButton({
   const cls = [active && 'active', className].filter(Boolean).join(' ');
   // Icon-only buttons show the tooltip as the accessible name; a labelled one carries the name itself.
   return (
-    <button className={cls || undefined} title={title} aria-label={title} onClick={onClick} disabled={disabled} data-testid={testId}>
+    <button
+      className={cls || undefined}
+      title={title}
+      aria-label={title}
+      aria-pressed={pressed}
+      onClick={onClick}
+      disabled={disabled}
+      data-testid={testId}
+    >
       <Icon name={icon} size={18} />
       {label && (
         <span className="btn-label" aria-hidden="true">

@@ -86,8 +86,10 @@ test('closing a closed tool does nothing', () => {
 });
 
 test('the transform tools share the one transform mode – only one is shown as active', () => {
+  // placeOnFace sits in the transform group since L-4 (PrusaSlicer's order), but it has a panel and
+  // no transform mode of its own
   assert.deepEqual(
-    TOOLS.filter((t) => t.group === 'transform').map((t) => t.id),
+    TOOLS.filter((t) => t.group === 'transform' && !t.panel).map((t) => t.id),
     ['move', 'rotate', 'scale'],
   );
   assert.equal(toolById('cut')?.panel, 'cut');
