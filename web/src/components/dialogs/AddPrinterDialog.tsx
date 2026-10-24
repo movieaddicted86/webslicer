@@ -32,7 +32,7 @@ function successLines(results: VendorUpdateResult[]): string[] {
  * The check runs on the server (once a day at most, never here) and installing is always a click.
  * A refused bundle shows the findings that refused it and changes nothing.
  */
-function VendorUpdates({ vendors, onChange }: { vendors: Vendor[]; onChange: () => Promise<void> }) {
+function VendorUpdates({ onChange }: { onChange: () => Promise<void> }) {
   const toast = useStore((s) => s.toast);
   const [list, setList] = useState<VendorUpdateList>();
   const [loading, setLoading] = useState(false);
@@ -199,8 +199,6 @@ function VendorUpdates({ vendors, onChange }: { vendors: Vendor[]; onChange: () 
           )}
         </div>
       )}
-      {/* read so a changed bundle re-renders the model list below it (the caller reloads `vendors`) */}
-      <span hidden>{vendors.length}</span>
     </section>
   );
 }
@@ -280,7 +278,7 @@ export function AddPrinterDialog({ onClose }: { onClose: () => void }) {
       </div>
       {tab === 'vendor' ? (
         <>
-          <VendorUpdates vendors={vendors} onChange={refreshVendors} />
+          <VendorUpdates onChange={refreshVendors} />
           <div className="add-printer">
             <div className="vendor-list">
               <input placeholder="Filter models…" value={filter} onChange={(e) => setFilter(e.target.value)} />
