@@ -15,8 +15,3 @@ import type { Locator, Page } from '@playwright/test';
 export function byId(page: Page, id: string): Locator {
   return page.getByTestId(id);
 }
-
-/** A locator for a hook below an already located element. */
-export function within(root: Locator, id: string): Locator {
-  return root.getByTestId(id);
-}
