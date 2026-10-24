@@ -104,11 +104,9 @@ export const api = {
   revertVendor: (id: string) => fetch(`/api/vendors/${encodeURIComponent(id)}/revert`, { method: 'POST' }).then((r) => handleBundle(r)),
   /** Upload a vendor `.ini` by hand – the way an air-gapped install updates (same validation as online). */
   installVendorFromFile: (file: File) =>
-    fetch('/api/vendors/install', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/octet-stream', 'X-Filename': encodeURIComponent(file.name) },
-      body: file,
-    }).then((r) => handleBundle(r)),
+    fetch('/api/vendors/install', { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: file }).then((r) =>
+      handleBundle(r),
+    ),
   installedPrinters: () => fetch('/api/installed-printers').then((r) => handle<InstalledPrinter[]>(r)),
   setInstalledPrinters: (list: InstalledPrinter[]) =>
     fetch('/api/installed-printers', jsonInit('PUT', list)).then((r) => handle<InstalledPrinter[]>(r)),
