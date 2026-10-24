@@ -61,6 +61,20 @@ Priority by frequency of use in everyday printing and PrusaSlicer parity.
 - [ ] Docker image stage 2: own PrusaSlicer build without GUI (≈ 300–400 MB)
 - [ ] Library: thumbnails, search, sorting
 
+### Inspired by PrusaSlicer 3.0 alpha (research: `docs/research/PrusaSlicer-3.0-UI.md`; UI decisions by Robert first)
+
+- [ ] D-12/D-13/D-8 small ones: per-project colours, G-code format chosen when saving, remember last destination, several unsaved preset edits at once, first-run online/offline card + Preferences "Online services"
+- [ ] D-1 Favourite settings: star any option, the sidebar quick settings show the starred ones
+- [ ] D-5 Preview cards: sliced info, legend with scheme drop-down and detail view, G-code line viewer synced to the sliders, auto-reslice toggle
+- [ ] D-6 View cube and selectable mouse schemes (ours, Blender, Fusion)
+- [ ] D-7 Calibration generators (flow tower, temperature tower, later retraction/speed/PA) as server-side parametric project generators
+- [ ] D-9 Theme tokens: light and dark, one accent colour (decide with the mobile track)
+- [ ] D-2/D-3 Context-sensitive right panel and object list as overview (decide together with M-1 layout breakpoints)
+- [ ] D-4 Settings dialog redesign (category rail, toggles, star column, compare/save footer) – after D-1 and D-9
+- [ ] D-10 Project tabs; D-11 multiple beds with their own printer preset (data-model note first); D-14 profile filter by filament type + fuzzy global search
+- [ ] 3.0 engine: stay on 2.9.x; re-assess at 3.0 beta with third-party profiles and a documented CLI (optional one-day CLI spike)
+- [ ] Unraid: U-1 publish multi-arch image to GHCR on `v*` tags + `PUID`/`PGID`; U-2 Community Applications XML template + doc (needs an Unraid tester)
+
 ## P4 – later or not planned
 
 - [ ] Adopt TypeScript 7 once typescript-eslint supports it; until then `tsgo` may be tried for
