@@ -185,9 +185,15 @@ const HOOKS = [
   'slice-panel',
   'slice-button',
   'tool-bar',
+  'tool-strip',
+  'tool-overflow',
+  'view-switch',
+  'view-plater',
+  'view-preview',
   'tool-panel',
   'tool-panel-title',
   'tool-panel-foot',
+  'tool-hints',
   'modal',
   'modal-title',
   'modal-actions',
@@ -231,9 +237,9 @@ test('every structural hook is a data-testid on a component', () => {
   assert.deepEqual(missing, [], 'hook missing on the components, or renamed – update the spec and this list');
 });
 
-test('the tool bar derives its per-tool hooks from the registry and the shared button forwards them', () => {
+test('the tool strip derives its per-tool hooks from the registry and the shared button forwards them', () => {
   const src = components();
-  assert.match(src.get('components/tools/ToolBar.tsx') ?? '', /testId=\{`tool-\$\{tool\.id\}`\}/);
+  assert.match(src.get('components/tools/ToolStrip.tsx') ?? '', /testId=\{`tool-\$\{tool\.id\}`\}/);
   assert.match(src.get('components/common/ToolbarButton.tsx') ?? '', /data-testid=\{testId\}/);
 });
 

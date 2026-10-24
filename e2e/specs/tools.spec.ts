@@ -1,115 +1,126 @@
 /**
- * T-046: the tool framework – the left tool bar and the panel docked next to it.
+ * The tool strip and the context panel's tool mode (layout 3.0, L-4).
  *
- * The bar is the single way into a tool now (the object list keeps its own toolbar for the
- * frequently used commands): a button opens the tool's panel, the same button closes it, Esc and the
- * panel's close button do the same, and a disabled tool says why. AC-5 measures the panel width; a
- * dummy tool proves AC-3 in `web/src/three/shortcuts.test.ts` and `web/src/tools/activate.test.ts`
- * (a registry entry is all a tool needs), so this spec drives the tools that exist.
+ * The strip is a floating pill at the top centre of the scene: it opens every registry tool, carries
+ * the object commands on the selection and the Prepare | Preview switch that used to be two tabs in
+ * the top bar. The open tool's controls are the context panel's tool mode (title, ✕, fields, sticky
+ * primary action and the key-hint block of its registry entry), not a second box over the scene.
  *
- * T-055: the bar shows a short label next to the icon while the 3D view is wide enough (measured on
- * the view, not the window), the toggle at the bar's end overrides that and `localStorage` remembers
- * the choice; the object list's toolbar keeps no tool buttons any more (no action twice).
+ * The layout moves the controls between regions, so every locator is a hook: `tool-strip`,
+ * `tool-bar`, `tool-<id>`, `tool-panel*`, `tool-hints`, `view-switch`.
  */
 import { CUBE, importFile, press, read, settle } from '../helpers/app';
 import { expect, test } from '../helpers/fixtures';
 import { click } from '../helpers/dom';
 
-test.describe('tool framework', () => {
+test.describe('tool strip', () => {
   test.beforeEach(async ({ app }) => {
     await importFile(app, CUBE);
     await app.evaluate(() => window.webslicer.getState().select([window.webslicer.getState().objects[0].id]));
     await settle(app, 700);
   });
 
-  test('the bar is vertical at the left edge and holds one button per registry tool', async ({ app }) => {
-    const bar = await app.evaluate(() => {
-      const el = document.querySelector('[data-testid="tool-bar"]') as HTMLElement;
+  test('the strip is a horizontal pill at the top centre of the scene, in registry groups', async ({ app }) => {
+    const strip = await app.evaluate(() => {
+      const host = document.querySelector('[data-testid="tool-strip"]') as HTMLElement;
+      const pill = document.querySelector('[data-testid="tool-bar"]') as HTMLElement;
       const viewer = document.querySelector('.viewer') as HTMLElement;
-      const b = el.getBoundingClientRect();
+      const p = pill.getBoundingClientRect();
       const v = viewer.getBoundingClientRect();
       return {
-        role: el.getAttribute('role'),
-        orientation: el.getAttribute('aria-orientation'),
-        labels: Array.from(el.querySelectorAll('button')).map((x) => x.getAttribute('aria-label')),
-        groups: el.querySelectorAll('.tool-bar-group').length,
-        separators: el.querySelectorAll('.tool-sep').length,
-        // the bar sits on the left edge of the 3D view, vertically centred
-        leftOffset: Math.round(b.left - v.left),
-        centreOffset: Math.round(b.top + b.height / 2 - (v.top + v.height / 2)),
-        vertical: b.height > b.width,
-        icons: Array.from(el.querySelectorAll('button svg')).map((s) => s.getAttribute('width')),
+        role: pill.getAttribute('role'),
+        label: pill.getAttribute('aria-label'),
+        groups: Array.from(pill.querySelectorAll('.tool-bar-group')).map((g) => g.getAttribute('data-group')),
+        separators: pill.querySelectorAll('.tool-bar-group > .tool-sep').length,
+        labels: Array.from(pill.querySelectorAll('.tool-bar-group button')).map((b) => b.getAttribute('aria-label')),
+        pressed: Array.from(pill.querySelectorAll('.tool-bar-group button')).map((b) => b.getAttribute('aria-pressed')),
+        // the pill floats over the top of the scene, centred on it
+        top: Math.round(p.top - v.top),
+        centre: Math.round(p.left + p.width / 2 - (v.left + v.width / 2)),
+        horizontal: p.width > p.height,
+        hostPointerEvents: getComputedStyle(host).pointerEvents,
       };
     });
-    expect(bar.role).toBe('toolbar');
-    expect(bar.orientation).toBe('vertical');
-    expect(bar.vertical).toBe(true);
-    expect(bar.leftOffset).toBeLessThan(20);
-    expect(Math.abs(bar.centreOffset)).toBeLessThan(30);
-    expect(bar.labels).toEqual([
+    expect(strip.role).toBe('toolbar');
+    expect(strip.label).toBe('Tools');
+    expect(strip.horizontal).toBe(true);
+    expect(strip.top).toBeLessThan(20);
+    expect(Math.abs(strip.centre)).toBeLessThan(20);
+    // the scene stays reachable around the pill
+    expect(strip.hostPointerEvents).toBe('none');
+
+    // PrusaSlicer's order: the selection's command, the instance pair, transform + arrange, paint, cut, layer
+    expect(strip.groups).toEqual(['selection', 'instance', 'transform', 'paint', 'cut', 'layer']);
+    expect(strip.separators).toBe(6);
+    expect(strip.labels).toEqual([
+      'Delete selection (Del)',
+      'Add instance (+)',
+      // the cube has its one instance, so removing one would remove it: the tooltip says why
+      'Remove instance (−): the object has one instance',
       'Move (M)',
       'Rotate (R)',
       'Scale (S)',
       'Place on face (F)',
-      // the cube is one object without modifiers, so the cut is available
-      'Cut (C)',
-      'Variable layer height (V)',
+      'Arrange (A)',
+      'Arrange settings',
       'Paint supports (L)',
       'Paint seam (P)',
       'Paint extruder: Needs a multi-extruder printer',
-      // T-055: the label toggle closes the bar
-      'Show tool labels',
+      // the cube is one object without modifiers, so the cut is available
+      'Cut (C)',
+      'Variable layer height (V)',
     ]);
-    // three groups: transform | edit | paint
-    expect(bar.groups).toBe(3);
-    expect(bar.icons).toEqual(Array(10).fill('18'));
-    // the label toggle sits behind its own separator
-    expect(bar.separators).toBe(3);
+    // no tool is open: the gizmo is in the move mode, so move is the one pressed button
+    expect(strip.pressed.map((p, i) => (p === 'true' ? strip.labels[i] : null)).filter(Boolean)).toEqual(['Move (M)']);
   });
 
-  test('a button opens its panel next to the bar, the same button closes it', async ({ app }) => {
+  test('a button opens the tool in the context panel, the same button closes it', async ({ app }) => {
+    const before = await app.locator('.viewer canvas').boundingBox();
     await click(app, '[data-testid="tool-cut"]', 700);
     expect(await read(app, (s) => s.activeTool)).toBe('cut');
+
     const panel = await app.evaluate(() => {
-      const p = document.querySelector('[data-testid="tool-panel"]') as HTMLElement;
-      const bar = document.querySelector('[data-testid="tool-bar"]') as HTMLElement;
-      const b = p.getBoundingClientRect();
+      const p = document.querySelector('[data-testid="context-panel"] [data-testid="tool-panel"]') as HTMLElement | null;
       return {
-        label: p.getAttribute('aria-label'),
-        title: p.querySelector('[data-testid="tool-panel-title"]')?.textContent,
-        close: !!p.querySelector('[data-testid="tool-panel-close"]'),
-        footer: p.querySelector('[data-testid="tool-panel-foot"]')?.textContent ?? '',
-        // AC-5: at most 320 px wide, and docked to the right of the bar
-        width: Math.round(b.width),
-        left: Math.round(b.left),
-        barRight: Math.round(bar.getBoundingClientRect().right),
+        inPanel: !!p,
+        label: p?.getAttribute('aria-label'),
+        title: p?.querySelector('[data-testid="tool-panel-title"]')?.textContent,
+        close: !!p?.querySelector('[data-testid="tool-panel-close"]'),
+        footer: p?.querySelector('[data-testid="tool-panel-foot"]')?.textContent ?? '',
+        hints: p?.querySelectorAll('[data-testid="tool-hints"] .tool-hint').length ?? 0,
+        // tool mode replaces the plate/object content and its Slice footer
+        sliceFooter: !!document.querySelector('[data-testid="context-footer"]'),
+        // the strip marks the open tool and only that one
+        pressed: Array.from(document.querySelectorAll('[data-testid="tool-bar"] button[aria-pressed="true"]')).map((b) =>
+          b.getAttribute('aria-label'),
+        ),
       };
     });
+    expect(panel.inPanel).toBe(true);
     expect(panel.label).toBe('Cut');
     expect(panel.title).toBe('Cut');
     expect(panel.close).toBe(true);
     expect(panel.footer).toContain('Perform cut');
-    expect(panel.width).toBeLessThanOrEqual(320);
-    expect(panel.left).toBeGreaterThanOrEqual(panel.barRight);
+    expect(panel.hints).toBeGreaterThanOrEqual(1);
+    expect(panel.sliceFooter).toBe(false);
+    expect(panel.pressed).toEqual(['Cut (C)']);
 
-    // the open tool is the highlighted one, and only that one
-    expect(
-      await app.evaluate(() =>
-        Array.from(document.querySelectorAll('[data-testid="tool-bar"] button.active')).map((b) => b.getAttribute('aria-label')),
-      ),
-    ).toEqual(['Cut (C)']);
+    // the panel is a column, not an overlay: the canvas keeps its size
+    expect(await app.locator('.viewer canvas').boundingBox()).toEqual(before);
 
-    // the same button toggles the panel off
     await click(app, '[data-testid="tool-cut"]', 700);
     expect(await read(app, (s) => s.activeTool ?? null)).toBeNull();
     expect(await app.locator('[data-testid="tool-panel"]').count()).toBe(0);
+    await expect(app.locator('[data-testid="context-footer"]')).toBeVisible();
   });
 
   test('one tool at a time: opening another tool replaces the panel', async ({ app }) => {
     await click(app, '[data-testid="tool-cut"]', 700);
     await click(app, '[data-testid="tool-layerHeight"]', 700);
-    const both = await read(app, (s) => ({ tool: s.activeTool, selected: s.selectedIds.length }));
-    expect(both).toEqual({ tool: 'layerHeight', selected: 1 });
+    expect(await read(app, (s) => ({ tool: s.activeTool, selected: s.selectedIds.length }))).toEqual({
+      tool: 'layerHeight',
+      selected: 1,
+    });
     expect(await app.locator('[data-testid="tool-panel"]').count()).toBe(1);
     await expect(app.locator('[data-testid="tool-panel-title"]')).toHaveText('Variable layer height');
   });
@@ -119,15 +130,47 @@ test.describe('tool framework', () => {
     expect(await read(app, (s) => s.activeTool)).toBe('placeOnFace');
     await press(app, 'Escape');
     await settle(app, 300);
-    expect(await read(app, (s) => ({ tool: s.activeTool ?? null, selected: s.selectedIds.length }))).toEqual({ tool: null, selected: 1 });
+    expect(await read(app, (s) => ({ tool: s.activeTool ?? null, selected: s.selectedIds.length }))).toEqual({
+      tool: null,
+      selected: 1,
+    });
 
     await click(app, '[data-testid="tool-paintSeam"]', 1200);
     expect(await read(app, (s) => s.activeTool)).toBe('paintSeam');
     await click(app, '[data-testid="tool-panel-close"]', 700);
-    expect(await read(app, (s) => ({ tool: s.activeTool ?? null, selected: s.selectedIds.length }))).toEqual({ tool: null, selected: 1 });
+    expect(await read(app, (s) => ({ tool: s.activeTool ?? null, selected: s.selectedIds.length }))).toEqual({
+      tool: null,
+      selected: 1,
+    });
   });
 
-  test('the tool shortcuts open the same panels', async ({ app }) => {
+  test('every tool panel carries its key hints, built from the registry', async ({ app }) => {
+    for (const [tool, row] of [
+      ['cut', 'Turn the object in the 3D view; the plane follows the sliders'],
+      ['paintSupports', 'Paint with the selected brush tool'],
+      ['placeOnFace', 'Click the face that should lie flat on the bed'],
+      ['layerHeight', 'Drag in the chart to raise or lower the layer height'],
+    ] as const) {
+      await app.evaluate((id) => window.webslicer.getState().openTool(id as never), tool);
+      await settle(app, 500);
+      await expect(app.locator('[data-testid="tool-hints"]')).toBeVisible();
+      await expect(app.locator('[data-testid="tool-hints"]')).toContainText(row);
+      // a hint shows a key chip or a mouse icon, never bare text
+      expect(
+        await app.evaluate(
+          () =>
+            Array.from(document.querySelectorAll('[data-testid="tool-hints"] .tool-hint')).length > 0 &&
+            Array.from(document.querySelectorAll('[data-testid="tool-hints"] .tool-hint')).every(
+              (h) => !!h.querySelector('kbd') || !!h.querySelector('svg'),
+            ),
+        ),
+      ).toBe(true);
+      await press(app, 'Escape');
+      await settle(app, 300);
+    }
+  });
+
+  test('the tool shortcuts open the same tools, in the context panel', async ({ app }) => {
     for (const [key, tool] of [
       ['c', 'cut'],
       ['v', 'layerHeight'],
@@ -136,13 +179,13 @@ test.describe('tool framework', () => {
       await press(app, key);
       await settle(app, 600);
       expect(await read(app, (s) => s.activeTool), `${key} opens ${tool}`).toBe(tool);
+      await expect(app.locator('[data-testid="context-panel"] [data-testid="tool-panel"]')).toBeVisible();
       await press(app, 'Escape');
       await settle(app, 300);
     }
   });
 
   test('an unavailable tool is disabled and its tooltip says why', async ({ app }) => {
-    // no selection: every tool that works on one object is disabled with that reason
     await app.evaluate(() => window.webslicer.getState().select([]));
     await settle(app, 500);
     const unavailable = await app.evaluate(() =>
@@ -151,13 +194,18 @@ test.describe('tool framework', () => {
         .filter((b) => b.disabled),
     );
     expect(unavailable.map((b) => b.title)).toEqual([
-      'Cut (C): Select one object',
-      'Variable layer height (V): Select one object',
+      // the object commands need a selection; arrange needs an object, and there is one on the plate
+      'Delete selection (Del): select an object first',
+      'Add instance (+): select an object first',
+      'Remove instance (−): select an object first',
+      // the paint, cut and layer tools work on one object and say so
       'Paint supports (L): Select one object',
       'Paint seam (P): Select one object',
       'Paint extruder: Select one object',
+      'Cut (C): Select one object',
+      'Variable layer height (V): Select one object',
     ]);
-    // the transform tools and place-on-face need an object on the plate, not a selection: there is one
+    // the transform tools and place-on-face need an object on the plate, not a selection
     await expect(app.locator('[data-testid="tool-move"]')).toBeEnabled();
     await expect(app.locator('[data-testid="tool-placeOnFace"]')).toBeEnabled();
     // a disabled button cannot be opened
@@ -165,97 +213,177 @@ test.describe('tool framework', () => {
     expect(await read(app, (s) => s.activeTool ?? null)).toBeNull();
   });
 
-  test('the context panel renders no tool options any more', async ({ app }) => {
-    // the old option panels left the side panel; the object list stays in the left column and the
-    // manipulation of the selection lives in the context panel
-    expect(
-      await app
-        .locator(
-          '[data-testid="context-panel"] .cut-panel, [data-testid="context-panel"] .paint-panel, [data-testid="context-panel"] .layer-profile-panel',
-        )
-        .count(),
-    ).toBe(0);
-    expect(await app.locator('[data-testid="context-panel"] button:has-text("Perform cut")').count()).toBe(0);
-    expect(await app.locator('[data-testid="context-panel"] button:has-text("Adaptive")').count()).toBe(0);
-    expect(await app.locator('.manip').count()).toBe(1);
-    // T-055: and no action is offered twice – the tool buttons exist in the bar only
+  test('the object commands have their one home in the strip', async ({ app }) => {
+    // the old object toolbar keeps the list-level actions only
     expect(
       await app.evaluate(() =>
         Array.from(document.querySelectorAll('[data-testid="object-toolbar"] button')).map((b) => b.getAttribute('aria-label')),
       ),
-    ).toEqual([
-      'Arrange (A)',
-      'Arrange settings',
-      'Add instance (+)',
-      'Remove the last instance (−)',
-      'Merge: select two or more objects with a single instance',
-      'Duplicate',
-      'Delete the picked instance, otherwise the selected object or volume (Del)',
-      'Delete all',
-    ]);
+    ).toEqual(['Merge: select two or more objects with a single instance', 'Duplicate', 'Delete all']);
+    // arrange, the instance pair and delete exist once – in the strip
+    for (const id of ['tool-deleteSelection', 'tool-addInstance', 'tool-removeInstance', 'tool-arrange', 'tool-arrangeSettings']) {
+      expect(await app.locator(`[data-testid="${id}"]`).count(), `${id} has one home`).toBe(1);
+    }
+
+    // the commands act on the selection like the shortcuts do
+    await click(app, '[data-testid="tool-addInstance"]', 600);
+    expect(await read(app, (s) => s.objects[0].instances.length)).toBe(2);
+    await click(app, '[data-testid="tool-removeInstance"]', 600);
+    expect(await read(app, (s) => s.objects[0].instances.length)).toBe(1);
+    await click(app, '[data-testid="tool-arrange"]', 700);
+    expect(await read(app, (s) => s.objects.length)).toBe(1);
+    await click(app, '[data-testid="tool-deleteSelection"]', 700);
+    expect(await read(app, (s) => s.objects.length)).toBe(0);
+  });
+});
+
+test.describe('tool strip: the Prepare | Preview switch', () => {
+  test('the switch is a radiogroup in the strip and drives the view like the old tabs', async ({ app }) => {
+    await importFile(app, CUBE);
+    const sw = await app.evaluate(() => {
+      const el = document.querySelector('[data-testid="view-switch"]') as HTMLElement;
+      return {
+        role: el.getAttribute('role'),
+        radios: Array.from(el.querySelectorAll('button')).map((b) => ({
+          role: b.getAttribute('role'),
+          label: b.getAttribute('aria-label'),
+          checked: b.getAttribute('aria-checked'),
+          nav: b.getAttribute('data-nav-id'),
+        })),
+      };
+    });
+    expect(sw.role).toBe('radiogroup');
+    expect(sw.radios.map((r) => r.label)).toEqual(['Prepare', 'Preview']);
+    expect(sw.radios.map((r) => r.nav)).toEqual(['viewPlater', 'viewPreview']);
+    expect(sw.radios[0].checked).toBe('true');
+
+    // icon only at a normal window width – the glyphs must still be drawn: the label's `span` rule
+    // once hid the SVG's own `.ui-icon` wrapper as well and left an empty button behind
+    const glyphs = await app.evaluate(() =>
+      Array.from(document.querySelectorAll('[data-testid="view-switch"] button svg')).map((s) => {
+        const box = s.getBoundingClientRect();
+        return Math.round(box.width) > 8 && Math.round(box.height) > 8;
+      }),
+    );
+    expect(glyphs).toEqual([true, true]);
+
+    await click(app, '[data-testid="view-preview"]', 1200);
+    expect(await read(app, (s) => s.view)).toBe('preview');
+    expect(
+      await app.evaluate(() =>
+        Array.from(document.querySelectorAll('[data-testid="view-switch"] button')).map((b) => b.getAttribute('aria-checked')),
+      ),
+    ).toEqual(['false', 'true']);
+
+    await click(app, '[data-testid="view-plater"]', 800);
+    expect(await read(app, (s) => s.view)).toBe('plater');
+    // the top bar carries no view tabs any more
+    expect(await app.evaluate(() => document.querySelectorAll('[data-testid="top-bar"] nav').length)).toBe(0);
+  });
+});
+
+test.describe('tool strip: room, names and overflow', () => {
+  test.beforeEach(async ({ app }) => {
+    await importFile(app, CUBE);
+    await app.evaluate(() => window.webslicer.getState().select([window.webslicer.getState().objects[0].id]));
+    await settle(app, 700);
   });
 
-  test('the bar shows labels on a wide view, icons only on a narrow one, and stays under 170 px (T-055)', async ({ app }) => {
-    // the labels follow the width of the 3D view, not the window: 1920 px window − rail, object
-    // list column and context panel leave it about 1200 px
-    await app.setViewportSize({ width: 1920, height: 900 });
-    await settle(app, 500);
+  test('the names appear while the whole strip fits with them, and only then', async ({ app }) => {
+    // a very wide window: the scene has room for the names beside the icons
+    await app.setViewportSize({ width: 2560, height: 900 });
+    await settle(app, 700);
     const wide = await app.evaluate(() => {
-      const bar = document.querySelector('[data-testid="tool-bar"]') as HTMLElement;
+      const pill = document.querySelector('[data-testid="tool-bar"]') as HTMLElement;
       return {
-        labelled: bar.classList.contains('with-labels'),
-        viewWidth: Math.round((bar.parentElement as HTMLElement).getBoundingClientRect().width),
-        width: Math.round(bar.getBoundingClientRect().width),
-        labels: Array.from(bar.querySelectorAll('.btn-label')).map((l) => l.textContent),
+        labelled: pill.classList.contains('with-labels'),
+        labels: Array.from(pill.querySelectorAll('.btn-label')).map((l) => l.textContent),
+        overflow: !!pill.querySelector('[data-testid="tool-overflow"]'),
       };
     });
-    expect(wide.viewWidth).toBeGreaterThanOrEqual(1100);
     expect(wide.labelled).toBe(true);
-    expect(wide.labels).toEqual([
-      'Move',
-      'Rotate',
-      'Scale',
-      'Place on face',
-      'Cut',
-      'Layer height',
-      'Paint supports',
-      'Paint seam',
-      'Paint extruder',
-    ]);
-    // AC from the task: the bar must not cover more than ~170 px of the view
-    expect(wide.width).toBeLessThanOrEqual(170);
+    expect(wide.labels).toContain('Move');
+    // the short name of the row, not the panel title ("Variable layer height")
+    expect(wide.labels).toContain('Layer height');
+    expect(wide.overflow).toBe(false);
 
-    // 1400 × 800 leaves well under 1100 px for the view: icons only, with the tooltips
-    await app.setViewportSize({ width: 1400, height: 800 });
-    await settle(app, 500);
-    const narrow = await app.evaluate(() => {
-      const bar = document.querySelector('[data-testid="tool-bar"]') as HTMLElement;
+    // the default 1280 px window has icons only, with the tooltips as names
+    await app.setViewportSize({ width: 1280, height: 900 });
+    await settle(app, 700);
+    const normal = await app.evaluate(() => {
+      const pill = document.querySelector('[data-testid="tool-bar"]') as HTMLElement;
       return {
-        labelled: bar.classList.contains('with-labels'),
-        viewWidth: Math.round((bar.parentElement as HTMLElement).getBoundingClientRect().width),
-        labels: bar.querySelectorAll('.btn-label').length,
-        title: bar.querySelector('[data-testid="tool-move"]')?.getAttribute('title'),
+        labelled: pill.classList.contains('with-labels'),
+        labels: pill.querySelectorAll('.btn-label').length,
+        title: pill.querySelector('[data-testid="tool-move"]')?.getAttribute('title'),
       };
     });
-    expect(narrow.viewWidth).toBeLessThan(1100);
-    expect(narrow.labelled).toBe(false);
-    expect(narrow.labels).toBe(0);
-    expect(narrow.title).toBe('Move (M)');
+    expect(normal.labelled).toBe(false);
+    expect(normal.labels).toBe(0);
+    expect(normal.title).toBe('Move (M)');
+  });
 
-    // the toggle overrides the width and the browser remembers the choice across a reload
-    await click(app, '[data-testid="tool-labels-toggle"]', 400);
-    await expect(app.locator('[data-testid="tool-bar"]')).toHaveClass(/with-labels/);
-    await expect(app.locator('[data-testid="tool-bar"] .btn-label').first()).toHaveText('Move');
-    await app.reload({ waitUntil: 'networkidle' });
-    await app.waitForFunction(() => !!window.webslicer && window.webslicer.getState().ready, null, { timeout: 90_000 });
+  test('a scene too narrow for every group moves the trailing ones into the overflow menu', async ({ app }) => {
+    await app.setViewportSize({ width: 1000, height: 900 });
+    await settle(app, 700);
+    // the pill keeps the leading groups; whatever does not fit sits behind "⋯"
+    await expect(app.locator('[data-testid="tool-overflow"]')).toBeVisible();
+    const pillTitles = await app.evaluate(() =>
+      Array.from(document.querySelectorAll('[data-testid="tool-bar"] .tool-bar-group button')).map((b) => b.getAttribute('title')),
+    );
+    expect(pillTitles).toContain('Delete selection (Del)');
+    expect(pillTitles).toContain('Move (M)');
+    expect(pillTitles).not.toContain('Cut (C)');
+
+    await click(app, '[data-testid="tool-overflow"]', 300);
+    await expect(app.locator('[data-testid="tool-overflow-menu"]')).toBeVisible();
+    // the menu lists the same entries, with the same names, keys and disabled reasons. Which groups
+    // the pill still holds depends on the fits' estimates, so the assertion is structural: nothing
+    // appears twice, the menu holds the trailing groups, and every key chip matches the title
+    const menu = await app.evaluate(() =>
+      Array.from(document.querySelectorAll('[data-testid="tool-overflow-menu"] button')).map((b) => ({
+        title: b.getAttribute('title') ?? '',
+        key: b.querySelector('kbd')?.textContent ?? '',
+      })),
+    );
+    expect(menu.length).toBeGreaterThan(0);
+    for (const entry of menu) expect(pillTitles).not.toContain(entry.title);
+    expect(menu.at(-1)?.title).toBe('Variable layer height (V)');
+    expect(menu.map((m) => m.key)).toEqual(menu.map((m) => /\((\w)\)$/.exec(m.title)?.[1] ?? ''));
+
+    // choosing a tool from the menu closes it and opens the tool in the context panel
+    await click(app, '[data-testid="tool-overflow-cut"]', 700);
+    expect(await read(app, (s) => s.activeTool)).toBe('cut');
+    expect(await app.locator('[data-testid="tool-overflow-menu"]').count()).toBe(0);
+    await expect(app.locator('[data-testid="context-panel"] [data-testid="tool-panel-title"]')).toHaveText('Cut');
+
+    // Esc closes the reopened menu first, not the tool behind it
+    await click(app, '[data-testid="tool-overflow"]', 300);
+    await expect(app.locator('[data-testid="tool-overflow-menu"]')).toBeVisible();
+    await press(app, 'Escape');
+    await settle(app, 300);
+    expect(await app.locator('[data-testid="tool-overflow-menu"]').count()).toBe(0);
+    expect(await read(app, (s) => s.activeTool)).toBe('cut');
+  });
+
+  test('below 900 px the pill scrolls instead of hiding groups behind a menu', async ({ app }) => {
+    await app.setViewportSize({ width: 880, height: 700 });
     await settle(app, 800);
-    expect(await app.evaluate(() => localStorage.getItem('webslicer.toolLabels'))).toBe('on');
-    await expect(app.locator('[data-testid="tool-bar"]')).toHaveClass(/with-labels/, { timeout: 10_000 });
-    await expect(app.locator('[data-testid="tool-bar"] .btn-label').first()).toHaveText('Move');
-
-    // and off again, still narrow → icons only, and that is remembered too
-    await click(app, '[data-testid="tool-labels-toggle"]', 400);
-    await expect(app.locator('[data-testid="tool-bar"]')).not.toHaveClass(/with-labels/);
-    expect(await app.evaluate(() => localStorage.getItem('webslicer.toolLabels'))).toBe('off');
+    const compact = await app.evaluate(() => {
+      const pill = document.querySelector('[data-testid="tool-bar"]') as HTMLElement;
+      return {
+        compact: pill.classList.contains('compact'),
+        overflowX: getComputedStyle(pill).overflowX,
+        groups: pill.querySelectorAll('.tool-bar-group').length,
+        overflow: !!pill.querySelector('[data-testid="tool-overflow"]'),
+        // every group is still reachable by scrolling inside the pill
+        scrollable: pill.scrollWidth > pill.clientWidth,
+      };
+    });
+    expect(compact.compact).toBe(true);
+    expect(compact.overflowX).toBe('auto');
+    expect(compact.groups).toBe(6);
+    expect(compact.overflow).toBe(false);
+    expect(compact.scrollable).toBe(true);
   });
 });

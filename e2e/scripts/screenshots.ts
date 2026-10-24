@@ -138,7 +138,7 @@ async function fitView(page: Page, backOff = 1600): Promise<void> {
   await page.waitForTimeout(900);
 }
 
-/** The plater with one cube and the tool bar's labels (the view is wide enough at 1440 px). */
+/** The plater with one cube and the tool strip above the scene. */
 async function platerShot(page: Page): Promise<void> {
   await prepare(page);
   await importFile(page, CUBE);
@@ -153,10 +153,10 @@ async function platerShot(page: Page): Promise<void> {
   });
   await settle(page, 1200);
   await fitView(page, 2000);
-  await shot(page, 'plater', 'the plater, the object list and the tool bar');
+  await shot(page, 'plater', 'the plater, the object list and the tool strip');
 }
 
-/** The cut tool's panel next to the bar. */
+/** The cut tool's controls in the context panel, with the primary action and the key hints. */
 async function cutShot(page: Page): Promise<void> {
   await page.evaluate(() => {
     const s = window.webslicer.getState();
