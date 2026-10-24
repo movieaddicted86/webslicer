@@ -370,7 +370,9 @@ test.describe('sidebar: quick settings and the mode switch', () => {
     expect(advanced).toEqual({ mode: 'advanced', rows: 1, tools: 8 });
   });
 
-  test('every object-toolbar action shows its own 18 px SVG icon, grouped, without overflow at the narrowest column (T-036)', async ({ app }) => {
+  test('every object-toolbar action shows its own 18 px SVG icon, grouped, without overflow at the narrowest column (T-036)', async ({
+    app,
+  }) => {
     await importFile(app, CUBE);
     await app.evaluate(() => window.webslicer.getState().select([window.webslicer.getState().objects[0].id]));
     await settle(app, 700);
