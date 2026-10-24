@@ -1,6 +1,7 @@
 import { useStore, isModified, type View } from '../state/store';
 import { AppMenu } from './AppMenu';
 import { Icon } from '../icons/Icon';
+import { useLeftColumn } from './left/useLeftColumn';
 import './TopBar.css';
 
 /**
@@ -12,6 +13,9 @@ import './TopBar.css';
  *
  * The tabs are the old ones, unchanged: the Plater and the Preview, then the three settings views (the
  * rail's Preferences opens the same place). A modified preset keeps its dot.
+ *
+ * On a phone the object list is a drawer instead of a column, so the bar carries the button that
+ * opens it; on a wide window the column's own chevron does that job.
  */
 export function TopBar() {
   const view = useStore((s) => s.view);
@@ -24,6 +28,7 @@ export function TopBar() {
   const redo = useStore((s) => s.redo);
   const canUndo = useStore((s) => s.undoStack.length > 0);
   const canRedo = useStore((s) => s.redoStack.length > 0);
+  const { phone, hidden: drawerHidden, toggle: toggleObjects } = useLeftColumn();
 
   const tabs: Array<{ id: View; label: string; dot?: boolean }> = [
     { id: 'plater', label: 'Plater' },
@@ -34,6 +39,7 @@ export function TopBar() {
   ];
   // the settings views are a page without side panels: there is nothing for the toggle to hide
   const hideable = view === 'plater' || view === 'preview';
+  const settings = view === 'print' || view === 'filament' || view === 'printer';
 
   // The app has no project name yet (one plater per session); the first object names it as well as
   // anything can, and the bar says "Untitled" while the plater is empty.
@@ -42,6 +48,18 @@ export function TopBar() {
   return (
     <header className="topbar" data-testid="top-bar">
       <AppMenu />
+      {phone && !settings && (
+        <button
+          className="topbar-icon"
+          title={drawerHidden ? 'Show the object list' : 'Hide the object list'}
+          aria-label={drawerHidden ? 'Show the object list' : 'Hide the object list'}
+          aria-pressed={!drawerHidden}
+          onClick={toggleObjects}
+          data-testid="objects-drawer-toggle"
+        >
+          <Icon name="objects" size={16} />
+        </button>
+      )}
       <div className="topbar-group">
         <button
           className="topbar-icon"

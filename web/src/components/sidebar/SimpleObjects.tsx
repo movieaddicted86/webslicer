@@ -1,7 +1,7 @@
 import { useStore } from '../../state/store';
 import { retrySession } from '../../state/session';
-import { SectionHeader } from '../common/SectionHeader';
 import { ToolbarButton } from '../common/ToolbarButton';
+import { ObjectToolbar } from './ObjectToolbar';
 import { useDeleteSelection, useInstanceActions, useSelectedObjects } from './selection';
 import { ArrangeSettingsMenu } from './ArrangeSettingsMenu';
 import './SimpleObjects.css';
@@ -21,33 +21,31 @@ export function SimpleObjects() {
 
   return (
     <section className="objects simple" data-testid="object-list">
-      <SectionHeader title={`Objects (${objects.length})`}>
-        <div className="tools" data-testid="object-toolbar">
-          <ToolbarButton title="Arrange (A)" icon="arrange" onClick={arrange} disabled={!objects.length} />
-          <ArrangeSettingsMenu />
-          <span className="tool-sep" aria-hidden="true" />
-          <ToolbarButton title="Add instance (+)" icon="addInstance" onClick={addInstance} disabled={selected.length !== 1} />
-          <ToolbarButton
-            title="Remove the last instance (−)"
-            icon="removeInstance"
-            onClick={removeOneInstance}
-            disabled={selected.length !== 1 || instanceCount <= 1}
-          />
-          <span className="tool-sep" aria-hidden="true" />
-          <ToolbarButton
-            title="Delete the picked instance, otherwise the selected object (Del)"
-            icon="delete"
-            onClick={deleteSelection}
-            disabled={!selected.length}
-          />
-          <ToolbarButton
-            title="Delete all"
-            icon="deleteAll"
-            onClick={() => objects.length && confirm('Remove all objects?') && clear()}
-            disabled={!objects.length}
-          />
-        </div>
-      </SectionHeader>
+      <ObjectToolbar>
+        <ToolbarButton title="Arrange (A)" icon="arrange" onClick={arrange} disabled={!objects.length} />
+        <ArrangeSettingsMenu />
+        <span className="tool-sep" aria-hidden="true" />
+        <ToolbarButton title="Add instance (+)" icon="addInstance" onClick={addInstance} disabled={selected.length !== 1} />
+        <ToolbarButton
+          title="Remove the last instance (−)"
+          icon="removeInstance"
+          onClick={removeOneInstance}
+          disabled={selected.length !== 1 || instanceCount <= 1}
+        />
+        <span className="tool-sep" aria-hidden="true" />
+        <ToolbarButton
+          title="Delete the picked instance, otherwise the selected object (Del)"
+          icon="delete"
+          onClick={deleteSelection}
+          disabled={!selected.length}
+        />
+        <ToolbarButton
+          title="Delete all"
+          icon="deleteAll"
+          onClick={() => objects.length && confirm('Remove all objects?') && clear()}
+          disabled={!objects.length}
+        />
+      </ObjectToolbar>
       {!objects.length && autosaveError && (
         <div className="restore">
           <div>Restoring the previous session failed: {autosaveError}</div>
@@ -76,7 +74,7 @@ export function SimpleObjects() {
       )}
       <div className="muted small">
         Simple mode: move objects with the gizmo in the 3D view, and use the tools in the bar on the left. Switch to <b>Advanced</b> or{' '}
-        <b>Expert</b> (top right) for the object list, per-object settings, modifiers and height ranges.
+        <b>Expert</b> for the object list, per-object settings, modifiers and height ranges.
       </div>
     </section>
   );

@@ -1,4 +1,9 @@
-/* ObjectsSection: the styles of this component. */
+/* ObjectsSection: the styles of this component (the toolbar row is ObjectToolbar.css). */
+
+/* the section sits inside the object card of the left column, which owns the title and the count */
+.objects {
+  min-width: 0;
+}
 
 .object-list {
   list-style: none;

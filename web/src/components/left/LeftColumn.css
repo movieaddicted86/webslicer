@@ -1,0 +1,141 @@
+/* LeftColumn: the object list column of the 3.0 layout (LeftColumn.tsx). Tokens only.
+ *
+ * The column fills its grid track (AppShell.css sizes the track from `--left-track`); folded it is a
+ * strip with the chevron and the object count, and on a phone it lies over the scene as a drawer. */
+
+.left-column {
+  grid-area: left;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  background: var(--bg2);
+  border-right: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.left-column[hidden] {
+  display: none;
+}
+
+.left-column-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 6px 0;
+  min-height: 34px;
+}
+
+.left-column-toggle,
+.left-drawer-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 28px;
+  min-height: 28px;
+  padding: 2px 4px;
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
+}
+
+.left-column-toggle:hover,
+.left-drawer-close:hover {
+  background: var(--bg4);
+  color: var(--text);
+}
+
+/* the chevron points to the scene while the column is open and to the cards while it is folded */
+.left-column-toggle svg {
+  transform: rotate(-90deg);
+}
+
+.left-column.folded .left-column-toggle svg {
+  transform: none;
+}
+
+.left-count {
+  font-size: 11px;
+  color: var(--muted);
+  background: var(--bg4);
+  border-radius: 10px;
+  padding: 0 5px;
+}
+
+.left-cards {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.left-column.folded .left-column-head {
+  justify-content: center;
+  padding: 6px 0;
+}
+
+.left-column.folded .left-column-toggle {
+  flex-direction: column;
+}
+
+/* the object sections bring their own heading and padding; inside a card the row keeps the body flush */
+.left-cards .objects {
+  padding: 0;
+  border-bottom: none;
+}
+
+.left-cards .object-list {
+  max-height: none;
+}
+
+/* the grip between the column and the scene */
+.left-resize {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 5px;
+  cursor: col-resize;
+  background: transparent;
+  z-index: 2;
+}
+
+.left-resize:hover,
+.left-resize:focus-visible {
+  background: var(--border);
+  outline: none;
+}
+
+/* the phone drawer: the column leaves the grid and lies over the scene, dismissed by its own button */
+.left-column.drawer {
+  position: fixed;
+  top: 46px;
+  bottom: 0;
+  left: 0;
+  z-index: 20;
+  width: min(300px, 86vw);
+  box-shadow: 4px 0 18px #0008;
+}
+
+.left-column.drawer .left-column-head {
+  justify-content: space-between;
+  padding: 6px 8px;
+}
+
+.left-column.drawer .left-column-toggle {
+  display: none;
+}
+
+.left-drawer-title {
+  font-weight: 600;
+}
+
+@media (max-width: 640px) {
+  .app-shell:not(.settings-mode) .left-column.drawer {
+    top: auto;
+    bottom: 38px;
+    height: 60vh;
+  }
+}

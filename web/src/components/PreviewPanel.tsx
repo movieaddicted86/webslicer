@@ -1,22 +1,18 @@
-import { useMemo } from 'react';
 import { useStore } from '../state/store';
 import { SectionHeader } from './common/SectionHeader';
 import { LayerCodes } from './preview/LayerCodes';
 import { LayerSlider } from './preview/LayerSlider';
 import { MoveSlider } from './preview/MoveSlider';
 import { ViewOptions } from './preview/ViewOptions';
-import { PreviewLegend } from './preview/Legend';
 import { Preflight } from './preview/Preflight';
-import { SlicedInfo } from './preview/SlicedInfo';
 import { fmtZ } from '../format';
-import { sumTimes } from './preview/formats';
 import './PreviewPanel.css';
 import './common/progress.css';
 
 /**
- * The preview of the sidebar (F-14): the state of the job, the sliced info and the layer view. The
- * layer slider, the code list, the move slider, the view options and the legend live in
- * `components/preview/`.
+ * The preview of the right sidebar (F-14): the state of the job, the preflight and the layer controls.
+ * The slicing result itself (Sliced info, Legend) is in the left column since the layout 3.0 step L-2
+ * and is not repeated here; the layer slider, the code list, the move slider and the view options stay.
  */
 export function PreviewPanel() {
   const job = useStore((s) => s.job);
@@ -30,24 +26,9 @@ export function PreviewPanel() {
   const gcodeLoading = useStore((s) => s.gcodeLoading);
   const loadGcodePreview = useStore((s) => s.loadGcodePreview);
   const toast = useStore((s) => s.toast);
-  const usedTools = useMemo(() => (gcode ? [...new Set(gcode.tools)].sort((a, b) => a - b) : []), [gcode]);
 
   const running = job && (job.status === 'running' || job.status === 'queued');
   const info = job?.info;
-  // feature times come from feedrates only, scale them to the slicer's estimate (as the layer legend does)
-  const featureTimeScale = useMemo(() => {
-    const sum = sumTimes(gcode?.featureTime ?? {});
-    return info?.estimatedTimeSeconds && sum > 0 ? info.estimatedTimeSeconds / sum : 1;
-  }, [gcode, info?.estimatedTimeSeconds]);
-  // share of the print time without travel, so the extruding features add up to 100 %
-  const featureShare = useMemo(() => {
-    const share: Record<string, number> = {};
-    if (!gcode) return share;
-    const base = sumTimes(gcode.featureTime) - (gcode.featureTime.Travel || 0);
-    if (base <= 0) return share;
-    for (const [feature, seconds] of Object.entries(gcode.featureTime)) share[feature] = (seconds / base) * 100;
-    return share;
-  }, [gcode]);
 
   return (
     <div className="preview-panel" data-testid="preview-panel">
@@ -110,7 +91,6 @@ export function PreviewPanel() {
               </ul>
             </details>
           ) : null}
-          <SlicedInfo />
           <Preflight />
           {gcode && (
             <section className="layers">
@@ -126,13 +106,6 @@ export function PreviewPanel() {
               <LayerCodes printZ={gcode.layerZ[range[1]]} firstLayer={range[1] === 0} maxZ={gcode.layerZ[gcode.layerCount - 1] ?? 0} />
               <MoveSlider gcode={gcode} />
               <ViewOptions />
-              <PreviewLegend
-                gcode={gcode}
-                usedTools={usedTools}
-                featureTimeScale={featureTimeScale}
-                featureShare={featureShare}
-                estimatedSeconds={info?.estimatedTimeSeconds}
-              />
             </section>
           )}
           {!gcode && gcodeLoading && <div className="muted small">Loading preview…</div>}

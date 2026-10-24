@@ -1,10 +1,12 @@
 import { useStore } from '../../state/store';
 import { api } from '../../api';
-import { SectionHeader } from '../common/SectionHeader';
 import { fmtMegabytes, fmtTime } from '../../format';
 import './SlicedInfo.css';
 
-/** PrusaSlicer's "Sliced info": the numbers of the finished job and what can be done with the G-code. */
+/**
+ * PrusaSlicer's "Sliced info": the numbers of the finished job and what can be done with the G-code.
+ * The heading is the card that holds it (the left column), so the body starts with the table.
+ */
 export function SlicedInfo() {
   const job = useStore((s) => s.job);
   const gcode = useStore((s) => s.gcode);
@@ -13,8 +15,7 @@ export function SlicedInfo() {
   if (!job) return null;
   const info = job.info;
   return (
-    <section className="stats" data-testid="sliced-info">
-      <SectionHeader title="Sliced info" />
+    <div className="stats">
       <table>
         <tbody>
           <tr>
@@ -70,6 +71,6 @@ export function SlicedInfo() {
           ➤ Send to printer
         </button>
       </div>
-    </section>
+    </div>
   );
 }

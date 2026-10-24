@@ -1,0 +1,25 @@
+/* ObjectToolbar: the row above the object list (ObjectToolbar.tsx). */
+
+.object-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  margin-bottom: 6px;
+}
+
+.object-toolbar button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  min-height: 30px;
+  padding: 2px 5px;
+}
+
+.object-toolbar .tool-sep {
+  width: 1px;
+  height: 18px;
+  margin: 0 3px;
+  background: var(--border);
+}

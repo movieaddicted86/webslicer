@@ -1,4 +1,5 @@
 import {
+  ChevronDown,
   Combine,
   Copy,
   FolderPlus,
@@ -85,6 +86,10 @@ export const ICON_TABLE = {
   toolLabels: { source: 'lucide', icon: Tags },
   // Prusa has no hamburger in its icon set; its "Menu" label is text there, ours needs a glyph
   menu: { source: 'lucide', icon: Menu },
+  /** the fold chevron of a card heading; points down when the card is open (the button rotates it) */
+  expand: { source: 'lucide', icon: ChevronDown },
+  /** the object list itself – its card heading and the phone's drawer toggle */
+  objects: { source: 'prusa', file: 'object_icon' },
 } as const satisfies Record<string, IconSource>;
 
 /** The function names the app may render – the keys of the one table. */

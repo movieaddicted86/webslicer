@@ -2,14 +2,13 @@ import { useStore } from '../state/store';
 import { PresetSelect } from './PresetSelect';
 import { PreviewPanel } from './PreviewPanel';
 import { QuickSettings } from './sidebar/QuickSettings';
-import { ObjectsSection } from './sidebar/ObjectsSection';
-import { SimpleObjects } from './sidebar/SimpleObjects';
 import { SlicePanel } from './sidebar/SlicePanel';
 import './Sidebar.css';
 
 /**
- * The sidebar (F-13): the presets and the quick settings on top, then either the preview panel or
- * the objects section with the slice panel. Every panel of the plater lives in `components/sidebar/`.
+ * The right sidebar (F-13): the presets and the quick settings on top, then the slice panel – or the
+ * preview panel in the Preview view. The object list and the preview's info cards live in the left
+ * column since the layout 3.0 step L-2; everything else of the plater still lives here.
  */
 export function Sidebar() {
   const view = useStore((s) => s.view);
@@ -18,9 +17,6 @@ export function Sidebar() {
   const showIncompatible = useStore((s) => s.showIncompatible);
   const showAllFilaments = useStore((s) => s.showAllFilaments);
   const visibleFilaments = useStore((s) => s.visibleFilaments);
-  // Like PrusaSlicer: the object list (and with it modifiers, painting, height ranges) is an Advanced/Expert feature.
-  const mode = useStore((s) => s.mode);
-  const simple = mode === 'simple';
 
   return (
     <aside className="sidebar" data-testid="sidebar">
@@ -48,21 +44,15 @@ export function Sidebar() {
           </label>
         )}
       </section>
-      {view !== 'preview' && (
-        <section className="quick" data-testid="quick-settings-panel">
-          <QuickSettings />
-        </section>
-      )}
-
-      {view === 'preview' ? (
-        <PreviewPanel />
-      ) : (
+      {view !== 'preview' ? (
         <>
-          {!simple && <ObjectsSection />}
-          {simple && <SimpleObjects />}
-
+          <section className="quick" data-testid="quick-settings-panel">
+            <QuickSettings />
+          </section>
           <SlicePanel />
         </>
+      ) : (
+        <PreviewPanel />
       )}
     </aside>
   );
