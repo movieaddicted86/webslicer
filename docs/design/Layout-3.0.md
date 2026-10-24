@@ -161,3 +161,9 @@ D-5 (preview cards) slot in after L-3/L-5 because they need the new panels.
 1. Tool strip: **top centre** of the scene (icons + tooltips, text when wide).
 2. Rail: **Slicing, Library, Printers**; bottom **Preferences, About**.
 3. Order: layout rebuild **directly after the icon system** (T-063); it replaces M-1 as the first P3 step. Decisions 3 and 4 stay as recommended (settings views full-page for now; printer groups prepared, one printer shown).
+
+### Visual proposal (2026-10-24)
+
+After Robert's review of the first implementation ("far from good UX"), the visual direction is `docs/design/mockup-layout.html` (three states, open in a browser) with PNGs in
+`docs/design/mockup/` (plate, object, preview): floating cards over a full-width scene, a compact tool strip, Prepare/Preview in the top bar, grouped rows with 32 px controls, icon
+buttons instead of text-button walls, one accent colour. It becomes the visual-pass task once Robert approves it.
