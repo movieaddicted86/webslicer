@@ -17,14 +17,15 @@
   pointer-events: none;
 }
 
-/* The room the pill may use: the scene between the two cards, one gap off each card. With the panels
-   hidden both margins are that gap, so the pill uses the whole scene. The band is a measuring box,
-   not a target: only the pill inside it takes the pointer. */
+/* The room the pill may use: the scene between the two cards. A card sits one gap off its edge, so
+   the band starts one gap past each card's inner edge. With the panels hidden both widths are 0 and
+   the pill uses the whole scene minus the two edge gaps. The band is a measuring box, not a target:
+   only the pill inside it takes the pointer. */
 .tool-strip-band {
   position: absolute;
   top: 0;
-  left: calc(var(--list-w) + var(--card-gap));
-  right: calc(var(--panel-w) + var(--card-gap));
+  left: calc(var(--list-w) + 2 * var(--card-gap));
+  right: calc(var(--panel-w) + 2 * var(--card-gap));
   pointer-events: none;
 }
 
@@ -34,7 +35,8 @@
   width: max-content;
   display: flex;
   align-items: center;
-  gap: 2px;
+  /* the groups are spaced by their own dividers, not by a gap: the fit estimate counts them */
+  gap: 0;
   /* the pill never grows past the band the cards leave free */
   max-width: 100%;
   padding: 4px 5px;
@@ -105,14 +107,15 @@
   flex: none;
   width: 1px;
   height: 24px;
-  margin: 0 4px;
+  margin: 0 3px;
   background: var(--line);
 }
 
-/* the overflow menu: the groups that did not fit */
+/* the overflow menu: the groups that did not fit, one divider's margin after the last group */
 .strip-overflow {
   position: relative;
   flex: none;
+  margin-left: 3px;
 }
 
 .strip-overflow-trigger {

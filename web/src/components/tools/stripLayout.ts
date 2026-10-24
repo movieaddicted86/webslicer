@@ -38,16 +38,16 @@ const COMMANDS: Partial<Record<StripGroupId, StripCommand[]>> = {
 const ICON_BUTTON = 34;
 /** The gap between two buttons of a group. */
 const INNER_GAP = 2;
-/** A thin divider between groups: its 1 px line, its 4 px margins and the pill's 2 px gap. */
-export const SEPARATOR = 11;
+/** A thin divider between groups: its 1 px line and its 3 px margins on each side. */
+export const SEPARATOR = 7;
 /** The pill's padding left + right and its two 1 px borders. */
 export const PILL_PADDING = 12;
-/** The overflow button; its room is only taken when groups are hidden. */
-export const OVERFLOW_WIDTH = 34;
+/** The overflow button and the divider's margin before it; its room is only taken when groups are hidden. */
+export const OVERFLOW_WIDTH = 37;
 /** Average label character width at 12 px, plus the button's inner gaps and padding. */
 const LABEL_CHAR = 6.5;
 const LABEL_INSET = 8;
-/** The safety margin between the pill's estimate and the band's edge. */
+/** The safety margin between the pill's estimate and the band's edge: its own 1 px borders and a pixel. */
 const SLACK = 2;
 
 /** The registry tools of one strip group, in registry order (the object groups have none). */
@@ -69,19 +69,21 @@ export function itemName(item: StripItem): string {
   return item.kind === 'tool' ? item.tool.label : COMMAND_LABELS[item.command];
 }
 
-/** The estimated width of one group, with labels when they are on. */
+/**
+ * The estimated width of one group, with labels when they are on: its divider, its buttons and the gap
+ * between every pair of its children (the divider is one of them).
+ */
 export function groupWidth(group: StripGroupId, labels: boolean, tools: ToolDefinition[] = TOOLS): number {
   const items = itemsOfGroup(group, tools);
   if (!items.length) return 0;
   const each = items.map((item) => (labels ? ICON_BUTTON + LABEL_INSET + Math.round(itemName(item).length * LABEL_CHAR) : ICON_BUTTON));
-  return each.reduce((a, b) => a + b, 0) + (items.length - 1) * INNER_GAP;
+  return SEPARATOR + each.reduce((a, b) => a + b, 0) + items.length * INNER_GAP;
 }
 
 /**
- * The room the groups have in a band `band` px wide: the pill's padding and the safety slack. Each
- * group's own divider is added by `fitGroups`. The band is the part of the scene the floating cards
- * leave free – the strip's own layer measures it (`ToolStrip`), so folding a card gives the pill more
- * room at the same window size.
+ * The room the groups have in a band `band` px wide: the pill's padding and the safety slack. The
+ * band is the part of the scene the floating cards leave free – the strip's own layer measures it
+ * (`ToolStrip`), so folding a card gives the pill more room at the same window size.
  */
 export function stripRoom(band: number): number {
   return band - PILL_PADDING - SLACK;
@@ -101,9 +103,9 @@ export function fitGroups(
   let used = 0;
   for (let i = 0; i < STRIP_GROUPS.length; i++) {
     const group = STRIP_GROUPS[i];
-    // every group stands behind a divider, and the overflow button behind one too
-    const width = groupWidth(group, labels, tools) + SEPARATOR;
-    const overflow = STRIP_GROUPS.length - i - 1 ? OVERFLOW_WIDTH + SEPARATOR : 0;
+    // the group's width includes its own divider; the overflow button stands beside the last group
+    const width = groupWidth(group, labels, tools);
+    const overflow = STRIP_GROUPS.length - i - 1 ? OVERFLOW_WIDTH : 0;
     // the first group always stays, so a narrow band still shows the selection command
     if (visible.length && used + width + overflow > room) return { visible, hidden: STRIP_GROUPS.slice(i) };
     used += width;

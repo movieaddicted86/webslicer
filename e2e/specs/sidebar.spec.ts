@@ -529,9 +529,11 @@ test.describe('context panel: the DOM outline stays a diagnostic', () => {
     await importFile(app, CUBE);
     const lines = await outline(app, '[data-testid="context-panel"]');
     expect(lines.length).toBeGreaterThan(10);
-    expect(lines.some((l) => l.includes('.slice-panel'))).toBe(true);
+    // the Slice action is the footer card of its own (layout 3.0), beside the panel
+    const footer = await outline(app, '[data-testid="context-footer"]');
+    expect(footer.some((l) => l.includes('.slice-panel'))).toBe(true);
     // the outline normalises dates, so a saved session cannot change it between two runs
-    expect(lines.every((l) => !/\d{4}-\d{2}-\d{2}T[\d:.]+Z/.test(l))).toBe(true);
+    expect([...lines, ...footer].every((l) => !/\d{4}-\d{2}-\d{2}T[\d:.]+Z/.test(l))).toBe(true);
     // the plater reader and the outline describe the same panel
     expect((await plater(app)).objects).toHaveLength(1);
     await press(app, 'Escape');

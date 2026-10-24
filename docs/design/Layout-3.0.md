@@ -185,7 +185,8 @@ The shell and the visual language are in place; the panel content and the previe
 - **Object list card**: the card's own header carries the title, the count and the fold chevron; the width grip still drags it (220–420 px). It starts folded below 1280 px and is a
   drawer below 900 px.
 - **Context panel**: the panel card and a separate footer card (Destination + Slice) below it, both at the scene's right edge.
-- **Tool strip**: the pill is centred in the band the two cards leave free (the band is measured with a `ResizeObserver`), 34 px buttons, accent tool, 11 px separators and the
-  overflow menu; the switch is gone from it.
+- **Tool strip**: the pill is centred in the band the two cards leave free (the band is a measured
+  layer between the cards, observed with a `ResizeObserver`), 34 px buttons, accent tool, 7 px
+  dividers and the overflow menu; the switch is gone from it.
 - **Responsive**: ≥ 1280 px as the mockup; 900–1279 px the panel is 300 px and the list starts folded; below 900 px the list is a drawer and the strip scrolls; below 640 px the rail
   is a bottom tab bar and the cards are sheets.

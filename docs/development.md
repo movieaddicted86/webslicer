@@ -57,9 +57,9 @@ rail | scene
  64px  1fr
 ```
 
-- **rail** – `Rail.tsx`: the app's places (Slicing, Library, Printers, Preferences, About) and the
-  update notice, icon above an 11 px label, the current place filled with the accent colour. It becomes
-  a bottom tab bar below 640 px.
+- **rail** – `Rail.tsx`: the app's places (Slicing, Library, Printers, Preferences, About), icon above
+  an 11 px label, the current place filled with the accent colour. It becomes a bottom tab bar below
+  640 px. The update notice sits in the top bar's right edge.
 - **scene** – the `.scene-area` with the `DropZone` and the `Viewer`; three.js resizes through its
   `ResizeObserver`, so the canvas follows its container without a second resize path. The scene is the
   **whole** area right of the rail below the bar: the object list and the context panel are cards that
@@ -92,13 +92,13 @@ rail | scene
   between the two cards (`position: absolute` in the scene's rectangle). The pill sits in
   `.tool-strip-band`, the part of the scene the cards leave free, and is centred in it; the band is
   measured with a `ResizeObserver`, so folding a card gives the strip more room at the same window
-  width. It renders the registry: the groups in PrusaSlicer's order (`selection | instance | transform
-| paint | cut | layer`), the open tool's button in the accent colour, and the object commands Del /
-  - / − / Arrange / Arrange settings from `tools/stripCommands.ts` (whose actions
-    `tools/stripActions.ts` also serves to the keyboard handler – one rule, one place). `stripLayout.ts`
-    decides from the band's width which groups fit and which move into the **⋯** menu; below 900 px the
-    pill scrolls sideways instead. Names appear only while the whole strip fits with them. The strip is
-    not a panel: the tool's controls are the context panel's tool mode.
+  width. It renders the registry: the groups in PrusaSlicer's order (selection, instance, transform,
+  paint, cut, layer), the open tool's button in the accent colour, and the object commands delete,
+  add instance, remove instance, arrange and arrange settings from `tools/stripCommands.ts` (whose
+  actions `tools/stripActions.ts` also serves to the keyboard handler – one rule, one place).
+  `stripLayout.ts` decides from the band's width which groups fit and which move into the **⋯** menu;
+  below 900 px the pill scrolls sideways instead. Names appear only while the whole strip fits with
+  them. The strip is not a panel: the tool's controls are the context panel's tool mode.
 - The settings views (Print/Filament/Printer) replace the left column, the scene and the context panel
   and take the whole area right of the rail.
 - The top bar (`TopBar.tsx`) is 48 px and one row: the `Menu` dropdown (`AppMenu.tsx`), undo/redo, the

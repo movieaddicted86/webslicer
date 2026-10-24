@@ -19,7 +19,7 @@
   header, which keeps the title, the object count and the fold chevron) and starts folded below
   1280 px. The tool strip's pill is centred in the band the two cards leave free and measured by a
   `ResizeObserver`, so a fold or a hidden panel gives it room at the same window width; its buttons
-  are 34 px with 11 px separators and the open tool in the accent. The panel content and the preview
+  are 34 px with 7 px dividers and the open tool in the accent. The panel content and the preview
   mode follow in part (b).
 - **The tool strip and the tool panels (layout 3.0, L-4):** the tool bar left the scene's edge and is a
   floating pill at the top centre of the 3D view. It renders the registry in PrusaSlicer's groups –

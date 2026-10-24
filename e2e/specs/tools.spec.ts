@@ -24,6 +24,9 @@ test.describe('tool strip', () => {
   });
 
   test('the strip is a horizontal pill at the top centre of the scene, in registry groups', async ({ app }) => {
+    // the mockup's window: at 1440 px the band between the two cards holds every group
+    await app.setViewportSize({ width: 1440, height: 900 });
+    await settle(app, 700);
     const strip = await app.evaluate(() => {
       const host = document.querySelector('[data-testid="tool-strip"]') as HTMLElement;
       const pill = document.querySelector('[data-testid="tool-bar"]') as HTMLElement;
