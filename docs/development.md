@@ -70,18 +70,32 @@ rail | left | scene | right          (top bar spans all four)
   **Destination** select and the Slice panel (`SlicePanel.tsx`, unchanged). The body follows the mode
   the pure selector `contextMode` (`web/src/state/contextMode.ts`) derives – tool > preview > object >
   plate – from `activeTool`, `view`, `selectedIds` and `objects`; nothing about the mode is stored, so
-  closing a tool, leaving the preview or deselecting switches the content on its own. `baseMode` reads
-  the same rule without the tool (the tool dock still opens next to the bar until the tool strip step):
-  the plate content (`PlateMode.tsx` – the printer card), the preset rows and quick settings
-  (`Presets.tsx`, in both plater modes, as they describe the print and not the selection) and, for one
-  selected object, the cards `TransformCard`, `SettingsCard`, `PartsCard` and the range card with
-  `RangePanel`. `PanelCard.tsx` is the card frame (a `section` with its `aside` heading, an icon and an
-  optional action slot). Simple mode shows the plate content only; the Preview keeps `PreviewPanel`.
+  closing a tool, leaving the preview or deselecting switches the content on its own. In _tool mode_ the
+  column is the tool's panel: `ToolMode.tsx` picks the component by the open tool's registry `panel`
+  kind (`components/tools/panels/`), and `ToolPanel.tsx` supplies the frame – title, ✕, the scrolling
+  body, the sticky primary action and `ToolHints.tsx` reading the tool's `hints` from the registry. The
+  other modes show the plate content (`PlateMode.tsx` – the printer card), the preset rows and quick
+  settings (`Presets.tsx`, in both plater modes, as they describe the print and not the selection) and,
+  for one selected object, the cards `TransformCard`, `SettingsCard`, `PartsCard` and the range card
+  with `RangePanel`. `PanelCard.tsx` is the card frame (a `section` with its `aside` heading, an icon
+  and an optional action slot). Simple mode shows the plate content only; the Preview keeps
+  `PreviewPanel`.
+- **tool strip** – `components/tools/ToolStrip.tsx`, floating over the top centre of the scene
+  (`position: absolute` inside the `DropZone`). It renders the registry: the groups in PrusaSlicer's
+  order (`selection | instance | transform | paint | cut | layer`), the open tool's button in the accent
+  colour, the _Prepare | Preview_ switch (from `STRIP_VIEW_ENTRIES` in `nav/navMap.ts`) and the object
+  commands Del / + / − / Arrange / Arrange settings from `tools/stripCommands.ts` (whose actions
+  `tools/stripActions.ts` also serves to the keyboard handler – one rule, one place). `stripLayout.ts`
+  decides from the scene's width which groups fit and which move into the **⋯** menu; below 900 px the
+  pill scrolls sideways instead. Names appear only while the whole strip fits with them. The strip is
+  not a panel: the tool's controls are the context panel's tool mode.
 - The settings views (Print/Filament/Printer) replace the left column, the scene and the context panel
   and take the whole area right of the rail.
 - The top bar (`TopBar.tsx`) is one row: the `Menu` dropdown (`AppMenu.tsx`), undo/redo, the
-  hide-panels switch, the project name and the view tabs; on a phone it also carries the button that
-  opens the object list drawer.
+  hide-panels switch and the project name; on a phone it also carries the button that opens the object
+  list drawer. The _Prepare | Preview_ switch left the bar in L-4 – it sits in the tool strip, and no
+  view tabs are rendered anywhere else (`nav/navMap.ts` is the one home, checked by `navMap.test.ts`
+  and `navigation.spec.ts`).
 
 The shell state is the `layout` slice (`web/src/state/slices/layout.ts`): `panelsHidden`, `leftWidth`,
 `leftCollapsed` (each persisted in `localStorage` behind a try/catch), the folded cards

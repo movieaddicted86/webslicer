@@ -176,7 +176,8 @@ regions. A spec that encodes _where_ an element sits (`.sidebar .quick-settings`
   `object-row` (plus `data-object-id`), `object-info`, `object-transform`, `object-settings-card`,
   `object-settings`, `parts-card`, `object-add-volume`, `volume-list`, `range-card`, `range-list`,
   `range-add`, `destination`, `multi-selection`, `quick-settings`, `slice-panel`,
-  `slice-button`, `tool-bar`, `tool-<toolId>`, `tool-panel` (+ `-title`, `-foot`, `-close`),
+  `slice-button`, `tool-bar`, `tool-strip`, `tool-overflow`, `tool-<toolId>`, `tool-panel`
+  (+ `-title`, `-foot`, `-close`), `tool-hints`, `view-switch` (+ `view-plater`, `view-preview`),
   `modal` (+ `-title`, `-actions`, `-primary`, `-close`, `-backdrop`), `preview-panel`,
   `layer-slider`, `move-slider`, `legend`, `sliced-info`, `send-button`, `toast`. A hook must stay
   correct when the element moves to another region; add one when the region changes, not when a

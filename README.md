@@ -11,10 +11,10 @@ any browser – on a PC, a tablet or the workshop laptop.
 ## Features
 
 - **3D plater** (Three.js): import STL / OBJ / 3MF / AMF / STEP, move / rotate / scale, place on face,
-  arrange, duplicate, instances, mirror, merge, cut, per-object settings and a left tool bar with one
-  panel per tool. A rail on the far left holds Slicing, Library, Printers, Preferences and About, and
-  the slim top bar's menu carries import and the export list; the settings open from the cog of each
-  preset row.
+  arrange, duplicate, instances, mirror, merge, cut, per-object settings and a tool strip that floats at
+  the top centre of the scene, with the open tool's controls and its key hints in the context panel. A
+  rail on the far left holds Slicing, Library, Printers, Preferences and About, and the slim top bar's
+  menu carries import and the export list; the settings open from the cog of each preset row.
 - **Volumes and height ranges** like PrusaSlicer: modifiers, support enforcers/blockers, negative
   volumes, extra parts, and variable layer height.
 - **All slicing options** of the installed PrusaSlicer, sorted into the familiar Print / Filament /
@@ -76,19 +76,24 @@ every outbound request – off. Details: [docs/installation.md#update-notice](do
 
 The plater with the rail on the far left, the slim top bar, the object list column next to the scene
 and the context panel on the right. The object list card folds on its own and the whole column folds to
-a narrow strip; its width is draggable. The context panel follows the selection: with nothing selected
-it shows the printer card, the preset rows, the quick settings and the Slice button; selecting an object
-adds its **Transform**, **Settings**, **Parts** and **Layer ranges** cards, and the footer keeps the
-destination and Slice in view. Move, rotate and scale have their own bar entries; painting, cut and layer
-height open a panel next to the bar. The **Menu** in the top bar holds import models and presets and the
-**Export** list (project 3MF, settings, presets bundle, G-code, save to library); the rail holds the
-app's places and dialogs, **Preferences** the visibility mode and the panel layout reset, and each
-preset row's cog the print/filament/printer settings; **hide panels** gives the 3D view the full width.
+a narrow strip; its width is draggable. The tool strip floats at the top centre of the scene: it opens
+every tool (move, rotate, scale, place on face, arrange and its settings, painting, cut, variable layer
+height), carries delete, add/remove instance and the **Prepare | Preview** switch, and turns the
+trailing groups into an overflow menu when the view is narrow. The open tool's controls take over the
+context panel, with its one primary action pinned at the bottom and the mouse and key hints below the
+controls. The context panel otherwise follows the selection: with nothing on the plater it shows the
+printer card, the preset rows, the quick settings and the Slice button; selecting an object adds its
+**Transform**, **Settings**, **Parts** and **Layer ranges** cards, and the footer keeps the destination
+and Slice in view. The **Menu** in the top bar holds import models and presets and the **Export** list
+(project 3MF, settings, presets bundle, G-code, save to library); the rail holds the app's places and
+dialogs, **Preferences** the visibility mode and the panel layout reset, and each preset row's cog the
+print/filament/printer settings; **hide panels** gives the 3D view the full width.
 
 ![The plater](docs/images/plater.png)
 
 The cut tool as an example of a tool panel – plane height and tilt, keep upper/lower/both, and the cut
-runs through the PrusaSlicer CLI.
+runs through the PrusaSlicer CLI. Its controls sit in the context panel; the hints at the bottom say
+what the mouse buttons and Esc do.
 
 ![The cut tool](docs/images/cut-tool.png)
 
