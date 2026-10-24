@@ -7,14 +7,17 @@ PrusaSlicer feature exists here and which does not is in
 ## Window
 
 - **Rail on the far left**: _Slicing_ (the plater and the preview), _Library_, _Printers_; at the
-  bottom _Preferences_ and _About_, which also carries the update notice. The current place is marked
-  in orange; on a narrow window the names drop away and on a phone the rail becomes a bottom tab bar.
-- **Slim top bar**: the **Menu** (import models and presets, and the **Export** submenu with project
+  bottom _Preferences_ and _About_. The current place is filled with the accent colour; on a narrow
+  window the names drop away and on a phone the rail becomes a bottom tab bar.
+- **48 px top bar**: the **Menu** (import models and presets, and the **Export** submenu with project
   3MF, current settings, presets bundle, G-code and the two "save to library" actions), undo and redo,
-  a **hide the side panels** switch that gives the 3D view the full width (remembered per browser) and
-  the project name. The _Plater / Preview_ switch sits in the tool strip below it. Every function has
-  one home: the rail opens the
-  dialogs, the preset rows' cogs open the settings views, and the menu keeps only import and export.
+  a **hide the side panels** switch that gives the 3D view the full width (remembered per browser), the
+  project name with its save state, the **Prepare | Preview** switch centred in the bar and, at the
+  right edge, the update notice. Every function has one home: the rail opens the dialogs, the preset
+  rows' cogs open the settings views, and the menu keeps only import and export.
+- **Floating cards over the scene**: the 3D view fills everything right of the rail below the bar, and
+  the object list and the context panel are cards that float over it – so folding a card or hiding the
+  panels never moves or resizes the canvas.
 - **Preferences**: a small dialog behind the rail's _Preferences_ – the Simple / Advanced / Expert
   mode (how many settings the print, filament and printer views show), the read-only status of the
   online services (whether `WEBSLICER_UPDATE_CHECK` is on, when the last check ran, the environment
@@ -25,13 +28,14 @@ PrusaSlicer feature exists here and which does not is in
   profiles** (install and update the vendor bundles), **Filaments** (the visible-filament filter) and
   **Custom printer** (the two-step wizard). The entry point picks the tab: the rail opens on _My
   printers_, the printer dropdown on _Vendor profiles_.
-- **Object list column** next to the scene: the **Object list** card holds the rows and their actions,
-  and in the Preview the same column shows the **Sliced info** and the **Legend**. Each card folds on
-  its own and the whole column folds to a narrow strip that keeps the object count; a chevron in its
-  top corner toggles that, and the width (300 px by default, 220–420 px) can be dragged on its right
-  edge. Both are remembered per browser. Below 1100 px the column starts folded; on a phone it is a
+- **Object list card** at the scene's top left: the **Object list** card holds the rows and their
+  actions, and in the Preview it shows the **Sliced info** and the **Legend**. Each inner card folds
+  on its own and the whole card folds to its header row, which keeps the object count; a chevron in
+  the header toggles that, and the width (276 px by default, 220–420 px) can be dragged on its right
+  edge. Both are remembered per browser. Below 1280 px the card starts folded; on a phone it is a
   drawer that the top bar opens.
-- **Context panel** on the right: it shows what the current state is about. With nothing selected it
+- **Context panel** at the scene's top right, with the destination/Slice footer as its own card: it
+  shows what the current state is about. With nothing selected it
   is the plate – a **Printer** card (preset, bed size, height, nozzle) above the print/filament/printer
   preset rows and the quick settings. With one object selected the preset rows and quick settings stay
   and the object's own cards follow: **Transform** (position, rotation, scale, size, instances and
@@ -48,7 +52,7 @@ PrusaSlicer feature exists here and which does not is in
 
 | I want to…                                           | Go to                                                                                      |
 | ---------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| Slice, arrange, edit objects                         | Rail **Slicing** (the plater); the preview is **Preview** in the tool strip's switch       |
+| Slice, arrange, edit objects                         | Rail **Slicing** (the plater); the preview is **Preview** in the top bar's switch          |
 | Open a model from the file library                   | Rail **Library**                                                                           |
 | Import models from my computer                       | **Menu → Import models…** (Ctrl+I / Ctrl+O)                                                |
 | Import presets from a bundle or a G-code file        | **Menu → Import presets…**                                                                 |
@@ -88,11 +92,11 @@ PrusaSlicer feature exists here and which does not is in
 - **Split to objects / parts**, **merge objects**, **object info** (volume, manifold check) and
   **rename**.
 - **Cut tool**: cut plane with height and tilt, keep upper/lower/both parts, via the PrusaSlicer CLI.
-- **Tool strip** floating at the top centre of the scene: one button per registry tool (move, rotate,
-  scale, place on face, arrange and its settings, cut, paint supports/seam/extruder, variable layer
-  height) plus delete, add/remove instance and the **Prepare | Preview** switch. The open tool's
+- **Tool strip** floating over the top of the scene, centred between the two cards: one button per
+  registry tool (move, rotate, scale, place on face, arrange and its settings, cut, paint
+  supports/seam/extruder, variable layer height) plus delete and add/remove instance. The open tool's
   controls fill the context panel, and the panel ends with the tool's key hints (mouse icons and key
-  chips). A view too narrow for the strip moves its trailing groups into a **⋯** menu; below 900 px the
+  chips). A band too narrow for the strip moves its trailing groups into a **⋯** menu; below 900 px the
   strip scrolls sideways instead. Names appear next to the icons while the whole strip fits with them;
   a disabled tool's tooltip says why it is disabled.
 
@@ -138,8 +142,8 @@ PrusaSlicer feature exists here and which does not is in
   slider (top/bottom), travel moves, legend with lengths, print time / filament usage / cost, and the
   colour schemes (height, width, speed, fan speed, temperature, volumetric flow, layer time). The
   **Sliced info** card (file, time, filament, cost, layers, size, export and send actions) and the
-  **Legend** card sit in the left column, next to the scene; the right context panel keeps the layer
-  controls, the view options and the preflight.
+  **Legend** card sit in the floating object list card at the scene's top left; the context panel on
+  the right keeps the layer controls, the view options and the preflight.
 - **Colour change, pause and custom G-code at a layer**: add them at the top slider position like the
   "+" on PrusaSlicer's vertical slider (M600 / pause with message / any G-code), markers on the slider,
   automatic re-slice, stored in the 3MF project.

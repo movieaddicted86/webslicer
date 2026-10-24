@@ -2,6 +2,25 @@
 
 ## Unreleased
 
+- **The visual pass, part (a): floating cards, a 48 px bar and the mockup's tokens (layout 3.0, T-070):**
+  the 3D view now fills everything right of the rail below the bar; the **object list** and the
+  **context panel** are cards that float over it, with the destination/Slice footer as a card of its
+  own at the scene's bottom right. Folding a card, dragging its width or hiding the panels no longer
+  moves or resizes the canvas, and the scene's overlays (the tool strip, the view toolbar, the fit
+  button, the key hints) keep to the band the cards leave free. The **top bar** is 48 px and one row –
+  Menu, undo/redo, hide-panels, the project name with its save state, the **Prepare | Preview**
+  segmented switch centred in it (it left the tool strip) and the update notice at its right edge
+  (it left the rail). The **rail** draws an icon over an 11 px name with the current place filled with
+  the accent colour. `styles.css` carries the mockup's token set (`--rail`, `--bar`, `--card`,
+  `--card-2`, `--line`, `--field`, `--field-h`, `--text`, `--muted`, `--faint`, `--accent`,
+  `--accent-h`, `--sel`, `--on-accent`, `--r`, `--h`) and the new `--bg`, `--edge` and `--shadow` –
+  and the touched components read those names only; the older names stay as aliases for the rest. Controls are 32 px high, cards 10 px round with 12 px padding, icon buttons
+  34 px. The object list card is 276 px wide by default (220–420 px draggable, 148 px folded to its
+  header, which keeps the title, the object count and the fold chevron) and starts folded below
+  1280 px. The tool strip's pill is centred in the band the two cards leave free and measured by a
+  `ResizeObserver`, so a fold or a hidden panel gives it room at the same window width; its buttons
+  are 34 px with 11 px separators and the open tool in the accent. The panel content and the preview
+  mode follow in part (b).
 - **The tool strip and the tool panels (layout 3.0, L-4):** the tool bar left the scene's edge and is a
   floating pill at the top centre of the 3D view. It renders the registry in PrusaSlicer's groups –
   selection (delete), instance (+/−), transform (move, rotate, scale, place on face, arrange and its
