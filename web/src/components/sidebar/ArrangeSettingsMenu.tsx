@@ -4,7 +4,6 @@ import { arrangementSpacing } from '@webslicer/shared';
 import { MAX_ARRANGE_SPACING } from '../../plater/arrangeSettings';
 import { NumericField } from '../common/NumericField';
 import { ToolbarButton } from '../common/ToolbarButton';
-import { ACTION_ICONS } from '../common/icons';
 import './ArrangeSettingsMenu.css';
 
 /**
@@ -41,7 +40,7 @@ export function ArrangeSettingsMenu() {
   const defaultSpacing = arrangementSpacing(printCfg);
   return (
     <div className="arrange-menu" ref={ref}>
-      <ToolbarButton title="Arrange settings" icon={ACTION_ICONS.arrangeSettings} active={open} onClick={() => setOpen((v) => !v)} />
+      <ToolbarButton title="Arrange settings" icon="arrangeSettings" active={open} onClick={() => setOpen((v) => !v)} />
       {open && (
         <div className="arrange-popover" role="dialog" aria-label="Arrange settings">
           <div className="arrange-popover-title">Arrange settings</div>

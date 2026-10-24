@@ -15,7 +15,6 @@
  * buttons; the availability itself is asked of the tool definitions.
  */
 import { useEffect, useRef, useState } from 'react';
-import { Tags } from 'lucide-react';
 import { useStore } from '../../state/store';
 import { ToolbarButton } from '../common/ToolbarButton';
 import { isToolActive, toolsInGroup, TOOLS, type ToolGroup } from '../../tools/registry';
@@ -118,7 +117,7 @@ export function ToolBar() {
         className="tool-bar-labels"
         testId="tool-labels-toggle"
         title={showLabels ? 'Hide tool labels' : 'Show tool labels'}
-        icon={Tags}
+        icon="toolLabels"
         active={override !== undefined}
         onClick={toggle}
       />

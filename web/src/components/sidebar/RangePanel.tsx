@@ -1,8 +1,8 @@
 import { useStore, type PlaterObject } from '../../state/store';
 import { NumericField } from '../common/NumericField';
 import { SectionHeader } from '../common/SectionHeader';
-import { ACTION_ICONS } from '../common/icons';
 import './RangePanel.css';
+import { Icon } from '../../icons/Icon';
 
 /** Height range modifiers of the selected object (variable layer height and per-range settings) */
 export function RangePanel({ o }: { o: PlaterObject }) {
@@ -65,7 +65,7 @@ export function RangePanel({ o }: { o: PlaterObject }) {
                 ⚙{Object.keys(r.config).filter((k) => k !== 'layer_height').length ? '•' : ''}
               </button>
               <button className="icon" title="Remove range" aria-label="Remove range" onClick={() => removeRange(o.id, r.id)}>
-                <ACTION_ICONS.remove size={14} strokeWidth={2} aria-hidden="true" focusable="false" />
+                <Icon name="remove" size={14} />
               </button>
             </div>
           ))}

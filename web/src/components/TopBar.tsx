@@ -4,6 +4,7 @@ import { importFiles } from '../importFiles';
 import { api, downloadBlob } from '../api';
 import type { Mode } from '../api';
 import { UpdateChip } from './UpdateChip';
+import { Icon } from '../icons/Icon';
 import './TopBar.css';
 
 export function TopBar() {
@@ -97,22 +98,24 @@ export function TopBar() {
           }}
         />
         <button onClick={() => fileRef.current?.click()} title="Import STL/OBJ/3MF/AMF/STEP from this computer (Ctrl+I)">
-          ⤓ Import
+          <Icon name="import" size={16} /> Import
         </button>
         <button
           onClick={() => openDialog('importPresets')}
           title="Import user presets from a PrusaSlicer or WebSlicer config bundle, or from the config block of a G-code file"
         >
-          ⤒ Import presets…
+          <Icon name="importPresets" size={16} /> Import presets…
         </button>
         <button
           onClick={() => openDialog('library', 'open')}
           title="Open models, projects and G-code from the server library (mounted folder)"
         >
-          🗂 Library
+          <Icon name="library" size={16} /> Library
         </button>
         <div className="dropdown">
-          <button>Export ▾</button>
+          <button>
+            <Icon name="export" size={16} /> Export ▾
+          </button>
           <div className="dropdown-menu">
             <button onClick={exportProject} disabled={!objects.length}>
               Export project as 3MF
@@ -136,7 +139,7 @@ export function TopBar() {
           </div>
         </div>
         <button onClick={() => openDialog('physicalPrinters')} title="Physical printers (print hosts)">
-          🖶 Printers
+          <Icon name="printers" size={16} /> Printers
         </button>
         <select
           className="mode"

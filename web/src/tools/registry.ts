@@ -7,9 +7,8 @@
  * Entering/leaving goes through the tools slice (`activateTool`/`exitTool`), which calls `onEnter`/
  * `onExit` with the store, so this module stays free of store code and can be unit tested.
  */
-import type { LucideIcon } from 'lucide-react';
 import type { State } from '../state/types';
-import { ACTION_ICONS, TOOL_ICONS } from '../components/common/icons';
+import type { IconName } from '../icons/table';
 import { defaultCutSettings } from '../plater/cut';
 
 export type ToolId = 'move' | 'rotate' | 'scale' | 'placeOnFace' | 'cut' | 'paintSupports' | 'paintSeam' | 'paintMmu' | 'layerHeight';
@@ -47,7 +46,7 @@ export interface ToolDefinition {
   title: string;
   /** the short name the bar shows next to the icon when labels are on (T-055) */
   label: string;
-  icon: LucideIcon;
+  icon: IconName;
   group: ToolGroup;
   /** the panel docked next to the bar; absent for the transform tools (gizmo only) */
   panel?: ToolPanelKind;
@@ -83,7 +82,7 @@ export const TOOLS: ToolDefinition[] = [
     id: 'move',
     label: 'Move',
     title: 'Move',
-    icon: ACTION_ICONS.move,
+    icon: 'move',
     group: 'transform',
     shortcut: { keys: ['M'], match: ['m', 'M'] },
     aboutAt: 1,
@@ -94,7 +93,7 @@ export const TOOLS: ToolDefinition[] = [
     id: 'rotate',
     label: 'Rotate',
     title: 'Rotate',
-    icon: ACTION_ICONS.rotate,
+    icon: 'rotate',
     group: 'transform',
     shortcut: { keys: ['R'], match: ['r', 'R'] },
     aboutAt: 2,
@@ -105,7 +104,7 @@ export const TOOLS: ToolDefinition[] = [
     id: 'scale',
     label: 'Scale',
     title: 'Scale',
-    icon: ACTION_ICONS.scale,
+    icon: 'scale',
     group: 'transform',
     shortcut: { keys: ['S'], match: ['s', 'S'] },
     aboutAt: 3,
@@ -116,7 +115,7 @@ export const TOOLS: ToolDefinition[] = [
     id: 'placeOnFace',
     label: 'Place on face',
     title: 'Place on face',
-    icon: ACTION_ICONS.placeOnFace,
+    icon: 'placeOnFace',
     group: 'edit',
     panel: 'placeOnFace',
     shortcut: { keys: ['F'], match: ['f', 'F'] },
@@ -127,7 +126,7 @@ export const TOOLS: ToolDefinition[] = [
     id: 'cut',
     label: 'Cut',
     title: 'Cut',
-    icon: ACTION_ICONS.cut,
+    icon: 'cut',
     group: 'edit',
     panel: 'cut',
     shortcut: { keys: ['C'], match: ['c', 'C'], noMod: true },
@@ -146,7 +145,7 @@ export const TOOLS: ToolDefinition[] = [
     id: 'paintSupports',
     label: 'Paint supports',
     title: 'Paint supports',
-    icon: TOOL_ICONS.paintSupports,
+    icon: 'paintSupports',
     group: 'paint',
     panel: 'paint',
     shortcut: { keys: ['L'], match: ['l', 'L'] },
@@ -161,7 +160,7 @@ export const TOOLS: ToolDefinition[] = [
     id: 'paintSeam',
     label: 'Paint seam',
     title: 'Paint seam',
-    icon: TOOL_ICONS.paintSeam,
+    icon: 'paintSeam',
     group: 'paint',
     panel: 'paint',
     shortcut: { keys: ['P'], match: ['p', 'P'] },
@@ -176,7 +175,7 @@ export const TOOLS: ToolDefinition[] = [
     id: 'paintMmu',
     label: 'Paint extruder',
     title: 'Paint extruder',
-    icon: TOOL_ICONS.paintMmu,
+    icon: 'paintMmu',
     group: 'paint',
     panel: 'paint',
     isAvailable: (s) => {
@@ -193,7 +192,7 @@ export const TOOLS: ToolDefinition[] = [
     id: 'layerHeight',
     label: 'Layer height',
     title: 'Variable layer height',
-    icon: TOOL_ICONS.layerHeight,
+    icon: 'layerHeight',
     group: 'edit',
     panel: 'layerHeight',
     shortcut: { keys: ['V'], match: ['v', 'V'] },

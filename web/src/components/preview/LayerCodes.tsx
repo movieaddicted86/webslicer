@@ -1,10 +1,10 @@
 import { useStore } from '../../state/store';
 import { TextField } from '../common/TextField';
-import { ACTION_ICONS } from '../common/icons';
 import { colorAtZ, normalizeColor, suggestColor } from '../../gcode/colorprint';
 import { fmtZ } from '../../format';
 import { CODE_LABEL } from './formats';
 import './LayerCodes.css';
+import { Icon } from '../../icons/Icon';
 
 /**
  * Colour changes, pauses and custom G-code at layers – PrusaSlicer's "+" on the vertical slider.
@@ -103,7 +103,7 @@ export function LayerCodes({ printZ, firstLayer, maxZ }: { printZ: number | unde
                 />
               )}
               <button className="icon" title="Remove" aria-label="Remove" onClick={() => remove(c.printZ)}>
-                <ACTION_ICONS.remove size={14} strokeWidth={2} aria-hidden="true" focusable="false" />
+                <Icon name="remove" size={14} />
               </button>
             </li>
           ))}

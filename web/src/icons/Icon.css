@@ -1,0 +1,17 @@
+/* Icon: a fixed box, so a Prusa SVG and a lucide glyph line up in the same button. */
+
+.ui-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: var(--icon-size, 20px);
+  height: var(--icon-size, 20px);
+  color: currentColor;
+}
+
+.ui-icon > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
