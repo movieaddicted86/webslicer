@@ -1,0 +1,70 @@
+/* The transform rows of the context panel (TransformCard.tsx, VolumeManipulation.tsx,
+   TransformInputs.tsx, SettingsCard.tsx). Tokens only. */
+
+.manip {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* the body of a card starts right under its heading */
+.panel-card .manip {
+  margin-top: 0;
+}
+
+.object-info-panel .not-manifold {
+  color: var(--yellow);
+}
+
+.manip-row {
+  display: grid;
+  grid-template-columns: 62px 1fr 1fr 1fr;
+  gap: 4px;
+  align-items: center;
+}
+
+.manip-row.head {
+  color: var(--muted);
+  text-align: center;
+}
+
+.manip-row input {
+  width: 100%;
+  padding: 3px 4px;
+}
+
+.axis.X {
+  color: #ff6b6b;
+}
+
+.axis.Y {
+  color: #6bff8a;
+}
+
+.axis.Z {
+  color: #6b9bff;
+}
+
+.manip-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.manip-actions button {
+  flex: 1;
+  padding: 3px;
+  font-size: 12px;
+}
+
+.manip-row.extruder {
+  grid-template-columns: 62px 1fr;
+}
+
+.manip-row.extruder .full {
+  grid-column: 1 / -1;
+}
+
+.manip.volume {
+  border-top: 1px dashed var(--border);
+  padding-top: 6px;
+}

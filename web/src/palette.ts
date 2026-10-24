@@ -1,7 +1,7 @@
 /**
  * One extruder palette for the whole app (F-21). `main` carried it twice – as numbers in the plater
- * (`three/Viewer.tsx`) and as CSS strings in the sidebar (`components/Sidebar.tsx`) – so the two
- * could drift apart. The values are the ones both copies had; nothing is recoloured.
+ * (`three/Viewer.tsx`) and as CSS strings in the old sidebar – so the two could drift apart. The
+ * values are the ones both copies had; nothing is recoloured.
  *
  * R-12 moves this table into `shared/`, where the server can read it as well.
  */

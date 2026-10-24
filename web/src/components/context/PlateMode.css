@@ -1,0 +1,25 @@
+/* PlateMode: the printer card of the context panel (PlateMode.tsx). Tokens only. */
+
+.plate-card-name {
+  font-weight: 600;
+  margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plate-card-facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 10px;
+  margin: 0;
+  font-size: 12px;
+}
+
+.plate-card-facts dt {
+  color: var(--muted);
+}
+
+.plate-card-facts dd {
+  margin: 0;
+}

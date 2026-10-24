@@ -9,7 +9,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { VOLUME_TYPES } from '@webslicer/shared';
 import { VOLUME_LABELS } from './types';
-import { VOLUME_ICONS } from '../components/sidebar/volumes';
+import { VOLUME_ICONS } from '../components/context/volumes';
 import { VOLUME_COLORS } from '../three/viewer/colors';
 
 test('the volume maps cover exactly the shared VolumeType union', () => {

@@ -1,0 +1,18 @@
+/* Destination: the print-host row of the context panel footer (Destination.tsx). Tokens only. */
+
+.destination {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+}
+
+.destination label {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.destination select {
+  min-width: 0;
+  width: 100%;
+}

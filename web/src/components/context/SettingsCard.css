@@ -1,0 +1,7 @@
+/* SettingsCard: the extruder row and the per-object settings door (SettingsCard.tsx). The grid is
+   `manipulation.css`; tokens only. */
+
+.object-settings-card .full {
+  grid-column: 1 / -1;
+  padding: 4px;
+}

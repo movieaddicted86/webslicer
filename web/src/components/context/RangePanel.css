@@ -1,0 +1,32 @@
+/* RangePanel: the styles of this component. */
+
+.range-panel {
+  min-width: 0;
+}
+
+.range-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.range-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr auto auto;
+  gap: 4px;
+  align-items: center;
+}
+
+.range-row.head {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.range-row input {
+  width: 100%;
+  padding: 3px 4px;
+}
+
+.range-row.invalid input {
+  border-color: var(--red);
+}

@@ -1,0 +1,67 @@
+/* ContextPanel: the frame of the right column (ContextPanel.tsx). Tokens only.
+ *
+ *   header (sticky)
+ *   body   (scrolls)
+ *   footer (sticky: destination + Slice)
+ */
+
+.context-panel {
+  width: var(--sidebar-w);
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg2);
+  border-left: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.context-header {
+  flex: none;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg2);
+}
+
+.context-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.context-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.context-panel .presets,
+.context-panel .quick {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.context-footer {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--border);
+  background: var(--bg2);
+}
+
+/* the slice panel is the footer's own content; it keeps its inner spacing, not another margin */
+.context-footer .slice-panel {
+  margin-top: 0;
+}
+
+.multi-selection {
+  padding: 10px 12px;
+}
