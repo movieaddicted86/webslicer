@@ -39,9 +39,14 @@ export function RenamePresetDialog({ onClose, payload }: { onClose: () => void; 
           Other presets that inherit from this one, print hosts bound to it and stored projects keep working – their references follow the
           new name.
         </div>
-        <div className="modal-actions">
+        <div className="modal-actions" data-testid="modal-actions">
           <button onClick={onClose}>Cancel</button>
-          <button className="primary" onClick={save} disabled={!trimmed || trimmed.startsWith('-') || !!exists || unchanged}>
+          <button
+            className="primary"
+            data-testid="modal-primary"
+            onClick={save}
+            disabled={!trimmed || trimmed.startsWith('-') || !!exists || unchanged}
+          >
             Rename
           </button>
         </div>

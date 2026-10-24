@@ -21,6 +21,7 @@ export function LayerSlider({ gcode }: { gcode: ParsedGcode }) {
         <input
           id={topId}
           type="range"
+          data-testid="layer-slider"
           min={0}
           max={gcode.layerCount - 1}
           value={range[1]}
@@ -49,6 +50,7 @@ export function LayerSlider({ gcode }: { gcode: ParsedGcode }) {
       <input
         id={bottomId}
         type="range"
+        data-testid="layer-slider-bottom"
         min={0}
         max={gcode.layerCount - 1}
         value={range[0]}

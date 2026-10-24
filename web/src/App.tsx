@@ -49,7 +49,7 @@ export function App() {
   }
   const settings = view === 'print' || view === 'filament' || view === 'printer';
   return (
-    <div className="app">
+    <div className="app" data-testid="app-shell">
       <TopBar />
       <div className="main">
         {settings ? (

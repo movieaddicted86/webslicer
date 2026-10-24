@@ -13,7 +13,7 @@ export function SlicedInfo() {
   if (!job) return null;
   const info = job.info;
   return (
-    <section className="stats">
+    <section className="stats" data-testid="sliced-info">
       <SectionHeader title="Sliced info" />
       <table>
         <tbody>
@@ -62,6 +62,7 @@ export function SlicedInfo() {
         </button>
         <button
           className="secondary"
+          data-testid="send-button"
           onClick={() => openDialog('sendToPrinter')}
           disabled={!physical.length}
           title={physical.length ? '' : 'Add a physical printer first'}

@@ -86,6 +86,7 @@ export function ToolBar() {
     <div
       ref={barRef}
       className={`tool-bar${showLabels ? ' with-labels' : ''}`}
+      data-testid="tool-bar"
       role="toolbar"
       aria-label="Tools"
       aria-orientation="vertical"
@@ -99,6 +100,7 @@ export function ToolBar() {
               <ToolbarButton
                 key={tool.id}
                 className="tool-bar-tool"
+                testId={`tool-${tool.id}`}
                 title={toolTitle(tool.title, tool.shortcut?.keys, reason)}
                 icon={tool.icon}
                 label={showLabels ? tool.label : undefined}
@@ -114,6 +116,7 @@ export function ToolBar() {
       {/* the label toggle: an explicit choice overrides the automatic one (T-055) */}
       <ToolbarButton
         className="tool-bar-labels"
+        testId="tool-labels-toggle"
         title={showLabels ? 'Hide tool labels' : 'Show tool labels'}
         icon={Tags}
         active={override !== undefined}

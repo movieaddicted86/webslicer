@@ -23,8 +23,8 @@ export function Sidebar() {
   const simple = mode === 'simple';
 
   return (
-    <aside className="sidebar">
-      <section className="presets">
+    <aside className="sidebar" data-testid="sidebar">
+      <section className="presets" data-testid="presets">
         <PresetSelect type="print" slot={presets.print} label="Print settings" />
         {presets.filament.slice(0, extruders).map((f, i) => (
           <PresetSelect
@@ -49,7 +49,7 @@ export function Sidebar() {
         )}
       </section>
       {view !== 'preview' && (
-        <section className="quick">
+        <section className="quick" data-testid="quick-settings-panel">
           <QuickSettings />
         </section>
       )}

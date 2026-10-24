@@ -68,7 +68,7 @@ export function TopBar() {
   };
 
   return (
-    <header className="topbar">
+    <header className="topbar" data-testid="top-bar">
       <div className="brand" title={`WebSlicer ${info?.version || ''} · PrusaSlicer ${info?.slicerVersion || ''}`}>
         <span className="logo" />
         WebSlicer

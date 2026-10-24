@@ -78,7 +78,7 @@ export function PresetSelect({ type, slot, extruderIdx = 0, label }: Props) {
   };
 
   return (
-    <div className="preset-select">
+    <div className="preset-select" data-testid={`preset-select-${type}`}>
       <label htmlFor={selectId}>{label}</label>
       <div className="preset-row">
         <select id={selectId} value={slot.name} onChange={(e) => change(e.target.value)} title={slot.name}>

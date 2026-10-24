@@ -27,6 +27,7 @@ export function Toasts() {
           <div
             key={t.id}
             className={`toast ${t.kind}`}
+            data-testid="toast"
             role="button"
             tabIndex={0}
             title="Dismiss"

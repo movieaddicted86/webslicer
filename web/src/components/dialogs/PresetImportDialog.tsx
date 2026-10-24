@@ -199,9 +199,9 @@ export function PresetImportDialog({ onClose }: { onClose: () => void }) {
                 API key are not part of a preset.
               </div>
             )}
-            <div className="modal-actions">
+            <div className="modal-actions" data-testid="modal-actions">
               <button onClick={onClose}>Close</button>
-              <button className="primary" onClick={importNow} disabled={busy || !preview.presets.length}>
+              <button className="primary" data-testid="modal-primary" onClick={importNow} disabled={busy || !preview.presets.length}>
                 Import
               </button>
             </div>

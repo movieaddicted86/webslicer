@@ -50,7 +50,7 @@ export function PreviewPanel() {
   }, [gcode]);
 
   return (
-    <div className="preview-panel">
+    <div className="preview-panel" data-testid="preview-panel">
       {!job && (
         <section>
           <div className="muted">No slicing result yet.</div>

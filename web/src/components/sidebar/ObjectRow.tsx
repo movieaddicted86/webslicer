@@ -117,6 +117,8 @@ export function ObjectRow({
     <li className="object-item">
       <div
         className={`object-row ${isSel && !selectedVolumeId ? 'selected' : ''} ${objectIsOutside(o, bedShape, maxHeight) ? 'outside' : ''}`}
+        data-testid="object-row"
+        data-object-id={o.id}
         role="button"
         aria-pressed={isSel && !selectedVolumeId}
         tabIndex={0}
@@ -159,6 +161,7 @@ export function ObjectRow({
         {o.instances.length > 1 && (
           <button
             className="badge inst"
+            data-testid="object-instances-badge"
             title={instancesLabel}
             aria-label={instancesLabel}
             onClick={(e) => {
@@ -171,6 +174,7 @@ export function ObjectRow({
         )}
         <button
           className="icon add"
+          data-testid="object-add-volume"
           title="Add modifier / support enforcer / blocker / part"
           aria-label="Add modifier / support enforcer / blocker / part"
           onClick={(e) => {
@@ -182,6 +186,7 @@ export function ObjectRow({
         </button>
         <button
           className="icon split"
+          data-testid="object-split-objects"
           title={splitLabel}
           aria-label={splitLabel}
           disabled={o.volumes.length > 0}
@@ -206,7 +211,11 @@ export function ObjectRow({
           <ACTION_ICONS.splitToParts size={16} strokeWidth={2} aria-hidden="true" focusable="false" />
         </button>
       </div>
-      <div className="object-info muted small" title="Size, volume, triangles, manifold state and instances of this object">
+      <div
+        className="object-info muted small"
+        data-testid="object-info"
+        title="Size, volume, triangles, manifold state and instances of this object"
+      >
         {fmt(info.size[0])} × {fmt(info.size[1])} × {fmt(info.size[2])} mm · {fmt(info.volume, 2)} cm³ · {info.triangles.toLocaleString()}{' '}
         triangles · {info.instances} {info.instances === 1 ? 'instance' : 'instances'}
         {info.openEdges > 0 && (

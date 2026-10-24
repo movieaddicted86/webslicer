@@ -23,13 +23,25 @@ export function ToolPanel({
   children: ReactNode;
 }) {
   return (
-    <div className="tool-panel" role="dialog" aria-label={title}>
+    <div className="tool-panel" role="dialog" aria-label={title} data-testid="tool-panel">
       <div className="tool-panel-head">
-        <span className="tool-panel-title">{title}</span>
-        <ToolbarButton title={`Close ${title} (Esc)`} icon={CLOSE_ICON} onClick={onClose} className="tool-panel-close" />
+        <span className="tool-panel-title" data-testid="tool-panel-title">
+          {title}
+        </span>
+        <ToolbarButton
+          title={`Close ${title} (Esc)`}
+          icon={CLOSE_ICON}
+          onClick={onClose}
+          className="tool-panel-close"
+          testId="tool-panel-close"
+        />
       </div>
       <div className="tool-panel-body">{children}</div>
-      {footer && <div className="tool-panel-foot">{footer}</div>}
+      {footer && (
+        <div className="tool-panel-foot" data-testid="tool-panel-foot">
+          {footer}
+        </div>
+      )}
     </div>
   );
 }
