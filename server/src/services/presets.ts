@@ -5,9 +5,21 @@
  * route used to make – resolving a context config from its name and filtering a user preset to the
  * keys of its type.
  */
-import { defaultPresetName, deleteUserPreset, listPresets, resolvePreset, saveUserPreset, userPresetExists } from '../slicer/presets.js';
+import {
+  defaultPresetName,
+  deleteUserPreset,
+  filamentCatalog,
+  getVisibleFilaments,
+  listPresets,
+  resolvePreset,
+  saveUserPreset,
+  setVisibleFilaments,
+  userPresetExists,
+} from '../slicer/presets.js';
+import { checkConfigValues, blockingConfigIssues } from '@webslicer/shared';
+import { ValidationError } from '../errors.js';
 import type { IniSection } from '../slicer/ini.js';
-import type { PresetSummary, PresetType, ResolvedPreset, Schema } from '@webslicer/shared';
+import type { FilamentCatalogEntry, PresetSummary, PresetType, ResolvedPreset, Schema } from '@webslicer/shared';
 
 /** The context a preset list is computed against (`POST /api/presets/:type/list`). */
 export interface PresetListQuery {
@@ -51,7 +63,13 @@ export function filterPresetConfig(schema: Schema, type: PresetType, config: Ini
   return cfg;
 }
 
-/** Store a user preset (filtered to its type) and answer it resolved. */
+/**
+ * Store a user preset (filtered to its type) and answer it resolved.
+ *
+ * The values face the same configuration limits the slice routes apply (S1-d): a blocking value – a
+ * hotend above 450 °C, a negative layer height – is refused with 400 and its issues, never stored.
+ * Soft-range warnings pass, exactly as they do on a slice.
+ */
 export function storeUserPreset(
   schema: Schema,
   type: PresetType,
@@ -59,13 +77,35 @@ export function storeUserPreset(
   config: IniSection,
   inherits?: string,
 ): ResolvedPreset | undefined {
-  saveUserPreset(type, name, filterPresetConfig(schema, type, config), inherits);
+  const filtered = filterPresetConfig(schema, type, config);
+  const issues = checkConfigValues(type, filtered);
+  const blocking = blockingConfigIssues(issues);
+  // the client shows the issues it already knows; a preset save is a second gate, like the slice route
+  if (blocking.length) throw new ValidationError(blocking[0].message, { issues });
+  saveUserPreset(type, name, filtered, inherits);
   return resolvePreset(schema, type, name);
 }
 
 /** Does a stored user preset of this type and name exist? */
 export function hasUserPreset(type: PresetType, name: string): boolean {
   return userPresetExists(type, name);
+}
+
+/** The system filament presets the wizard offers, with the compatibility flag of the given printer. */
+export function filamentCatalogue(schema: Schema, printerName?: string): FilamentCatalogEntry[] {
+  const printerConfig = printerName ? resolvePreset(schema, 'printer', printerName)?.config : undefined;
+  return filamentCatalog(printerName && printerConfig ? printerName : undefined, printerConfig);
+}
+
+/** The system filaments the selector shows; an empty list means "show all". */
+export function visibleFilaments(): string[] {
+  return getVisibleFilaments();
+}
+
+/** Replace the list of system filaments the selector shows. */
+export function replaceVisibleFilaments(names: string[]): string[] {
+  setVisibleFilaments(names);
+  return getVisibleFilaments();
 }
 
 /** Remove a user preset. */
