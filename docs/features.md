@@ -11,8 +11,9 @@ PrusaSlicer feature exists here and which does not is in
   in orange; on a narrow window the names drop away and on a phone the rail becomes a bottom tab bar.
 - **Slim top bar**: the **Menu** (import models and presets, and the **Export** submenu with project
   3MF, current settings, presets bundle, G-code and the two "save to library" actions), undo and redo,
-  a **hide the side panels** switch that gives the 3D view the full width (remembered per browser), the
-  project name and the view tabs _Plater / Preview_. Every function has one home: the rail opens the
+  a **hide the side panels** switch that gives the 3D view the full width (remembered per browser) and
+  the project name. The _Plater / Preview_ switch sits in the tool strip below it. Every function has
+  one home: the rail opens the
   dialogs, the preset rows' cogs open the settings views, and the menu keeps only import and export.
 - **Preferences**: a small dialog behind the rail's _Preferences_ – the Simple / Advanced / Expert
   mode (how many settings the print, filament and printer views show), the read-only status of the
@@ -39,14 +40,15 @@ PrusaSlicer feature exists here and which does not is in
   support enforcers/blockers and negative volumes, the volume rows with rename, and the manipulation of
   the picked volume) and **Layer ranges**. The header keeps the object name and instance count, the
   footer keeps the **Destination** choice and the **Slice** button in view while the cards scroll. In
-  the Preview the column shows the preview panel; a tool's options still open next to the tool bar.
+  the Preview the column shows the preview panel. While a tool is open the column is the tool's panel:
+  its title and ✕, its controls, the primary action pinned at the bottom and the key hints below them.
   Simple mode shows the plate content only; a multi-selection is explained instead of the object cards.
 
 ### Where do I find…
 
 | I want to…                                           | Go to                                                                                      |
 | ---------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| Slice, arrange, edit objects                         | Rail **Slicing** (the plater); the preview is the _Preview_ tab in the top bar             |
+| Slice, arrange, edit objects                         | Rail **Slicing** (the plater); the preview is **Preview** in the tool strip's switch       |
 | Open a model from the file library                   | Rail **Library**                                                                           |
 | Import models from my computer                       | **Menu → Import models…** (Ctrl+I / Ctrl+O)                                                |
 | Import presets from a bundle or a G-code file        | **Menu → Import presets…**                                                                 |
@@ -58,6 +60,7 @@ PrusaSlicer feature exists here and which does not is in
 | See whether the update check is on, and reset panels | Rail **Preferences → Online services / Interface**                                         |
 | Edit the print, filament or printer settings         | The cog next to the preset in its row (plater or settings view)                            |
 | Edit an object's position, parts, overrides, ranges  | Select its row in the object list – the context panel on the right shows them              |
+| Open a tool (move, paint, cut, layer height)         | The **tool strip** at the top of the 3D view – its controls then take the context panel    |
 | Choose the print host the G-code goes to             | The **Destination** select in the context panel's footer (or ask in the send dialog)       |
 | Export the project, settings, presets or G-code      | **Menu → Export ▸**                                                                        |
 | Save the project or the G-code to the library        | **Menu → Export ▸ Save … to library…**                                                     |
@@ -85,8 +88,13 @@ PrusaSlicer feature exists here and which does not is in
 - **Split to objects / parts**, **merge objects**, **object info** (volume, manifold check) and
   **rename**.
 - **Cut tool**: cut plane with height and tilt, keep upper/lower/both parts, via the PrusaSlicer CLI.
-- **Left tool bar** with one panel per tool (move, rotate, scale, place on face, cut, paint supports/
-  seam/extruder, layer height); short labels appear when the 3D view is wide enough.
+- **Tool strip** floating at the top centre of the scene: one button per registry tool (move, rotate,
+  scale, place on face, arrange and its settings, cut, paint supports/seam/extruder, variable layer
+  height) plus delete, add/remove instance and the **Prepare | Preview** switch. The open tool's
+  controls fill the context panel, and the panel ends with the tool's key hints (mouse icons and key
+  chips). A view too narrow for the strip moves its trailing groups into a **⋯** menu; below 900 px the
+  strip scrolls sideways instead. Names appear next to the icons while the whole strip fits with them;
+  a disabled tool's tooltip says why it is disabled.
 
 ## Settings and profiles
 

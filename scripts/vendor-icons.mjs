@@ -76,9 +76,25 @@ const ICONS = [
   { group: 'Tool strip', name: 'Measure', file: 'ruler', key: 'U', status: 'roadmap', today: 'TODO P3' },
   { group: 'Tool strip', name: 'Emboss text', file: 'text', key: 'T', status: 'roadmap', today: 'TODO P3 (text/SVG embossing)' },
   { group: 'Tool strip', name: 'Paint-on fuzzy skin', file: 'paint_fuzzy_skin', key: 'H', status: 'no', today: 'not planned' },
+  {
+    group: 'Tool strip',
+    name: 'Prepare / Preview switch',
+    file: 'plater',
+    key: null,
+    status: 'have',
+    today: "the tool strip's Prepare | Preview switch",
+  },
+  {
+    group: 'Tool strip',
+    name: 'Preview (switch)',
+    file: 'preview',
+    key: null,
+    status: 'have',
+    today: "the tool strip's Prepare | Preview switch",
+  },
 
   // Rail (the far-left column of the 3.0 layout, L-1)
-  { group: 'Rail', name: 'Slicing', file: 'lb_slicing', key: null, status: 'have', today: 'the Plater/Preview view tabs' },
+  { group: 'Rail', name: 'Slicing', file: 'lb_slicing', key: null, status: 'have', today: 'the rail and the strip switch' },
   {
     group: 'Rail',
     name: 'Library',
@@ -189,11 +205,39 @@ const ICONS = [
   { group: 'Preview legend', name: 'Shells', file: 'legend_shells', key: null, status: 'have', today: 'colour swatch' },
   { group: 'Preview legend', name: 'Tool marker', file: 'legend_toolmarker', key: null, status: 'have', today: 'colour swatch' },
 
-  // Hints
-  { group: 'Hints', name: 'Mouse left / right / wheel / drag', file: 'mouse_left', key: null, status: 'have', today: 'text' },
-  { group: 'Hints', name: 'Mouse right', file: 'mouse_right', key: null, status: 'have', today: 'text' },
-  { group: 'Hints', name: 'Mouse wheel', file: 'mouse_wheel', key: null, status: 'have', today: 'text' },
-  { group: 'Hints', name: 'Mouse drag', file: 'mouse_drag', key: null, status: 'have', today: 'text' },
+  // Hints (the tool panels' key-hint block, L-4)
+  {
+    group: 'Hints',
+    name: 'Mouse left',
+    file: 'mouse_left',
+    key: null,
+    status: 'have',
+    today: "the tool panels' key hints",
+  },
+  {
+    group: 'Hints',
+    name: 'Mouse right',
+    file: 'mouse_right',
+    key: null,
+    status: 'have',
+    today: "the tool panels' key hints",
+  },
+  {
+    group: 'Hints',
+    name: 'Mouse wheel',
+    file: 'mouse_wheel',
+    key: null,
+    status: 'have',
+    today: "the tool panels' key hints",
+  },
+  {
+    group: 'Hints',
+    name: 'Mouse drag',
+    file: 'mouse_drag',
+    key: null,
+    status: 'have',
+    today: "the tool panels' key hints",
+  },
 
   // Notifications
   { group: 'Notifications', name: 'Warning', file: 'notification_warning', key: null, status: 'have', today: 'text/colour' },

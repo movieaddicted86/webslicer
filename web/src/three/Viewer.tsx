@@ -14,8 +14,7 @@ import { useShells } from './viewer/useShells';
 import { useCutPlane } from './viewer/useCutPlane';
 import { normalizeColor } from '../gcode/colorprint';
 import { paintKindOf } from '../tools/paintKind';
-import { ToolBar } from '../components/tools/ToolBar';
-import { ToolDock } from '../components/tools/ToolDock';
+import { ToolStrip } from '../components/tools/ToolStrip';
 import './Viewer.css';
 
 export { VOLUME_COLORS } from './viewer/colors';
@@ -109,17 +108,9 @@ export function Viewer() {
 
   return (
     <div className={`viewer ${placeOnFace ? 'place-on-face' : ''}`} ref={containerRef}>
-      {/* T-046: the tool bar on the left edge and the open tool's panel next to it, over the 3D view */}
-      <ToolBar />
-      <ToolDock />
-      {placeOnFace && <div className="viewer-banner">Place on face: click the face that should lie flat on the bed (Esc to cancel)</div>}
-      {paintMode && (
-        <div className="viewer-banner">
-          {paintMode === 'mmu'
-            ? 'Paint extruder: left = selected extruder · right / Shift+left = reset to object extruder · Esc = done'
-            : `${paintMode === 'supports' ? 'Paint supports' : 'Paint seam'}: left = brush tool · right = blocker · Shift+left = erase · Esc = done`}
-        </div>
-      )}
+      {/* L-4: the tool strip floats at the top centre; the open tool's controls are in the context
+          panel and carry the key hints, so there is no banner repeating them over the scene */}
+      <ToolStrip />
       <div className="viewer-hint">
         {view === 'plater' && (
           <div>Left: rotate · Right/Middle: pan · Wheel: zoom · M/R/S: move/rotate/scale · F: place on face · A: arrange · Del: delete</div>

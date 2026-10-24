@@ -1,4 +1,4 @@
-/* The 3D view shell: canvas, view toolbar, banners (Viewer.tsx). */
+/* The 3D view shell: canvas, view toolbar, view hints (Viewer.tsx). */
 
 .viewer {
   position: absolute;
@@ -21,16 +21,19 @@
   pointer-events: none;
 }
 
+/* The strip pill owns the top band of the scene (8 px from the top, ~36 px tall). The view overlays
+   start below it: a centred pill on a narrow scene reaches both corners, and an overlay underneath
+   would be visible but unclickable. */
 .viewer-fit {
   position: absolute;
   right: 10px;
-  top: 10px;
+  top: 52px;
 }
 
 .viewer-toolbar {
   position: absolute;
   right: 52px;
-  top: 10px;
+  top: 52px;
   display: flex;
   gap: 2px;
   align-items: center;
@@ -55,16 +58,5 @@
   cursor: crosshair;
 }
 
-.viewer-banner {
-  position: absolute;
-  top: 10px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: var(--accent);
-  color: #fff;
-  padding: 6px 12px;
-  border-radius: 6px;
-  font-weight: 600;
-  pointer-events: none;
-  z-index: 2;
-}
+/* The place-on-face cursor is the only visual cue the tool has in the scene since L-4: its
+   instructions are the strip's tooltip and the context panel's key hints. */

@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+- **The tool strip and the tool panels (layout 3.0, L-4):** the tool bar left the scene's edge and is a
+  floating pill at the top centre of the 3D view. It renders the registry in PrusaSlicer's groups –
+  selection (delete), instance (+/−), transform (move, rotate, scale, place on face, arrange and its
+  settings), paint (supports, seam, extruder), cut, layer height – so a tool still needs no button of
+  its own, and it carries the object commands and the **Prepare | Preview** switch that used to be two
+  tabs in the top bar. The open tool is the accent-coloured button; icons keep the "Name (Key)"
+  tooltip, a disabled tool says why, and names appear next to the icons while the whole strip fits
+  with them. A view too narrow for the pill moves its trailing groups into a **⋯** menu built from the
+  same registry groups, and below 900 px the pill scrolls sideways instead of hiding anything. Tab
+  walks the buttons in their visual order; `role="toolbar"` with a name and `aria-pressed` per tool,
+  the switch is a `radiogroup`. An open tool no longer opens a box over the scene: its controls are
+  the context panel's new **tool mode** (`contextMode` returns `tool` before every other mode) – the
+  title and ✕, the tool's fields, the primary action pinned at the bottom and, from the registry, the
+  tool's **key hints** (mouse icons, key chips, one line each). `ToolDock` is gone, the object toolbar
+  keeps only merge, duplicate and delete-all (delete, +/− and arrange have their one home in the
+  strip), and opening a tool never changes the selection. The About dialog and the shortcut table are
+  still generated from the registry.
 - **The context panel replaces the sidebar (layout 3.0, L-3):** the right column shows what the
   current state is about, derived by a pure selector (`web/src/state/contextMode.ts`, tool > preview >
   object > plate) instead of one fixed sidebar. With nothing selected it shows a **Printer** card

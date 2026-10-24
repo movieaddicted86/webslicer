@@ -9,9 +9,10 @@
  * render is a side effect the React Compiler (and the `react-hooks/refs` rule) rejects.
  */
 import { useLayoutEffect, useEffect, useRef } from 'react';
-import { useStore, pickedInstanceId } from '../../state/store';
+import { useStore } from '../../state/store';
 import { matchesShortcut, shortcutsBlocked } from './shortcuts';
 import { toolForShortcut } from '../../tools/registry';
+import { deleteSelection, addInstance, removeLastInstance } from '../../tools/stripActions';
 import { viewByKey } from './cameraMath';
 import type { CamRequest } from './types';
 
@@ -47,18 +48,13 @@ export function useKeyboardShortcuts(onCamera: (req: CamRequest) => void, toggle
         return;
       }
       if (st.view !== 'plater') return;
+      // the selection commands answer with the same rule as the strip's buttons (`tools/stripActions`)
       if (matchesShortcut(e, 'delete')) {
-        const o = st.objects.find((x) => x.id === st.selectedIds[0]);
-        if (st.selectedVolumeId && st.selectedIds.length === 1) st.removeVolume(st.selectedIds[0], st.selectedVolumeId);
-        // AC-4.4: Del removes the instance that was picked; without one the whole object goes
-        else if (st.selectedIds.length === 1 && o && pickedInstanceId(st, o) && o.instances.length > 1)
-          st.removeInstance(o.id, st.selectedInstanceId);
-        else if (st.selectedIds.length) st.removeObjects(st.selectedIds);
+        deleteSelection();
       } else if (matchesShortcut(e, 'addInstance')) {
-        if (st.selectedIds.length === 1) st.addInstances(st.selectedIds[0]);
+        addInstance();
       } else if (matchesShortcut(e, 'removeInstance')) {
-        // AC-1.2: "−" always drops the last copy
-        if (st.selectedIds.length === 1) st.removeInstance(st.selectedIds[0]);
+        removeLastInstance();
       } else if (toolForShortcut(e)) {
         // T-046: every tool key comes from the registry; an open tool is toggled off by its own key
         const tool = toolForShortcut(e);

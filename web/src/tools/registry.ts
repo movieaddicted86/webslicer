@@ -13,11 +13,26 @@ import { defaultCutSettings } from '../plater/cut';
 
 export type ToolId = 'move' | 'rotate' | 'scale' | 'placeOnFace' | 'cut' | 'paintSupports' | 'paintSeam' | 'paintMmu' | 'layerHeight';
 
-/** The panels the tool dock renders; the tool's id names its component in `components/tools/panels/`. */
+/** The panels the context panel renders in tool mode; the kind names the component in `components/tools/panels/`. */
 export type ToolPanelKind = 'cut' | 'paint' | 'placeOnFace' | 'layerHeight';
 
-/** The groups of the tool bar, top to bottom. */
-export type ToolGroup = 'transform' | 'edit' | 'paint';
+/** The groups of the tool strip, left to right (PrusaSlicer's order: transform, paint, cut, layers). */
+export type ToolGroup = 'transform' | 'paint' | 'cut' | 'layer';
+
+/** The mouse button or gesture a hint names; it picks the icon from the table (`mouse_left`, …). */
+export type HintMouse = 'left' | 'right' | 'wheel' | 'drag';
+
+/**
+ * One row of a tool's key-hint block (I-3): what the user can do inside the open tool, written from
+ * the behaviour that actually exists in the gizmo/painting code. Rendered by `ToolHints`.
+ */
+export interface ToolHint {
+  /** key chips in front of the mouse, e.g. `['Shift']` for Shift + left */
+  keys?: string[];
+  mouse?: HintMouse;
+  /** one line: the effect of the interaction */
+  text: string;
+}
 
 /** Whether a tool can be used right now; `reason` becomes the disabled button's tooltip. */
 export interface ToolAvailability {
@@ -48,8 +63,10 @@ export interface ToolDefinition {
   label: string;
   icon: IconName;
   group: ToolGroup;
-  /** the panel docked next to the bar; absent for the transform tools (gizmo only) */
+  /** the panel the context panel shows in tool mode; absent for the transform tools (gizmo only) */
   panel?: ToolPanelKind;
+  /** the rows of the key-hint block at the end of the tool's panel (I-3) */
+  hints?: ToolHint[];
   shortcut?: ToolShortcut;
   /** position in the About dialog's shortcut line; without it the tool is not listed there */
   aboutAt?: number;
@@ -76,7 +93,10 @@ function needsObjects(state: State): ToolAvailability {
   return state.objects.length ? { ok: true } : { ok: false, reason: 'Load an object first' };
 }
 
-/** Every tool, in the order the bar shows them. */
+/** The groups of the strip, in the order it shows them. */
+export const TOOL_GROUPS: ToolGroup[] = ['transform', 'paint', 'cut', 'layer'];
+
+/** Every tool, in the order the strip shows them. */
 export const TOOLS: ToolDefinition[] = [
   {
     id: 'move',
@@ -116,18 +136,22 @@ export const TOOLS: ToolDefinition[] = [
     label: 'Place on face',
     title: 'Place on face',
     icon: 'placeOnFace',
-    group: 'edit',
+    group: 'transform',
     panel: 'placeOnFace',
     shortcut: { keys: ['F'], match: ['f', 'F'] },
     aboutAt: 14,
     isAvailable: needsObjects,
+    hints: [
+      { mouse: 'left', text: 'Click the face that should lie flat on the bed' },
+      { keys: ['Esc'], text: 'Leave the tool' },
+    ],
   },
   {
     id: 'cut',
     label: 'Cut',
     title: 'Cut',
     icon: 'cut',
-    group: 'edit',
+    group: 'cut',
     panel: 'cut',
     shortcut: { keys: ['C'], match: ['c', 'C'], noMod: true },
     aboutAt: 13,
@@ -140,6 +164,11 @@ export const TOOLS: ToolDefinition[] = [
       const o = oneSelected(state);
       if (o) state.setCutSettings(defaultCutSettings(o.size[2]));
     },
+    hints: [
+      { mouse: 'left', text: 'Turn the object in the 3D view; the plane follows the sliders' },
+      { mouse: 'wheel', text: 'Zoom in or out of the object' },
+      { keys: ['Esc'], text: 'Leave the tool without cutting' },
+    ],
   },
   {
     id: 'paintSupports',
@@ -155,6 +184,13 @@ export const TOOLS: ToolDefinition[] = [
       const o = oneSelected(state);
       if (o) void state.startPaint(o.id, 'supports');
     },
+    // the brush is the left button, a right drag paints a blocker any time, Shift+left erases
+    hints: [
+      { mouse: 'left', text: 'Paint with the selected brush tool' },
+      { mouse: 'right', text: 'Paint a blocker (any time)' },
+      { keys: ['Shift'], mouse: 'left', text: 'Erase the paint' },
+      { keys: ['Esc'], text: 'Finish painting' },
+    ],
   },
   {
     id: 'paintSeam',
@@ -170,6 +206,12 @@ export const TOOLS: ToolDefinition[] = [
       const o = oneSelected(state);
       if (o) void state.startPaint(o.id, 'seam');
     },
+    hints: [
+      { mouse: 'left', text: 'Paint an enforcer: the seam is pulled here' },
+      { mouse: 'right', text: 'Paint a blocker: the seam avoids this area' },
+      { keys: ['Shift'], mouse: 'left', text: 'Erase the paint' },
+      { keys: ['Esc'], text: 'Finish painting' },
+    ],
   },
   {
     id: 'paintMmu',
@@ -187,17 +229,27 @@ export const TOOLS: ToolDefinition[] = [
       const o = oneSelected(state);
       if (o) void state.startPaint(o.id, 'mmu');
     },
+    hints: [
+      { mouse: 'left', text: 'Paint with the selected extruder' },
+      { mouse: 'right', text: 'Reset to the object extruder' },
+      { keys: ['Shift'], mouse: 'left', text: 'Reset to the object extruder' },
+      { keys: ['Esc'], text: 'Finish painting' },
+    ],
   },
   {
     id: 'layerHeight',
     label: 'Layer height',
     title: 'Variable layer height',
     icon: 'layerHeight',
-    group: 'edit',
+    group: 'layer',
     panel: 'layerHeight',
     shortcut: { keys: ['V'], match: ['v', 'V'] },
     aboutAt: 17,
     isAvailable: needsOneObject,
+    hints: [
+      { mouse: 'drag', text: 'Drag in the chart to raise or lower the layer height' },
+      { keys: ['Esc'], text: 'Leave the tool' },
+    ],
   },
 ];
 
@@ -244,6 +296,17 @@ export function aboutToolEntries(tools: ToolDefinition[] = TOOLS): ToolShortcutE
 /** The tools of one group, in registry order. */
 export function toolsInGroup(group: ToolGroup, tools: ToolDefinition[] = TOOLS): ToolDefinition[] {
   return tools.filter((t) => t.group === group);
+}
+
+/**
+ * The tooltip of a tool's strip button: "Name (Key)", and – when the tool cannot be used – the
+ * reason after it ("Cut (C): Select one object"). One function, so the strip and its tests build the
+ * same text from the same table.
+ */
+export function toolTitle(title: string, keys?: string[], reason?: string): string {
+  const key = keys?.length ? keys[keys.length - 1] : undefined;
+  const base = key ? `${title} (${key})` : title;
+  return reason ? `${base}: ${reason}` : base;
 }
 
 /**

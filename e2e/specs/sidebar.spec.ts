@@ -359,7 +359,7 @@ test.describe('context panel: quick settings and the mode switch', () => {
       quick: document.querySelectorAll('[data-testid="quick-settings"]').length,
       tools: document.querySelectorAll('[data-testid="object-toolbar"] button').length,
     }));
-    expect(simple).toEqual({ classicList: 0, manip: 0, quick: 1, tools: 6 });
+    expect(simple).toEqual({ classicList: 0, manip: 0, quick: 1, tools: 1 });
 
     await app.evaluate(() => window.webslicer.getState().setMode('advanced'));
     await settle(app, 900);
@@ -368,12 +368,11 @@ test.describe('context panel: quick settings and the mode switch', () => {
       rows: document.querySelectorAll('[data-testid="object-row"]').length,
       tools: document.querySelectorAll('[data-testid="object-toolbar"] button').length,
     }));
-    expect(advanced).toEqual({ mode: 'advanced', rows: 1, tools: 8 });
+    // L-4: the plate/selection commands moved to the tool strip, so the list keeps merge/duplicate/delete all
+    expect(advanced).toEqual({ mode: 'advanced', rows: 1, tools: 3 });
   });
 
-  test('every object-toolbar action shows its own 18 px SVG icon, grouped, without overflow at the narrowest column (T-036)', async ({
-    app,
-  }) => {
+  test('the object toolbar keeps the list actions, each with its own 18 px SVG icon (T-036, L-4)', async ({ app }) => {
     await importFile(app, CUBE);
     await app.evaluate(() => window.webslicer.getState().select([window.webslicer.getState().objects[0].id]));
     await settle(app, 700);
@@ -399,31 +398,26 @@ test.describe('context panel: quick settings and the mode switch', () => {
         ),
       };
     });
-    // T-055: the toolbar holds object actions only; the tools live in the left tool bar
+    // L-4: arrange, the instance pair and delete have their one home in the tool strip
     // undo/redo are not here: they have one home, the top bar
     expect(toolbar.buttons.map((b) => b.label)).toEqual([
-      'Arrange (A)',
-      'Arrange settings',
-      'Add instance (+)',
-      'Remove the last instance (−)',
       // T-042: disabled with one selected object, so it shows the prompt for the merge
       'Merge: select two or more objects with a single instance',
       'Duplicate',
-      'Delete the picked instance, otherwise the selected object or volume (Del)',
       'Delete all',
     ]);
     // the tooltip stays the shortcut line and is also the accessible name
     expect(toolbar.buttons.every((b) => b.title === b.label)).toBe(true);
     expect(toolbar.buttons.every((b) => b.text === '')).toBe(true);
-    expect(toolbar.buttons.map((b) => b.icon)).toEqual(Array(8).fill('18'));
+    expect(toolbar.buttons.map((b) => b.icon)).toEqual(Array(3).fill('18'));
     expect(toolbar.buttons.every((b) => (b.stroke ?? 0) > 0)).toBe(true);
     // the hit area is at least 30 px high
     expect(toolbar.buttons.every((b) => b.size >= 30)).toBe(true);
-    // two groups: arrange (+ settings)/instances | merge/duplicate/delete
+    // two groups: merge/duplicate | delete all
     expect(toolbar.separators).toBe(1);
-    expect(new Set(toolbar.paths).size).toBe(8);
+    expect(new Set(toolbar.paths).size).toBe(3);
 
-    // AC-2: the narrowest column width wraps the toolbar instead of shrinking it
+    // AC-2: the toolbar fits the narrowest column on one line, without overflow
     const narrow = await app.evaluate(() => {
       const shell = document.querySelector('[data-testid="app-shell"]') as HTMLElement;
       const column = document.querySelector('[data-testid="left-column"]') as HTMLElement;
@@ -440,31 +434,31 @@ test.describe('context panel: quick settings and the mode switch', () => {
     });
     expect(narrow.columnWidth).toBe(220);
     expect(narrow.toolsOverflow).toBeLessThanOrEqual(0);
-    // the icons keep their size; the toolbar uses a second line
+    // the icons keep their size; the three actions share one line
     expect(narrow.widths.every((w) => w >= 30)).toBe(true);
-    expect(narrow.lines).toBeGreaterThan(1);
+    expect(narrow.lines).toBe(1);
     // back to the width the frame computes on its own (the same inline value React writes)
     await app.evaluate(() => {
       const shell = document.querySelector('[data-testid="app-shell"]') as HTMLElement;
       shell.style.setProperty('--left-track', `${window.webslicer.getState().leftWidth}px`);
     });
 
-    // the same icons in Simple mode
+    // the same icon in Simple mode, where the list keeps only "delete all"
     await app.evaluate(() => window.webslicer.getState().setMode('simple'));
     await settle(app, 700);
     const simple = await app.evaluate(() =>
       Array.from(document.querySelectorAll('[data-testid="object-toolbar"] button svg')).map((s) => s.getAttribute('width')),
     );
-    expect(simple).toEqual(Array(6).fill('18'));
+    expect(simple).toEqual(['18']);
     await app.evaluate(() => window.webslicer.getState().setMode('advanced'));
   });
 
-  test('the arrange settings popover changes the spacing and remembers it (T-043)', async ({ app }) => {
+  test('the arrange settings popover changes the spacing and remembers it (T-043, in the strip since L-4)', async ({ app }) => {
     // two cubes (the second import keeps the first), so the bed shows a gap to measure
     await importFile(app, CUBE);
     await importFile(app, CUBE, { clear: false });
     await settle(app, 700);
-    await click(app, '[data-testid="object-toolbar"] button[title="Arrange settings"]');
+    await click(app, '[data-testid="tool-arrangeSettings"]');
     await expect(app.locator('.arrange-popover')).toBeVisible();
     const spacing = app.locator('.arrange-popover input[type="number"]');
     await spacing.fill('20');
@@ -473,23 +467,23 @@ test.describe('context panel: quick settings and the mode switch', () => {
     expect(await read(app, (s) => s.arrangeSettings)).toEqual({ spacing: 20, rotations: false, alignment: 'center' });
     expect(await app.evaluate(() => localStorage.getItem('webslicer.arrange'))).toContain('"spacing":20');
 
-    await click(app, '[data-testid="object-toolbar"] button[title="Arrange (A)"]');
+    await click(app, '[data-testid="tool-arrange"]');
     await settle(app, 500);
     const wide = await read(app, (s) => s.objects.map((o) => o.instances[0].position[0]));
     // 20 mm cubes with 20 mm between them
     expect(Math.abs(wide[0] - wide[1])).toBeCloseTo(40, 5);
 
     // corner alignment puts the block into the bed corner instead of the middle
-    await click(app, '[data-testid="object-toolbar"] button[title="Arrange settings"]');
+    await click(app, '[data-testid="tool-arrangeSettings"]');
     await app.locator('.arrange-popover select').selectOption('corner');
-    await click(app, '[data-testid="object-toolbar"] button[title="Arrange (A)"]');
+    await click(app, '[data-testid="tool-arrange"]');
     await settle(app, 500);
     const placed = await read(app, (s) => s.objects.flatMap((o) => o.instances.map((i) => i.position)));
     expect(Math.min(...placed.map((p) => p[0]))).toBeCloseTo(20, 5);
     expect(Math.min(...placed.map((p) => p[1]))).toBeCloseTo(20, 5);
 
     // an emptied field goes back to the print profile's spacing
-    await click(app, '[data-testid="object-toolbar"] button[title="Arrange settings"]');
+    await click(app, '[data-testid="tool-arrangeSettings"]');
     await spacing.fill('');
     await spacing.press('Enter');
     await settle(app, 300);

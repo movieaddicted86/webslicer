@@ -5,7 +5,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { baseMode, contextMode, type ContextModeInput } from './contextMode';
+import { contextMode, type ContextModeInput } from './contextMode';
 
 const object = { id: 'o1' };
 const input = (patch: Partial<ContextModeInput> = {}): ContextModeInput => ({
@@ -52,8 +52,10 @@ test('the mode does not depend on simple/advanced/expert, only the body does', (
   }
 });
 
-test('the rendered mode falls back to plate or object while the tool dock still lives by the bar', () => {
-  assert.equal(baseMode(input({ activeTool: 'cut', selectedIds: ['o1'] })), 'object');
-  assert.equal(baseMode(input({ activeTool: 'cut' })), 'plate');
-  assert.equal(baseMode(input({ view: 'preview' })), 'preview');
+test('closing the tool falls back to the next mode in the precedence', () => {
+  const open = input({ activeTool: 'cut', selectedIds: ['o1'] });
+  assert.equal(contextMode(open), 'tool');
+  assert.equal(contextMode({ ...open, activeTool: undefined }), 'object');
+  assert.equal(contextMode({ ...open, activeTool: undefined, selectedIds: [] }), 'plate');
+  assert.equal(contextMode({ ...open, activeTool: undefined, selectedIds: [], view: 'preview' }), 'preview');
 });

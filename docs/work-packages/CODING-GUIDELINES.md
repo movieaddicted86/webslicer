@@ -93,14 +93,17 @@ web/src/
   `useGizmo`, `useGcodePreview`, `usePainting`, `useKeyboardShortcuts`). Keyboard shortcuts are
   defined once in a table that the handler _and_ the help dialog read.
 - **Tools:** a plater tool (cut, paint, place on face, variable layer height, the transform gizmo) is
-  one entry in `web/src/tools/registry.ts`: id, title, icon, group, panel kind, shortcut, `aboutAt`
-  (its place in the About line) and `isAvailable(state)`. The left tool bar, the shortcut table and
-  the About dialog are generated from that list, and opening/closing goes through
+  one entry in `web/src/tools/registry.ts`: id, title, icon, group, panel kind, `hints`, shortcut,
+  `aboutAt` (its place in the About line) and `isAvailable(state)`. The tool strip, the shortcut table
+  and the About dialog are generated from that list, and opening/closing goes through
   `openTool`/`closeTool` (the `tools` slice, lifecycle in `tools/activate.ts`), so a new tool needs
-  no button, shortcut or help line. A tool with panel options adds a component under
-  `components/tools/panels/` and a `panel` kind in `ToolDock.tsx`; it builds its body from the shared
-  frame (`ToolPanel`) and the field blocks under `components/tools/fields/`. The panel's position and
-  size live in CSS only. Tool options do not go into the sidebar.
+  no button, shortcut or help line. A tool with panel options writes its controls in
+  `components/tools/panels/`, names its `panel` kind in `ToolMode.tsx` (the context panel's tool mode)
+  and adds its `hints` to the registry entry – `ToolHints` renders them as the last block of the panel,
+  so a tool without hints fails `registry.test.ts`. The panel builds its body from the shared frame
+  (`ToolPanel`) and the field blocks under `components/tools/fields/`. The panel's position and size
+  live in CSS only, and a tool's controls are never duplicated in the object toolbar or the sidebar –
+  one home per function.
 - Hooks start with `use`, live next to their consumer or in `web/src/hooks/` when reused.
 
 ## 6. Server specifics

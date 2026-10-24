@@ -10,7 +10,14 @@ import { expect, test } from '../helpers/fixtures';
 import { byId } from '../helpers/hooks';
 import { dialogKind } from '../helpers/dom';
 import { read } from '../helpers/app';
-import { EXPORT_ENTRIES, MENU_ENTRIES, PRESET_PRINTERS_ENTRY, RAIL_ENTRIES, SETTINGS_ENTRIES } from '../../web/src/nav/navMap';
+import {
+  EXPORT_ENTRIES,
+  MENU_ENTRIES,
+  PRESET_PRINTERS_ENTRY,
+  RAIL_ENTRIES,
+  SETTINGS_ENTRIES,
+  STRIP_VIEW_ENTRIES,
+} from '../../web/src/nav/navMap';
 import type { Page } from '@playwright/test';
 
 /** The `data-nav-id`s under a hook, in DOM order. */
@@ -118,10 +125,16 @@ test.describe('navigation: one home per function', () => {
       await expect.poll(() => read(app, (s) => s.view)).toBe(entry.action.view);
     }
 
-    // the bar's tabs are the plater and the preview; the quick settings do not link to a settings view
+    // the Prepare | Preview switch is in the tool strip; the top bar carries no view tabs any more
     await app.evaluate(() => window.webslicer.getState().setView('plater'));
     await app.waitForTimeout(400);
-    expect(await app.locator('[data-testid="top-bar"] nav button').allInnerTexts()).toEqual(['Plater', 'Preview']);
+    expect(await app.locator('[data-testid="top-bar"] nav').count()).toBe(0);
+    expect(await navIds(app, '[data-testid="view-switch"] [data-nav-id]')).toEqual(STRIP_VIEW_ENTRIES.map((e) => e.id));
+    for (const entry of STRIP_VIEW_ENTRIES) {
+      if (entry.action.kind !== 'view') continue;
+      await byId(app, entry.testId ?? entry.id).click();
+      await expect.poll(() => read(app, (s) => s.view)).toBe(entry.action.view);
+    }
     expect(await app.locator('[data-testid="quick-settings"] a, [data-testid="quick-settings"] .link').count()).toBe(0);
   });
 });

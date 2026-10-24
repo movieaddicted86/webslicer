@@ -48,37 +48,11 @@
   text-overflow: ellipsis;
   min-width: 0;
   max-width: 220px;
-}
-
-.tabs {
-  display: flex;
-  gap: 2px;
+  /* the name takes the slack the tabs left in L-4; it is the bar's only flexible item */
   margin-left: auto;
-  min-width: 0;
 }
 
-.tabs button {
-  background: transparent;
-  border: none;
-  border-bottom: 2px solid transparent;
-  border-radius: 0;
-  padding: 12px 9px;
-  white-space: nowrap;
-  color: var(--muted);
-  position: relative;
-}
-
-.tabs button:hover:not(:disabled) {
-  background: transparent;
-  color: var(--text);
-}
-
-.tabs button.active {
-  color: var(--text);
-  border-bottom-color: var(--accent);
-}
-
-.tabs .dot,
+/* the dot that marks a changed value; it lived with the tabs and stays for OptionField (L-4) */
 .option .dot {
   display: inline-block;
   width: 7px;
@@ -89,7 +63,7 @@
   vertical-align: middle;
 }
 
-/* the names go first on a narrow bar; the tabs keep their labels, the plater/preview pair too */
+/* the names go first on a narrow bar */
 @media (max-width: 1100px) {
   .project-name {
     max-width: 140px;
@@ -99,15 +73,5 @@
 @media (max-width: 900px) {
   .project-name {
     display: none;
-  }
-
-  .tabs {
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-
-  .tabs button {
-    padding: 12px 7px;
-    font-size: 12px;
   }
 }

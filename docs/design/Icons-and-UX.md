@@ -69,6 +69,9 @@ How (task I-1, no new dependency):
 | Tool strip     | Measure                             | `ruler.svg`                      | U      | on our roadmap | TODO P3                                                |
 | Tool strip     | Emboss text                         | `text.svg`                       | T      | on our roadmap | TODO P3 (text/SVG embossing)                           |
 | Tool strip     | Paint-on fuzzy skin                 | `paint_fuzzy_skin.svg`           | H      | not planned    | not planned                                            |
+| Tool strip     | Prepare (view switch)               | `plater.svg`                     | –      | we have it     | the switch in the strip (L-4)                          |
+| Tool strip     | Preview (view switch)               | `preview.svg`                    | –      | we have it     | the switch in the strip (L-4)                          |
+| Tool strip     | More tools (overflow)               | –                                | –      | no artwork     | lucide `Ellipsis` in the strip's ⋯ menu (L-4)          |
 | Top bar        | Undo                                | `tb_undo.svg`                    | Ctrl+Z | we have it     | Undo2                                                  |
 | Top bar        | Redo                                | `tb_redo.svg`                    | Ctrl+Y | we have it     | Redo2                                                  |
 | Top bar        | Open / load project                 | `tb_load.svg`                    | Ctrl+O | we have it     | text button                                            |
@@ -125,10 +128,10 @@ How (task I-1, no new dependency):
 | Preview legend | Custom G-codes                      | `legend_customgcodes.svg`        | –      | we have it     | colour swatch                                          |
 | Preview legend | Shells                              | `legend_shells.svg`              | –      | we have it     | colour swatch                                          |
 | Preview legend | Tool marker                         | `legend_toolmarker.svg`          | –      | we have it     | colour swatch                                          |
-| Hints          | Mouse left / right / wheel / drag   | `mouse_left.svg`                 | –      | we have it     | text                                                   |
-| Hints          | Mouse right                         | `mouse_right.svg`                | –      | we have it     | text                                                   |
-| Hints          | Mouse wheel                         | `mouse_wheel.svg`                | –      | we have it     | text                                                   |
-| Hints          | Mouse drag                          | `mouse_drag.svg`                 | –      | we have it     | text                                                   |
+| Hints          | Mouse left                          | `mouse_left.svg`                 | –      | we have it     | the tool panels' key hints (L-4)                       |
+| Hints          | Mouse right                         | `mouse_right.svg`                | –      | we have it     | the tool panels' key hints (L-4)                       |
+| Hints          | Mouse wheel                         | `mouse_wheel.svg`                | –      | we have it     | the tool panels' key hints (L-4)                       |
+| Hints          | Mouse drag                          | `mouse_drag.svg`                 | –      | we have it     | the tool panels' key hints (L-4)                       |
 | Notifications  | Warning                             | `notification_warning.svg`       | –      | we have it     | text/colour                                            |
 | Notifications  | Error                               | `notification_error.svg`         | –      | we have it     | text/colour                                            |
 | Notifications  | Info                                | `notification_info.svg`          | –      | we have it     | text/colour                                            |

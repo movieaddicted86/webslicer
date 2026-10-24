@@ -8,8 +8,8 @@
  */
 import type { IconName } from '../icons/table';
 
-/** The regions that carry navigation: the far-left rail, the top bar's menu, a preset row, the bar. */
-export type NavHome = 'rail' | 'menu' | 'preset-row' | 'top-bar';
+/** The regions that carry navigation: the far-left rail, the top bar's menu, a preset row, the bar, the tool strip. */
+export type NavHome = 'rail' | 'menu' | 'preset-row' | 'top-bar' | 'strip';
 
 /** The dialog a nav entry opens, with the payload the dialog reads. */
 export type NavDialog = 'library' | 'printers' | 'preferences' | 'about' | 'importPresets';
@@ -176,6 +176,22 @@ export const TOP_BAR_ENTRIES: readonly NavEntry[] = [
   },
 ];
 
+/**
+ * The Prepare | Preview switch in the tool strip (L-4). It moved out of the top bar, which no longer
+ * carries view tabs; the tool strip is its one home, next to the tools it shares the scene with.
+ */
+export const STRIP_VIEW_ENTRIES: readonly NavEntry[] = [
+  { id: 'viewPlater', label: 'Prepare', icon: 'plater', home: 'strip', action: { kind: 'view', view: 'plater' }, testId: 'view-plater' },
+  {
+    id: 'viewPreview',
+    label: 'Preview',
+    icon: 'preview',
+    home: 'strip',
+    action: { kind: 'view', view: 'preview' },
+    testId: 'view-preview',
+  },
+];
+
 /** Every entry of the map, the table the tests and the hosts share. */
 export const NAV_ENTRIES: readonly NavEntry[] = [
   ...RAIL_ENTRIES,
@@ -184,6 +200,7 @@ export const NAV_ENTRIES: readonly NavEntry[] = [
   ...SETTINGS_ENTRIES,
   PRESET_PRINTERS_ENTRY,
   ...TOP_BAR_ENTRIES,
+  ...STRIP_VIEW_ENTRIES,
 ];
 
 /** The entry of a function id; a missing id is a programming error, the tests catch it. */

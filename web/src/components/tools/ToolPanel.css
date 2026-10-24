@@ -1,26 +1,21 @@
-/* ToolPanel: the styles of this component. */
+/* ToolPanel: the frame of a tool's controls inside the context panel (ToolPanel.tsx). Tokens only.
+ *
+ * The frame fills the panel's body: the tool title and its ✕ sit in the frame's own head, the fields
+ * scroll, and the tool's primary action is the frame's foot. The context panel's header and footer
+ * (destination + Slice) are not rendered in tool mode, so the tool's action is the one accent. */
 
 .tool-panel {
-  position: absolute;
-  left: 58px;
-  top: 10px;
-  z-index: 3;
-  width: 300px;
-  max-width: 320px;
-  max-height: calc(100% - 20px);
   display: flex;
   flex-direction: column;
-  background: rgba(27, 30, 36, 0.96);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  box-shadow: 0 6px 24px #0008;
+  min-height: 100%;
 }
 
 .tool-panel-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 6px 8px 6px 10px;
+  gap: 8px;
+  padding: 2px 0 8px;
   border-bottom: 1px solid var(--border);
 }
 
@@ -29,19 +24,31 @@
   font-size: 13px;
 }
 
+.tool-panel-close {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border-color: transparent;
+}
+
 .tool-panel-body {
-  padding: 8px 10px;
-  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  flex: 1;
-  min-height: 0;
+  padding-top: 8px;
 }
 
 .tool-panel-foot {
+  position: sticky;
+  bottom: 0;
+  margin: 8px -12px -10px;
+  padding: 8px 12px 10px;
+  background: var(--bg2);
   border-top: 1px solid var(--border);
-  padding: 8px 10px;
   display: flex;
   flex-direction: column;
   gap: 4px;
