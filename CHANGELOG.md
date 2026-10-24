@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- **Presets between installations (T-059):** a user preset can be **renamed** from the preset row; its
+  file, every preset that inherits from it, physical printers bound to it, server projects and autosave
+  3MFs follow the new name, and a clash or a mid-way failure leaves the store as it was. **Export
+  presets** downloads all user presets and physical printers as one PrusaSlicer-compatible `.ini`
+  bundle (print-host addresses and keys are never written). **Import presets** reads such a bundle or
+  the `prusaslicer_config` block of a G-code file, previews the presets it holds, the keys it drops
+  (process commands, output paths, unknown options, values with a lone carriage return) and the
+  sections it cannot use, and asks one answer per name clash: keep the stored preset, overwrite it, or
+  keep both under a free name. System presets are never overwritten. The G-code preview reads only the
+  last 512 KiB of the upload and never executes the file.
+
 - **Fixed (T-052 – remaining bugs from the 2026-10-23 review):**
   **B2 (printer switch):** `selectPreset('printer')` resized the filament slots but did not clamp
   the extruder indices, so a 5 → 1 switch left objects, volumes, MMU paint and the paint tool
