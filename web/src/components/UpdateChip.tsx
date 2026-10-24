@@ -4,11 +4,12 @@
  * `latest` value (`state/updateNotice.ts` remembers that in `localStorage`).
  *
  * The chip renders nothing when the server is up to date, when the check is switched off or when the
- * user dismissed this `latest` – so a self-hosted install that is current sees no extra pixel.
+ * user dismissed this `latest` – so a self-hosted install that is current sees no extra pixel. It sits
+ * at the top bar's right edge, where the mockup draws it.
  *
- * `compact` is the rail's version of it (layout 3.0): the 64 px column has no room for the sentence,
- * so the chip is a small round button with an arrow, and the sentence stays in the DOM (visually
- * hidden) as the link's text. The name, the link and the dismissal are the same in both forms.
+ * `compact` is the small round form for a place without room for the sentence: the sentence stays in
+ * the DOM (visually hidden) as the link's text. The name, the link and the dismissal are the same in
+ * both forms.
  */
 import { useState } from 'react';
 import { useStore } from '../state/store';

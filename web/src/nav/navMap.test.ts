@@ -7,7 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { NAV_ENTRIES, RAIL_ENTRIES, MENU_ENTRIES, EXPORT_ENTRIES, SETTINGS_ENTRIES, TOP_BAR_ENTRIES, STRIP_VIEW_ENTRIES } from './navMap';
+import { NAV_ENTRIES, RAIL_ENTRIES, MENU_ENTRIES, EXPORT_ENTRIES, SETTINGS_ENTRIES, TOP_BAR_ENTRIES, VIEW_SWITCH_ENTRIES } from './navMap';
 
 const source = (rel: string) => readFileSync(fileURLToPath(new URL(`../${rel}`, import.meta.url)), 'utf8');
 
@@ -21,7 +21,7 @@ test('every function id is unique', () => {
 
 test('every function has exactly one home', () => {
   for (const entry of NAV_ENTRIES) {
-    assert.ok(['rail', 'menu', 'preset-row', 'top-bar', 'strip'].includes(entry.home), `${entry.id} has the home ${entry.home}`);
+    assert.ok(['rail', 'menu', 'preset-row', 'top-bar'].includes(entry.home), `${entry.id} has the home ${entry.home}`);
   }
 });
 
@@ -63,22 +63,20 @@ test('the top bar keeps one entry per bar action, nothing else', () => {
   );
 });
 
-test('the Prepare | Preview switch has its one home in the tool strip (L-4)', () => {
+test('the Prepare | Preview switch has its one home in the top bar', () => {
   assert.deepEqual(
-    STRIP_VIEW_ENTRIES.map((e) => (e.action.kind === 'view' ? e.action.view : '')),
+    VIEW_SWITCH_ENTRIES.map((e) => (e.action.kind === 'view' ? e.action.view : '')),
     ['plater', 'preview'],
   );
-  for (const entry of STRIP_VIEW_ENTRIES) {
-    assert.equal(entry.home, 'strip');
+  for (const entry of VIEW_SWITCH_ENTRIES) {
+    assert.equal(entry.home, 'top-bar');
     assert.ok(entry.testId, `${entry.id} has a test hook`);
   }
-  // the top bar no longer carries view tabs – the strip is the one home
+  // the bar renders the switch from the table, not from a literal list – and the strip no longer has it
   const bar = source('components/TopBar.tsx');
-  assert.ok(!bar.includes('setView'), 'the top bar still switches the view');
-  assert.ok(!bar.includes('className="tabs"'), 'the top bar still renders tabs');
-  // and the strip renders the switch from the table, not from a literal list
+  assert.match(bar, /VIEW_SWITCH_ENTRIES/);
   const strip = source('components/tools/ToolStrip.tsx');
-  assert.match(strip, /STRIP_VIEW_ENTRIES/);
+  assert.ok(!strip.includes('VIEW_SWITCH_ENTRIES'), 'the strip still renders the view switch');
 });
 
 test('no label appears in two regions', () => {

@@ -1,15 +1,20 @@
-/* TopBar: the styles of this component (layout 3.0, L-1). */
+/* TopBar: the 48 px bar of the visual pass (TopBar.tsx). Tokens only.
+ *
+ *   Menu | undo redo hide-panels | project · state | Prepare | Preview (centred) | …
+ */
 
 .topbar {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 0 10px;
-  min-height: 46px;
-  background: var(--bg2);
-  border-bottom: 1px solid var(--border);
-  /* the bar is one row: the view tabs scroll on a narrow window instead of wrapping into a second row */
+  gap: 6px;
+  height: 48px;
+  padding: 0 12px;
+  background: var(--bar);
+  border-bottom: 1px solid var(--edge);
+  /* the bar is one row: nothing wraps, the name shrinks before the switch does */
   min-width: 0;
+  position: relative;
+  z-index: 6;
 }
 
 .topbar-group {
@@ -19,27 +24,34 @@
   flex: none;
 }
 
+/* every icon of the bar: a 34 px square, the mockup's control size (the hit area grows on touch) */
 .topbar-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 4px 6px;
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
   background: transparent;
   border-color: transparent;
-  color: var(--muted);
-}
-
-.topbar-icon:hover:not(:disabled) {
-  background: var(--bg4);
+  border-radius: 8px;
   color: var(--text);
 }
 
-.topbar-icon.active {
-  background: var(--bg4);
-  border-color: var(--border);
-  color: var(--accent2);
+.topbar-icon:hover:not(:disabled) {
+  background: var(--field-h);
 }
 
+.topbar-icon:disabled {
+  color: var(--faint);
+  opacity: 1;
+}
+
+.topbar-icon.active {
+  background: var(--field-h);
+  color: var(--text);
+}
+
+/* the project's name and whether the plater has been saved: quiet, next to the actions */
 .project-name {
   color: var(--muted);
   font-size: 12px;
@@ -48,11 +60,79 @@
   text-overflow: ellipsis;
   min-width: 0;
   max-width: 220px;
-  /* the name takes the slack the tabs left in L-4; it is the bar's only flexible item */
-  margin-left: auto;
+  margin-left: 6px;
 }
 
-/* the dot that marks a changed value; it lived with the tabs and stays for OptionField (L-4) */
+.project-name b {
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* the Prepare | Preview switch: a segmented control, centred in the bar regardless of what left and
+   right of it is wide */
+.view-switch {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  background: var(--field);
+  border-radius: 8px;
+}
+
+.view-switch button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 12px;
+  background: transparent;
+  border-color: transparent;
+  border-radius: 6px;
+  color: var(--muted);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.view-switch button:hover:not(:disabled) {
+  background: var(--field-h);
+  color: var(--text);
+}
+
+.view-switch button.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+
+.view-switch button:focus-visible {
+  outline: 2px solid var(--accent-h);
+  outline-offset: 1px;
+}
+
+.view-switch svg {
+  flex: none;
+}
+
+/* the update notice sits at the bar's right edge (the mockup's update chip) */
+.topbar-update {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+  min-width: 0;
+}
+
+/* the sentence needs room: on a narrow bar the About dialog still reports the update */
+@media (max-width: 1100px) {
+  .topbar-update {
+    display: none;
+  }
+}
+
+/* the dot that marks a changed value; it lives with OptionField (L-4) */
 .option .dot {
   display: inline-block;
   width: 7px;
@@ -63,15 +143,37 @@
   vertical-align: middle;
 }
 
-/* the names go first on a narrow bar */
+/* the names go before the switch does */
 @media (max-width: 1100px) {
   .project-name {
     max-width: 140px;
   }
 }
 
+/* icons only in the switch: a narrow bar keeps the control centred and small */
 @media (max-width: 900px) {
+  .view-switch-label {
+    display: none;
+  }
+
+  .view-switch button {
+    padding: 0 9px;
+  }
+}
+
+@media (max-width: 640px) {
   .project-name {
     display: none;
+  }
+
+  .topbar {
+    padding: 0 6px;
+  }
+
+  /* a phone's bar has no free centre: the switch takes its place in the row instead of over it */
+  .view-switch {
+    position: static;
+    transform: none;
+    margin-left: auto;
   }
 }

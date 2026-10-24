@@ -8,8 +8,8 @@
  */
 import type { IconName } from '../icons/table';
 
-/** The regions that carry navigation: the far-left rail, the top bar's menu, a preset row, the bar, the tool strip. */
-export type NavHome = 'rail' | 'menu' | 'preset-row' | 'top-bar' | 'strip';
+/** The regions that carry navigation: the far-left rail, the top bar's menu, a preset row, the bar. */
+export type NavHome = 'rail' | 'menu' | 'preset-row' | 'top-bar';
 
 /** The dialog a nav entry opens, with the payload the dialog reads. */
 export type NavDialog = 'library' | 'printers' | 'preferences' | 'about' | 'importPresets';
@@ -177,16 +177,17 @@ export const TOP_BAR_ENTRIES: readonly NavEntry[] = [
 ];
 
 /**
- * The Prepare | Preview switch in the tool strip (L-4). It moved out of the top bar, which no longer
- * carries view tabs; the tool strip is its one home, next to the tools it shares the scene with.
+ * The Prepare | Preview switch, centred in the top bar. It is the bar's one segmented control; the tool
+ * strip below carries the tools only. The switch is not a pair of tabs – it is a radiogroup, so a
+ * screen reader hears the two views as one choice.
  */
-export const STRIP_VIEW_ENTRIES: readonly NavEntry[] = [
-  { id: 'viewPlater', label: 'Prepare', icon: 'plater', home: 'strip', action: { kind: 'view', view: 'plater' }, testId: 'view-plater' },
+export const VIEW_SWITCH_ENTRIES: readonly NavEntry[] = [
+  { id: 'viewPlater', label: 'Prepare', icon: 'plater', home: 'top-bar', action: { kind: 'view', view: 'plater' }, testId: 'view-plater' },
   {
     id: 'viewPreview',
     label: 'Preview',
     icon: 'preview',
-    home: 'strip',
+    home: 'top-bar',
     action: { kind: 'view', view: 'preview' },
     testId: 'view-preview',
   },
@@ -200,7 +201,7 @@ export const NAV_ENTRIES: readonly NavEntry[] = [
   ...SETTINGS_ENTRIES,
   PRESET_PRINTERS_ENTRY,
   ...TOP_BAR_ENTRIES,
-  ...STRIP_VIEW_ENTRIES,
+  ...VIEW_SWITCH_ENTRIES,
 ];
 
 /** The entry of a function id; a missing id is a programming error, the tests catch it. */

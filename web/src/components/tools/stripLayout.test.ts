@@ -50,13 +50,13 @@ test('the object commands sit in the groups the design gives them', () => {
 });
 
 test('a wide scene keeps every group and the whole strip fits', () => {
-  const room = stripRoom(1600, false);
+  const room = stripRoom(1600);
   assert.deepEqual(fitGroups(room, false), { visible: STRIP_GROUPS, hidden: [] });
   assert.equal(stripFits(room, false), true);
 });
 
 test('a narrow scene hides the trailing groups whole, never part of one', () => {
-  const room = stripRoom(420, false);
+  const room = stripRoom(420);
   const { visible, hidden } = fitGroups(room, false);
   assert.ok(visible.length >= 1, 'the first group always stays');
   assert.deepEqual([...visible, ...hidden], STRIP_GROUPS, 'the split is a cut, not a reorder');
@@ -78,14 +78,24 @@ test('the room a hidden group needs includes the overflow button behind it', () 
   assert.equal(fitGroups(tight + 1, false).visible.length > 1, true);
 });
 
-test('names cost room, so a scene that fits icons may still hide groups', () => {
-  const room = stripRoom(1000, false);
+test('names cost room, so a band that fits icons may still hide groups', () => {
+  const room = stripRoom(1000);
   assert.equal(stripFits(room, false), true);
   assert.equal(stripFits(room, true), false);
 });
 
-test('the switch with its names takes more of the scene than the icon pair', () => {
-  assert.ok(stripRoom(1000, true) < stripRoom(1000, false));
+test('the band the cards leave free decides the fit, not the window', () => {
+  // the mockup's 1440 px window with both cards open: every group fits, the names do not
+  const band = 1440 - 64 - (276 + 12) - (344 + 12);
+  assert.equal(stripFits(stripRoom(band), false), true);
+  assert.equal(stripFits(stripRoom(band), true), false);
+  // the same window with the panels hidden gives the pill the whole scene – still not enough for the
+  // names, which need a window as wide as the mockup's at double size
+  assert.equal(stripFits(stripRoom(1440 - 64 - 2 * 12), false), true);
+  assert.equal(stripFits(stripRoom(1440 - 64 - 2 * 12), true), false);
+  assert.equal(stripFits(stripRoom(2560 - 64 - 2 * 12), true), true);
+  // a narrow band at the same window width hides the trailing groups
+  assert.equal(stripFits(stripRoom(480), false), false);
 });
 
 test('the overflow menu lists every entry of the hidden groups, in strip order', () => {
