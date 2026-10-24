@@ -22,6 +22,9 @@ export interface UiSlice {
   showIncompatible: boolean;
   /** the filament selector's escape hatch: ignore the wizard's ticked filaments for this session */
   showAllFilaments: boolean;
+  /** the print host picked in the context panel footer; empty means the send dialog picks one */
+  sendDestination?: string;
+  setSendDestination: (id: string) => void;
   toasts: Toast[];
   toast: (kind: Toast['kind'], text: string, action?: Toast['action']) => void;
   dismissToast: (id: number) => void;
@@ -69,6 +72,8 @@ export const createUiSlice: StateCreator<State, [], [], UiSlice> = (set, get) =>
   view: 'plater',
   showIncompatible: false,
   showAllFilaments: false,
+  sendDestination: undefined,
+  setSendDestination: (id) => set({ sendDestination: id || undefined }),
   toasts: [],
   toast: (kind, text, action) => {
     const id = ++toastId;
