@@ -53,26 +53,34 @@ One CSS grid in `AppShell.css` lays the app out, named by area:
 
 ```
 rail | left | scene | right          (top bar spans all four)
- 64px   0     1fr     --sidebar-w
+ 64px  --left-track  1fr  --sidebar-w
 ```
 
 - **rail** – `Rail.tsx`: the app's places (Slicing, Library, Printers, Preferences, About) and the
   update notice. It becomes a bottom tab bar below 640 px.
-- **left** – reserved for the object list (layout step L-2); the track is 0 px until then.
+- **left** – `components/left/LeftColumn.tsx`: the collapsible object list card and, in the Preview,
+  the Sliced info and Legend cards (`SideCard.tsx` is the card frame with its chevron). The frame sets
+  the track's width inline as `--left-track`: the remembered width while the column is open
+  (220–420 px, 300 px by default), the 52 px strip while it is folded, and 0 on a phone, where the
+  column is a drawer over the scene. The column reads and writes that state through `useLeftColumn()`.
 - **scene** – the `DropZone` with the `Viewer`; three.js resizes through its `ResizeObserver`, so the
   canvas follows the grid without a second resize path.
-- **right** – the existing `Sidebar`, unchanged.
-- The settings views (Print/Filament/Printer) replace scene and sidebar and take the whole area right
-  of the rail.
+- **right** – the `Sidebar`: presets, quick settings and the slice panel, or the preview panel in the
+  Preview view.
+- The settings views (Print/Filament/Printer) replace the left column, the scene and the sidebar and
+  take the whole area right of the rail.
 - The top bar (`TopBar.tsx`) is one row: the `Menu` dropdown (`AppMenu.tsx`), undo/redo, the
-  hide-panels switch, the project name and the view tabs.
+  hide-panels switch, the project name and the view tabs; on a phone it also carries the button that
+  opens the object list drawer.
 
-The only shell state is the `layout` slice (`web/src/state/slices/layout.ts`): `panelsHidden`, persisted
-in `localStorage` behind a try/catch. Hiding the panels takes the sidebar out of the grid (it stays
-mounted, so its state survives) and the scene takes the freed width. New regions carry a
-`data-testid` hook (`rail`, `rail-slicing`, `menu`, `hide-panels`, …); `e2e/hooks.test.ts` keeps that
-list and the components in agreement, so a later layout step can move a region without rewriting the
-specs. The design is in [design/Layout-3.0.md](design/Layout-3.0.md).
+The shell state is the `layout` slice (`web/src/state/slices/layout.ts`): `panelsHidden`, `leftWidth`,
+`leftCollapsed` (each persisted in `localStorage` behind a try/catch), the folded cards
+(`leftCards`) and the phone drawer (`leftDrawerOpen`, not persisted). Hiding the panels takes both
+side columns out of the grid (they stay mounted, so their state survives) and the scene takes the
+freed width. New regions carry a `data-testid` hook (`rail`, `left-column`, `left-column-toggle`,
+`object-list`, …); `e2e/hooks.test.ts` keeps that list and the components in agreement, so a later
+layout step can move a region without rewriting the specs. The design is in
+[design/Layout-3.0.md](design/Layout-3.0.md).
 
 ## Icons
 

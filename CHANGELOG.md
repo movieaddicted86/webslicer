@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- **The object list moved to the left column (layout 3.0, L-2):** the rows with their actions,
+  instance and volume sub-lists and the manipulation fields now sit next to the 3D view, in a
+  collapsible **Object list** card with the object count, and the right sidebar keeps the presets, the
+  quick settings and the Slice panel. In the **Preview** the same column carries the **Sliced info**
+  and **Legend** cards, so the right panel keeps the layer controls, the view options and the
+  preflight. Every card folds on its own, the column folds to a 52 px strip that keeps the object
+  count, and its width can be dragged between 220 and 420 px (300 px by default) – the card, the width
+  and the column state are all remembered per browser. Below 1100 px the column starts folded; on a
+  phone the top bar's new object button opens it as a drawer over the scene. Nothing moved out of
+  reach: every row action, the per-object settings, the instance count and the selection behave as
+  before.
 - **New app shell with a rail and a slim top bar (layout 3.0, L-1):** the far-left rail holds the app's
   places – _Slicing_ (plater and preview), _Library_, _Printers_, and at the bottom _Preferences_ (the
   print/filament/printer settings) and _About_, which now carries the update notice. The current place

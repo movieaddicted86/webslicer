@@ -195,8 +195,9 @@ test.describe('tool framework', () => {
   });
 
   test('the bar shows labels on a wide view, icons only on a narrow one, and stays under 170 px (T-055)', async ({ app }) => {
-    // the labels follow the width of the 3D view, not the window: 1600 px window − 340 px sidebar
-    await app.setViewportSize({ width: 1600, height: 900 });
+    // the labels follow the width of the 3D view, not the window: 1920 px window − rail, object
+    // list column and sidebar leave it about 1200 px
+    await app.setViewportSize({ width: 1920, height: 900 });
     await settle(app, 500);
     const wide = await app.evaluate(() => {
       const bar = document.querySelector('[data-testid="tool-bar"]') as HTMLElement;
@@ -223,8 +224,8 @@ test.describe('tool framework', () => {
     // AC from the task: the bar must not cover more than ~170 px of the view
     expect(wide.width).toBeLessThanOrEqual(170);
 
-    // 1100 × 800 leaves well under 1100 px for the view: icons only, with the tooltips
-    await app.setViewportSize({ width: 1100, height: 800 });
+    // 1400 × 800 leaves well under 1100 px for the view: icons only, with the tooltips
+    await app.setViewportSize({ width: 1400, height: 800 });
     await settle(app, 500);
     const narrow = await app.evaluate(() => {
       const bar = document.querySelector('[data-testid="tool-bar"]') as HTMLElement;
