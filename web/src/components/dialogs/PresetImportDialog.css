@@ -1,0 +1,65 @@
+/* PresetImportDialog: the styles of this component. */
+
+.preset-import {
+  gap: 10px;
+}
+
+.preset-import .import-sources {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.preset-import .import-file {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.preset-import .import-type h3 {
+  font-size: 13px;
+  margin: 10px 0 4px;
+}
+
+.preset-import .import-type ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.preset-import .import-preset {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 6px 8px;
+}
+
+.preset-import .import-preset .name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.preset-import .clash {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.preset-import .clash-warn {
+  color: #f0d080;
+}
+
+.preset-import .dropped {
+  flex-basis: 100%;
+  font-size: 11px;
+  color: var(--muted);
+  padding-left: 12px;
+}

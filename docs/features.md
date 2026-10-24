@@ -36,6 +36,14 @@ PrusaSlicer feature exists here and which does not is in
 - **Vendor profiles**: all PrusaSlicer vendor bundles (Prusa, Creality, Anycubic, … 35 vendors) including
   inheritance, compatibility conditions (`compatible_printers_condition`), printer/nozzle variants,
   default filaments. User presets are stored as PrusaSlicer-compatible `.ini` files.
+- **User presets**: save the current settings as a preset, **rename** it (inheriting presets, linked
+  physical printers, server projects and autosaves follow the new name) or delete it; system presets
+  stay read-only.
+- **Presets between installations** – _Export presets_ writes all user presets and physical printers
+  as one PrusaSlicer-compatible bundle (no host addresses, no access keys). **Import presets** reads
+  such a bundle, or the `prusaslicer_config` block of a G-code file, shows what it found and asks per
+  name clash whether to keep, overwrite or keep both. Settings that are unsafe to import – process
+  commands, output paths, unknown keys – are dropped and listed with the reason.
 - **Configuration limits** while editing (see [safety.md](safety.md)): a blocked value disables
   **Slice** with its reason.
 - **Multi-extruder / MMU**: filament preset per extruder, wipe tower settings, extruder count in the

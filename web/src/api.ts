@@ -13,6 +13,10 @@ import type {
   JobRecord,
   LibraryEntry,
   PhysicalPrinter,
+  PresetClashChoiceInput,
+  PresetImportPreview,
+  PresetImportResult,
+  PresetRenameResult,
   PresetSummary,
   PresetType,
   ProjectObject,
@@ -85,6 +89,29 @@ export const api = {
     fetch(`/api/presets/${type}/${encodeURIComponent(name)}`, jsonInit('PUT', { config, inherits })).then((r) => handle<ResolvedPreset>(r)),
   deletePreset: (type: PresetType, name: string) =>
     fetch(`/api/presets/${type}/${encodeURIComponent(name)}`, { method: 'DELETE' }).then((r) => handle<{ ok: boolean }>(r)),
+  renamePreset: (type: PresetType, name: string, newName: string) =>
+    fetch(`/api/presets/${type}/${encodeURIComponent(name)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: newName }),
+    }).then((r) => handle<PresetRenameResult>(r)),
+  /** The PrusaSlicer bundle of every user preset (a `.ini` download). */
+  exportBundle: async () => {
+    const response = await fetch('/api/presets/bundle');
+    if (!response.ok) throw new Error(`export failed (${response.status})`);
+    return response.blob();
+  },
+  previewConfigBundle: (bundle: string) =>
+    fetch('/api/presets/bundle/preview', jsonInit('POST', { bundle })).then((r) => handle<PresetImportPreview>(r)),
+  importConfigBundle: (body: { bundle: string; choices?: PresetClashChoiceInput[] }) =>
+    fetch('/api/presets/bundle/import', jsonInit('POST', body)).then((r) => handle<PresetImportResult>(r)),
+  /** Upload a G-code file and get the preview of the config block it carries (nothing is stored). */
+  previewGcodeConfig: (file: File) =>
+    fetch('/api/presets/gcode/preview', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/octet-stream', 'X-Filename': encodeURIComponent(file.name) },
+      body: file,
+    }).then((r) => handle<PresetImportPreview>(r)),
   uploadModel: (stl: ArrayBuffer, filename: string) =>
     fetch('/api/models', {
       method: 'POST',

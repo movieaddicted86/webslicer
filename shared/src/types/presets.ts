@@ -24,6 +24,102 @@ export interface ResolvedPreset extends PresetSummary {
   overrides: Config;
 }
 
+/** The body of a preset rename (`PATCH /api/presets/:type/:name`). */
+export interface PresetRenameRequest {
+  name: string;
+}
+
+/** What a rename changed: the preset itself and the references the server owns. */
+export interface PresetRenameResult {
+  type: PresetType;
+  from: string;
+  to: string;
+  /** how many other user presets' `inherits` were pointed at the new name */
+  inheritedBy: number;
+  /** how many physical printers were bound to the old name */
+  printers: number;
+  /** how many stored server projects referenced the old name */
+  projects: number;
+  /** how many stored autosaves (3MF of a browser session) carried the old settings id */
+  autosaves: number;
+}
+
+/** One preset of a bundle or G-code config block, as the import preview reports it. */
+export interface ImportedPreset {
+  type: PresetType;
+  name: string;
+  config: Config;
+}
+
+/** A config key an import dropped, with the reason the client shows. */
+export interface RejectedConfigKey {
+  type: PresetType;
+  name: string;
+  key: string;
+  reason: string;
+}
+
+/** A preset name an import would collide with (a user preset, or a system preset it never overwrites). */
+export interface PresetClash {
+  type: PresetType;
+  /** the name in the bundle */
+  name: string;
+  /** the name is a system (vendor) preset – an import can only skip it or keep both */
+  system: boolean;
+}
+
+/** A preset a bundle names but cannot store, with the reason (an unusable name, an empty section). */
+export interface RejectedPreset {
+  type: PresetType;
+  name: string;
+  reason: string;
+}
+
+/** What the user may do with one clashing preset. */
+export type PresetClashChoice = 'skip' | 'overwrite' | 'keep-both';
+
+/** The chosen answer for one clashing preset. */
+export interface PresetClashAnswer extends PresetClash {
+  choice: PresetClashChoice;
+}
+
+/** The choices a client sends back for an import; `system` is informational. */
+export type PresetClashChoiceInput = Omit<PresetClash, 'system'> & { system?: boolean; choice: PresetClashChoice };
+
+/**
+ * The answer of an import preview (no writes yet): the presets the bundle holds, the names that
+ * clash and every key the validation dropped. `bundle` is the INI text the preview was computed
+ * from – a G-code file answers the extracted config block, which the client then imports.
+ */
+export interface PresetImportPreview {
+  /** the bundle text the preview was computed from – what the import request sends back */
+  bundle: string;
+  presets: ImportedPreset[];
+  /** presets the bundle names but cannot store (an unusable name, an empty section) */
+  invalid: RejectedPreset[];
+  clashes: PresetClash[];
+  rejected: RejectedConfigKey[];
+  /** physical printers the bundle names – exported for the user, not imported */
+  physicalPrinters: string[];
+  /** a G-code file carries no `[presets]` section; the names were derived from the settings ids */
+  fromGcode?: boolean;
+}
+
+/** One preset a bundle import wrote. */
+export interface ImportedPresetResult {
+  type: PresetType;
+  name: string;
+  /** the new name when "keep both" added a suffix */
+  storedAs?: string;
+}
+
+/** The answer of a bundle import. */
+export interface PresetImportResult {
+  imported: ImportedPresetResult[];
+  skipped: PresetClash[];
+  rejected: RejectedConfigKey[];
+}
+
 export interface PrinterModel {
   vendorId: string;
   vendorName: string;

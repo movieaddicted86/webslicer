@@ -140,7 +140,17 @@ export interface CoreState {
   fatal?: string;
   info?: ServerInfo;
   schema?: Schema;
-  dialog?: 'addPrinter' | 'physicalPrinters' | 'objectSettings' | 'sendToPrinter' | 'savePreset' | 'about' | 'library' | 'unsavedChanges';
+  dialog?:
+    | 'addPrinter'
+    | 'physicalPrinters'
+    | 'objectSettings'
+    | 'sendToPrinter'
+    | 'savePreset'
+    | 'renamePreset'
+    | 'importPresets'
+    | 'about'
+    | 'library'
+    | 'unsavedChanges';
   dialogPayload?: unknown;
   /** preset switch waiting for the user's answer in the "Unsaved Changes" dialog */
   pendingSwitch?: PendingPresetSwitch;

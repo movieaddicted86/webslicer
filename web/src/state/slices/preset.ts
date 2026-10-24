@@ -11,6 +11,8 @@ import {
   type Config,
   type InstalledPrinter,
   type Mode,
+  type PresetClashChoiceInput,
+  type PresetImportResult,
   type PresetSummary,
   type PresetType,
   type ResolvedPreset,
@@ -41,6 +43,10 @@ export interface PresetSlice {
   discardChanges: (type: PresetType, extruderIdx?: number) => void;
   savePresetAs: (type: PresetType, name: string, extruderIdx?: number) => Promise<void>;
   deletePreset: (type: PresetType, name: string) => Promise<void>;
+  /** Rename a user preset; the slots that used it, its list and every picker follow the new name. */
+  renamePreset: (type: PresetType, from: string, to: string) => Promise<void>;
+  /** Import a config bundle (already previewed) with one answer per name clash. */
+  importConfigBundle: (bundle: string, choices: PresetClashChoiceInput[]) => Promise<PresetImportResult>;
   setExtruderCount: (n: number) => void;
   extruderCount: () => number;
   installPrinters: (list: InstalledPrinter[]) => Promise<void>;
@@ -343,6 +349,25 @@ export const createPresetSlice: StateCreator<State, [], [], PresetSlice> = (set,
     // fall back to the printer's compatible vendor presets instead of the bare defaults
     if (changed) await get().ensureCompatiblePresets();
     get().toast('info', `Deleted ${type} preset "${name}"`);
+  },
+  renamePreset: async (type, from, to) => {
+    await api.renamePreset(type, from, to);
+    // the slots follow the new name without a reload: the config is unchanged, only the name moved
+    set((s) => {
+      const presets = { ...s.presets, print: { ...s.presets.print }, printer: { ...s.presets.printer } };
+      if (type === 'print' && presets.print.name === from) presets.print.name = to;
+      if (type === 'printer' && presets.printer.name === from) presets.printer.name = to;
+      if (type === 'filament') presets.filament = presets.filament.map((f) => (f.name === from ? { ...f, name: to } : f));
+      return { presets };
+    });
+    await get().refreshPresetLists();
+    saveSelection(get());
+    get().toast('success', `Renamed ${type} preset "${from}" to "${to}"`);
+  },
+  importConfigBundle: async (bundle, choices) => {
+    const result = await api.importConfigBundle({ bundle, choices });
+    await get().refreshPresetLists();
+    return result;
   },
   extruderCount: () => {
     const nd = get().presets.printer.current.nozzle_diameter || '0.4';

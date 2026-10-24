@@ -1,27 +1,27 @@
 # Feature comparison PrusaSlicer 2.9 ↔ WebSlicer
 
-As of 2026-10-17 (WebSlicer 1.0.0-rc.2, engine PrusaSlicer 2.9.6)
+As of 2026-10-24 (WebSlicer 1.0.0-rc.3, engine PrusaSlicer 2.9.6)
 
 Legend: ✅ available · 🟡 partial · ❌ missing · ➖ not sensible on the web / not planned
 Priority: **P1** needed for version 1.0 · **P2** important afterwards · **P3** convenience · **P4** later or never
 
 ## 1. Files and projects
 
-| PrusaSlicer feature                          | WebSlicer | Prio | Note                                                                     |
-| -------------------------------------------- | --------- | ---- | ------------------------------------------------------------------------ |
-| Import STL / OBJ / 3MF / AMF                 | ✅        | –    | drag & drop, import button, library                                      |
-| Import STEP                                  | ✅        | –    | converted on the server (`--export-stl`), then the STL path (T-009)      |
-| Import SVG (emboss)                          | ❌        | P3   | together with text embossing                                             |
-| Save / load project (3MF with all data)      | ✅        | –    | library + autosave; PrusaSlicer projects are read                        |
-| Recent projects                              | 🟡        | P3   | library shows dates; no "recent" list                                    |
-| Import config from G-code / 3MF / INI        | 🟡        | P2   | 3MF yes; G-code header and INI bundle missing                            |
-| Export config / config bundle                | 🟡        | P2   | INI export available; bundle export of all presets missing               |
-| Export plate as STL/OBJ (incl. supports)     | ❌        | P3   | CLI `--export-stl` can do it                                             |
-| Export G-code / send to printer              | ✅        | –    |                                                                          |
-| Export toolpaths as OBJ                      | ❌        | P4   |                                                                          |
-| Binary G-code (.bgcode)                      | 🟡        | P2   | generating yes; ASCII↔binary conversion and thumbnails in bgcode missing |
-| G-code viewer (load an external G-code file) | ❌        | P2   | parser exists, only loading from file/library is missing                 |
-| Printables / URL protocol                    | ➖        | P4   |                                                                          |
+| PrusaSlicer feature                          | WebSlicer | Prio | Note                                                                                                                                                                          |
+| -------------------------------------------- | --------- | ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Import STL / OBJ / 3MF / AMF                 | ✅        | –    | drag & drop, import button, library                                                                                                                                           |
+| Import STEP                                  | ✅        | –    | converted on the server (`--export-stl`), then the STL path (T-009)                                                                                                           |
+| Import SVG (emboss)                          | ❌        | P3   | together with text embossing                                                                                                                                                  |
+| Save / load project (3MF with all data)      | ✅        | –    | library + autosave; PrusaSlicer projects are read                                                                                                                             |
+| Recent projects                              | 🟡        | P3   | library shows dates; no "recent" list                                                                                                                                         |
+| Import config from G-code / 3MF / INI        | ✅        | –    | 3MF projects; G-code config block and PrusaSlicer / WebSlicer INI bundles through **Import presets…**, with a preview of dropped keys and one clash answer per preset (T-059) |
+| Export config / config bundle                | ✅        | –    | current settings as `.ini`; all user presets and physical printers as a bundle – without print-host addresses or keys (T-059)                                                 |
+| Export plate as STL/OBJ (incl. supports)     | ❌        | P3   | CLI `--export-stl` can do it                                                                                                                                                  |
+| Export G-code / send to printer              | ✅        | –    |                                                                                                                                                                               |
+| Export toolpaths as OBJ                      | ❌        | P4   |                                                                                                                                                                               |
+| Binary G-code (.bgcode)                      | 🟡        | P2   | generating yes; ASCII↔binary conversion and thumbnails in bgcode missing                                                                                                      |
+| G-code viewer (load an external G-code file) | ❌        | P2   | parser exists, only loading from file/library is missing                                                                                                                      |
+| Printables / URL protocol                    | ➖        | P4   |                                                                                                                                                                               |
 
 ## 2. Plater and objects
 
