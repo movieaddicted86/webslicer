@@ -199,8 +199,11 @@ export interface E2EState {
   presetLists: {
     printer: Array<{ name: string }>;
     print: Array<{ name: string }>;
-    filament: Array<{ name: string }>;
+    /** the selector's list; `system` says whether the tick list applies to a preset at all */
+    filament: Array<{ name: string; system?: boolean }>;
   };
+  /** the system filaments the wizard ticked (an empty list means "show all") */
+  visibleFilaments: string[];
   extruderCount: () => number;
   select: (ids: string[]) => void;
   selectVolume: (objectId: string, volumeId: string) => void;
