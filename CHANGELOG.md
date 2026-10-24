@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.0.0-rc.4 – 2026-10-24
+
 - **Fixed (T-052 – remaining bugs from the 2026-10-23 review):**
   **B2 (printer switch):** `selectPreset('printer')` resized the filament slots but did not clamp
   the extruder indices, so a 5 → 1 switch left objects, volumes, MMU paint and the paint tool
