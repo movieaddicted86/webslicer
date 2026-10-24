@@ -1,18 +1,29 @@
-/* ContextPanel: the frame of the right column (ContextPanel.tsx). Tokens only.
+/* ContextPanel: the floating card on the right of the scene (ContextPanel.tsx). Tokens only.
  *
- *   header (sticky)
- *   body   (scrolls)
- *   footer (sticky: destination + Slice)
+ *   aside   (top right, above the footer card): header + scrolling body
+ *   footer  (bottom right, its own card): destination + the primary action
+ *
+ * The card is a layer over the scene, so the canvas is not laid out around it: folding or hiding the
+ * panels never resizes the 3D view. `--panel-w` and `--foot-h` come from the frame (AppShell.css) and
+ * keep the two cards stacked, the panel stopping above the footer.
  */
 
 .context-panel {
-  width: var(--sidebar-w);
+  position: absolute;
+  right: var(--card-gap);
+  top: var(--card-gap);
+  width: var(--panel-w);
+  bottom: calc(var(--card-gap) + var(--foot-h) + 8px);
   min-height: 0;
   display: flex;
   flex-direction: column;
-  background: var(--bg2);
-  border-left: 1px solid var(--border);
+  background: color-mix(in srgb, var(--card) 96%, transparent);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(6px);
   overflow: hidden;
+  z-index: 3;
 }
 
 .context-header {
@@ -20,18 +31,28 @@
   display: flex;
   align-items: baseline;
   gap: 8px;
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg2);
+  padding: 10px 12px 8px;
+  border-bottom: 1px solid var(--line);
 }
 
 .context-title {
   margin: 0;
-  font-size: 14px;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   font-weight: 600;
+  color: var(--muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* object mode names the thing, not a section: the name is the heading and stays readable */
+.context-header .context-title {
+  font-size: 14px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text);
 }
 
 .context-body {
@@ -41,7 +62,7 @@
   overflow-x: hidden;
 }
 
-/* tool mode: the tool's frame supplies the head and foot, the column supplies the padding */
+/* tool mode: the tool's frame supplies the head and foot, the card supplies the padding */
 .context-tool {
   padding: 10px 12px;
 }
@@ -49,17 +70,25 @@
 .context-panel .presets,
 .context-panel .quick {
   padding: 10px 12px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--line);
 }
 
+/* the footer card: always visible, separate from the card's scroll area */
 .context-footer {
-  flex: none;
+  position: absolute;
+  right: var(--card-gap);
+  bottom: var(--card-gap);
+  width: var(--panel-w);
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 10px 12px;
-  border-top: 1px solid var(--border);
-  background: var(--bg2);
+  gap: 10px;
+  padding: 12px;
+  background: color-mix(in srgb, var(--card) 96%, transparent);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(6px);
+  z-index: 3;
 }
 
 /* the slice panel is the footer's own content; it keeps its inner spacing, not another margin */
@@ -67,6 +96,29 @@
   margin-top: 0;
 }
 
+/* the primary action fills the footer, as the mockup's "Slice now" does */
+.context-footer .slice-panel > button.primary.big {
+  width: 100%;
+}
+
 .multi-selection {
   padding: 10px 12px;
+}
+
+/* phone: the panel is a sheet that covers the lower part of the scene, the footer keeps its row */
+@media (max-width: 640px) {
+  .context-panel {
+    top: auto;
+    left: var(--card-gap);
+    right: var(--card-gap);
+    bottom: calc(var(--card-gap) + var(--foot-h) + 8px);
+    width: auto;
+    max-height: 46vh;
+  }
+
+  .context-footer {
+    left: var(--card-gap);
+    right: var(--card-gap);
+    width: auto;
+  }
 }

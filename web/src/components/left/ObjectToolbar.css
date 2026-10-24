@@ -12,14 +12,21 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 30px;
-  min-height: 30px;
-  padding: 2px 5px;
+  width: var(--h);
+  height: var(--h);
+  padding: 0;
+  background: transparent;
+  border-color: transparent;
+  border-radius: 8px;
+}
+
+.object-toolbar button:hover:not(:disabled) {
+  background: var(--field-h);
 }
 
 .object-toolbar .tool-sep {
   width: 1px;
   height: 18px;
   margin: 0 3px;
-  background: var(--border);
+  background: var(--line);
 }

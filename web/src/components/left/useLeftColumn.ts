@@ -1,12 +1,12 @@
 import { useSyncExternalStore } from 'react';
 import { useStore } from '../../state/store';
-import { LEFT_COLUMN_COLLAPSED_WIDTH, LEFT_COLUMN_OPEN_MIN_WINDOW } from '../../state/slices/layout';
+import { LEFT_COLUMN_OPEN_MIN_WINDOW } from '../../state/slices/layout';
 
 /**
- * A CSS media query as React state (layout 3.0): the left column follows the window width, and the
- * answer is needed while the frame renders the grid. `matchMedia` is read through
- * `useSyncExternalStore`, so the first render already has the right value and a resize re-renders
- * without a one-frame flash. The server snapshot is `false`; the app is client-only.
+ * A CSS media query as React state (layout 3.0): the cards follow the window width, and the answer is
+ * needed while the frame renders. `matchMedia` is read through `useSyncExternalStore`, so the first
+ * render already has the right value and a resize re-renders without a one-frame flash. The server
+ * snapshot is `false`; the app is client-only.
  */
 export function useMediaQuery(query: string): boolean {
   return useSyncExternalStore(
@@ -20,20 +20,19 @@ export function useMediaQuery(query: string): boolean {
   );
 }
 
-/** The window width below which the left column starts folded (the same number as in the design). */
+/** The window width below which the object list card starts folded (the same number as in the design). */
 const NARROW_QUERY = `(max-width: ${LEFT_COLUMN_OPEN_MIN_WINDOW - 1}px)`;
-/** The phone width; the column becomes a drawer there. */
-export const PHONE_QUERY = '(max-width: 639px)';
+/** The width below which the object list card becomes a drawer over the scene. */
+export const PHONE_QUERY = '(max-width: 899px)';
 
 /**
- * The state of the left column in one place: the frame needs its width for the grid track, the column
- * needs to know how it is shown. The user's fold choice wins; without one the column is open on a wide
- * window and folded below `LEFT_COLUMN_OPEN_MIN_WINDOW`. On a phone it is a drawer instead of a grid
- * track: it takes no width and is only mounted while the top bar's toggle opened it.
+ * The state of the object list card in one place: whether it is folded and how it is shown. The user's
+ * fold choice wins; without one the card is open on a wide window and folded below
+ * `LEFT_COLUMN_OPEN_MIN_WINDOW`. Below `PHONE_QUERY` it is a drawer instead of a card: it covers the
+ * left part of the scene and is only shown while the top bar's toggle opened it.
  */
 export function useLeftColumn() {
   const choice = useStore((s) => s.leftCollapsed);
-  const width = useStore((s) => s.leftWidth);
   const drawerOpen = useStore((s) => s.leftDrawerOpen);
   const setCollapsed = useStore((s) => s.setLeftCollapsed);
   const setDrawerOpen = useStore((s) => s.setLeftDrawerOpen);
@@ -43,12 +42,9 @@ export function useLeftColumn() {
 
   return {
     phone,
-    /** a phone with the drawer closed shows nothing of the column */
+    /** a narrow window with the drawer closed shows nothing of the card */
     hidden: phone && !drawerOpen,
     folded,
-    width,
-    /** the width the column takes in the grid; a phone draws it over the scene instead */
-    track: phone ? 0 : folded ? LEFT_COLUMN_COLLAPSED_WIDTH : width,
     toggle: () => (phone ? setDrawerOpen(!drawerOpen) : setCollapsed(!folded)),
     closeDrawer: () => setDrawerOpen(false),
   };

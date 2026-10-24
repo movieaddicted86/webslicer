@@ -1,8 +1,13 @@
-/* SideCard: the collapsible cards of the left column (SideCard.tsx). Tokens only. */
+/* SideCard: the collapsible cards inside the object list card (SideCard.tsx). Tokens only. */
 
 .side-card {
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--border);
+  padding: 10px 12px 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+/* the last card closes the stack without a second line under it */
+.side-card:last-child {
+  border-bottom: none;
 }
 
 .side-card .section-head {
@@ -19,16 +24,16 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 26px;
-  min-height: 26px;
-  padding: 2px;
+  width: 26px;
+  height: 26px;
+  padding: 0;
   background: transparent;
   border-color: transparent;
   color: var(--muted);
 }
 
 .side-card .card-chevron:hover {
-  background: var(--bg4);
+  background: var(--field-h);
   color: var(--text);
 }
 

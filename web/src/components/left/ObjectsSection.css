@@ -23,11 +23,11 @@
 }
 
 .object-list li:hover {
-  background: var(--bg3);
+  background: var(--field);
 }
 
 .object-list li.selected {
-  background: #2a3b55;
+  background: var(--sel);
 }
 
 .object-list li.outside .name {
@@ -55,5 +55,5 @@
 }
 
 .object-list li.empty a {
-  color: var(--accent2);
+  color: var(--accent-h);
 }

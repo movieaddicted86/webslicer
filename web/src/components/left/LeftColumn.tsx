@@ -10,13 +10,17 @@ import { Icon } from '../../icons/Icon';
 import './LeftColumn.css';
 
 /**
- * The left column of the 3.0 layout (L-2): the plater's object card and, in the Preview, the cards of
- * the slicing result. It is the column between the rail and the scene; the frame gives it its width.
+ * The object list card of the visual pass: a floating card at the top left of the scene, over the 3D
+ * view (`LeftColumn.css`). It is not a column of the frame, so the canvas does not take its width and
+ * does not resize when the card folds.
  *
- * Every card folds on its own (remembered in the `layout` slice) and the column as a whole folds to a
- * strip that keeps the object count; the button in the column's top corner does that. Below
- * `LEFT_COLUMN_OPEN_MIN_WINDOW` the column starts folded, and on a phone it is a drawer over the
- * scene that the top bar opens (the proper mobile treatment comes with the mobile track).
+ * The card's own header carries the title and the object count and folds the whole card to that row;
+ * a folded card keeps the count, so the list is one click away again. The body is the object list (or,
+ * in Simple mode, its reduced section) in the plater and the two result cards – sliced info and legend –
+ * in the preview, each of which folds on its own (remembered in the `layout` slice).
+ *
+ * Below `LEFT_COLUMN_OPEN_MIN_WINDOW` the card starts folded, and below 900 px it is a drawer that the
+ * top bar opens over the scene.
  */
 export function LeftColumn() {
   const view = useStore((s) => s.view);
@@ -38,21 +42,23 @@ export function LeftColumn() {
       hidden={hidden}
     >
       <div className="left-column-head">
-        <button
-          className="left-column-toggle"
-          data-testid="left-column-toggle"
-          aria-expanded={!folded}
-          aria-label={folded ? 'Unfold the object list' : 'Fold the object list'}
-          title={folded ? 'Unfold the object list' : 'Fold the object list'}
-          onClick={toggle}
-        >
-          <Icon name="expand" size={16} />
-          {folded && <span className="left-count">{objects.length}</span>}
-        </button>
-        {phone && <span className="left-drawer-title">Objects</span>}
-        {phone && (
+        <h3 className="left-column-title">{preview ? 'Preview' : 'Object list'}</h3>
+        {!preview && objects.length > 0 && <span className="left-count">{objects.length}</span>}
+        <span className="left-column-grow" />
+        {phone ? (
           <button className="left-drawer-close" aria-label="Close the object list" title="Close" onClick={closeDrawer}>
             <Icon name="close" size={16} />
+          </button>
+        ) : (
+          <button
+            className="left-column-toggle"
+            data-testid="left-column-toggle"
+            aria-expanded={!folded}
+            aria-label={folded ? 'Unfold the object list' : 'Fold the object list'}
+            title={folded ? 'Unfold the object list' : 'Fold the object list'}
+            onClick={toggle}
+          >
+            <Icon name="expand" size={16} />
           </button>
         )}
       </div>
@@ -90,20 +96,12 @@ export function LeftColumn() {
                   />
                 </SideCard>
               )}
-              {!job && <div className="muted small">No slicing result yet.</div>}
+              {!job && <div className="left-empty muted small">No slicing result yet.</div>}
             </>
+          ) : mode === 'simple' ? (
+            <SimpleObjects />
           ) : (
-            <SideCard
-              title="Object list"
-              count={objects.length}
-              open={open('objects')}
-              onToggle={() => toggleCard('objects')}
-              toggleLabel={open('objects') ? 'Fold the object list' : 'Unfold the object list'}
-              testId="left-objects-card"
-              toggleTestId="left-objects-toggle"
-            >
-              {mode === 'simple' ? <SimpleObjects /> : <ObjectsSection />}
-            </SideCard>
+            <ObjectsSection />
           )}
         </div>
       )}
@@ -112,7 +110,7 @@ export function LeftColumn() {
   );
 }
 
-/** The width grip on the column's right edge: drag it, or focus it and use the arrow keys. */
+/** The width grip on the card's right edge: drag it, or focus it and use the arrow keys. */
 function ResizeHandle() {
   const width = useStore((s) => s.leftWidth);
   const setWidth = useStore((s) => s.setLeftWidth);
