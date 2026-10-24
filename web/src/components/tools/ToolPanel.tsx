@@ -5,7 +5,6 @@
  * same panel into a bottom sheet without touching a component.
  */
 import type { ReactNode } from 'react';
-import { CLOSE_ICON } from '../common/icons';
 import { ToolbarButton } from '../common/ToolbarButton';
 import './ToolPanel.css';
 
@@ -30,7 +29,7 @@ export function ToolPanel({
         </span>
         <ToolbarButton
           title={`Close ${title} (Esc)`}
-          icon={CLOSE_ICON}
+          icon="close"
           onClick={onClose}
           className="tool-panel-close"
           testId="tool-panel-close"

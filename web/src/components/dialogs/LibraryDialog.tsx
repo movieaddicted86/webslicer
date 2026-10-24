@@ -4,9 +4,8 @@ import { libraryApi, type LibraryEntry } from '../../api';
 import { importFiles } from '../../importFiles';
 import { fmtSize } from '../../format';
 import { Modal } from './Modal';
-import { ACTION_ICONS } from '../common/icons';
-import { FolderPlus, Upload } from 'lucide-react';
 import './LibraryDialog.css';
+import { Icon } from '../../icons/Icon';
 
 export type LibraryMode = 'open' | 'saveProject' | 'saveGcode';
 
@@ -159,13 +158,13 @@ export function LibraryDialog({ onClose, mode }: { onClose: () => void; mode: Li
           </div>
           <div className="tools">
             <button onClick={mkdir} title="New folder" aria-label="New folder">
-              <FolderPlus size={16} strokeWidth={2} aria-hidden="true" focusable="false" />
+              <Icon name="folderPlus" size={16} />
             </button>
             <button onClick={() => fileRef.current?.click()} title="Upload files into this folder">
-              <Upload size={16} strokeWidth={2} aria-hidden="true" focusable="false" /> Upload
+              <Icon name="upload" size={16} /> Upload
             </button>
             <button onClick={() => load(path)} title="Refresh" aria-label="Refresh">
-              <ACTION_ICONS.refresh size={16} strokeWidth={2} aria-hidden="true" focusable="false" />
+              <Icon name="refresh" size={16} />
             </button>
             <input
               ref={fileRef}
@@ -211,7 +210,7 @@ export function LibraryDialog({ onClose, mode }: { onClose: () => void; mode: Li
                 </a>
               )}
               <button className="icon" title="Delete" aria-label="Delete" onClick={() => remove(e)}>
-                <ACTION_ICONS.delete size={14} strokeWidth={2} aria-hidden="true" focusable="false" />
+                <Icon name="delete" size={14} />
               </button>
             </li>
           ))}

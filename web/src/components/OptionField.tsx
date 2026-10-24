@@ -4,8 +4,8 @@ import type { OptionDef } from '../api';
 import { decodeVector, encodeVector, parsePoints, serializePoints, toBool } from '../values';
 import { NumericField } from './common/NumericField';
 import { TextField } from './common/TextField';
-import { ACTION_ICONS } from './common/icons';
 import './OptionField.css';
+import { Icon } from '../icons/Icon';
 
 interface Props {
   def: OptionDef;
@@ -264,7 +264,7 @@ export function OptionField({ def, value, savedValue, onChange, onReset, extrude
         {def.sidetext && <span className="sidetext">{def.sidetext}</span>}
         {modified && (
           <button className="icon reset" title="Reset to preset value" aria-label="Reset to preset value" onClick={onReset}>
-            <ACTION_ICONS.reset size={14} strokeWidth={2} aria-hidden="true" focusable="false" />
+            <Icon name="reset" size={14} />
           </button>
         )}
         {/* S1-e: the message under the field names the limit, not only the value */}

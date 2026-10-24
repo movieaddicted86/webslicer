@@ -3,7 +3,7 @@ import { useStore, VOLUME_LABELS, type PlaterObject, type PlaterVolume } from '.
 import { objectInfo } from '../../plater/info';
 import { objectIsOutside } from '../../plater/plateCheck';
 import { fmt } from '../../format';
-import { ACTION_ICONS } from '../common/icons';
+import { Icon } from '../../icons/Icon';
 import { VOLUME_ICONS } from './volumes';
 import { AddVolumeMenu } from './AddVolumeMenu';
 import './ObjectRow.css';
@@ -182,7 +182,7 @@ export function ObjectRow({
             onMenu(!menuOpen);
           }}
         >
-          <ACTION_ICONS.addVolume size={16} strokeWidth={2} aria-hidden="true" focusable="false" />
+          <Icon name="addVolume" size={16} />
         </button>
         <button
           className="icon split"
@@ -196,7 +196,7 @@ export function ObjectRow({
             void splitToObjects(o.id);
           }}
         >
-          <ACTION_ICONS.splitToObjects size={16} strokeWidth={2} aria-hidden="true" focusable="false" />
+          <Icon name="splitToObjects" size={16} />
         </button>
         <button
           className="icon split"
@@ -208,7 +208,7 @@ export function ObjectRow({
             void splitToParts(o.id);
           }}
         >
-          <ACTION_ICONS.splitToParts size={16} strokeWidth={2} aria-hidden="true" focusable="false" />
+          <Icon name="splitToParts" size={16} />
         </button>
       </div>
       <div
@@ -258,7 +258,7 @@ export function ObjectRow({
                   instanceToObject(o.id, inst.id);
                 }}
               >
-                <ACTION_ICONS.instanceToObject size={14} strokeWidth={2} aria-hidden="true" focusable="false" />
+                <Icon name="instanceToObject" size={14} />
               </button>
               <button
                 className="icon"
@@ -270,7 +270,7 @@ export function ObjectRow({
                   void splitToObjects(o.id);
                 }}
               >
-                <ACTION_ICONS.splitToObjects size={14} strokeWidth={2} aria-hidden="true" focusable="false" />
+                <Icon name="splitToObjects" size={14} />
               </button>
               <button
                 className="icon"
@@ -282,7 +282,7 @@ export function ObjectRow({
                   removeInstance(o.id, inst.id);
                 }}
               >
-                <ACTION_ICONS.delete size={14} strokeWidth={2} aria-hidden="true" focusable="false" />
+                <Icon name="delete" size={14} />
               </button>
             </li>
           ))}

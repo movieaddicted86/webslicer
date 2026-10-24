@@ -3,7 +3,6 @@ import { useStore } from '../../state/store';
 import { retrySession } from '../../state/session';
 import { SectionHeader } from '../common/SectionHeader';
 import { ToolbarButton } from '../common/ToolbarButton';
-import { ACTION_ICONS } from '../common/icons';
 import { ObjectRow } from './ObjectRow';
 import { ObjectManipulation } from './ObjectManipulation';
 import { VolumeManipulation } from './VolumeManipulation';
@@ -65,35 +64,30 @@ export function ObjectsSection() {
     <section className="objects" data-testid="object-list">
       <SectionHeader title={`Objects (${objects.length})`}>
         <div className="tools" data-testid="object-toolbar">
-          <ToolbarButton title="Undo (Ctrl+Z)" icon={ACTION_ICONS.undo} onClick={undo} disabled={!canUndo} />
-          <ToolbarButton title="Redo (Ctrl+Y)" icon={ACTION_ICONS.redo} onClick={redo} disabled={!canRedo} />
+          <ToolbarButton title="Undo (Ctrl+Z)" icon="undo" onClick={undo} disabled={!canUndo} />
+          <ToolbarButton title="Redo (Ctrl+Y)" icon="redo" onClick={redo} disabled={!canRedo} />
           <span className="tool-sep" aria-hidden="true" />
-          <ToolbarButton title="Arrange (A)" icon={ACTION_ICONS.arrange} onClick={arrange} disabled={!objects.length} />
+          <ToolbarButton title="Arrange (A)" icon="arrange" onClick={arrange} disabled={!objects.length} />
           <ArrangeSettingsMenu />
-          <ToolbarButton title="Add instance (+)" icon={ACTION_ICONS.addInstance} onClick={addInstance} disabled={selected.length !== 1} />
+          <ToolbarButton title="Add instance (+)" icon="addInstance" onClick={addInstance} disabled={selected.length !== 1} />
           <ToolbarButton
             title="Remove the last instance (−)"
-            icon={ACTION_ICONS.removeInstance}
+            icon="removeInstance"
             onClick={removeOneInstance}
             disabled={selected.length !== 1 || instanceCount <= 1}
           />
           <span className="tool-sep" aria-hidden="true" />
-          <ToolbarButton title={mergeTitle} icon={ACTION_ICONS.merge} onClick={() => void mergeObjects(selectedIds)} disabled={!canMerge} />
-          <ToolbarButton
-            title="Duplicate"
-            icon={ACTION_ICONS.duplicate}
-            onClick={() => duplicate(selectedIds)}
-            disabled={!selected.length}
-          />
+          <ToolbarButton title={mergeTitle} icon="merge" onClick={() => void mergeObjects(selectedIds)} disabled={!canMerge} />
+          <ToolbarButton title="Duplicate" icon="duplicate" onClick={() => duplicate(selectedIds)} disabled={!selected.length} />
           <ToolbarButton
             title="Delete the picked instance, otherwise the selected object or volume (Del)"
-            icon={ACTION_ICONS.delete}
+            icon="delete"
             onClick={deleteSelection}
             disabled={!selected.length}
           />
           <ToolbarButton
             title="Delete all"
-            icon={ACTION_ICONS.deleteAll}
+            icon="deleteAll"
             onClick={() => objects.length && confirm('Remove all objects?') && clear()}
             disabled={!objects.length}
           />

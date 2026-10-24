@@ -1,9 +1,10 @@
-import type { LucideIcon } from 'lucide-react';
+import { Icon } from '../../icons/Icon';
+import type { IconName } from '../../icons/table';
 
 /** One button of a section toolbar (F-13) – the tools of the objects panel and of Simple mode. */
 export function ToolbarButton({
   title,
-  icon: Icon,
+  icon,
   onClick,
   disabled,
   active,
@@ -12,8 +13,8 @@ export function ToolbarButton({
   testId,
 }: {
   title: string;
-  /** the SVG icon of the action – the same icon everywhere the action appears */
-  icon: LucideIcon;
+  /** the function whose icon the button shows – the same icon everywhere the function appears */
+  icon: IconName;
   onClick: () => void;
   disabled?: boolean;
   /** draws the pressed state of a mode button (move/rotate/scale, place on face) */
@@ -28,7 +29,7 @@ export function ToolbarButton({
   // Icon-only buttons show the tooltip as the accessible name; a labelled one carries the name itself.
   return (
     <button className={cls || undefined} title={title} aria-label={title} onClick={onClick} disabled={disabled} data-testid={testId}>
-      <Icon size={18} strokeWidth={2} aria-hidden="true" focusable="false" />
+      <Icon name={icon} size={18} />
       {label && (
         <span className="btn-label" aria-hidden="true">
           {label}

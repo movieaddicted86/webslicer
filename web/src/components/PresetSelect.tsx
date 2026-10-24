@@ -2,8 +2,8 @@ import { useId } from 'react';
 import { useStore, isModified, type PresetSlot } from '../state/store';
 import type { PresetSummary, PresetType } from '../api';
 import { filterSystemFilaments } from '../filamentVisibility';
-import { ACTION_ICONS } from './common/icons';
 import './PresetSelect.css';
+import { Icon } from '../icons/Icon';
 
 interface Props {
   type: PresetType;
@@ -106,11 +106,11 @@ export function PresetSelect({ type, slot, extruderIdx = 0, label }: Props) {
           aria-label="Save preset"
           onClick={() => openDialog('savePreset', { type, extruderIdx })}
         >
-          <ACTION_ICONS.save size={14} strokeWidth={2} aria-hidden="true" focusable="false" />
+          <Icon name="save" size={14} />
         </button>
         {modified && (
           <button className="icon" title="Discard changes" aria-label="Discard changes" onClick={() => discard(type, extruderIdx)}>
-            <ACTION_ICONS.reset size={14} strokeWidth={2} aria-hidden="true" focusable="false" />
+            <Icon name="reset" size={14} />
           </button>
         )}
         {current && !current.system && (
@@ -121,7 +121,7 @@ export function PresetSelect({ type, slot, extruderIdx = 0, label }: Props) {
               aria-label="Rename user preset"
               onClick={() => openDialog('renamePreset', { type, name: slot.name })}
             >
-              <ACTION_ICONS.rename size={14} strokeWidth={2} aria-hidden="true" focusable="false" />
+              <Icon name="rename" size={14} />
             </button>
             <button
               className="icon"
@@ -131,7 +131,7 @@ export function PresetSelect({ type, slot, extruderIdx = 0, label }: Props) {
                 confirm(`Delete preset "${slot.name}"?`) && deletePreset(type, slot.name).catch((e) => toast('error', e.message))
               }
             >
-              <ACTION_ICONS.delete size={14} strokeWidth={2} aria-hidden="true" focusable="false" />
+              <Icon name="delete" size={14} />
             </button>
           </>
         )}

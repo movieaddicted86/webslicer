@@ -76,6 +76,14 @@
   white-space: nowrap;
 }
 
+/* the top-level buttons carry their icon next to the name; the dropdown entries stay text */
+.menu > button,
+.dropdown > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
 @media (max-width: 1100px) {
   .brand span.text {
     display: none;
