@@ -8,6 +8,7 @@ import {
   Paintbrush,
   Palette,
   PanelBottom,
+  PencilLine,
   Plus,
   Redo2,
   RefreshCw,
@@ -62,6 +63,8 @@ export const ACTION_ICONS = {
   close: X,
   refresh: RefreshCw,
   save: Save,
+  /** rename a user preset */
+  rename: PencilLine,
   addVolume: SquarePlus,
 } as const;
 
