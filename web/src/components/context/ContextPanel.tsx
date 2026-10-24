@@ -1,5 +1,5 @@
 import { useStore, type PlaterObject } from '../../state/store';
-import { baseMode } from '../../state/contextMode';
+import { contextMode } from '../../state/contextMode';
 import { useSelectedObjects } from '../left/selection';
 import { PlateMode } from './PlateMode';
 import { Presets } from './Presets';
@@ -11,17 +11,21 @@ import { PanelCard } from './PanelCard';
 import { Destination } from './Destination';
 import { SlicePanel } from './SlicePanel';
 import { PreviewPanel } from '../PreviewPanel';
+import { ToolMode } from './ToolMode';
 import './ContextPanel.css';
 
 /**
  * The context panel (layout 3.0): the right column of the frame, showing what the current state is
- * about instead of one fixed sidebar. Plate mode when nothing is selected, object mode for the
- * selection, the preview panel in the Preview view; tool mode arrives with the tool strip and is
- * already part of `contextMode`'s precedence.
+ * about instead of one fixed sidebar. Tool mode when a tool is open, plate mode when nothing is
+ * selected, object mode for the selection, the preview panel in the Preview view.
  *
- * The mode is derived (`baseMode`), never stored: deselecting or leaving the preview switches the
- * content back on its own. The header and the footer stay put while the body scrolls, so the object
- * name and the Slice button are always in view.
+ * The mode is derived (`contextMode`), never stored: closing the tool, deselecting or leaving the
+ * preview switches the content back on its own. The header and the footer stay put while the body
+ * scrolls, so the object name and the Slice button are always in view.
+ *
+ * Tool mode brings its own frame (`ToolPanel`: title, ✕, the tool's fields and its primary action),
+ * so the panel renders neither the destination/Slice footer nor a second header there – the tool's
+ * action is the one accent while it is open. Its key hints come from the tool's registry entry.
  *
  * The preset rows and the quick settings stay in every plater mode – they describe the print, not the
  * selection, and a selected object would otherwise hide the way to change the infill. The printer
@@ -31,6 +35,7 @@ import './ContextPanel.css';
  * overrides, ranges). Preview mode keeps `PreviewPanel` unchanged and has no Slice footer.
  */
 export function ContextPanel() {
+  const activeTool = useStore((s) => s.activeTool);
   const view = useStore((s) => s.view);
   const storeMode = useStore((s) => s.mode);
   const objects = useStore((s) => s.objects);
@@ -39,12 +44,21 @@ export function ContextPanel() {
   const addRange = useStore((s) => s.addRange);
   const selected = useSelectedObjects();
 
-  // a tool panel is still docked next to the bar (the strip and tool mode come with the next step),
-  // so the panel keeps the plate or object content while a tool is open
-  const base = baseMode({ view, selectedIds, objects });
+  const base = contextMode({ activeTool, view, selectedIds, objects });
   const objectMode = base === 'object' && storeMode !== 'simple' && selected.length === 1;
-  const mode = base === 'preview' ? 'preview' : objectMode ? 'object' : 'plate';
+  const mode = base === 'tool' ? 'tool' : base === 'preview' ? 'preview' : objectMode ? 'object' : 'plate';
   const object: PlaterObject | undefined = objectMode ? selected[0] : undefined;
+
+  // tool mode: the tool's own frame fills the column (its head is the header, its foot the footer)
+  if (mode === 'tool') {
+    return (
+      <aside className="context-panel" data-testid="context-panel" aria-label="Context">
+        <div className="context-body context-tool" data-testid="context-tool">
+          <ToolMode />
+        </div>
+      </aside>
+    );
+  }
 
   return (
     <aside className="context-panel" data-testid="context-panel" aria-label="Context">

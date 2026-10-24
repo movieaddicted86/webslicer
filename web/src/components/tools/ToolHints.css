@@ -1,0 +1,56 @@
+/* ToolHints: the key-hint block at the end of a tool panel (ToolHints.tsx). Tokens only. */
+
+.tool-hints {
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.tool-hints ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.tool-hint {
+  display: grid;
+  grid-template-columns: 58px 1fr;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.tool-hint-keys {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.tool-hint-keys kbd {
+  display: inline-flex;
+  align-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  justify-content: center;
+  background: var(--bg4);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text);
+  font: inherit;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.tool-hint-plus {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.tool-hint-mouse {
+  color: var(--text);
+}

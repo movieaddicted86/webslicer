@@ -41,6 +41,11 @@
   overflow-x: hidden;
 }
 
+/* tool mode: the tool's frame supplies the head and foot, the column supplies the padding */
+.context-tool {
+  padding: 10px 12px;
+}
+
 .context-panel .presets,
 .context-panel .quick {
   padding: 10px 12px;
