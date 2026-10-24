@@ -4,6 +4,7 @@
  * each type – shared by the browser and the server.
  */
 import type {
+  BundleRefusal,
   Config,
   CustomGcode,
   CutRequest,
@@ -28,6 +29,8 @@ import type {
   SliceRequest,
   UpdateStatus,
   Vendor,
+  VendorUpdateList,
+  VendorUpdateResult,
 } from '@webslicer/shared';
 
 export type * from '@webslicer/shared';
@@ -64,6 +67,24 @@ async function handleSend(res: Response): Promise<SendResult> {
   throw Object.assign(new Error(error), { issues });
 }
 
+/**
+ * The vendor routes answer a refused bundle with 409 and the findings that refused it. They are the
+ * reason the user needs, so the error carries them; every other failure stays a plain message.
+ */
+async function handleBundle(res: Response): Promise<VendorUpdateResult> {
+  if (res.ok) return (await res.json()) as VendorUpdateResult;
+  let error = `${res.status} ${res.statusText}`;
+  let refusals: BundleRefusal[] = [];
+  try {
+    const body = (await res.json()) as { error?: string; refusals?: BundleRefusal[] };
+    if (body.error) error = body.error;
+    refusals = Array.isArray(body.refusals) ? body.refusals : [];
+  } catch {
+    /* no JSON body */
+  }
+  throw Object.assign(new Error(error), { refusals });
+}
+
 const jsonInit = (method: string, body: unknown): RequestInit => ({
   method,
   headers: { 'Content-Type': 'application/json' },
@@ -76,6 +97,18 @@ export const api = {
   updateStatus: () => fetch('/api/update-status').then((r) => handle<UpdateStatus>(r)),
   schema: () => fetch('/api/schema').then((r) => handle<Schema>(r)),
   vendors: () => fetch('/api/vendors').then((r) => handle<Vendor[]>(r)),
+  /** The cached vendor profile check; `refresh` asks the server to ask the repository now. */
+  vendorUpdates: (refresh = false) => fetch(`/api/vendors/updates${refresh ? '?refresh=1' : ''}`).then((r) => handle<VendorUpdateList>(r)),
+  installVendorUpdate: (id: string) =>
+    fetch(`/api/vendors/${encodeURIComponent(id)}/update`, { method: 'POST' }).then((r) => handleBundle(r)),
+  revertVendor: (id: string) => fetch(`/api/vendors/${encodeURIComponent(id)}/revert`, { method: 'POST' }).then((r) => handleBundle(r)),
+  /** Upload a vendor `.ini` by hand – the way an air-gapped install updates (same validation as online). */
+  installVendorFromFile: (file: File) =>
+    fetch('/api/vendors/install', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/octet-stream', 'X-Filename': encodeURIComponent(file.name) },
+      body: file,
+    }).then((r) => handleBundle(r)),
   installedPrinters: () => fetch('/api/installed-printers').then((r) => handle<InstalledPrinter[]>(r)),
   setInstalledPrinters: (list: InstalledPrinter[]) =>
     fetch('/api/installed-printers', jsonInit('PUT', list)).then((r) => handle<InstalledPrinter[]>(r)),
