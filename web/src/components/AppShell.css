@@ -41,7 +41,7 @@
   min-width: 0;
 }
 
-.app-shell > .sidebar {
+.app-shell > .context-panel {
   grid-area: right;
   min-height: 0;
 }
@@ -57,7 +57,7 @@
   grid-template-columns: 64px 0 minmax(0, 1fr) 0;
 }
 
-.app-shell.panels-hidden > .sidebar,
+.app-shell.panels-hidden > .context-panel,
 .app-shell.panels-hidden > .left-column {
   display: none;
 }
@@ -93,7 +93,7 @@
     grid-area: rail;
   }
 
-  .app-shell > .sidebar {
+  .app-shell > .context-panel {
     grid-area: right;
     width: 100%;
     max-height: 40vh;
@@ -110,7 +110,7 @@
     grid-template-rows: auto minmax(0, 1fr) auto;
   }
 
-  /* a phone hides the panels by sliding the sidebar away instead of freeing a column */
+  /* a phone hides the panels by sliding the context panel away instead of freeing a column */
   .app-shell.panels-hidden {
     grid-template-columns: minmax(0, 1fr);
   }

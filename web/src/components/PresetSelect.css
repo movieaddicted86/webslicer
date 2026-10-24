@@ -22,7 +22,6 @@
   min-width: 0;
 }
 
-.preset-select select,
-.sidebar select {
+.preset-select select {
   max-width: 100%;
 }

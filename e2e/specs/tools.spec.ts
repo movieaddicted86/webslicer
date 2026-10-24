@@ -1,7 +1,7 @@
 /**
  * T-046: the tool framework – the left tool bar and the panel docked next to it.
  *
- * The bar is the single way into a tool now (the sidebar keeps its own object toolbar for the
+ * The bar is the single way into a tool now (the object list keeps its own toolbar for the
  * frequently used commands): a button opens the tool's panel, the same button closes it, Esc and the
  * panel's close button do the same, and a disabled tool says why. AC-5 measures the panel width; a
  * dummy tool proves AC-3 in `web/src/three/shortcuts.test.ts` and `web/src/tools/activate.test.ts`
@@ -9,7 +9,7 @@
  *
  * T-055: the bar shows a short label next to the icon while the 3D view is wide enough (measured on
  * the view, not the window), the toggle at the bar's end overrides that and `localStorage` remembers
- * the choice; the sidebar's object toolbar keeps no tool buttons any more (no action twice).
+ * the choice; the object list's toolbar keeps no tool buttons any more (no action twice).
  */
 import { CUBE, importFile, press, read, settle } from '../helpers/app';
 import { expect, test } from '../helpers/fixtures';
@@ -165,15 +165,18 @@ test.describe('tool framework', () => {
     expect(await read(app, (s) => s.activeTool ?? null)).toBeNull();
   });
 
-  test('the sidebar renders no tool options any more', async ({ app }) => {
-    // the old option panels left the sidebar; the object list and its manipulation panel stay
+  test('the context panel renders no tool options any more', async ({ app }) => {
+    // the old option panels left the side panel; the object list stays in the left column and the
+    // manipulation of the selection lives in the context panel
     expect(
       await app
-        .locator('[data-testid="sidebar"] .cut-panel, [data-testid="sidebar"] .paint-panel, [data-testid="sidebar"] .layer-profile-panel')
+        .locator(
+          '[data-testid="context-panel"] .cut-panel, [data-testid="context-panel"] .paint-panel, [data-testid="context-panel"] .layer-profile-panel',
+        )
         .count(),
     ).toBe(0);
-    expect(await app.locator('[data-testid="sidebar"] button:has-text("Perform cut")').count()).toBe(0);
-    expect(await app.locator('[data-testid="sidebar"] button:has-text("Adaptive")').count()).toBe(0);
+    expect(await app.locator('[data-testid="context-panel"] button:has-text("Perform cut")').count()).toBe(0);
+    expect(await app.locator('[data-testid="context-panel"] button:has-text("Adaptive")').count()).toBe(0);
     expect(await app.locator('.manip').count()).toBe(1);
     // T-055: and no action is offered twice – the tool buttons exist in the bar only
     expect(
@@ -194,7 +197,7 @@ test.describe('tool framework', () => {
 
   test('the bar shows labels on a wide view, icons only on a narrow one, and stays under 170 px (T-055)', async ({ app }) => {
     // the labels follow the width of the 3D view, not the window: 1920 px window − rail, object
-    // list column and sidebar leave it about 1200 px
+    // list column and context panel leave it about 1200 px
     await app.setViewportSize({ width: 1920, height: 900 });
     await settle(app, 500);
     const wide = await app.evaluate(() => {

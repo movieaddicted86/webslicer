@@ -1,0 +1,64 @@
+/* PartsCard: the parts list and the add button (PartsCard.tsx). The manipulation grid is
+   `manipulation.css`. Tokens only. */
+
+.parts-add {
+  padding: 0 5px;
+  line-height: 1;
+}
+
+.volume-list {
+  list-style: none;
+  margin: 0 0 4px;
+  padding: 0;
+}
+
+.volume-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 6px;
+  font-size: 12px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.volume-row:hover {
+  background: var(--bg3);
+}
+
+.volume-row.selected {
+  background: #2a3b55;
+}
+
+.volume-row .name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vtype {
+  font-size: 11px;
+  min-width: 14px;
+  text-align: center;
+}
+
+.vtype.ParameterModifier {
+  color: #ffe14d;
+}
+
+.vtype.SupportEnforcer {
+  color: #7f94ff;
+}
+
+.vtype.SupportBlocker {
+  color: #ff6b6b;
+}
+
+.vtype.NegativeVolume {
+  color: #a0a0a0;
+}
+
+.vtype.ModelPart {
+  color: #e6b84a;
+}

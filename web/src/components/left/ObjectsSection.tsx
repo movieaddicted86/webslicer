@@ -6,42 +6,41 @@ import { retrySession } from '../../state/session';
 import { ToolbarButton } from '../common/ToolbarButton';
 import { ObjectToolbar } from './ObjectToolbar';
 import { ObjectRow } from './ObjectRow';
-import { ObjectManipulation } from './ObjectManipulation';
-import { VolumeManipulation } from './VolumeManipulation';
 import { ArrangeSettingsMenu } from './ArrangeSettingsMenu';
 import { useDeleteSelection, useInstanceActions, useSelectedObjects } from './selection';
 import './ObjectsSection.css';
 
 /**
- * The object list of the plater: the toolbar above it, the rows with their sub-lists, and the
- * manipulation panel of whatever is selected. The title and the count of the list are the heading of
- * the card that holds it (the left column), so this section starts with the toolbar.
+ * The object list of the plater: the toolbar above it and the plain rows. The title and the count of
+ * the list are the heading of the card that holds it (the left column), so this section starts with
+ * the toolbar.
  *
- * Tool options are not here any more (T-046): a tool's panel is docked next to its button in the 3D
- * view (`components/tools/`), and since T-055 the toolbar holds only object actions.
+ * The list is an overview: a row selects, renames, folds its instances away and shows its state. The
+ * selected object's manipulation, settings, parts and layer ranges are in the context panel, so a row
+ * never grows into a settings form again.
+ *
+ * Tool options are not here: a tool's panel is docked next to its button in the 3D view
+ * (`components/tools/`), and the toolbar holds object actions only.
  */
 export function ObjectsSection() {
   const objects = useStore((s) => s.objects);
   const selectedIds = useStore((s) => s.selectedIds);
-  const selectedVolumeId = useStore((s) => s.selectedVolumeId);
   const duplicate = useStore((s) => s.duplicateObjects);
   const mergeObjects = useStore((s) => s.mergeObjects);
   const arrange = useStore((s) => s.arrange);
   const clear = useStore((s) => s.clearObjects);
   const autosaveError = useStore((s) => s.autosaveError);
   const discardAutosave = useStore((s) => s.discardAutosave);
-  const [addMenuFor, setAddMenuFor] = useState<string | null>(null);
-  // which objects show their instance sub-list (like the volume list, collapsed by default)
+  // which objects show their instance sub-list (collapsed by default)
   const [instancesOpen, setInstancesOpen] = useState<Record<string, boolean>>({});
   // the row whose name is being edited (double-click on the name or F2 on the selection)
   const [renamingId, setRenamingId] = useState<string | null>(null);
 
   const selected = useSelectedObjects();
-  const selectedVolume = selected.length === 1 ? selected[0].volumes.find((v) => v.id === selectedVolumeId) : undefined;
   const deleteSelection = useDeleteSelection();
   const { addInstance, removeOneInstance, instanceCount } = useInstanceActions();
 
-  // T-042: a rename requested elsewhere (F2, the workspace key handler) opens the inline field here
+  // a rename requested elsewhere (F2, the workspace key handler) opens the inline field here
   const renameRequest = useStore((s) => s.renameRequest);
   useEffect(() => {
     if (!renameRequest) return;
@@ -49,7 +48,7 @@ export function ObjectsSection() {
     useStore.setState({ renameRequest: undefined });
   }, [renameRequest]);
 
-  // only objects with a single instance can be merged (one world position per object, T-042)
+  // only objects with a single instance can be merged (one world position per object)
   const mergeSelection = selected.filter((o) => o.instances.length === 1);
   const canMerge = selected.length > 1 && mergeSelection.length === selected.length;
   const mergeTitle = canMerge
@@ -92,8 +91,6 @@ export function ObjectsSection() {
           <ObjectRow
             key={o.id}
             o={o}
-            menuOpen={addMenuFor === o.id}
-            onMenu={(open) => setAddMenuFor(open ? o.id : null)}
             instancesShown={!!instancesOpen[o.id]}
             onToggleInstances={() => setInstancesOpen((m) => ({ ...m, [o.id]: !m[o.id] }))}
             renaming={renamingId === o.id}
@@ -128,9 +125,6 @@ export function ObjectsSection() {
           </li>
         )}
       </ul>
-      {selected.length === 1 && selectedVolume && <VolumeManipulation o={selected[0]} v={selectedVolume} />}
-      {selected.length === 1 && !selectedVolume && <ObjectManipulation o={selected[0]} />}
-      {selected.length > 1 && <div className="muted small">{selected.length} objects selected</div>}
     </section>
   );
 }

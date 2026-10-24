@@ -1,0 +1,12 @@
+/* Presets: the preset rows and the quick settings of the context panel (Presets.tsx). Tokens only. */
+
+.presets,
+.quick {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.presets label.checkbox {
+  display: flex;
+  margin-top: 4px;
+}

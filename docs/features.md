@@ -30,6 +30,17 @@ PrusaSlicer feature exists here and which does not is in
   top corner toggles that, and the width (300 px by default, 220–420 px) can be dragged on its right
   edge. Both are remembered per browser. Below 1100 px the column starts folded; on a phone it is a
   drawer that the top bar opens.
+- **Context panel** on the right: it shows what the current state is about. With nothing selected it
+  is the plate – a **Printer** card (preset, bed size, height, nozzle) above the print/filament/printer
+  preset rows and the quick settings. With one object selected the preset rows and quick settings stay
+  and the object's own cards follow: **Transform** (position, rotation, scale, size, instances and
+  **Fill bed**, bounding box and object info, mirror, split to objects/parts, the resets), **Settings**
+  (extruder and the **⚙ Per-object settings** overrides), **Parts** (the add menu for parts, modifiers,
+  support enforcers/blockers and negative volumes, the volume rows with rename, and the manipulation of
+  the picked volume) and **Layer ranges**. The header keeps the object name and instance count, the
+  footer keeps the **Destination** choice and the **Slice** button in view while the cards scroll. In
+  the Preview the column shows the preview panel; a tool's options still open next to the tool bar.
+  Simple mode shows the plate content only; a multi-selection is explained instead of the object cards.
 
 ### Where do I find…
 
@@ -46,6 +57,8 @@ PrusaSlicer feature exists here and which does not is in
 | Change the Simple / Advanced / Expert mode           | Rail **Preferences → Mode**                                                                |
 | See whether the update check is on, and reset panels | Rail **Preferences → Online services / Interface**                                         |
 | Edit the print, filament or printer settings         | The cog next to the preset in its row (plater or settings view)                            |
+| Edit an object's position, parts, overrides, ranges  | Select its row in the object list – the context panel on the right shows them              |
+| Choose the print host the G-code goes to             | The **Destination** select in the context panel's footer (or ask in the send dialog)       |
 | Export the project, settings, presets or G-code      | **Menu → Export ▸**                                                                        |
 | Save the project or the G-code to the library        | **Menu → Export ▸ Save … to library…**                                                     |
 | Undo or redo                                         | The top bar's ↶ / ↷ (or Ctrl+Z / Ctrl+Shift+Z)                                             |
@@ -100,8 +113,8 @@ PrusaSlicer feature exists here and which does not is in
   lists the system filaments of the installed vendors grouped by vendor and material – filter by text,
   tick with _All_ / _None_ / _Only this type_ per group, and **Apply** stores the choice, so the
   filament selector only offers those presets from then on (user presets, the defaults and the active
-  filament always stay). Nothing ticked means "show all", and the sidebar's **Show all filaments**
-  checkbox lifts the filter for a session. A custom printer asks for bed size, height, nozzle and
+  filament always stay). Nothing ticked means "show all", and the **Show all filaments** checkbox under
+  the preset rows lifts the filter for a session. A custom printer asks for bed size, height, nozzle and
   firmware, then for its filament (name, first-layer/other-layer hotend and bed temperatures, diameter;
   215/215 °C, 60/60 °C and 1.75 mm by default). Saving stores the printer preset and a user filament
   preset `<printer> – <filament>`, and selects both. Values face the same configuration limits as the
@@ -117,8 +130,8 @@ PrusaSlicer feature exists here and which does not is in
   slider (top/bottom), travel moves, legend with lengths, print time / filament usage / cost, and the
   colour schemes (height, width, speed, fan speed, temperature, volumetric flow, layer time). The
   **Sliced info** card (file, time, filament, cost, layers, size, export and send actions) and the
-  **Legend** card sit in the left column, next to the scene; the right sidebar keeps the layer controls,
-  the view options and the preflight.
+  **Legend** card sit in the left column, next to the scene; the right context panel keeps the layer
+  controls, the view options and the preflight.
 - **Colour change, pause and custom G-code at a layer**: add them at the top slider position like the
   "+" on PrusaSlicer's vertical slider (M600 / pause with message / any G-code), markers on the slider,
   automatic re-slice, stored in the 3MF project.

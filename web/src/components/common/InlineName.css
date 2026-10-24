@@ -1,0 +1,12 @@
+/* InlineName: the one-line rename field (InlineName.tsx). Tokens only. */
+
+.inline-name {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  color: inherit;
+  background: var(--bg);
+  border: 1px solid var(--accent2);
+  border-radius: 3px;
+  padding: 0 4px;
+}

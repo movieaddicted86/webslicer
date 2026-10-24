@@ -75,13 +75,15 @@ every outbound request – off. Details: [docs/installation.md#update-notice](do
 ## A quick tour
 
 The plater with the rail on the far left, the slim top bar, the object list column next to the scene
-and the presets, quick settings and Slice panel on the right. The object list card folds on its own and
-the whole column folds to a narrow strip; its width is draggable. Move, rotate and scale have their own
-bar entries; painting, cut and layer height open a panel next to the bar. The **Menu** in the top bar
-holds import models and presets and the **Export** list (project 3MF, settings, presets bundle, G-code,
-save to library); the rail holds the app's places and dialogs, **Preferences** the visibility mode and
-the panel layout reset, and each preset row's cog the print/filament/printer settings; **hide panels**
-gives the 3D view the full width.
+and the context panel on the right. The object list card folds on its own and the whole column folds to
+a narrow strip; its width is draggable. The context panel follows the selection: with nothing selected
+it shows the printer card, the preset rows, the quick settings and the Slice button; selecting an object
+adds its **Transform**, **Settings**, **Parts** and **Layer ranges** cards, and the footer keeps the
+destination and Slice in view. Move, rotate and scale have their own bar entries; painting, cut and layer
+height open a panel next to the bar. The **Menu** in the top bar holds import models and presets and the
+**Export** list (project 3MF, settings, presets bundle, G-code, save to library); the rail holds the
+app's places and dialogs, **Preferences** the visibility mode and the panel layout reset, and each
+preset row's cog the print/filament/printer settings; **hide panels** gives the 3D view the full width.
 
 ![The plater](docs/images/plater.png)
 

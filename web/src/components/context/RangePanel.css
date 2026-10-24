@@ -1,8 +1,7 @@
 /* RangePanel: the styles of this component. */
 
 .range-panel {
-  border-top: 1px dashed var(--border);
-  padding-top: 6px;
+  min-width: 0;
 }
 
 .range-rows {

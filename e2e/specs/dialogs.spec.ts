@@ -116,7 +116,7 @@ test.describe('dialogs: the per-object, per-volume and per-range settings (S6)',
   });
 
   test('a range row opens its own dialog, which ✕ and Escape close', async ({ app }) => {
-    await click(app, '.range-panel .section-head button', 800);
+    await click(app, '[data-testid="range-add"]', 800);
     const inputs = app.locator('.range-row input');
     await inputs.nth(0).fill('1');
     await inputs.nth(1).fill('6');
@@ -360,7 +360,7 @@ test.describe('dialogs: the app dialogs (S11)', () => {
       pending: !!s.pendingSwitch,
     }));
     expect(after).toEqual({ dialog: null, preset: target.from, perimeters: typed, pending: false });
-    // the sidebar select shows the preset that is still loaded
+    // the preset row shows the preset that is still loaded
     await expect(app.locator('[data-testid="presets"] [data-testid^="preset-select-"] select').first()).toHaveValue(target.from as string);
   });
 });

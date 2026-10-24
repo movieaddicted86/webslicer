@@ -10,7 +10,7 @@ import './PreviewPanel.css';
 import './common/progress.css';
 
 /**
- * The preview of the right sidebar (F-14): the state of the job, the preflight and the layer controls.
+ * The preview of the context panel (F-14): the state of the job, the preflight and the layer controls.
  * The slicing result itself (Sliced info, Legend) is in the left column since the layout 3.0 step L-2
  * and is not repeated here; the layer slider, the code list, the move slider and the view options stay.
  */

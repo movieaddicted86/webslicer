@@ -1,15 +1,24 @@
-/* The transform and volume panel (ObjectManipulation.tsx, VolumeManipulation.tsx, TransformInputs.tsx). */
+/* The transform rows of the context panel (TransformCard.tsx, VolumeManipulation.tsx,
+   TransformInputs.tsx, SettingsCard.tsx). Tokens only. */
 
 .manip {
-  margin-top: 8px;
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 
+/* the body of a card starts right under its heading */
+.panel-card .manip {
+  margin-top: 0;
+}
+
+.object-info-panel .not-manifold {
+  color: var(--yellow);
+}
+
 .manip-row {
   display: grid;
-  grid-template-columns: 70px 1fr 1fr 1fr;
+  grid-template-columns: 62px 1fr 1fr 1fr;
   gap: 4px;
   align-items: center;
 }
@@ -48,7 +57,7 @@
 }
 
 .manip-row.extruder {
-  grid-template-columns: 70px 1fr;
+  grid-template-columns: 62px 1fr;
 }
 
 .manip-row.extruder .full {

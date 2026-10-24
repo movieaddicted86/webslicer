@@ -1,8 +1,8 @@
 import { useStore } from '../../state/store';
 import { SideCard } from './SideCard';
 import { useLeftColumn } from './useLeftColumn';
-import { ObjectsSection } from '../sidebar/ObjectsSection';
-import { SimpleObjects } from '../sidebar/SimpleObjects';
+import { ObjectsSection } from './ObjectsSection';
+import { SimpleObjects } from './SimpleObjects';
 import { SlicedInfo } from '../preview/SlicedInfo';
 import { PreviewLegend } from '../preview/Legend';
 import { useLegendData } from '../preview/useLegendData';

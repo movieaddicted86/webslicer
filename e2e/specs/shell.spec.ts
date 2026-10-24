@@ -153,7 +153,7 @@ test.describe('shell: the rail and the slim top bar', () => {
 
     const shown = await sceneSizes(app);
     expect(shown.zone).toBeGreaterThan(0);
-    await expect(byId(app, 'sidebar')).toBeVisible();
+    await expect(byId(app, 'context-panel')).toBeVisible();
 
     const toggle = byId(app, 'hide-panels');
     await expect(toggle).toHaveAttribute('aria-pressed', 'false');
@@ -161,12 +161,12 @@ test.describe('shell: the rail and the slim top bar', () => {
     await settle(app, 800);
 
     const hidden = await sceneSizes(app);
-    // the freed width is the sidebar's: the scene really grew, and the canvas followed it
+    // the freed width is the context panel's: the scene really grew, and the canvas followed it
     expect(hidden.zone).toBeGreaterThan(shown.zone + 200);
     expect(Math.abs(hidden.canvas - hidden.zone)).toBeLessThanOrEqual(2);
     expect(Math.abs(hidden.buffer - hidden.canvas)).toBeLessThanOrEqual(4);
     await expect(toggle).toHaveAttribute('aria-pressed', 'true');
-    expect(await app.locator('[data-testid="sidebar"]').isVisible()).toBe(false);
+    expect(await app.locator('[data-testid="context-panel"]').isVisible()).toBe(false);
 
     // the choice is remembered per browser
     expect(await app.evaluate(() => localStorage.getItem('webslicer.panelsHidden'))).toBe('on');
@@ -174,12 +174,12 @@ test.describe('shell: the rail and the slim top bar', () => {
     await app.waitForFunction(() => !!window.webslicer && window.webslicer.getState().ready, null, { timeout: 90_000 });
     await settle(app, 600);
     await expect(byId(app, 'hide-panels')).toHaveAttribute('aria-pressed', 'true');
-    expect(await app.locator('[data-testid="sidebar"]').isVisible()).toBe(false);
+    expect(await app.locator('[data-testid="context-panel"]').isVisible()).toBe(false);
 
     // and back: the panels return and the scene shrinks again
     await byId(app, 'hide-panels').click();
     await settle(app, 800);
-    await expect(byId(app, 'sidebar')).toBeVisible();
+    await expect(byId(app, 'context-panel')).toBeVisible();
     expect((await sceneSizes(app)).zone).toBeLessThanOrEqual(shown.zone + 2);
   });
 

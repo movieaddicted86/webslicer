@@ -2,47 +2,46 @@ import { useMemo } from 'react';
 import { useStore, instanceBounds, selectedInstance, type PlaterObject } from '../../state/store';
 import { objectInfo } from '../../plater/info';
 import { NumericField } from '../common/NumericField';
+import { PanelCard } from './PanelCard';
 import { TransformInputs } from './TransformInputs';
-import { RangePanel } from './RangePanel';
 import { AXES } from './axes';
 import { fmt } from '../../format';
 import type { Placement } from '../../api';
 import './manipulation.css';
 
 /**
- * The manipulation panel of the selected object (instance placement, copies, mirror, splits, height
- * ranges). Painting and variable layer height are tools with their own panels in the 3D view since
- * T-046; their buttons sit in the left tool bar of the viewer.
+ * The Transform card of the selected object: position, rotation, scale and size of the picked
+ * instance, the instance count with "Fill bed", the measurements, the mirror actions, the two splits
+ * and the resets.
+ *
+ * The per-object settings, the parts and the height ranges have cards of their own; a part's own
+ * transform is in the Parts card. Painting and variable layer height are tools with their own panels
+ * in the 3D view, opened from the tool bar.
  */
-export function ObjectManipulation({ o }: { o: PlaterObject }) {
+export function TransformCard({ o }: { o: PlaterObject }) {
   const updateInstance = useStore((s) => s.updateInstance);
   const drop = useStore((s) => s.dropToBed);
-  const openDialog = useStore((s) => s.openDialog);
-  const extruders = useStore((s) => s.extruderCount());
   const recordHistory = useStore((s) => s.recordHistory);
   const mirror = useStore((s) => s.mirror);
+  const select = useStore((s) => s.select);
   const splitToObjects = useStore((s) => s.splitToObjects);
   const splitToParts = useStore((s) => s.splitToParts);
   const setInstanceCount = useStore((s) => s.setInstanceCount);
   const fillBedWithInstances = useStore((s) => s.fillBedWithInstances);
-  // the manipulation fields edit the selected instance (instance 1 when none is selected)
+  // the fields edit the selected instance (instance 1 when none is selected)
   const selectedIds = useStore((s) => s.selectedIds);
   const selectedInstanceId = useStore((s) => s.selectedInstanceId);
   const inst = selectedInstance({ selectedIds, selectedInstanceId }, o);
-  const update = (id: string, patch: Partial<Omit<PlaterObject, 'instances'>>) => {
-    recordHistory();
-    useStore.getState().updateObject(id, patch);
-  };
   const set = (patch: Partial<Placement>) => {
     recordHistory();
     updateInstance(o.id, inst.id, patch);
     drop(o.id);
   };
   const box = instanceBounds(o, inst);
-  // size, volume and manifold state of the whole object (T-042); a full mesh measurement, so memoised
+  // size, volume and manifold state of the whole object; a full mesh measurement, so memoised
   const info = useMemo(() => objectInfo(o), [o]);
   return (
-    <div className="manip">
+    <PanelCard title="Transform" icon="move" testId="object-transform">
       <TransformInputs
         t={inst}
         size={[o.size[0], o.size[1], o.size[2]]}
@@ -69,7 +68,7 @@ export function ObjectManipulation({ o }: { o: PlaterObject }) {
           step={1}
           onText={(text) => {
             const n = Number(text);
-            // AC-2.1: out-of-range or non-integer input is rejected without touching the plater
+            // out-of-range or non-integer input is rejected without touching the plater
             if (Number.isInteger(n) && n >= 1 && n <= 1000) setInstanceCount(o.id, n);
           }}
         />
@@ -93,15 +92,24 @@ export function ObjectManipulation({ o }: { o: PlaterObject }) {
         ))}
       </div>
       <div className="manip-actions split">
-        {/* PrusaSlicer splits an object with several separate shells into objects or into parts */}
+        {/* both splits came from the object row; the row is a plain list entry now */}
         <button
           title={o.volumes.length ? 'Remove modifiers and parts first' : 'Split the connected shells into separate objects'}
           disabled={o.volumes.length > 0}
-          onClick={() => splitToObjects(o.id)}
+          onClick={() => {
+            select([o.id]);
+            void splitToObjects(o.id);
+          }}
         >
           Split to objects
         </button>
-        <button title="Turn the connected shells into parts of this object" onClick={() => splitToParts(o.id)}>
+        <button
+          title="Turn the connected shells into parts of this object"
+          onClick={() => {
+            select([o.id]);
+            void splitToParts(o.id);
+          }}
+        >
           Split to parts
         </button>
       </div>
@@ -110,28 +118,9 @@ export function ObjectManipulation({ o }: { o: PlaterObject }) {
         <button onClick={() => set({ scale: [1, 1, 1] })}>Reset scale</button>
         <button onClick={() => set({ rotation: [0, 0, 0], scale: [1, 1, 1] })}>Reset all</button>
       </div>
-      <RangePanel o={o} />
-      <div className="manip-row extruder">
-        {extruders > 1 && (
-          <>
-            <span>Extruder</span>
-            <select value={o.extruder} onChange={(e) => update(o.id, { extruder: Number(e.target.value) })}>
-              <option value={0}>default</option>
-              {Array.from({ length: extruders }, (_, i) => (
-                <option key={i} value={i + 1}>
-                  {i + 1}
-                </option>
-              ))}
-            </select>
-          </>
-        )}
-        <button className="full" onClick={() => openDialog('objectSettings', { objectId: o.id })}>
-          ⚙ Per-object settings{Object.keys(o.config).length ? ` (${Object.keys(o.config).length})` : ''}
-        </button>
-      </div>
       <div className="muted small">
         {o.triangles.toLocaleString()} triangles · {o.modelId ? 'uploaded' : o.uploadError ? 'upload failed' : 'uploading…'}
       </div>
-    </div>
+    </PanelCard>
   );
 }

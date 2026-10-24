@@ -57,6 +57,7 @@ function preselect(
  */
 export function SendToPrinterDialog({ onClose }: { onClose: () => void }) {
   const printers = useStore((s) => s.physicalPrinters);
+  const destination = useStore((s) => s.sendDestination);
   const job = useStore((s) => s.job);
   const printerPresets = useStore((s) => s.presetLists.printer);
   const toast = useStore((s) => s.toast);
@@ -65,7 +66,10 @@ export function SendToPrinterDialog({ onClose }: { onClose: () => void }) {
     () => printerPresets.map((p): PresetLink => ({ name: p.name, alias: p.alias, inherits: p.inherits })),
     [printerPresets],
   );
-  const [printerId, setPrinterId] = useState(() => preselect(printers, jobPreset, links));
+  const [printerId, setPrinterId] = useState(() =>
+    // a destination picked in the context panel wins; otherwise the host that matches the job
+    destination && printers.some((p) => p.id === destination) ? destination : preselect(printers, jobPreset, links),
+  );
   const [filename, setFilename] = useState(job?.outputName || 'print.gcode');
   const [start, setStart] = useState(false);
   const [override, setOverride] = useState(false);
