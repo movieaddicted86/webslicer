@@ -4,21 +4,44 @@
    because the E2E suite targets the class names, and Vite 8 drops CSS-module imports whose class
    map is unused, so `.module.css` would silently lose whole components in the production build. */
 
+/* The token set of the 3.0 look: the names and the values are the approved mockup's
+   (`docs/design/mockup-layout.html`). The legacy names at the bottom map onto it, so a component
+   that has not been through the visual pass still reads the same palette instead of a second one. */
 :root {
-  --bg: #1b1e24;
-  --bg2: #22262e;
-  --bg3: #2b303a;
-  --bg4: #343a46;
-  --border: #3b4150;
-  --text: #e6e8ec;
-  --muted: #9aa3b2;
+  --rail: #15181c;
+  --bar: #1a1d22;
+  --card: #1f2329;
+  --card-2: #262b32;
+  --line: #2e343d;
+  --field: #2a3039;
+  --field-h: #323945;
+  --text: #e8eaee;
+  --muted: #8e97a6;
+  --faint: #5d6674;
   --accent: #ed6b21;
-  --accent2: #ff8a44;
+  --accent-h: #ff8a44;
+  --accent-d: #c9570f;
   --blue: #4a90e2;
   --green: #3fb950;
   --red: #e5534b;
   --yellow: #e3b341;
-  --sidebar-w: 340px;
+  --sel: #2f4160;
+  /* the ink on an accent fill: the mockup's white on every filled control */
+  --on-accent: #fff;
+  --r: 10px;
+  --h: 32px;
+  /* the shell: the page behind the frame, the hairline the bar and the rail share, the card shadow */
+  --bg: #0d0f12;
+  --edge: #0f1215;
+  --shadow: 0 8px 28px rgba(0, 0, 0, 0.38);
+
+  /* legacy names, mapped onto the set above (the components of the visual pass use the new ones) */
+  --bg2: var(--bar);
+  --bg3: var(--card-2);
+  --bg4: var(--field-h);
+  --border: var(--line);
+  --accent2: var(--accent-h);
+
   font-family:
     system-ui,
     -apple-system,
@@ -50,15 +73,16 @@ textarea {
 }
 
 button {
-  background: var(--bg4);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 4px 10px;
+  height: var(--h);
+  padding: 0 12px;
+  background: var(--field);
+  border: 1px solid var(--line);
+  border-radius: 8px;
   cursor: pointer;
 }
 
 button:hover:not(:disabled) {
-  background: #3f4655;
+  background: var(--field-h);
 }
 
 button:disabled {
@@ -70,22 +94,23 @@ button.primary,
 a.button.primary {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   font-weight: 600;
 }
 
 button.primary:hover:not(:disabled) {
-  background: var(--accent2);
+  background: var(--accent-h);
 }
 
 button.secondary {
-  background: var(--bg3);
+  background: var(--card-2);
 }
 
 button.big {
-  padding: 10px;
-  font-size: 15px;
+  height: 42px;
   width: 100%;
+  font-size: 14px;
+  font-weight: 700;
 }
 
 button.icon {
@@ -95,24 +120,24 @@ button.icon {
 }
 
 button.icon:hover {
-  background: var(--bg4);
+  background: var(--field-h);
 }
 
 button.icon.accent {
-  color: var(--accent2);
+  color: var(--accent-h);
 }
 
 button.active {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
 }
 
 a.button {
   display: inline-block;
   text-decoration: none;
-  border-radius: 4px;
-  padding: 6px 10px;
+  border-radius: 8px;
+  padding: 6px 12px;
   text-align: center;
 }
 
@@ -122,9 +147,9 @@ input[type='search'],
 input:not([type]),
 select,
 textarea {
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 4px;
+  background: var(--field);
+  border: 1px solid var(--line);
+  border-radius: 6px;
   padding: 4px 6px;
   min-width: 0;
 }
@@ -171,16 +196,16 @@ label.checkbox {
 }
 
 .warn {
-  background: #4a3a14;
-  border: 1px solid #7a5d1a;
-  color: #f0d080;
+  background: color-mix(in srgb, var(--yellow) 16%, var(--card));
+  border: 1px solid color-mix(in srgb, var(--yellow) 36%, var(--line));
+  color: color-mix(in srgb, var(--yellow) 70%, var(--text));
   padding: 6px 8px;
-  border-radius: 4px;
+  border-radius: 6px;
   margin-bottom: 8px;
 }
 
 .badge {
-  background: var(--bg4);
+  background: var(--field-h);
   border-radius: 10px;
   padding: 0 6px;
   font-size: 11px;
@@ -188,18 +213,18 @@ label.checkbox {
 }
 
 kbd {
-  background: var(--bg4);
+  background: var(--field-h);
   border-radius: 3px;
   padding: 0 4px;
   font-family: inherit;
 }
 
 .warnings {
-  background: #4a3a14;
-  border: 1px solid #7a5d1a;
-  color: #f0d080;
+  background: color-mix(in srgb, var(--yellow) 16%, var(--card));
+  border: 1px solid color-mix(in srgb, var(--yellow) 36%, var(--line));
+  color: color-mix(in srgb, var(--yellow) 70%, var(--text));
   padding: 6px 8px;
-  border-radius: 4px;
+  border-radius: 6px;
   margin-bottom: 8px;
 }
 
@@ -217,16 +242,16 @@ kbd {
 }
 
 .preflight {
-  background: var(--bg3);
-  border: 1px solid var(--bg4);
+  background: var(--card-2);
+  border: 1px solid var(--line);
   padding: 6px 8px;
-  border-radius: 4px;
+  border-radius: 6px;
   margin-bottom: 8px;
 }
 
 .preflight.blocking {
-  background: #4a1a1a;
-  border-color: #7a2a2a;
+  background: color-mix(in srgb, var(--red) 16%, var(--card));
+  border-color: color-mix(in srgb, var(--red) 36%, var(--line));
 }
 
 .preflight summary {
@@ -262,9 +287,10 @@ kbd {
 }
 
 button.link {
+  height: auto;
   background: transparent;
   border: none;
-  color: var(--accent2);
+  color: var(--accent-h);
   padding: 0;
   text-align: left;
   font-size: 12px;
