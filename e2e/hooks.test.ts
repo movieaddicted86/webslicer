@@ -152,6 +152,12 @@ const HOOKS = [
   'rail-about',
   'menu',
   'hide-panels',
+  'left-column',
+  'left-column-toggle',
+  'left-objects-toggle',
+  'left-sliced-toggle',
+  'left-legend-toggle',
+  'objects-drawer-toggle',
   'sidebar',
   'presets',
   'preset-select',
@@ -195,8 +201,9 @@ const escape = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 test('every structural hook is a data-testid on a component', () => {
   const sources = [...components().values()];
   const missing = HOOKS.filter((hook) => {
-    // a fixed hook (`data-testid="modal"`) and a template hook (`preset-select-${type}`) both count
-    const pattern = new RegExp(`data-testid=\\{?["'\`]${escape(hook)}`);
+    // a fixed hook (`data-testid="modal"`) and a template hook (`preset-select-${type}`) both count,
+    // and so does a card that forwards its hook through a `testId` prop
+    const pattern = new RegExp(`(?:data-testid|testId|toggleTestId)=\\{?["'\`]${escape(hook)}`);
     return !sources.some((src) => pattern.test(src));
   });
   assert.deepEqual(missing, [], 'hook missing on the components, or renamed – update the spec and this list');

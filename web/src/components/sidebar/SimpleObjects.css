@@ -1,4 +1,5 @@
-/* SimpleObjects: the styles of this component. */
+/* SimpleObjects: the styles of this component. The toolbar row is shared with the object section and
+   lives in `ObjectToolbar.css`: both modes render the same markup. */
 
 .objects.simple .restore {
   display: flex;

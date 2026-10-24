@@ -1,0 +1,42 @@
+/* SideCard: the collapsible cards of the left column (SideCard.tsx). Tokens only. */
+
+.side-card {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.side-card .section-head {
+  margin-bottom: 6px;
+}
+
+/* the last card keeps its border: the column is a stack of cards, the edge closes it */
+
+.side-card.folded {
+  padding-bottom: 8px;
+}
+
+.side-card .card-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  min-height: 26px;
+  padding: 2px;
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
+}
+
+.side-card .card-chevron:hover {
+  background: var(--bg4);
+  color: var(--text);
+}
+
+/* the chevron points down while the card is open and to the side while it is folded */
+.side-card.folded .card-chevron svg {
+  transform: rotate(-90deg);
+}
+
+.side-card-body {
+  min-width: 0;
+}

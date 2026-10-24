@@ -2,15 +2,15 @@
  *
  *   rail | left | scene | right
  *
- * The top bar spans all four columns. `left` has no content yet (the object list is L-2) and stays at
- * zero width; it is a named track already so the later step only gives it content and a width. */
+ * The top bar spans all four columns. `left` is as wide as the object list column says (`--left-track`,
+ * set by the component from the persisted width / the folded strip / 0 on a phone). */
 
 .app-shell {
   display: grid;
   grid-template-areas:
     'top top top top'
     'rail left scene right';
-  grid-template-columns: 64px 0 minmax(0, 1fr) var(--sidebar-w);
+  grid-template-columns: 64px var(--left-track, 0) minmax(0, 1fr) var(--sidebar-w);
   grid-template-rows: auto minmax(0, 1fr);
   height: 100%;
   background: var(--bg);
@@ -28,7 +28,7 @@
   min-height: 0;
 }
 
-/* the settings views are a page: the whole area right of the rail, no sidebar */
+/* the settings views are a page: the whole area right of the rail, no side columns */
 .app-shell.settings-mode {
   grid-template-areas:
     'top top'
@@ -46,19 +46,25 @@
   min-height: 0;
 }
 
-/* Hide panels: the sidebar leaves the grid, so the scene takes its width. The sidebar stays mounted
-   (its state and scroll position survive) and the canvas resizes through the viewer's ResizeObserver. */
+.app-shell > .left-column {
+  grid-area: left;
+  min-height: 0;
+}
+
+/* Hide panels: the side columns leave the grid, so the scene takes their width. Both stay mounted
+   (their state and scroll position survive) and the canvas resizes through the viewer's ResizeObserver. */
 .app-shell.panels-hidden {
   grid-template-columns: 64px 0 minmax(0, 1fr) 0;
 }
 
-.app-shell.panels-hidden > .sidebar {
+.app-shell.panels-hidden > .sidebar,
+.app-shell.panels-hidden > .left-column {
   display: none;
 }
 
 @media (max-width: 1100px) {
   .app-shell {
-    grid-template-columns: 52px 0 minmax(0, 1fr) var(--sidebar-w);
+    grid-template-columns: 52px var(--left-track, 0) minmax(0, 1fr) var(--sidebar-w);
   }
 
   .app-shell.settings-mode {
@@ -70,7 +76,8 @@
   }
 }
 
-/* phone: the rail is a bottom tab bar, so the frame stacks the bar, the scene, the panel and the bar */
+/* phone: the rail is a bottom tab bar, so the frame stacks the bar, the scene, the panel and the bar;
+   the object list is a drawer over the scene (its own stylesheet) and takes no track */
 @media (max-width: 640px) {
   .app-shell {
     grid-template-areas:

@@ -73,10 +73,12 @@ every outbound request – off. Details: [docs/installation.md#update-notice](do
 
 ## A quick tour
 
-The plater with the rail on the left, the slim top bar and the object list with the quick settings on
-the right. Move, rotate and scale have their own bar entries; painting, cut and layer height open a
-panel next to the bar. The **Menu** in the top bar holds import, save, export, the visibility mode and
-the dialogs; **hide panels** gives the 3D view the full width.
+The plater with the rail on the far left, the slim top bar, the object list column next to the scene
+and the presets, quick settings and Slice panel on the right. The object list card folds on its own and
+the whole column folds to a narrow strip; its width is draggable. Move, rotate and scale have their own
+bar entries; painting, cut and layer height open a panel next to the bar. The **Menu** in the top bar
+holds import, save, export, the visibility mode and the dialogs; **hide panels** gives the 3D view the
+full width.
 
 ![The plater](docs/images/plater.png)
 
@@ -91,7 +93,7 @@ options are shown.
 ![Print settings](docs/images/settings.png)
 
 The G-code preview with toolpaths by feature, the layer slider, layer codes and the legend with print
-time and filament per feature.
+time and filament per feature; the **Sliced info** and **Legend** cards sit in the left column.
 
 ![G-code preview](docs/images/preview.png)
 

@@ -15,6 +15,12 @@ PrusaSlicer feature exists here and which does not is in
   side panels** switch that gives the 3D view the full width (remembered per browser), the project name
   and the view tabs _Plater / Preview / Print / Filament / Printer_. Every action of the wide top bar
   is still there, one click away.
+- **Object list column** next to the scene: the **Object list** card holds the rows and their actions,
+  and in the Preview the same column shows the **Sliced info** and the **Legend**. Each card folds on
+  its own and the whole column folds to a narrow strip that keeps the object count; a chevron in its
+  top corner toggles that, and the width (300 px by default, 220–420 px) can be dragged on its right
+  edge. Both are remembered per browser. Below 1100 px the column starts folded; on a phone it is a
+  drawer that the top bar opens.
 
 ## Plater
 
@@ -78,7 +84,10 @@ PrusaSlicer feature exists here and which does not is in
   parallel jobs.
 - **G-code preview**: toolpaths coloured by feature type (PrusaSlicer colours) or as colour print, layer
   slider (top/bottom), travel moves, legend with lengths, print time / filament usage / cost, and the
-  colour schemes (height, width, speed, fan speed, temperature, volumetric flow, layer time).
+  colour schemes (height, width, speed, fan speed, temperature, volumetric flow, layer time). The
+  **Sliced info** card (file, time, filament, cost, layers, size, export and send actions) and the
+  **Legend** card sit in the left column, next to the scene; the right sidebar keeps the layer controls,
+  the view options and the preflight.
 - **Colour change, pause and custom G-code at a layer**: add them at the top slider position like the
   "+" on PrusaSlicer's vertical slider (M600 / pause with message / any G-code), markers on the slider,
   automatic re-slice, stored in the 3MF project.
