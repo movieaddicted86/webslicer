@@ -1,10 +1,10 @@
 /**
- * The sidebar in the plater view – ported from `.claude/t18-browser.mjs` (S1–S9, S13).
+ * The side panel in the plater view – ported from `.claude/t18-browser.mjs` (S1–S9, S13).
  *
  * Everything is driven through the DOM (fields, clicks, selects) and read back from the store, so a
- * broken control is caught: the transform fields, the instance list, the object row and its add-volume
- * menu, the volume panel, height ranges, the paint panel, the quick settings, Simple/Advanced mode and
- * the extruder palette. The DOM outlines t18 captured are kept as a failure `diagnostic`.
+ * broken control is caught: the transform fields, the instance list, the add-volume menu, the volume
+ * card, the layer ranges, the paint panel, the quick settings, Simple/Advanced mode and the extruder
+ * palette. The controls live in the context panel; the list itself is the left column. The DOM outlines t18 captured are kept as a failure `diagnostic`.
  */
 import { BRIDGE, CUBE, importFile, press, read, settle, state, waitUploads } from '../helpers/app';
 import { expect, test } from '../helpers/fixtures';
@@ -27,7 +27,7 @@ const instance = (app: Parameters<typeof settle>[0]) =>
  */
 test.describe.configure({ mode: 'parallel' });
 
-test.describe('sidebar: the plater view with one object', () => {
+test.describe('context panel: the plater view with one object', () => {
   test.beforeEach(async ({ app }) => {
     await importFile(app, CUBE);
     await app.evaluate(() => {
@@ -37,7 +37,7 @@ test.describe('sidebar: the plater view with one object', () => {
     await settle(app, 700);
   });
 
-  test('the sidebar shows one object row, one manipulation panel and the slice panel', async ({ app }) => {
+  test('the context panel shows the transform of the selection, the object row and the slice footer', async ({ app }) => {
     expect(await app.locator('[data-testid="object-row"]').count()).toBe(1);
     expect(await app.locator('.manip').count()).toBe(1);
     expect(await app.locator('[data-testid="slice-panel"]').count()).toBe(1);
@@ -150,7 +150,7 @@ test.describe('sidebar: the plater view with one object', () => {
   });
 });
 
-test.describe('sidebar: volumes and height ranges (UAT-10, UAT-11)', () => {
+test.describe('context panel: volumes and height ranges (UAT-10, UAT-11)', () => {
   test.beforeEach(async ({ app }) => {
     await importFile(app, CUBE);
     await app.evaluate(() => {
@@ -211,7 +211,7 @@ test.describe('sidebar: volumes and height ranges (UAT-10, UAT-11)', () => {
 
   test('"+ Range" adds a range row whose three fields edit minZ, maxZ and the layer height', async ({ app }) => {
     await click(app, '[data-testid="object-row"]', 400);
-    await click(app, '.range-panel .section-head button', 800);
+    await click(app, '[data-testid="range-add"]', 800);
     const range = await read(app, (s) => {
       const r = s.objects[0].ranges[0];
       return r ? { count: s.objects[0].ranges.length, minZ: r.minZ, maxZ: r.maxZ, layerHeight: r.config.layer_height ?? null } : null;
@@ -230,7 +230,7 @@ test.describe('sidebar: volumes and height ranges (UAT-10, UAT-11)', () => {
   });
 });
 
-test.describe('sidebar: the paint panel (UAT-09)', () => {
+test.describe('context panel: the paint panel (UAT-09)', () => {
   test('the tool bar opens the paint panel, the tool radios and brush slider drive the state, close leaves it', async ({ app }) => {
     await importFile(app, CUBE);
     await app.evaluate(() => {
@@ -239,7 +239,7 @@ test.describe('sidebar: the paint panel (UAT-09)', () => {
     });
     await settle(app, 700);
 
-    // T-046: painting left the sidebar – the left tool bar of the 3D view opens its panel
+    // T-046: painting left the sidebar – the tool bar of the 3D view opens its panel
     await click(app, '[data-testid="tool-paintSupports"]', 800);
     expect(await read(app, (s) => s.activeTool)).toBe('paintSupports');
     await expect(app.locator('[data-testid="tool-panel"]')).toBeVisible();
@@ -303,7 +303,7 @@ test.describe('sidebar: the paint panel (UAT-09)', () => {
   });
 });
 
-test.describe('sidebar: quick settings and the mode switch', () => {
+test.describe('context panel: quick settings and the mode switch', () => {
   test('the quick settings write the print preset and can be switched back', async ({ app }) => {
     await importFile(app, CUBE);
     await app.locator('[data-testid="quick-settings"] select').first().selectOption('enforcers');
@@ -496,7 +496,7 @@ test.describe('sidebar: quick settings and the mode switch', () => {
   });
 });
 
-test.describe('sidebar: the extruder palette (F-21)', () => {
+test.describe('context panel: the extruder palette (F-21)', () => {
   test('a six-nozzle printer offers the extruder paint tool with the palette colours', async ({ app }) => {
     await importFile(app, CUBE);
     await app.evaluate(() => window.webslicer.getState().select([window.webslicer.getState().objects[0].id]));
@@ -531,21 +531,21 @@ test.describe('sidebar: the extruder palette (F-21)', () => {
   });
 });
 
-test.describe('sidebar: the DOM outline stays a diagnostic', () => {
-  test('a failed sidebar assertion can print the outline it compared', async ({ app }) => {
+test.describe('context panel: the DOM outline stays a diagnostic', () => {
+  test('a failed panel assertion can print the outline it compared', async ({ app }) => {
     await importFile(app, CUBE);
-    const lines = await outline(app, '[data-testid="sidebar"]');
+    const lines = await outline(app, '[data-testid="context-panel"]');
     expect(lines.length).toBeGreaterThan(10);
     expect(lines.some((l) => l.includes('.slice-panel'))).toBe(true);
     // the outline normalises dates, so a saved session cannot change it between two runs
     expect(lines.every((l) => !/\d{4}-\d{2}-\d{2}T[\d:.]+Z/.test(l))).toBe(true);
-    // the plater reader and the outline describe the same sidebar
+    // the plater reader and the outline describe the same panel
     expect((await plater(app)).objects).toHaveLength(1);
     await press(app, 'Escape');
   });
 });
 
-test.describe('sidebar: the plate checks before slicing (T-034)', () => {
+test.describe('context panel: the plate checks before slicing (T-034)', () => {
   test.beforeEach(async ({ app }) => {
     await importFile(app, CUBE);
     // a 20 mm cube: start from the preset's own skirt/brim settings
