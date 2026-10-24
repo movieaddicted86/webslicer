@@ -1,0 +1,110 @@
+/* AppShell: the frame of the 3.0 layout (AppShell.tsx). One grid for the whole app, tokens only.
+ *
+ *   rail | left | scene | right
+ *
+ * The top bar spans all four columns. `left` has no content yet (the object list is L-2) and stays at
+ * zero width; it is a named track already so the later step only gives it content and a width. */
+
+.app-shell {
+  display: grid;
+  grid-template-areas:
+    'top top top top'
+    'rail left scene right';
+  grid-template-columns: 64px 0 minmax(0, 1fr) var(--sidebar-w);
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100%;
+  background: var(--bg);
+}
+
+.app-shell > .topbar {
+  grid-area: top;
+}
+
+/* the scene track is the DropZone holding the viewer; the viewer positions itself inside it */
+.app-shell > .dropzone {
+  grid-area: scene;
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* the settings views are a page: the whole area right of the rail, no sidebar */
+.app-shell.settings-mode {
+  grid-template-areas:
+    'top top'
+    'rail settings';
+  grid-template-columns: 64px minmax(0, 1fr);
+}
+
+.app-shell > .settings {
+  grid-area: settings;
+  min-width: 0;
+}
+
+.app-shell > .sidebar {
+  grid-area: right;
+  min-height: 0;
+}
+
+/* Hide panels: the sidebar leaves the grid, so the scene takes its width. The sidebar stays mounted
+   (its state and scroll position survive) and the canvas resizes through the viewer's ResizeObserver. */
+.app-shell.panels-hidden {
+  grid-template-columns: 64px 0 minmax(0, 1fr) 0;
+}
+
+.app-shell.panels-hidden > .sidebar {
+  display: none;
+}
+
+@media (max-width: 1100px) {
+  .app-shell {
+    grid-template-columns: 52px 0 minmax(0, 1fr) var(--sidebar-w);
+  }
+
+  .app-shell.settings-mode {
+    grid-template-columns: 52px minmax(0, 1fr);
+  }
+
+  .app-shell.panels-hidden {
+    grid-template-columns: 52px 0 minmax(0, 1fr) 0;
+  }
+}
+
+/* phone: the rail is a bottom tab bar, so the frame stacks the bar, the scene, the panel and the bar */
+@media (max-width: 640px) {
+  .app-shell {
+    grid-template-areas:
+      'top'
+      'scene'
+      'right'
+      'rail';
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto auto;
+  }
+
+  .app-shell > .rail {
+    grid-area: rail;
+  }
+
+  .app-shell > .sidebar {
+    grid-area: right;
+    width: 100%;
+    max-height: 40vh;
+    border-left: none;
+    border-top: 1px solid var(--border);
+  }
+
+  .app-shell.settings-mode {
+    grid-template-areas:
+      'top'
+      'settings'
+      'rail';
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+  }
+
+  /* a phone hides the panels by sliding the sidebar away instead of freeing a column */
+  .app-shell.panels-hidden {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

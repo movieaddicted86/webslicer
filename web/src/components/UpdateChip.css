@@ -37,3 +37,53 @@
 .update-chip-dismiss:hover {
   color: var(--text);
 }
+
+/* The rail's form (layout 3.0): a small round button with an arrow. The sentence stays in the DOM but
+   out of sight – screen readers and the specs read it, the 64 px column does not have to show it. */
+.update-chip.compact {
+  position: relative;
+  gap: 0;
+  max-width: none;
+  padding: 0;
+  border: 0;
+  background: none;
+  line-height: 1;
+}
+
+.update-chip.compact a {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+  overflow: visible;
+}
+
+.update-chip.compact a::before {
+  content: '↑';
+}
+
+.update-chip.compact a:hover {
+  background: var(--accent2);
+  text-decoration: none;
+}
+
+.update-chip.compact .update-chip-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.update-chip.compact .update-chip-dismiss {
+  padding: 0 2px;
+  font-size: 9px;
+  line-height: 12px;
+}

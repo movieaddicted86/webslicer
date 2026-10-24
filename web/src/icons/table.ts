@@ -2,7 +2,7 @@ import {
   Combine,
   Copy,
   FolderPlus,
-  LibraryBig,
+  Menu,
   Minus,
   PencilLine,
   RefreshCw,
@@ -60,16 +60,20 @@ export const ICON_TABLE = {
   // top bar
   import: { source: 'prusa', file: 'add_object' },
   importPresets: { source: 'prusa', file: 'import_config' },
-  library: { source: 'lucide', icon: LibraryBig },
+  library: { source: 'prusa', file: 'lb_projects' },
   export: { source: 'prusa', file: 'export_gcode' },
   exportConfig: { source: 'prusa', file: 'export_config' },
   exportBundle: { source: 'prusa', file: 'export_config_bundle' },
   exportToLocal: { source: 'prusa', file: 'save_print_to_local' },
   sendToHost: { source: 'prusa', file: 'connect_gcode' },
-  printers: { source: 'prusa', file: 'printer_physical' },
+  printers: { source: 'prusa', file: 'lb_printers' },
   save: { source: 'prusa', file: 'tb_save' },
   open: { source: 'prusa', file: 'tb_load' },
   settings: { source: 'prusa', file: 'cog' },
+  /** the slimming of the top bar: the rail's first item, Slicing, and its mark in the brand */
+  slicing: { source: 'prusa', file: 'lb_slicing' },
+  about: { source: 'prusa', file: 'info' },
+  hidePanels: { source: 'prusa', file: 'tb_show_ui' },
 
   // dialogs and chrome
   remove: { source: 'lucide', icon: X },
@@ -79,6 +83,8 @@ export const ICON_TABLE = {
   folderPlus: { source: 'lucide', icon: FolderPlus },
   upload: { source: 'lucide', icon: Upload },
   toolLabels: { source: 'lucide', icon: Tags },
+  // Prusa has no hamburger in its icon set; its "Menu" label is text there, ours needs a glyph
+  menu: { source: 'lucide', icon: Menu },
 } as const satisfies Record<string, IconSource>;
 
 /** The function names the app may render – the keys of the one table. */

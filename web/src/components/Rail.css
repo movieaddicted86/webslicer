@@ -1,0 +1,130 @@
+/* Rail: the far-left column of the 3.0 layout (Rail.tsx). Tokens only, so the theme pass stays a
+   find-and-replace. */
+
+.rail {
+  grid-area: rail;
+  width: 64px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 4px;
+  background: var(--bg2);
+  border-right: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.rail-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rail-bottom {
+  align-items: center;
+  gap: 8px;
+}
+
+/* About carries the update notice (T-058): the chip sits directly above the item it belongs to */
+.rail-about {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+
+.rail-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 7px 2px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--muted);
+  line-height: 1.1;
+  min-width: 0;
+  width: 100%;
+}
+
+.rail-item:hover:not(:disabled) {
+  background: var(--bg3);
+  color: var(--text);
+}
+
+/* the current place: the accent, and a bar on the edge that points at the scene */
+.rail-item.active {
+  background: var(--bg3);
+  color: var(--accent2);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.rail-label {
+  font-size: 9px;
+  text-align: center;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* icons only below the wide layout; the `title` keeps the names reachable */
+@media (max-width: 1100px) {
+  .rail {
+    width: 52px;
+  }
+
+  .rail-label {
+    display: none;
+  }
+}
+
+/* phone: the rail becomes a bottom tab bar – same items, plain styling (the mobile track re-skins it) */
+@media (max-width: 640px) {
+  .rail {
+    flex-direction: row;
+    align-items: center;
+    width: 100%;
+    padding: 4px 6px;
+    border-right: none;
+    border-top: 1px solid var(--border);
+  }
+
+  .rail-group {
+    flex-direction: row;
+    gap: 2px;
+  }
+
+  .rail-group:first-child {
+    flex: 1;
+    justify-content: space-around;
+  }
+
+  .rail-bottom {
+    flex-direction: row;
+    gap: 2px;
+  }
+
+  .rail-about {
+    flex-direction: row;
+    gap: 2px;
+  }
+
+  .rail-item {
+    flex: 1;
+    padding: 4px 2px;
+  }
+
+  /* the bottom bar has the width for the names again */
+  .rail-label {
+    display: block;
+    font-size: 9px;
+  }
+
+  .rail-item.active {
+    box-shadow: inset 0 -2px 0 var(--accent);
+  }
+}

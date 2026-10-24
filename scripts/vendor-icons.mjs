@@ -77,6 +77,34 @@ const ICONS = [
   { group: 'Tool strip', name: 'Emboss text', file: 'text', key: 'T', status: 'roadmap', today: 'TODO P3 (text/SVG embossing)' },
   { group: 'Tool strip', name: 'Paint-on fuzzy skin', file: 'paint_fuzzy_skin', key: 'H', status: 'no', today: 'not planned' },
 
+  // Rail (the far-left column of the 3.0 layout, L-1)
+  { group: 'Rail', name: 'Slicing', file: 'lb_slicing', key: null, status: 'have', today: 'the Plater/Preview view tabs' },
+  {
+    group: 'Rail',
+    name: 'Library',
+    file: 'lb_projects',
+    key: null,
+    status: 'have',
+    today: 'top bar Library button',
+  },
+  {
+    group: 'Rail',
+    name: 'Printers',
+    file: 'lb_printers',
+    key: null,
+    status: 'have',
+    today: 'top bar Printers button',
+  },
+  {
+    group: 'Rail',
+    name: 'Preferences (gear)',
+    file: 'cog',
+    key: null,
+    status: 'have',
+    today: 'the Print/Filament/Printer settings views',
+  },
+  { group: 'Rail', name: 'About', file: 'info', key: null, status: 'have', today: 'top bar "?" button' },
+
   // Top bar
   { group: 'Top bar', name: 'Undo', file: 'tb_undo', key: 'Ctrl+Z', status: 'have', today: 'Undo2' },
   { group: 'Top bar', name: 'Redo', file: 'tb_redo', key: 'Ctrl+Y', status: 'have', today: 'Redo2' },
@@ -87,8 +115,8 @@ const ICONS = [
     name: 'Hide / show side panels',
     file: 'tb_show_ui',
     key: null,
-    status: 'roadmap',
-    today: 'layout draft (hide panels)',
+    status: 'have',
+    today: 'the top bar hide-panels toggle',
   },
   { group: 'Top bar', name: 'Search', file: 'search_gray', key: 'Ctrl+F', status: 'roadmap', today: 'global search, TODO P3' },
   { group: 'Top bar', name: 'New project tab', file: 'plus_new', key: null, status: 'roadmap', today: 'project tabs (D-10)' },
@@ -204,7 +232,7 @@ async function mapLimit(items, limit, fn) {
   return out;
 }
 
-/** Whether a colour is one of the light greys/whites Prusa's dark theme uses. */
+/** Whether a colour is one of the light greys/whites Prusa's dark theme uses for its neutral tone. */
 function isNearWhite(value) {
   const v = value.trim().toLowerCase();
   if (v === 'white') return true;
@@ -212,7 +240,10 @@ function isNearWhite(value) {
   if (!hex) return false;
   const full = hex[1].length === 3 ? hex[1].replace(/./g, (c) => c + c) : hex[1];
   const n = parseInt(full, 16);
-  return ((n >> 16) & 255) >= 240 && ((n >> 8) & 255) >= 240 && (n & 255) >= 240;
+  const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  // near-white (#F7F7F7, #FFF) and the neutral grey (#808080) the secondary strokes use: both are
+  // "the current text colour" in Prusa's themed UI, only their lightness differs there
+  return (r >= 240 && g >= 240 && b >= 240) || (r === g && g === b && r === 128);
 }
 
 /** The root `<svg …>` tag of a file, as the attribute text between `<svg` and `>`. */
@@ -258,8 +289,17 @@ export function normalize(source, file) {
   svg = svg.replace(/\bid="([^"]*)"/g, (_, id) => `id="${file}--${id}"`).replace(/url\(#([^)]*)\)/g, (_, id) => `url(#${file}--${id})`);
   svg = svg.replace(/\b(xlink:)?href="#([^"]*)"/g, (_, xlink, id) => `${xlink ?? ''}href="#${file}--${id}"`);
 
-  // near-white artwork follows the button's colour; coloured fills stay as Prusa drew them
+  // near-white / neutral-grey artwork follows the button's colour; coloured fills stay as Prusa drew them
   svg = svg.replace(/\b(fill|stroke)="([^"]*)"/g, (all, attr, value) => (isNearWhite(value) ? `${attr}="currentColor"` : all));
+  // the same colour in an inline `style` beats the presentation attribute, so it has to follow too
+  // (`fill:#ffffff;fill-opacity:1` on a group would otherwise paint over the `currentColor` above)
+  svg = svg.replace(/\bstyle="([^"]*)"/g, (all, style) => {
+    const rewritten = style.replace(/\b(fill|stroke):([^;]*)/g, (decl, attr, value) => {
+      // `fill-opacity` and friends are not colours: only the plain property is rewritten
+      return attr === 'fill' || attr === 'stroke' ? (isNearWhite(value) ? `${attr}:currentColor` : decl) : decl;
+    });
+    return rewritten === style ? all : `style="${rewritten}"`;
+  });
 
   // one line per icon: white space between tags and runs inside attributes carry no meaning here
   return (

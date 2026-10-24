@@ -1,0 +1,122 @@
+/* AppMenu: the styles of this component (layout 3.0, L-1). Tokens only. */
+
+.app-menu {
+  position: relative;
+  flex: none;
+}
+
+.app-menu-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: transparent;
+  border-color: transparent;
+  white-space: nowrap;
+}
+
+.app-menu-trigger:hover:not(:disabled) {
+  background: var(--bg4);
+}
+
+.app-menu-trigger.active {
+  background: var(--bg4);
+  border-color: var(--border);
+}
+
+.app-menu-panel,
+.app-menu-flyout {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 30;
+  min-width: 250px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 4px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 6px 24px #0008;
+}
+
+.app-menu-panel button,
+.app-menu-flyout button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.app-menu-panel button:hover:not(:disabled),
+.app-menu-flyout button:hover:not(:disabled) {
+  background: var(--bg4);
+}
+
+.app-menu-panel kbd {
+  margin-left: auto;
+}
+
+.app-menu-sep {
+  height: 1px;
+  margin: 4px 2px;
+  background: var(--border);
+}
+
+/* the submenu opens over the panel's right edge, as Prusa's menus do */
+.app-menu-sub {
+  position: relative;
+}
+
+.app-menu-caret {
+  margin-left: auto;
+  color: var(--muted);
+}
+
+.app-menu-flyout {
+  left: 100%;
+  top: -4px;
+  min-width: 230px;
+}
+
+.app-menu-check {
+  width: 12px;
+  color: var(--accent2);
+}
+
+.app-menu-flyout button.checked {
+  color: var(--text);
+}
+
+/* on a narrow window the trigger loses its word and keeps the glyph; the title names it */
+@media (max-width: 640px) {
+  .app-menu-name {
+    display: none;
+  }
+
+  /* the panel must stay inside 360 px: it opens at the left edge of the bar and wraps nothing */
+  .app-menu-panel {
+    min-width: 0;
+    width: min(250px, calc(100vw - 20px));
+  }
+
+  .app-menu-panel button {
+    white-space: normal;
+  }
+
+  /* no room for a flyout beside the panel on a phone: the submenu opens in place */
+  .app-menu-flyout {
+    position: static;
+    margin-left: 12px;
+    border: none;
+    box-shadow: none;
+    background: transparent;
+  }
+}

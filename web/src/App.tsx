@@ -1,19 +1,14 @@
 import { useEffect, useRef } from 'react';
 import { useStore } from './state/store';
 import { startSession } from './state/session';
-import { TopBar } from './components/TopBar';
-import { Sidebar } from './components/Sidebar';
-import { SettingsView } from './components/SettingsView';
-import { Viewer } from './three/Viewer';
+import { AppShell } from './components/AppShell';
 import { Toasts } from './components/Toasts';
 import { Dialogs } from './components/dialogs/Dialogs';
-import { DropZone } from './components/DropZone';
 
 export function App() {
   const init = useStore((s) => s.init);
   const ready = useStore((s) => s.ready);
   const fatal = useStore((s) => s.fatal);
-  const view = useStore((s) => s.view);
   const sessionStarted = useRef(false);
 
   useEffect(() => {
@@ -47,24 +42,11 @@ export function App() {
       </div>
     );
   }
-  const settings = view === 'print' || view === 'filament' || view === 'printer';
   return (
-    <div className="app" data-testid="app-shell">
-      <TopBar />
-      <div className="main">
-        {settings ? (
-          <SettingsView />
-        ) : (
-          <>
-            <DropZone>
-              <Viewer />
-            </DropZone>
-            <Sidebar />
-          </>
-        )}
-      </div>
+    <>
+      <AppShell />
       <Dialogs />
       <Toasts />
-    </div>
+    </>
   );
 }
