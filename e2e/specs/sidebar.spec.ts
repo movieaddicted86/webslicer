@@ -421,25 +421,28 @@ test.describe('sidebar: quick settings and the mode switch', () => {
 
     // AC-2: the narrowest column width wraps the toolbar instead of shrinking it
     const narrow = await app.evaluate(() => {
-      const column = document.querySelector('[data-testid="left-column"]') as HTMLElement;
       const shell = document.querySelector('[data-testid="app-shell"]') as HTMLElement;
+      const column = document.querySelector('[data-testid="left-column"]') as HTMLElement;
       shell.style.setProperty('--left-track', '320px');
       const tools = document.querySelector('[data-testid="object-toolbar"]') as HTMLElement;
       const buttons = Array.from(tools.querySelectorAll('button')).map((b) => Math.round(b.getBoundingClientRect().width));
       return {
-        overflow: tools.scrollWidth - tools.clientWidth,
+        columnWidth: Math.round(column.getBoundingClientRect().width),
         toolsOverflow: tools.scrollWidth - tools.clientWidth,
         widths: buttons,
         lines: new Set(Array.from(tools.querySelectorAll('button')).map((b) => Math.round(b.getBoundingClientRect().top))).size,
-        columnWidth: Math.round(column.getBoundingClientRect().width),
       };
     });
-    expect(narrow.overflow).toBeLessThanOrEqual(0);
+    expect(narrow.columnWidth).toBe(320);
     expect(narrow.toolsOverflow).toBeLessThanOrEqual(0);
     // the icons keep their size; the toolbar uses a second line
     expect(narrow.widths.every((w) => w >= 30)).toBe(true);
     expect(narrow.lines).toBeGreaterThan(1);
-    await app.evaluate(() => (document.querySelector('[data-testid="app-shell"]') as HTMLElement).style.removeProperty('--left-track'));
+    // back to the width the frame computes on its own (the same inline value React writes)
+    await app.evaluate(() => {
+      const shell = document.querySelector('[data-testid="app-shell"]') as HTMLElement;
+      shell.style.setProperty('--left-track', `${window.webslicer.getState().leftWidth}px`);
+    });
 
     // the same icons in Simple mode
     await app.evaluate(() => window.webslicer.getState().setMode('simple'));
