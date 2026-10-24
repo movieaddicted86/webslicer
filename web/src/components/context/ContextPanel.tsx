@@ -53,16 +53,18 @@ export function ContextPanel() {
   // tool mode: the tool's own frame fills the card (its head is the header, its foot the footer)
   if (mode === 'tool') {
     return (
-      <aside className="context-panel" data-testid="context-panel" aria-label="Context">
-        <div className="context-body context-tool" data-testid="context-tool">
-          <ToolMode />
-        </div>
-      </aside>
+      <div className="context-stack">
+        <aside className="context-panel" data-testid="context-panel" aria-label="Context">
+          <div className="context-body context-tool" data-testid="context-tool">
+            <ToolMode />
+          </div>
+        </aside>
+      </div>
     );
   }
 
   return (
-    <>
+    <div className="context-stack">
       <aside className="context-panel" data-testid="context-panel" aria-label="Context">
         <div className="context-header" data-testid="context-header">
           {mode === 'object' && object ? (
@@ -124,6 +126,6 @@ export function ContextPanel() {
           <SlicePanel />
         </footer>
       )}
-    </>
+    </div>
   );
 }

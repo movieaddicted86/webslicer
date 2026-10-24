@@ -1,19 +1,35 @@
 /* ContextPanel: the floating card on the right of the scene (ContextPanel.tsx). Tokens only.
  *
- *   aside   (top right, above the footer card): header + scrolling body
- *   footer  (bottom right, its own card): destination + the primary action
+ *   stack   (the right edge of the scene): a column of the two cards
+ *   aside   (top, grows): header + scrolling body
+ *   footer  (bottom, its own height): destination + the primary action
  *
- * The card is a layer over the scene, so the canvas is not laid out around it: folding or hiding the
- * panels never resizes the 3D view. `--panel-w` and `--foot-h` come from the frame (AppShell.css) and
- * keep the two cards stacked, the panel stopping above the footer.
+ * The cards are layers over the scene, so the canvas is not laid out around them: folding or hiding
+ * the panels never resizes the 3D view. They are one flex column, so the footer's own height decides
+ * where the panel ends – a guess in px would overlap them as soon as the footer grows (a slice
+ * result, a plate warning, the autosave line). `--panel-w` comes from the frame (AppShell.css).
  */
 
-.context-panel {
+.context-stack {
   position: absolute;
   right: var(--card-gap);
   top: var(--card-gap);
+  bottom: var(--card-gap);
   width: var(--panel-w);
-  bottom: calc(var(--card-gap) + var(--foot-h) + 8px);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 3;
+  /* only the cards themselves take the pointer: the gap between them stays scene */
+  pointer-events: none;
+}
+
+.context-stack > * {
+  pointer-events: auto;
+}
+
+.context-panel {
+  flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: column;
@@ -23,7 +39,6 @@
   box-shadow: var(--shadow);
   backdrop-filter: blur(6px);
   overflow: hidden;
-  z-index: 3;
 }
 
 .context-header {
@@ -75,10 +90,7 @@
 
 /* the footer card: always visible, separate from the card's scroll area */
 .context-footer {
-  position: absolute;
-  right: var(--card-gap);
-  bottom: var(--card-gap);
-  width: var(--panel-w);
+  flex: none;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -88,7 +100,6 @@
   border-radius: var(--r);
   box-shadow: var(--shadow);
   backdrop-filter: blur(6px);
-  z-index: 3;
 }
 
 /* the slice panel is the footer's own content; it keeps its inner spacing, not another margin */
@@ -105,20 +116,17 @@
   padding: 10px 12px;
 }
 
-/* phone: the panel is a sheet that covers the lower part of the scene, the footer keeps its row */
+/* phone: the stack is a sheet over the lower part of the scene; the footer keeps its row below it */
 @media (max-width: 640px) {
-  .context-panel {
+  .context-stack {
     top: auto;
     left: var(--card-gap);
     right: var(--card-gap);
-    bottom: calc(var(--card-gap) + var(--foot-h) + 8px);
     width: auto;
-    max-height: 46vh;
+    max-height: 72vh;
   }
 
-  .context-footer {
-    left: var(--card-gap);
-    right: var(--card-gap);
-    width: auto;
+  .context-panel {
+    max-height: 46vh;
   }
 }

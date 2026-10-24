@@ -174,8 +174,9 @@ The shell and the visual language are in place; the panel content and the previe
 
 - **The frame** is `rail | bar / rail | scene`: the rail runs the full height, the 48 px bar starts beside it, and the scene takes everything right of the rail below the bar. The
   object list and the context panel are no longer grid tracks; they are absolutely positioned cards over the scene, so folding a card or hiding the panels leaves the canvas at its
-  place and size. `--card-gap`, `--panel-w` (344 unset, 300 below 1280), `--list-w` (the `layout` slice's width, 276 by default, 148 folded, 0 hidden and on a phone) and `--foot-h`
-  are the frame's measurements; the cards, the strip's band and the scene overlays all read them.
+  place and size. `--card-gap`, `--panel-w` (344 unset, 300 below 1280) and `--list-w` (the `layout` slice's width, 276 by default, 148 folded, 0 hidden and on a phone) are the
+  frame's measurements; the cards, the strip's band and the scene overlays all read them. The panel and its footer are one flex column (`.context-stack`), so the footer's own
+  height sets where the panel ends – a fixed `--foot-h` guess would overlap them as soon as the footer grows (a slice result, a plate warning).
 - **Tokens** are the mockup's set in `styles.css` (`--rail --bar --card --card-2 --line --field --field-h --text --muted --faint --accent --accent-h --sel --r --h` plus
   `--bg --edge --shadow`); the older names are aliased onto them, so untouched components keep working while new ones use the mockup's names only. Control height 32 px, card radius
   10 px, 12 px card padding, 34 px icon buttons.
@@ -184,7 +185,8 @@ The shell and the visual language are in place; the panel content and the previe
 - **Rail**: 52 × 56 tiles with the icon above an 11 px name, the current place filled with the accent colour; the update chip moved from the rail to the top bar.
 - **Object list card**: the card's own header carries the title, the count and the fold chevron; the width grip still drags it (220–420 px). It starts folded below 1280 px and is a
   drawer below 900 px.
-- **Context panel**: the panel card and a separate footer card (Destination + Slice) below it, both at the scene's right edge.
+- **Context panel**: the panel card and a separate footer card (Destination + Slice) below it, both in one flex column at the scene's right edge; the footer's own height keeps
+  them from overlapping, whichever warnings or slice result it carries.
 - **Tool strip**: the pill is centred in the band the two cards leave free (the band is a measured
   layer between the cards, observed with a `ResizeObserver`), 34 px buttons, accent tool, 7 px
   dividers and the overflow menu; the switch is gone from it.

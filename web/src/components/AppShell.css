@@ -27,8 +27,6 @@
   --panel-w: 344px;
   /* the user's width of the object list card (the frame publishes it from the layout slice) */
   --list-w: var(--list-width, 276px);
-  /* the footer card's height; the panel stops above it */
-  --foot-h: 104px;
 }
 
 .app-shell > .rail {
@@ -71,8 +69,7 @@
    Both stay mounted (their scroll position and card state survive), and the scene's overlays use the
    freed corner again. */
 .app-shell.panels-hidden .left-column,
-.app-shell.panels-hidden .context-panel,
-.app-shell.panels-hidden .context-footer {
+.app-shell.panels-hidden .context-stack {
   display: none;
 }
 
