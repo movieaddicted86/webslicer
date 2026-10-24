@@ -1,40 +1,34 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { useStore } from '../state/store';
 import { importFiles } from '../importFiles';
-import { api, downloadBlob } from '../api';
-import type { Mode } from '../api';
 import { Icon } from '../icons/Icon';
+import { MENU_ENTRIES, EXPORT_ENTRIES, type NavEntry } from '../nav/navMap';
+import { runNavAction } from '../nav/actions';
+import { useMenuState } from './menu/useMenuState';
+import type { SubmenuId } from './menu/menuState';
 import './AppMenu.css';
 
-/** The three visibility modes, in the order the old select box listed them. */
-const MODES: Array<{ id: Mode; label: string }> = [
-  { id: 'simple', label: 'Simple' },
-  { id: 'advanced', label: 'Advanced' },
-  { id: 'expert', label: 'Expert' },
-];
+const EXPORT: SubmenuId = 'export';
 
 /**
- * The slim top bar's menu (layout 3.0, L-1): every action the old, wide top bar carried in one
- * dropdown – Import, Import presets, Open from library, Save project, the Export list, the visibility
- * mode and the dialogs. The rail keeps Library, Printers and About as well; the two entry points do
- * the same thing.
+ * The slim top bar's menu (layout 3.0): import models and presets, the Export submenu – and nothing
+ * that has a home elsewhere. The rail owns Library, Printers, Preferences and About, the preset rows
+ * own the settings views; a duplicate here would give a function two doors.
  *
- * Behaviour follows the app's other dropdowns: click to open, Esc closes (the submenu first, the menu
- * second) and returns the focus to the trigger, a click outside closes, and the items are ordinary
- * buttons in DOM order so Tab reaches them.
+ * Behaviour: one submenu at a time, opened by hover or click; it closes when the pointer leaves the
+ * item and the flyout (with a short grace, so the pointer can cross the gap), and another top-level
+ * item takes it at once. A click on a submenu keeps it open, a click on an action closes everything.
+ * Escape closes the submenu first, the menu second, and the focus goes back to the trigger.
  */
 export function AppMenu() {
-  const mode = useStore((s) => s.mode);
-  const setMode = useStore((s) => s.setMode);
   const objects = useStore((s) => s.objects);
   const job = useStore((s) => s.job);
-  const openDialog = useStore((s) => s.openDialog);
-  const [open, setOpen] = useState(false);
-  /** the open submenu; the menu closes it before itself on Esc */
-  const [sub, setSub] = useState<'export' | 'mode'>();
+  const menu = useMenuState();
+  const { state } = menu;
   const root = useRef<HTMLDivElement>(null);
-  const trigger = useRef<HTMLButtonElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const exportRef = useRef<HTMLButtonElement>(null);
+  const flyoutRef = useRef<HTMLDivElement>(null);
 
   // the import shortcut the old top bar owned: it belongs to the action, not to the button
   useEffect(() => {
@@ -48,17 +42,21 @@ export function AppMenu() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
+  // a click outside closes; the pointer leaving the whole menu starts the grace, which the flyout's
+  // own `mouseenter` can still cancel
   useEffect(() => {
-    if (!open) return;
+    if (!state.open) return;
     const onDown = (e: MouseEvent) => {
-      if (root.current && !root.current.contains(e.target as Node)) close();
+      if (root.current && !root.current.contains(e.target as Node)) menu.close();
     };
-    // capture phase: Esc closes the menu and must not also reach the plater (clear the selection)
+    // capture phase: Escape closes the menu and must not also reach the plater (clear the selection)
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
+      const hadSubmenu = !!menu.state.sub;
+      if (!menu.escape()) return;
       e.stopPropagation();
-      if (sub) setSub(undefined);
-      else close();
+      // leaving the flyout with Escape puts the focus back on its item, not on the page body
+      if (hadSubmenu) requestAnimationFrame(() => exportRef.current?.focus());
     };
     document.addEventListener('mousedown', onDown);
     document.addEventListener('keydown', onKey, true);
@@ -66,52 +64,77 @@ export function AppMenu() {
       document.removeEventListener('mousedown', onDown);
       document.removeEventListener('keydown', onKey, true);
     };
-  }, [open, sub]);
+  }, [state.open, menu]);
 
-  function close() {
-    setOpen(false);
-    setSub(undefined);
-    // the keyboard user does not lose their place: the focus goes back to the trigger
-    trigger.current?.focus();
-  }
-
-  /** Run an action and close the menu: an open dropdown over its own dialog would cover it. */
-  const run = (action: () => void) => () => {
-    setOpen(false);
-    setSub(undefined);
-    action();
+  /** Run an entry and close the menu: an open dropdown over its own dialog would cover it. */
+  const run = (entry: NavEntry) => async () => {
+    menu.close({ focus: false });
+    const wantsImport = await runNavAction(entry.action);
+    if (wantsImport) fileRef.current?.click();
   };
 
-  const exportProject = async () => {
-    const st = useStore.getState();
-    if (!st.objects.length) return st.toast('error', 'Nothing to export');
-    const req = st.buildSliceRequest();
-    if (!req.objects.length) return st.toast('error', 'Models are still uploading');
-    try {
-      const blob = await api.export3mf(req);
-      downloadBlob(blob, `${req.outputName || 'project'}.3mf`);
-    } catch (e) {
-      st.toast('error', (e as Error).message);
-    }
+  /** The export submenu's items and their enabled state: they act on the plate and the last job. */
+  const disabled = (entry: NavEntry) =>
+    entry.id === 'exportProject' || entry.id === 'saveProjectToLibrary'
+      ? !objects.length
+      : entry.id === 'exportGcode' || entry.id === 'saveGcodeToLibrary'
+        ? !job || job.status !== 'done'
+        : false;
+
+  const submenuItem = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    menu.clickItem(EXPORT);
   };
-  const exportConfig = async () => {
-    const st = useStore.getState();
-    try {
-      downloadBlob(await api.exportConfig(st.buildSliceRequest()), 'config.ini');
-    } catch (e) {
-      st.toast('error', (e as Error).message);
-    }
+
+  /** Move the focus to the first or last enabled item, after the panel has rendered. */
+  const focusEdge = (edge: 'first' | 'last') => {
+    requestAnimationFrame(() => {
+      const items = root.current?.querySelectorAll<HTMLElement>('[role="menuitem"]:not([disabled])');
+      if (items?.length) (edge === 'first' ? items[0] : items[items.length - 1]).focus();
+    });
   };
-  const exportPresetBundle = async () => {
-    try {
-      downloadBlob(await api.exportBundle(), 'WebSlicer config bundle.ini');
-    } catch (e) {
-      useStore.getState().toast('error', (e as Error).message);
-    }
+
+  /** ArrowDown/ArrowUp on the trigger open the panel (or move into it) – the keyboard's way in. */
+  const triggerKeys = (e: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+    e.preventDefault();
+    // `open` and not `toggle`: a click that has just opened the menu must not be undone by the
+    // first arrow key before React has re-rendered the trigger's closure
+    menu.open();
+    focusEdge(e.key === 'ArrowDown' ? 'first' : 'last');
+  };
+
+  /** ArrowRight enters the flyout: wait for it to render, then put the focus on its first action. */
+  const focusFlyout = () => {
+    requestAnimationFrame(() => {
+      const first = flyoutRef.current?.querySelector<HTMLButtonElement>('button:not([disabled])');
+      first?.focus();
+    });
+  };
+
+  /**
+   * ArrowUp/ArrowDown walk the panel's items in DOM order, Home/End jump – the same model as a native
+   * menu, and the focus stays where Tab or the arrows put it otherwise.
+   */
+  const panelKeys = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp' && e.key !== 'Home' && e.key !== 'End') return;
+    const items = Array.from(e.currentTarget.querySelectorAll<HTMLElement>('[role^="menuitem"]:not([disabled])'));
+    if (!items.length) return;
+    e.preventDefault();
+    const at = items.indexOf(document.activeElement as HTMLElement);
+    const next =
+      e.key === 'Home'
+        ? 0
+        : e.key === 'End'
+          ? items.length - 1
+          : e.key === 'ArrowDown'
+            ? (at + 1) % items.length
+            : (at - 1 + items.length) % items.length;
+    items[next].focus();
   };
 
   return (
-    <div className="app-menu" ref={root}>
+    <div className="app-menu" ref={root} onMouseLeave={() => (state.open ? menu.leavePanel() : undefined)} data-nav-id="menu">
       <input
         ref={fileRef}
         type="file"
@@ -124,134 +147,98 @@ export function AppMenu() {
         }}
       />
       <button
-        ref={trigger}
-        className={open ? 'app-menu-trigger active' : 'app-menu-trigger'}
+        ref={menu.trigger}
+        className={state.open ? 'app-menu-trigger active' : 'app-menu-trigger'}
         title="Menu"
         aria-haspopup="menu"
-        aria-expanded={open}
-        onClick={() => (open ? close() : setOpen(true))}
+        aria-expanded={state.open}
+        onClick={menu.toggle}
+        onKeyDown={triggerKeys}
         data-testid="menu"
       >
         <Icon name="menu" size={18} />
         <span className="app-menu-name">Menu</span>
       </button>
 
-      {open && (
-        <div className="app-menu-panel" role="menu" aria-label="Main menu" data-testid="menu-panel">
-          <button role="menuitem" onClick={run(() => fileRef.current?.click())} title="Import STL/OBJ/3MF/AMF/STEP (Ctrl+I)">
-            <Icon name="import" size={16} /> Import models…
-            <kbd>Ctrl+I</kbd>
-          </button>
-          <button
-            role="menuitem"
-            onClick={run(() => openDialog('importPresets'))}
-            title="Import user presets from a config bundle or a G-code file"
-          >
-            <Icon name="importPresets" size={16} /> Import presets…
-          </button>
-          <button
-            role="menuitem"
-            onClick={run(() => openDialog('library', 'open'))}
-            title="Open models, projects and G-code from the server library"
-          >
-            <Icon name="open" size={16} /> Open from library…
-          </button>
-          <button
-            role="menuitem"
-            onClick={run(() => openDialog('library', 'saveProject'))}
-            disabled={!objects.length}
-            title="Save the plater as a 3MF project in the library"
-          >
-            <Icon name="save" size={16} /> Save project to library…
-          </button>
+      {state.open && (
+        <div
+          className="app-menu-panel"
+          role="menu"
+          aria-label="Main menu"
+          data-testid="menu-panel"
+          onMouseEnter={menu.enterSubmenu}
+          onKeyDown={panelKeys}
+        >
+          {MENU_ENTRIES.map((entry) => (
+            <button
+              key={entry.id}
+              role="menuitem"
+              onClick={() => void run(entry)()}
+              onMouseEnter={() => menu.hoverItem()}
+              title={entry.id === 'importModels' ? 'Import STL/OBJ/3MF/AMF/STEP (Ctrl+I)' : undefined}
+              data-nav-id={entry.id}
+            >
+              <Icon name={entry.icon} size={16} /> {entry.label}
+              {entry.id === 'importModels' && <kbd>Ctrl+I</kbd>}
+            </button>
+          ))}
 
           <div className="app-menu-sep" role="separator" />
-          <div className="app-menu-sub" onMouseEnter={() => setSub('export')}>
+          <div className="app-menu-sub" onMouseEnter={() => menu.hoverItem(EXPORT)} onMouseLeave={() => menu.leaveSubmenu()}>
             <button
+              ref={exportRef}
               role="menuitem"
               aria-haspopup="menu"
-              aria-expanded={sub === 'export'}
-              onClick={() => setSub(sub === 'export' ? undefined : 'export')}
+              aria-expanded={state.sub === EXPORT}
+              onClick={submenuItem}
+              onKeyDown={(e) => {
+                if (e.key === 'ArrowRight') {
+                  e.preventDefault();
+                  menu.arrowRight(EXPORT);
+                  focusFlyout();
+                } else if (e.key === 'ArrowLeft') {
+                  e.preventDefault();
+                  menu.arrowLeft();
+                }
+              }}
               data-testid="menu-export"
+              data-nav-id="export"
             >
               <Icon name="export" size={16} /> Export
               <span className="app-menu-caret" aria-hidden="true">
                 ▸
               </span>
             </button>
-            {sub === 'export' && (
-              <div className="app-menu-flyout" role="menu" aria-label="Export">
-                <button role="menuitem" onClick={run(exportProject)} disabled={!objects.length}>
-                  Export project as 3MF
-                </button>
-                <button role="menuitem" onClick={run(exportConfig)}>
-                  Export current settings (.ini)
-                </button>
-                <button
-                  role="menuitem"
-                  onClick={run(exportPresetBundle)}
-                  title="All user presets and physical printers as a PrusaSlicer-compatible bundle (no credentials)"
-                >
-                  Export presets (.ini bundle)
-                </button>
-                <button
-                  role="menuitem"
-                  disabled={!job || job.status !== 'done'}
-                  onClick={run(() => job && (location.href = api.gcodeUrl(job.id, true)))}
-                >
-                  Export G-code
-                </button>
-                <button role="menuitem" onClick={run(() => openDialog('library', 'saveProject'))} disabled={!objects.length}>
-                  Save project to library…
-                </button>
-                <button role="menuitem" disabled={!job || job.status !== 'done'} onClick={run(() => openDialog('library', 'saveGcode'))}>
-                  Save G-code to library…
-                </button>
-              </div>
-            )}
-          </div>
-
-          <div className="app-menu-sub" onMouseEnter={() => setSub('mode')}>
-            <button
-              role="menuitem"
-              aria-haspopup="menu"
-              aria-expanded={sub === 'mode'}
-              onClick={() => setSub(sub === 'mode' ? undefined : 'mode')}
-              title="Settings visibility in the Print / Filament / Printer tabs"
-              data-testid="menu-mode"
-            >
-              <Icon name="settings" size={16} /> Mode: {MODES.find((m) => m.id === mode)?.label}
-              <span className="app-menu-caret" aria-hidden="true">
-                ▸
-              </span>
-            </button>
-            {sub === 'mode' && (
-              <div className="app-menu-flyout" role="menu" aria-label="Mode">
-                {MODES.map((m) => (
+            {state.sub === EXPORT && (
+              <div
+                ref={flyoutRef}
+                className="app-menu-flyout"
+                role="menu"
+                aria-label="Export"
+                onMouseEnter={menu.enterSubmenu}
+                onKeyDown={(e) => {
+                  // ArrowLeft leaves the flyout and hands the focus back to its item
+                  if (e.key !== 'ArrowLeft') return;
+                  e.preventDefault();
+                  e.stopPropagation();
+                  menu.arrowLeft();
+                  requestAnimationFrame(() => exportRef.current?.focus());
+                }}
+              >
+                {EXPORT_ENTRIES.map((entry) => (
                   <button
-                    key={m.id}
-                    role="menuitemradio"
-                    aria-checked={mode === m.id}
-                    className={mode === m.id ? 'checked' : undefined}
-                    onClick={run(() => setMode(m.id))}
+                    key={entry.id}
+                    role="menuitem"
+                    disabled={disabled(entry)}
+                    onClick={() => void run(entry)()}
+                    data-nav-id={entry.id}
                   >
-                    <span className="app-menu-check" aria-hidden="true">
-                      {mode === m.id ? '✓' : ''}
-                    </span>
-                    {m.label}
+                    {entry.label}
                   </button>
                 ))}
               </div>
             )}
           </div>
-
-          <div className="app-menu-sep" role="separator" />
-          <button role="menuitem" onClick={run(() => openDialog('physicalPrinters'))} title="Physical printers (print hosts)">
-            <Icon name="printers" size={16} /> Printers…
-          </button>
-          <button role="menuitem" onClick={run(() => openDialog('about'))}>
-            <Icon name="about" size={16} /> About
-          </button>
         </div>
       )}
     </div>

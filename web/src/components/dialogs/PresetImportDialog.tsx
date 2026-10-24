@@ -91,7 +91,7 @@ export function PresetImportDialog({ onClose }: { onClose: () => void }) {
           preview.rejected.length ? `${preview.rejected.length} setting${preview.rejected.length === 1 ? '' : 's'} not imported` : '',
           result.skipped.length ? `${result.skipped.length} skipped` : '',
           preview.invalid.length ? `${preview.invalid.length} section${preview.invalid.length === 1 ? '' : 's'} not usable` : '',
-          preview.physicalPrinters.length ? `${preview.physicalPrinters.length} physical printer(s) were in the bundle (not imported)` : '',
+          preview.physicalPrinters.length ? `${preview.physicalPrinters.length} print host(s) were in the bundle (not imported)` : '',
         ]
           .filter(Boolean)
           .join(' · '),
@@ -195,8 +195,8 @@ export function PresetImportDialog({ onClose }: { onClose: () => void }) {
             )}
             {preview.physicalPrinters.length > 0 && (
               <div className="muted small">
-                The bundle names {preview.physicalPrinters.length} physical printer(s). They are not imported: a print host’s address and
-                API key are not part of a preset.
+                The bundle names {preview.physicalPrinters.length} print host(s). They are not imported: a printer host’s address and API
+                key are not part of a preset.
               </div>
             )}
             <div className="modal-actions" data-testid="modal-actions">

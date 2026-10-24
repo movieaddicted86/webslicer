@@ -66,7 +66,7 @@ export function SlicedInfo() {
           data-testid="send-button"
           onClick={() => openDialog('sendToPrinter')}
           disabled={!physical.length}
-          title={physical.length ? '' : 'Add a physical printer first'}
+          title={physical.length ? '' : 'Add a print host first'}
         >
           ➤ Send to printer
         </button>

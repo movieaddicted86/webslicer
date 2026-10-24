@@ -31,39 +31,45 @@ test.describe('shell: the rail and the slim top bar', () => {
     await expect(rail).toBeVisible();
     await expect(rail).toHaveAttribute('aria-label', 'Main');
 
-    // Slicing is the current place on the plater and in the preview; the settings views move it
+    // Slicing is the current place on the plater and in the preview
     for (const [hook, view] of [
       ['rail-slicing', 'plater'],
-      ['rail-preferences', 'print'],
-      ['rail-preferences', 'filament'],
-      ['rail-preferences', 'printer'],
       ['rail-slicing', 'preview'],
     ] as const) {
       await app.evaluate((v) => window.webslicer.getState().setView(v), view);
       await app.waitForTimeout(300);
       await expect(byId(app, hook)).toHaveAttribute('aria-current', 'page');
     }
+
+    // the settings views are not a place of their own any more: no rail item is current there
+    for (const view of ['print', 'filament', 'printer'] as const) {
+      await app.evaluate((v) => window.webslicer.getState().setView(v), view);
+      await app.waitForTimeout(300);
+      expect(await app.locator('[data-testid="rail"] [aria-current="page"]').count()).toBe(0);
+    }
     await app.evaluate(() => window.webslicer.getState().setView('plater'));
     await app.waitForTimeout(300);
     await expect(byId(app, 'rail-preferences')).not.toHaveAttribute('aria-current', 'page');
   });
 
-  test('Library, Printers and About open their dialogs from the rail', async ({ app }) => {
-    for (const [hook, dialog] of [
-      ['rail-library', 'library'],
-      ['rail-printers', 'physicalPrinters'],
-      ['rail-about', 'about'],
+  test('Library, Printers, Preferences and About open their dialogs from the rail', async ({ app }) => {
+    for (const [hook, dialog, title] of [
+      ['rail-library', 'library', undefined],
+      ['rail-printers', 'printers', 'Printers'],
+      ['rail-preferences', 'preferences', 'Preferences'],
+      ['rail-about', 'about', undefined],
     ] as const) {
       await byId(app, hook).click();
       await app.waitForSelector('[data-testid="modal"]', { state: 'visible', timeout: 20_000 });
       expect(await dialogKind(app)).toBe(dialog);
+      if (title) await expect(app.locator('[data-testid="modal-title"]')).toHaveText(title);
       await app.keyboard.press('Escape');
       await app.waitForTimeout(500);
       expect(await dialogKind(app)).toBeUndefined();
     }
   });
 
-  test('the menu opens, lists the old top bar actions and closes on Escape with the focus back', async ({ app }) => {
+  test('the menu opens, lists import and Export, and closes on Escape with the focus back', async ({ app }) => {
     const menu = byId(app, 'menu');
     await expect(menu).toHaveAttribute('aria-expanded', 'false');
     await menu.click();
@@ -73,18 +79,16 @@ test.describe('shell: the rail and the slim top bar', () => {
       .locator('[data-testid="menu-panel"] [role="menuitem"]')
       .allInnerTexts()
       .then((texts) => texts.map((t) => t.replace(/\s+/g, ' ').trim()));
-    // every action the wide bar carried is reachable from here
+    // the menu keeps only what has no other home: import and the Export submenu
     expect(labels.join(' | ')).toContain('Import models');
     expect(labels.join(' | ')).toContain('Import presets');
-    expect(labels.join(' | ')).toContain('Open from library');
-    expect(labels.join(' | ')).toContain('Save project to library');
     expect(labels.join(' | ')).toContain('Export');
-    expect(labels.join(' | ')).toContain('Mode');
-    expect(labels.join(' | ')).toContain('Printers');
-    expect(labels.join(' | ')).toContain('About');
+    for (const gone of ['Open from library', 'Save project to library', 'Mode', 'Printers', 'About']) {
+      expect(labels.join(' | ')).not.toContain(gone);
+    }
 
     // the export submenu carries the six export entries of the old dropdown
-    await app.locator('[data-testid="menu-export"]').click();
+    await app.locator('[data-testid="menu-export"]').hover();
     await app.waitForTimeout(300);
     const exports = await app
       .locator('.app-menu-flyout[aria-label="Export"] [role="menuitem"]')
@@ -114,18 +118,33 @@ test.describe('shell: the rail and the slim top bar', () => {
     expect(await app.evaluate(() => document.activeElement?.getAttribute('data-testid'))).toBe('menu');
   });
 
-  test('the menu switches the mode and opens the printers and About dialogs', async ({ app }) => {
-    await byId(app, 'menu').click();
-    await app.locator('[data-testid="menu-mode"]').click();
-    await app.waitForTimeout(300);
-    await app.locator('.app-menu-flyout[aria-label="Mode"] [role="menuitemradio"]', { hasText: 'Expert' }).click();
+  test('Preferences switches the mode – the menu no longer carries it', async ({ app }) => {
+    await byId(app, 'rail-preferences').click();
+    await app.waitForSelector('[data-testid="modal"]', { state: 'visible', timeout: 20_000 });
+    await app.getByRole('radio', { name: /Expert/ }).check();
     await app.waitForTimeout(400);
     expect(await read(app, (s) => s.mode)).toBe('expert');
-    expect(await app.locator('[data-testid="menu-panel"]').count()).toBe(0);
+    // the dialog stays open while the mode changes behind it
+    expect(await app.locator('[data-testid="modal"]').count()).toBe(1);
+    await app.keyboard.press('Escape');
+    await app.waitForTimeout(500);
 
     // back to Advanced for the rest of the file
     await app.evaluate(() => window.webslicer.getState().setMode('advanced'));
     await app.waitForTimeout(300);
+  });
+
+  test('Preferences resets the stored panel layout', async ({ app }) => {
+    await app.evaluate(() => localStorage.setItem('webslicer.leftWidth', '380'));
+    await byId(app, 'rail-preferences').click();
+    await app.waitForSelector('[data-testid="modal"]', { state: 'visible', timeout: 20_000 });
+    await byId(app, 'preferences-reset-layout').click();
+    await app.waitForTimeout(500);
+    // the stored choice is gone and the column is back at its default width
+    expect(await app.evaluate(() => localStorage.getItem('webslicer.leftWidth'))).toBeNull();
+    expect(await read(app, (s) => s.leftWidth)).toBe(300);
+    await app.keyboard.press('Escape');
+    await app.waitForTimeout(500);
   });
 
   test('the hide-panels toggle frees the scene, survives a reload and keeps the canvas in step', async ({ app }) => {

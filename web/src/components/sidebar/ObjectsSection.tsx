@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useStore } from '../../state/store';
+import { navEntry } from '../../nav/navMap';
+import { runNavAction } from '../../nav/actions';
 import { retrySession } from '../../state/session';
 import { ToolbarButton } from '../common/ToolbarButton';
 import { ObjectToolbar } from './ObjectToolbar';
@@ -26,13 +28,8 @@ export function ObjectsSection() {
   const mergeObjects = useStore((s) => s.mergeObjects);
   const arrange = useStore((s) => s.arrange);
   const clear = useStore((s) => s.clearObjects);
-  const undo = useStore((s) => s.undo);
-  const redo = useStore((s) => s.redo);
-  const canUndo = useStore((s) => s.undoStack.length > 0);
-  const canRedo = useStore((s) => s.redoStack.length > 0);
   const autosaveError = useStore((s) => s.autosaveError);
   const discardAutosave = useStore((s) => s.discardAutosave);
-  const openDialog = useStore((s) => s.openDialog);
   const [addMenuFor, setAddMenuFor] = useState<string | null>(null);
   // which objects show their instance sub-list (like the volume list, collapsed by default)
   const [instancesOpen, setInstancesOpen] = useState<Record<string, boolean>>({});
@@ -64,9 +61,7 @@ export function ObjectsSection() {
   return (
     <section className="objects" data-testid="object-list">
       <ObjectToolbar>
-        <ToolbarButton title="Undo (Ctrl+Z)" icon="undo" onClick={undo} disabled={!canUndo} />
-        <ToolbarButton title="Redo (Ctrl+Y)" icon="redo" onClick={redo} disabled={!canRedo} />
-        <span className="tool-sep" aria-hidden="true" />
+        {/* undo/redo have one home: the top bar */}
         <ToolbarButton title="Arrange (A)" icon="arrange" onClick={arrange} disabled={!objects.length} />
         <ArrangeSettingsMenu />
         <ToolbarButton title="Add instance (+)" icon="addInstance" onClick={addInstance} disabled={selected.length !== 1} />
@@ -124,7 +119,7 @@ export function ObjectsSection() {
               href="#"
               onClick={(e) => {
                 e.preventDefault();
-                openDialog('library', 'open');
+                void runNavAction(navEntry('library').action);
               }}
             >
               open the library

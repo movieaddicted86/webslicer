@@ -1,0 +1,58 @@
+/* PreferencesDialog: the small application-preferences dialog. Tokens only. */
+
+.pref-block {
+  padding: 0 0 12px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.pref-block:last-of-type {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+.pref-block h3 {
+  margin: 0 0 4px;
+  font-size: 13px;
+  color: var(--accent2);
+}
+
+.pref-modes {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.pref-mode {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.pref-mode.active {
+  border-color: var(--accent);
+  background: var(--bg4);
+}
+
+.pref-mode span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pref-block .kv {
+  margin: 6px 0;
+}
+
+.pref-block code {
+  font-size: 11px;
+}
+
+.pref-block .modal-actions {
+  margin-top: 8px;
+}

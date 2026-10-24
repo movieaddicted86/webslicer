@@ -181,8 +181,6 @@ test.describe('tool framework', () => {
         Array.from(document.querySelectorAll('[data-testid="object-toolbar"] button')).map((b) => b.getAttribute('aria-label')),
       ),
     ).toEqual([
-      'Undo (Ctrl+Z)',
-      'Redo (Ctrl+Y)',
       'Arrange (A)',
       'Arrange settings',
       'Add instance (+)',

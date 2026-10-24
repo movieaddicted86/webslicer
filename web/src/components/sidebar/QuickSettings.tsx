@@ -9,7 +9,6 @@ import './QuickSettings.css';
 export function QuickSettings() {
   const print = useStore((s) => s.presets.print);
   const setOption = useStore((s) => s.setOption);
-  const setView = useStore((s) => s.setView);
   const tech = useStore((s) => s.presets.printer.current.printer_technology);
   if (tech === 'SLA') return null;
   const c = print.current;
@@ -76,9 +75,6 @@ export function QuickSettings() {
         Brim
         {brim && <span className="muted small"> ({c.brim_width} mm)</span>}
       </label>
-      <button className="link" onClick={() => setView('print')}>
-        All print settings…
-      </button>
     </div>
   );
 }

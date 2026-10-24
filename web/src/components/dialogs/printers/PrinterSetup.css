@@ -1,10 +1,4 @@
-/* AddPrinterDialog: the styles of this component. */
-
-.subtabs {
-  display: flex;
-  gap: 4px;
-  margin-bottom: 10px;
-}
+/* PrinterSetup: the tab bodies of the Printers dialog (vendor profiles, filaments, custom printer). */
 
 .add-printer {
   display: grid;

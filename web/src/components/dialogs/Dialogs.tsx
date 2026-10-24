@@ -1,7 +1,7 @@
 import { useStore, type PendingPresetSwitch } from '../../state/store';
 import { LibraryDialog, type LibraryMode } from './LibraryDialog';
-import { AddPrinterDialog } from './AddPrinterDialog';
-import { PhysicalPrintersDialog } from './PhysicalPrintersDialog';
+import { PrintersDialog, type PrintersPayload } from './printers/PrintersDialog';
+import { PreferencesDialog } from './PreferencesDialog';
 import { SendToPrinterDialog } from './SendToPrinterDialog';
 import { SavePresetDialog } from './SavePresetDialog';
 import { RenamePresetDialog } from './RenamePresetDialog';
@@ -20,10 +20,11 @@ export function Dialogs() {
   const payload = useStore((s) => s.dialogPayload);
   const close = useStore((s) => s.closeDialog);
   switch (dialog) {
-    case 'addPrinter':
-      return <AddPrinterDialog onClose={close} />;
-    case 'physicalPrinters':
-      return <PhysicalPrintersDialog onClose={close} />;
+    // the one printers dialog: hosts, vendor profiles, filaments and the custom printer are its tabs
+    case 'printers':
+      return <PrintersDialog onClose={close} payload={payload as PrintersPayload | undefined} />;
+    case 'preferences':
+      return <PreferencesDialog onClose={close} />;
     case 'sendToPrinter':
       return <SendToPrinterDialog onClose={close} />;
     case 'savePreset':

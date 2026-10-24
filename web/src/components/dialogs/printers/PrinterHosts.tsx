@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Modal } from './Modal';
-import { useStore } from '../../state/store';
-import { api, type PhysicalPrinter } from '../../api';
-import './PhysicalPrintersDialog.css';
+
+import { useStore } from '../../../state/store';
+import { api, type PhysicalPrinter } from '../../../api';
+import './PrinterHosts.css';
 
 /** A limit field as a number: an empty or broken input means "not set". */
 function numberOrUndefined(value: string): number | undefined {
@@ -19,8 +19,11 @@ function safetyOf(
   return next.maxHotend === undefined && next.maxBed === undefined ? {} : next;
 }
 
-/** The printers WebSlicer can send G-code to (PrusaLink, OctoPrint, Moonraker). */
-export function PhysicalPrintersDialog({ onClose }: { onClose: () => void }) {
+/**
+ * The My printers tab of the Printers dialog: the print hosts WebSlicer can send G-code to (PrusaLink,
+ * OctoPrint, Moonraker). A tab body – the dialog frame and the tab strip belong to `PrintersDialog`.
+ */
+export function PrinterHosts() {
   const printers = useStore((s) => s.physicalPrinters);
   const refresh = useStore((s) => s.refreshPhysicalPrinters);
   const toast = useStore((s) => s.toast);
@@ -51,7 +54,7 @@ export function PhysicalPrintersDialog({ onClose }: { onClose: () => void }) {
     setTesting(r.ok ? `✓ ${r.message}` : `✗ ${r.message}`);
   };
   return (
-    <Modal title="Physical printers" onClose={onClose}>
+    <>
       {!edit && (
         <>
           <ul className="printer-list">
@@ -181,6 +184,6 @@ export function PhysicalPrintersDialog({ onClose }: { onClose: () => void }) {
           </div>
         </div>
       )}
-    </Modal>
+    </>
   );
 }

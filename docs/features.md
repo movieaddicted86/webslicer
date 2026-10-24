@@ -7,20 +7,50 @@ PrusaSlicer feature exists here and which does not is in
 ## Window
 
 - **Rail on the far left**: _Slicing_ (the plater and the preview), _Library_, _Printers_; at the
-  bottom _Preferences_ (the print, filament and printer settings) and _About_, which also carries the
-  update notice. The current place is marked in orange; on a narrow window the names drop away and on a
-  phone the rail becomes a bottom tab bar.
-- **Slim top bar**: the **Menu** (import models and presets, open from the library, save the project,
-  the export list, the Simple / Advanced / Expert mode, printers, About), undo and redo, a **hide the
-  side panels** switch that gives the 3D view the full width (remembered per browser), the project name
-  and the view tabs _Plater / Preview / Print / Filament / Printer_. Every action of the wide top bar
-  is still there, one click away.
+  bottom _Preferences_ and _About_, which also carries the update notice. The current place is marked
+  in orange; on a narrow window the names drop away and on a phone the rail becomes a bottom tab bar.
+- **Slim top bar**: the **Menu** (import models and presets, and the **Export** submenu with project
+  3MF, current settings, presets bundle, G-code and the two "save to library" actions), undo and redo,
+  a **hide the side panels** switch that gives the 3D view the full width (remembered per browser), the
+  project name and the view tabs _Plater / Preview_. Every function has one home: the rail opens the
+  dialogs, the preset rows' cogs open the settings views, and the menu keeps only import and export.
+- **Preferences**: a small dialog behind the rail's _Preferences_ – the Simple / Advanced / Expert
+  mode (how many settings the print, filament and printer views show), the read-only status of the
+  online services (whether `WEBSLICER_UPDATE_CHECK` is on, when the last check ran, the environment
+  variable that switches it) and **Reset panel layout**, which puts the stored widths, folded cards
+  and hidden panels back to their defaults.
+- **Printers**: one dialog behind the rail's _Printers_ and the printer dropdown's _Add / remove
+  printers…_, with four tabs – **My printers** (the PrusaLink / OctoPrint / Moonraker hosts), **Vendor
+  profiles** (install and update the vendor bundles), **Filaments** (the visible-filament filter) and
+  **Custom printer** (the two-step wizard). The entry point picks the tab: the rail opens on _My
+  printers_, the printer dropdown on _Vendor profiles_.
 - **Object list column** next to the scene: the **Object list** card holds the rows and their actions,
   and in the Preview the same column shows the **Sliced info** and the **Legend**. Each card folds on
   its own and the whole column folds to a narrow strip that keeps the object count; a chevron in its
   top corner toggles that, and the width (300 px by default, 220–420 px) can be dragged on its right
   edge. Both are remembered per browser. Below 1100 px the column starts folded; on a phone it is a
   drawer that the top bar opens.
+
+### Where do I find…
+
+| I want to…                                           | Go to                                                                                      |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Slice, arrange, edit objects                         | Rail **Slicing** (the plater); the preview is the _Preview_ tab in the top bar             |
+| Open a model from the file library                   | Rail **Library**                                                                           |
+| Import models from my computer                       | **Menu → Import models…** (Ctrl+I / Ctrl+O)                                                |
+| Import presets from a bundle or a G-code file        | **Menu → Import presets…**                                                                 |
+| Load, add, test or remove a print host               | Rail **Printers → My printers**                                                            |
+| Install or update vendor profiles                    | Rail **Printers → Vendor profiles**, or **Add / remove printers…** in the printer dropdown |
+| Choose which system filaments the selector shows     | Rail **Printers → Filaments**                                                              |
+| Create a printer with its filament                   | Rail **Printers → Custom printer**                                                         |
+| Change the Simple / Advanced / Expert mode           | Rail **Preferences → Mode**                                                                |
+| See whether the update check is on, and reset panels | Rail **Preferences → Online services / Interface**                                         |
+| Edit the print, filament or printer settings         | The cog next to the preset in its row (plater or settings view)                            |
+| Export the project, settings, presets or G-code      | **Menu → Export ▸**                                                                        |
+| Save the project or the G-code to the library        | **Menu → Export ▸ Save … to library…**                                                     |
+| Undo or redo                                         | The top bar's ↶ / ↷ (or Ctrl+Z / Ctrl+Shift+Z)                                             |
+| Give the 3D view the full width                      | The top bar's **hide panels** button                                                       |
+| See the version, the licence and the update notice   | Rail **About**                                                                             |
 
 ## Plater
 
@@ -64,8 +94,9 @@ PrusaSlicer feature exists here and which does not is in
   commands, output paths, unknown keys – are dropped and listed with the reason.
 - **Configuration limits** while editing (see [safety.md](safety.md)): a blocked value disables
   **Slice** with its reason.
-- **Printer setup wizard** (**Printers…** in the printer selector, or _Add / remove printers…_): vendor
-  profiles to install, a **Filaments** step and a **Custom printer** in two steps. The filament step
+- **Printer setup wizard** (**Add / remove printers…** in the printer dropdown opens the Printers dialog
+  on _Vendor profiles_; the rail's **Printers** opens the same dialog on _My printers_): vendor profiles
+  to install, a **Filaments** step and a **Custom printer** in two steps. The filament step
   lists the system filaments of the installed vendors grouped by vendor and material – filter by text,
   tick with _All_ / _None_ / _Only this type_ per group, and **Apply** stores the choice, so the
   filament selector only offers those presets from then on (user presets, the defaults and the active
@@ -99,8 +130,9 @@ PrusaSlicer feature exists here and which does not is in
 
 - **Export**: G-code (also binary `.bgcode`), project as 3MF (with all settings, opens directly in
   desktop PrusaSlicer), config bundle `.ini`.
-- **Physical printers**: upload (optionally starting the print) to **PrusaLink**, **OctoPrint** and
-  **Klipper/Moonraker** (Mainsail/Fluidd), also over HTTPS with self-signed certificates. A host can
+- **Physical printers** (**Printers → My printers**): upload (optionally starting the print) to
+  **PrusaLink**, **OctoPrint** and **Klipper/Moonraker** (Mainsail/Fluidd), also over HTTPS with
+  self-signed certificates. A host can
   be linked to a printer preset; sending G-code sliced for another printer is refused unless you
   override it with a reason (which is written to the audit log).
 - **G-code preflight**: every finished job is scanned once for commands that should not be in a print

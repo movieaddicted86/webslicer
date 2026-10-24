@@ -1,4 +1,6 @@
 import { useStore } from '../../state/store';
+import { navEntry } from '../../nav/navMap';
+import { runNavAction } from '../../nav/actions';
 import { retrySession } from '../../state/session';
 import { ToolbarButton } from '../common/ToolbarButton';
 import { ObjectToolbar } from './ObjectToolbar';
@@ -13,7 +15,6 @@ export function SimpleObjects() {
   const clear = useStore((s) => s.clearObjects);
   const autosaveError = useStore((s) => s.autosaveError);
   const discardAutosave = useStore((s) => s.discardAutosave);
-  const openDialog = useStore((s) => s.openDialog);
 
   const selected = useSelectedObjects();
   const deleteSelection = useDeleteSelection();
@@ -64,7 +65,7 @@ export function SimpleObjects() {
             href="#"
             onClick={(e) => {
               e.preventDefault();
-              openDialog('library', 'open');
+              void runNavAction(navEntry('library').action);
             }}
           >
             open the library
