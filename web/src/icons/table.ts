@@ -2,6 +2,7 @@ import {
   ChevronDown,
   Combine,
   Copy,
+  Ellipsis,
   FolderPlus,
   Menu,
   Minus,
@@ -11,7 +12,6 @@ import {
   SquarePlus,
   SquareSplitHorizontal,
   SquareX,
-  Tags,
   Ungroup,
   Upload,
   X,
@@ -57,6 +57,16 @@ export const ICON_TABLE = {
   paintSeam: { source: 'prusa', file: 'paint_seams' },
   paintMmu: { source: 'prusa', file: 'paint_multi_material' },
   layerHeight: { source: 'prusa', file: 'variable_layer_height' },
+  // the Prepare | Preview switch of the tool strip
+  plater: { source: 'prusa', file: 'plater' },
+  preview: { source: 'prusa', file: 'preview' },
+  // the mouse icons of a tool panel's key-hint block
+  mouseLeft: { source: 'prusa', file: 'mouse_left' },
+  mouseRight: { source: 'prusa', file: 'mouse_right' },
+  mouseWheel: { source: 'prusa', file: 'mouse_wheel' },
+  mouseDrag: { source: 'prusa', file: 'mouse_drag' },
+  /** the tool strip's overflow menu; Prusa has no artwork for it */
+  more: { source: 'lucide', icon: Ellipsis },
 
   // top bar
   import: { source: 'prusa', file: 'add_object' },
@@ -83,7 +93,6 @@ export const ICON_TABLE = {
   rename: { source: 'lucide', icon: PencilLine },
   folderPlus: { source: 'lucide', icon: FolderPlus },
   upload: { source: 'lucide', icon: Upload },
-  toolLabels: { source: 'lucide', icon: Tags },
   // Prusa has no hamburger in its icon set; its "Menu" label is text there, ours needs a glyph
   menu: { source: 'lucide', icon: Menu },
   /** the fold chevron of a card heading; points down when the card is open (the button rotates it) */

@@ -1,0 +1,189 @@
+/* ToolStrip: the floating pill at the top centre of the scene (ToolStrip.tsx). Tokens only.
+ *
+ * The strip is a positioning layer over the scene; the pill itself is centred in it and never wider
+ * than the scene minus the edge margins. On a narrow window the pill scrolls sideways instead of
+ * wrapping, so every group stays reachable without covering the object the user just tapped.
+ */
+
+.tool-strip {
+  position: absolute;
+  top: 8px;
+  left: 0;
+  right: 0;
+  z-index: 4;
+  display: flex;
+  justify-content: center;
+  padding: 0 12px;
+  pointer-events: none;
+}
+
+.tool-strip-pill {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  max-width: 100%;
+  padding: 3px 4px;
+  background: color-mix(in srgb, var(--bg2) 92%, transparent);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px #0007;
+  backdrop-filter: blur(6px);
+}
+
+/* the pill's own buttons: the square every icon button of the strip has */
+.tool-strip-pill button {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: transparent;
+  border-color: transparent;
+  border-radius: 6px;
+  color: var(--text);
+  flex: none;
+}
+
+.tool-strip-pill button:hover:not(:disabled) {
+  background: var(--bg4);
+}
+
+/* the open tool: the one accent on the strip */
+.tool-strip-pill button.active {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  border-color: var(--accent);
+  color: var(--accent2);
+}
+
+.tool-strip-pill button:focus-visible {
+  outline: 2px solid var(--accent2);
+  outline-offset: 1px;
+}
+
+/* names: only while the whole strip fits with them (`stripLayout.stripFits`) */
+.tool-strip-pill.with-labels button {
+  width: auto;
+  padding: 0 8px 0 6px;
+}
+
+.tool-strip-pill .btn-label {
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.tool-bar-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: none;
+}
+
+.tool-sep {
+  flex: none;
+  width: 1px;
+  height: 18px;
+  margin: 0 3px;
+  background: var(--border);
+}
+
+/* the Prepare | Preview switch: a segmented control with Prusa's two icons */
+.strip-switch {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  flex: none;
+  padding: 1px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg3);
+}
+
+.strip-switch button {
+  width: 26px;
+  height: 24px;
+  border-radius: 4px;
+  color: var(--muted);
+}
+
+/* the label is its own span – a bare `span` selector would hide the `.ui-icon` wrapper too */
+.strip-switch button .strip-switch-label {
+  display: none;
+}
+
+.strip-switch.with-text button {
+  width: auto;
+  gap: 5px;
+  padding: 0 8px;
+}
+
+.strip-switch.with-text button .strip-switch-label {
+  display: inline;
+  font-size: 12px;
+}
+
+.strip-switch button.active {
+  background: var(--bg4);
+  border-color: var(--border);
+  color: var(--accent2);
+}
+
+/* the overflow menu: the groups that did not fit */
+.strip-overflow {
+  position: relative;
+  flex: none;
+}
+
+.strip-overflow-trigger {
+  color: var(--muted);
+}
+
+.strip-overflow-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 20;
+  min-width: 220px;
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 6px 20px #0008;
+}
+
+.strip-overflow-menu button {
+  width: 100%;
+  height: auto;
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  text-align: left;
+}
+
+.strip-overflow-name {
+  flex: 1;
+  white-space: nowrap;
+}
+
+.strip-overflow-menu kbd {
+  color: var(--muted);
+  font: inherit;
+  font-size: 11px;
+}
+
+/* narrow: the pill scrolls instead of hiding groups behind a menu that would cover the scene */
+.tool-strip-pill.compact {
+  overflow-x: auto;
+  scrollbar-width: none;
+  max-width: calc(100% - 8px);
+}
+
+.tool-strip-pill.compact::-webkit-scrollbar {
+  display: none;
+}
