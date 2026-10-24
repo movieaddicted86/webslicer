@@ -13,6 +13,16 @@ import { rest } from '../helpers/mock-host';
 
 test.describe.configure({ lock: 'server-state' });
 
+/**
+ * Every user preset this spec can leave behind – the names it writes, plus the rename target. They
+ * are cleaned up after *each* test, not only where the test got to delete them itself: a failure in
+ * the middle used to leave them on the server, where the other specs of the shard see them (presets
+ * are server state, and the lock only orders the tests). An explicit list on purpose – the other
+ * specs, `api-smoke` and `send`, also create `E2E ` presets, and a prefix sweep would delete theirs
+ * when two files of a shard run side by side.
+ */
+const CREATED = ['E2E rename source', 'E2E renamed print', 'E2E clash existing', 'E2E clash source'];
+
 /** Write a user print preset through the API, the way the save dialog would. */
 async function createPreset(app: Parameters<typeof settle>[0], name: string): Promise<void> {
   const res = await rest(app, 'PUT', `/api/presets/print/${encodeURIComponent(name)}`, { config: { layer_height: '0.2' } });
@@ -21,9 +31,13 @@ async function createPreset(app: Parameters<typeof settle>[0], name: string): Pr
   await app.waitForTimeout(400);
 }
 
+test.afterEach(async ({ app }) => {
+  for (const name of CREATED) await removePreset(app, name);
+});
+
+/** Delete a user print preset; a 404 (already gone) is fine – this is cleanup, not a check. */
 async function removePreset(app: Parameters<typeof settle>[0], name: string): Promise<void> {
   await rest(app, 'DELETE', `/api/presets/print/${encodeURIComponent(name)}`);
-  await app.evaluate(() => window.webslicer.getState().refreshPresetLists());
 }
 
 /** Type into the dialog's name field the way React sees it (the native setter + an input event). */
@@ -72,7 +86,6 @@ test('a user preset is renamed from its row and the list follows', async ({ app 
   // the preset really is on the server under the new name
   expect((await rest(app, 'GET', `/api/presets/print/${encodeURIComponent(to)}`)).status).toBe(200);
   expect((await rest(app, 'GET', `/api/presets/print/${encodeURIComponent(from)}`)).status).toBe(404);
-  await removePreset(app, to);
 });
 
 test('a name that already exists is refused in the dialog, before anything is sent', async ({ app }) => {
@@ -85,13 +98,11 @@ test('a name that already exists is refused in the dialog, before anything is se
     error: document.querySelector('.modal-body .error')?.textContent?.trim(),
     disabled: (document.querySelector('.modal-actions button.primary') as HTMLButtonElement | null)?.disabled,
   }));
-  expect(state.error).toMatch(/already exists/i);
+  expect(state.error).toMatch(/a user preset with this name exists/i);
   expect(state.disabled).toBe(true);
   await closeDialog(app, 'escape');
   // the refused rename changed nothing
   expect((await rest(app, 'GET', '/api/presets/print/E2E%20clash%20source')).status).toBe(200);
-  await removePreset(app, 'E2E clash existing');
-  await removePreset(app, 'E2E clash source');
 });
 
 test('the import dialog offers a bundle and a G-code file, and Import waits for a file', async ({ app }) => {
