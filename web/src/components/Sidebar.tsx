@@ -16,6 +16,8 @@ export function Sidebar() {
   const presets = useStore((s) => s.presets);
   const extruders = useStore((s) => s.extruderCount());
   const showIncompatible = useStore((s) => s.showIncompatible);
+  const showAllFilaments = useStore((s) => s.showAllFilaments);
+  const visibleFilaments = useStore((s) => s.visibleFilaments);
   // Like PrusaSlicer: the object list (and with it modifiers, painting, height ranges) is an Advanced/Expert feature.
   const mode = useStore((s) => s.mode);
   const simple = mode === 'simple';
@@ -38,6 +40,13 @@ export function Sidebar() {
           <input type="checkbox" checked={showIncompatible} onChange={(e) => useStore.setState({ showIncompatible: e.target.checked })} />{' '}
           Show incompatible presets
         </label>
+        {/* the wizard's filament filter has an escape hatch: the same list, for this session only */}
+        {visibleFilaments.length > 0 && (
+          <label className="checkbox small" title="Ignore the filaments chosen in the printer setup for now">
+            <input type="checkbox" checked={showAllFilaments} onChange={(e) => useStore.setState({ showAllFilaments: e.target.checked })} />{' '}
+            Show all filaments
+          </label>
+        )}
       </section>
       {view !== 'preview' && (
         <section className="quick">

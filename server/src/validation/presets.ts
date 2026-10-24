@@ -53,6 +53,17 @@ export const presetListSchema = z.looseObject({
     .transform((v) => !!v),
 });
 
+/**
+ * The body of `PUT /api/presets/filaments/visible`: the system filament preset names the selector
+ * shows. An empty list is the "show all" state, so it is allowed; each name is a preset the bundles
+ * carry, and the store only keys it by name.
+ */
+export const visibleFilamentsSchema = z.looseObject({
+  names: z.array(z.string({ error: () => 'invalid filament name' }).max(200, 'invalid filament name'), {
+    error: () => 'names required',
+  }),
+});
+
 /** The body of `PATCH /api/presets/:type/:name`: the new name. */
 export const presetRenameSchema = z.looseObject({
   name: z

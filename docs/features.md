@@ -46,6 +46,17 @@ PrusaSlicer feature exists here and which does not is in
   commands, output paths, unknown keys – are dropped and listed with the reason.
 - **Configuration limits** while editing (see [safety.md](safety.md)): a blocked value disables
   **Slice** with its reason.
+- **Printer setup wizard** (**Printers…** in the printer selector, or _Add / remove printers…_): vendor
+  profiles to install, a **Filaments** step and a **Custom printer** in two steps. The filament step
+  lists the system filaments of the installed vendors grouped by vendor and material – filter by text,
+  tick with _All_ / _None_ / _Only this type_ per group, and **Apply** stores the choice, so the
+  filament selector only offers those presets from then on (user presets, the defaults and the active
+  filament always stay). Nothing ticked means "show all", and the sidebar's **Show all filaments**
+  checkbox lifts the filter for a session. A custom printer asks for bed size, height, nozzle and
+  firmware, then for its filament (name, first-layer/other-layer hotend and bed temperatures, diameter;
+  215/215 °C, 60/60 °C and 1.75 mm by default). Saving stores the printer preset and a user filament
+  preset `<printer> – <filament>`, and selects both. Values face the same configuration limits as the
+  settings editor: a blocked value turns red, disables **Save** and is refused by the server as well.
 - **Multi-extruder / MMU**: filament preset per extruder, wipe tower settings, extruder count in the
   printer preset.
 

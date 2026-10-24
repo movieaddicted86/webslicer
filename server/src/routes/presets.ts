@@ -7,16 +7,27 @@
  */
 import express from 'express';
 import { optionSchema } from '../services/meta.js';
-import { defaultPreset, hasUserPreset, listPresetsWithContext, presetOf, removeUserPreset, storeUserPreset } from '../services/presets.js';
+import {
+  defaultPreset,
+  filamentCatalogue,
+  hasUserPreset,
+  listPresetsWithContext,
+  presetOf,
+  removeUserPreset,
+  replaceVisibleFilaments,
+  storeUserPreset,
+  visibleFilaments,
+} from '../services/presets.js';
 import { exportBundle, importBundle, previewBundle, renameUserPreset } from '../services/presetTransfer.js';
 import { previewGcodeImport } from '../services/gcodeImport.js';
-import { isPresetType, type PresetType, type PresetSummary, type ResolvedPreset } from '@webslicer/shared';
+import { isPresetType, type FilamentCatalogEntry, type PresetType, type PresetSummary, type ResolvedPreset } from '@webslicer/shared';
 import {
   presetBodySchema,
   presetBundleImportSchema,
   presetBundleSchema,
   presetListSchema,
   presetRenameSchema,
+  visibleFilamentsSchema,
 } from '../validation/presets.js';
 import { firstIssueMessage } from '../validation/common.js';
 import { config } from '../config.js';
@@ -51,6 +62,25 @@ export function presetsRouter(): express.Router {
     if (!t) return;
     const s = await optionSchema();
     sendJson<ResolvedPreset | undefined>(res, defaultPreset(s, t));
+  });
+
+  // ---- the configuration wizard's filament step ---------------------------
+  // The whole system filament catalogue, for the step that chooses which of them the selector shows.
+  // Static segments (`filaments`), mounted before `/:type/:name` for the same reason as bundles.
+  r.get('/presets/filaments/catalog', async (req, res) => {
+    const s = await optionSchema();
+    const printerName = typeof req.query.printer === 'string' ? req.query.printer : undefined;
+    sendJson<FilamentCatalogEntry[]>(res, filamentCatalogue(s, printerName));
+  });
+
+  r.get('/presets/filaments/visible', (_req, res) => {
+    sendJson<{ names: string[] }>(res, { names: visibleFilaments() });
+  });
+
+  r.put('/presets/filaments/visible', json, (req, res) => {
+    const parsed = visibleFilamentsSchema.safeParse(req.body ?? {});
+    if (!parsed.success) return badRequest(res, firstIssueMessage(parsed.error, 'names required'));
+    sendJson<{ names: string[] }>(res, { names: replaceVisibleFilaments(parsed.data.names) });
   });
 
   // ---- config bundles ------------------------------------------------------

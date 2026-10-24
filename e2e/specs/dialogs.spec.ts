@@ -136,7 +136,7 @@ test.describe('dialogs: the per-object, per-volume and per-range settings (S6)',
 });
 
 test.describe('dialogs: the app dialogs (S11)', () => {
-  test('the Printers dialog lists vendors, families and models, and its custom tab has the six fields', async ({ app }) => {
+  test('the Printers dialog lists vendors, families and models, and its custom tab starts a two-step wizard', async ({ app }) => {
     await openDialog(app, 'addPrinter');
     const printers = await app.evaluate(() => ({
       title: document.querySelector('.modal-head h2')?.textContent,
@@ -146,6 +146,7 @@ test.describe('dialogs: the app dialogs (S11)', () => {
       families: Array.from(document.querySelectorAll('.model-list h3')).map((h) => h.textContent),
       models: document.querySelectorAll('.model-list .model').length,
       actions: Array.from(document.querySelectorAll('.add-printer .modal-actions button')).map((b) => b.textContent),
+      tabs: Array.from(document.querySelectorAll('.subtabs button')).map((b) => b.textContent),
     }));
     expect(printers.title).toBe('Printers');
     expect(printers.filter).toBe('Filter models…');
@@ -154,6 +155,7 @@ test.describe('dialogs: the app dialogs (S11)', () => {
     expect(printers.families.length).toBeGreaterThan(0);
     expect(printers.models).toBeGreaterThan(1);
     expect(printers.actions).toEqual(['Apply']);
+    expect(printers.tabs).toEqual(['Vendor profiles', 'Filaments', 'Custom printer']);
 
     await click(app, '.subtabs button:has-text("Custom printer")', 600);
     const custom = await app.evaluate(() => ({
@@ -162,7 +164,8 @@ test.describe('dialogs: the app dialogs (S11)', () => {
       flavors: Array.from(document.querySelectorAll('.custom-printer select option')).map((o) => (o as HTMLOptionElement).value),
       action: document.querySelector('.custom-printer .modal-actions button')?.textContent,
       disabled: (document.querySelector('.custom-printer .modal-actions button') as HTMLButtonElement | null)?.disabled,
-      name: (document.querySelector('.custom-printer input') as HTMLInputElement | null)?.value,
+      name: (document.querySelector('.custom-printer #custom-printer-name') as HTMLInputElement | null)?.value,
+      step: document.querySelector('.custom-printer .modal-actions .muted')?.textContent,
     }));
     expect(custom.labels).toEqual([
       'Name',
@@ -173,11 +176,12 @@ test.describe('dialogs: the app dialogs (S11)', () => {
       'Firmware flavor',
     ]);
     expect(custom.flavors).toHaveLength(11);
-    expect(custom.action).toBe('Create printer');
-    // the form starts on a default name; an empty name cannot create a printer
+    expect(custom.action).toBe('Next');
+    expect(custom.step).toContain('Step 1 of 2');
+    // the form starts on a default name; an empty name cannot go on to the filament step
     expect(custom.name).toBe('My Printer');
     expect(custom.disabled).toBe(false);
-    await fill(app, '.custom-printer input', '', 500);
+    await fill(app, '.custom-printer #custom-printer-name', '', 500);
     expect(await app.locator('.custom-printer .modal-actions button').isDisabled()).toBe(true);
     await closeDialog(app, 'escape');
   });

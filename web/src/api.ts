@@ -9,6 +9,7 @@ import type {
   CustomGcode,
   CutRequest,
   CutResult,
+  FilamentCatalogEntry,
   InstalledPrinter,
   JobEvent,
   JobRecord,
@@ -110,6 +111,15 @@ export const api = {
   installedPrinters: () => fetch('/api/installed-printers').then((r) => handle<InstalledPrinter[]>(r)),
   setInstalledPrinters: (list: InstalledPrinter[]) =>
     fetch('/api/installed-printers', jsonInit('PUT', list)).then((r) => handle<InstalledPrinter[]>(r)),
+  /** The whole system filament catalogue of the wizard's filament step, with the compatibility flag. */
+  filamentCatalog: (printerName?: string) =>
+    fetch(`/api/presets/filaments/catalog${printerName ? `?printer=${encodeURIComponent(printerName)}` : ''}`).then((r) =>
+      handle<FilamentCatalogEntry[]>(r),
+    ),
+  /** The filament names the wizard ticked; an empty list means "show all". */
+  visibleFilaments: () => fetch('/api/presets/filaments/visible').then((r) => handle<{ names: string[] }>(r)),
+  setVisibleFilaments: (names: string[]) =>
+    fetch('/api/presets/filaments/visible', jsonInit('PUT', { names })).then((r) => handle<{ names: string[] }>(r)),
   listPresets: (
     type: PresetType,
     opts: { printerName?: string; printerConfig?: Config; printName?: string; printConfig?: Config; all?: boolean },

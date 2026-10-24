@@ -50,7 +50,36 @@ export interface PresetSlice {
   setExtruderCount: (n: number) => void;
   extruderCount: () => number;
   installPrinters: (list: InstalledPrinter[]) => Promise<void>;
+  /**
+   * The system filament presets the configuration wizard ticks, by name. Empty means "show all", so
+   * an untouched install lists exactly as before.
+   */
+  visibleFilaments: string[];
+  setVisibleFilaments: (names: string[]) => Promise<void>;
+  /** Create the custom printer preset and the user filament preset that belongs to it, then select both. */
+  createCustomPrinter: (input: CustomPrinterInput) => Promise<void>;
   refreshPhysicalPrinters: () => Promise<void>;
+}
+
+/** What the custom-printer step of the wizard collects. */
+export interface CustomPrinterInput {
+  name: string;
+  bedX: number;
+  bedY: number;
+  height: number;
+  nozzle: number;
+  flavor: string;
+  filamentName: string;
+  temperatures: CustomFilamentTemperatures;
+}
+
+/** The filament values of a custom printer: first layer and other layers, hotend and bed, plus diameter. */
+export interface CustomFilamentTemperatures {
+  temperature: number;
+  firstLayerTemperature: number;
+  bedTemperature: number;
+  firstLayerBedTemperature: number;
+  diameter: number;
 }
 
 let refreshTimer: ReturnType<typeof setTimeout> | undefined;
@@ -395,6 +424,35 @@ export const createPresetSlice: StateCreator<State, [], [], PresetSlice> = (set,
     const installed = await api.setInstalledPrinters(list);
     set({ installed });
     await get().refreshPresetLists();
+  },
+  visibleFilaments: [],
+  setVisibleFilaments: async (names) => {
+    const { names: stored } = await api.setVisibleFilaments(names);
+    // the selector filters its own list, so it follows this value without another request
+    set({ visibleFilaments: stored });
+  },
+  createCustomPrinter: async (input) => {
+    const def = await api.getPreset('printer', '- default FFF -');
+    await api.savePreset('printer', input.name, {
+      ...def.config,
+      bed_shape: `0x0,${input.bedX}x0,${input.bedX}x${input.bedY},0x${input.bedY}`,
+      max_print_height: String(input.height),
+      nozzle_diameter: String(input.nozzle),
+      gcode_flavor: input.flavor,
+      printer_technology: 'FFF',
+    });
+    // the filament preset belongs to the printer by name; PrusaSlicer points at it the same way
+    await api.savePreset('filament', input.filamentName, {
+      temperature: String(input.temperatures.temperature),
+      first_layer_temperature: String(input.temperatures.firstLayerTemperature),
+      bed_temperature: String(input.temperatures.bedTemperature),
+      first_layer_bed_temperature: String(input.temperatures.firstLayerBedTemperature),
+      filament_diameter: String(input.temperatures.diameter),
+      filament_type: 'PLA',
+    });
+    await get().refreshPresetLists();
+    await get().selectPreset('printer', input.name);
+    await get().selectPreset('filament', input.filamentName, 0);
   },
   refreshPhysicalPrinters: async () => {
     set({ physicalPrinters: await api.printers() });

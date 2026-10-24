@@ -16,6 +16,8 @@ export interface PresetSummary {
   printerVariant?: string;
   technology?: 'FFF' | 'SLA';
   compatible?: boolean;
+  /** filament presets: the first `filament_type` value (`PLA`, `PETG`, …), for the wizard's grouping */
+  material?: string;
 }
 
 /** A preset with its values: `config` is defaults + preset, `overrides` only what differs. */
@@ -148,6 +150,20 @@ export interface InstalledPrinter {
   vendorId: string;
   modelId: string;
   variant: string;
+}
+
+/**
+ * One system filament preset as the configuration wizard offers it: grouped by vendor and material,
+ * and marked when no installed printer can use it.
+ */
+export interface FilamentCatalogEntry {
+  name: string;
+  vendorId: string;
+  vendorName: string;
+  /** first `filament_type` value (`PLA`, `PETG`, …), when the preset sets one */
+  material?: string;
+  /** compatible with at least one installed printer */
+  compatible: boolean;
 }
 
 /** Print host the sliced G-code can be uploaded to. */

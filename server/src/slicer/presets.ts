@@ -11,7 +11,7 @@ import { loadBundles, findSystemPreset, type SystemPreset } from './bundles.js';
 import { parseIni, serializeIni, type IniSection } from './ini.js';
 import { evaluateCondition } from './condition.js';
 import { safeName, unescapeStringsCstyle } from '@webslicer/shared';
-import type { InstalledPrinter, PresetSummary, PresetType, ResolvedPreset, Schema } from '@webslicer/shared';
+import type { FilamentCatalogEntry, InstalledPrinter, PresetSummary, PresetType, ResolvedPreset, Schema } from '@webslicer/shared';
 
 function userPresetFile(type: PresetType, name: string): string {
   // W4: the one name rule of the server (shared); a name that cleans to nothing cannot be stored
@@ -200,6 +200,28 @@ export function setInstalledPrinters(list: InstalledPrinter[]): void {
 }
 
 // ---------------------------------------------------------------------------
+// Visible filaments (the wizard's filament step): system filament presets the selector shows
+// ---------------------------------------------------------------------------
+
+function visibleFilamentsFile(): string {
+  return path.join(config.dataDir, 'visible_filaments.json');
+}
+
+/**
+ * The system filament presets the user ticked in the wizard, by name. An empty list means "show
+ * all" – the state every existing install is in, so the feature changes nothing until it is used.
+ */
+export function getVisibleFilaments(): string[] {
+  const { value } = readJsonSync<string[]>(visibleFilamentsFile());
+  return Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : [];
+}
+
+/** Replace the visible filament list; persisted next to the installed printers, same store rules. */
+export function setVisibleFilaments(list: string[]): void {
+  writeJsonSync(visibleFilamentsFile(), list); // B7: temp + rename
+}
+
+// ---------------------------------------------------------------------------
 // Listing with compatibility filtering
 // ---------------------------------------------------------------------------
 
@@ -228,6 +250,14 @@ export interface ListOptions {
   printConfig?: IniSection;
   /** include system presets whose printer model isn't installed */
   all?: boolean;
+}
+
+/** The first `filament_type` of a config, for the wizard's grouping by material. */
+function materialOf(cfg: IniSection): string | undefined {
+  const first = unescapeStringsCstyle(cfg.filament_type ?? '')
+    .map((s) => s.trim())
+    .find(Boolean);
+  return first || undefined;
 }
 
 export function listPresets(schema: Schema, type: PresetType, opts: ListOptions = {}): PresetSummary[] {
@@ -274,6 +304,7 @@ export function listPresets(schema: Schema, type: PresetType, opts: ListOptions 
       printerVariant: p.printerVariant,
       technology: tech,
       compatible: c,
+      material: type === 'filament' ? materialOf(p.config) : undefined,
     });
   }
   for (const u of listUserPresets(type)) {
@@ -296,6 +327,31 @@ export function listPresets(schema: Schema, type: PresetType, opts: ListOptions 
       printerVariant: r.printerVariant,
       technology: r.technology,
       compatible: compat(r.config),
+      material: type === 'filament' ? materialOf(r.config) : undefined,
+    });
+  }
+  return out;
+}
+
+/**
+ * Every system filament preset the configuration wizard offers – independent of the visible list, so
+ * the dialog can show the whole catalogue and let the user tick from it.
+ *
+ * A preset is `compatible` when any installed printer accepts it (`isCompatibleWithPrinter`, the same
+ * evaluation the selector uses); without a selected printer every entry counts as compatible.
+ */
+export function filamentCatalog(printerName?: string, printerConfig?: IniSection): FilamentCatalogEntry[] {
+  const installed = getInstalledPrinters();
+  const out: FilamentCatalogEntry[] = [];
+  for (const p of loadBundles().presets.filament) {
+    if (!installed.some((i) => i.vendorId === p.vendorId)) continue;
+    const compatible = !printerName || !printerConfig ? true : isCompatibleWithPrinter(p.config, printerName, printerConfig);
+    out.push({
+      name: p.name,
+      vendorId: p.vendorId,
+      vendorName: p.vendorName,
+      material: materialOf(p.config),
+      compatible,
     });
   }
   return out;
