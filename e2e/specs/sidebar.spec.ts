@@ -343,7 +343,9 @@ test.describe('sidebar: quick settings and the mode switch', () => {
       fill: s.presets.print.current.fill_density,
     }));
     expect(back).toEqual({ support: '0', fill: '15%' });
-    await expect(app.locator('[data-testid="quick-settings"] button.link')).toHaveText('All print settings…');
+    // the settings views have one home: the cog of the preset row, not a link in the quick settings
+    await expect(app.locator('[data-testid="settings-open-print"]')).toBeVisible();
+    expect(await app.locator('[data-testid="quick-settings"] button.link').count()).toBe(0);
   });
 
   test('Simple mode hides the object list and the manipulation panel, Advanced brings them back', async ({ app }) => {
@@ -365,10 +367,10 @@ test.describe('sidebar: quick settings and the mode switch', () => {
       rows: document.querySelectorAll('[data-testid="object-row"]').length,
       tools: document.querySelectorAll('[data-testid="object-toolbar"] button').length,
     }));
-    expect(advanced).toEqual({ mode: 'advanced', rows: 1, tools: 10 });
+    expect(advanced).toEqual({ mode: 'advanced', rows: 1, tools: 8 });
   });
 
-  test('every object-toolbar action shows its own 18 px SVG icon, grouped, without overflow at 320 px (T-036)', async ({ app }) => {
+  test('every object-toolbar action shows its own 18 px SVG icon, grouped, without overflow at the narrowest column (T-036)', async ({ app }) => {
     await importFile(app, CUBE);
     await app.evaluate(() => window.webslicer.getState().select([window.webslicer.getState().objects[0].id]));
     await settle(app, 700);
@@ -395,9 +397,8 @@ test.describe('sidebar: quick settings and the mode switch', () => {
       };
     });
     // T-055: the toolbar holds object actions only; the tools live in the left tool bar
+    // undo/redo are not here: they have one home, the top bar
     expect(toolbar.buttons.map((b) => b.label)).toEqual([
-      'Undo (Ctrl+Z)',
-      'Redo (Ctrl+Y)',
       'Arrange (A)',
       'Arrange settings',
       'Add instance (+)',
@@ -411,19 +412,20 @@ test.describe('sidebar: quick settings and the mode switch', () => {
     // the tooltip stays the shortcut line and is also the accessible name
     expect(toolbar.buttons.every((b) => b.title === b.label)).toBe(true);
     expect(toolbar.buttons.every((b) => b.text === '')).toBe(true);
-    expect(toolbar.buttons.map((b) => b.icon)).toEqual(Array(10).fill('18'));
+    expect(toolbar.buttons.map((b) => b.icon)).toEqual(Array(8).fill('18'));
     expect(toolbar.buttons.every((b) => (b.stroke ?? 0) > 0)).toBe(true);
     // the hit area is at least 30 px high
     expect(toolbar.buttons.every((b) => b.size >= 30)).toBe(true);
-    // three groups: history | arrange (+ settings)/instances | merge/duplicate/delete
-    expect(toolbar.separators).toBe(2);
-    expect(new Set(toolbar.paths).size).toBe(10);
+    // two groups: arrange (+ settings)/instances | merge/duplicate/delete
+    expect(toolbar.separators).toBe(1);
+    expect(new Set(toolbar.paths).size).toBe(8);
 
     // AC-2: the narrowest column width wraps the toolbar instead of shrinking it
     const narrow = await app.evaluate(() => {
       const shell = document.querySelector('[data-testid="app-shell"]') as HTMLElement;
       const column = document.querySelector('[data-testid="left-column"]') as HTMLElement;
-      shell.style.setProperty('--left-track', '320px');
+      // 220 px is the narrowest width the column can be dragged to
+      shell.style.setProperty('--left-track', '220px');
       const tools = document.querySelector('[data-testid="object-toolbar"]') as HTMLElement;
       const buttons = Array.from(tools.querySelectorAll('button')).map((b) => Math.round(b.getBoundingClientRect().width));
       return {
@@ -433,7 +435,7 @@ test.describe('sidebar: quick settings and the mode switch', () => {
         lines: new Set(Array.from(tools.querySelectorAll('button')).map((b) => Math.round(b.getBoundingClientRect().top))).size,
       };
     });
-    expect(narrow.columnWidth).toBe(320);
+    expect(narrow.columnWidth).toBe(220);
     expect(narrow.toolsOverflow).toBeLessThanOrEqual(0);
     // the icons keep their size; the toolbar uses a second line
     expect(narrow.widths.every((w) => w >= 30)).toBe(true);

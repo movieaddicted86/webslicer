@@ -47,7 +47,7 @@ test.describe('configuration wizard', () => {
     const before = await filamentOptions(app);
     expect(before.length).toBeGreaterThan(3);
 
-    await openDialog(app, 'addPrinter');
+    await openDialog(app, 'printers', { tab: 'vendor' });
     await click(app, '.subtabs button:has-text("Filaments")', 800);
     await expect(app.locator('.filament-step .vendor-list li').first()).toBeVisible();
 
@@ -104,7 +104,7 @@ test.describe('configuration wizard', () => {
   test('a custom printer asks for its filament in a second step and creates both presets', async ({ app }) => {
     const name = 'E2E wizard printer';
     const filamentName = `${name} – Generic`;
-    await openDialog(app, 'addPrinter');
+    await openDialog(app, 'printers', { tab: 'vendor' });
     await click(app, '.subtabs button:has-text("Custom printer")', 600);
 
     await fill(app, '#custom-printer-name', name, 400);
@@ -178,7 +178,7 @@ test.describe('configuration wizard', () => {
   });
 
   test('an absurd temperature is blocked in the form and refused by the API', async ({ app }) => {
-    await openDialog(app, 'addPrinter');
+    await openDialog(app, 'printers', { tab: 'vendor' });
     await click(app, '.subtabs button:has-text("Custom printer")', 600);
     await click(app, '.custom-printer [data-testid="modal-actions"] button:text-is("Next")', 600);
 

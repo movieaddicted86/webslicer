@@ -485,13 +485,13 @@ test.describe('send: the printer dialog sees the mock host', () => {
   // T-057: the printers dialog lists every host on the server, so this group shares the lock above
   test.describe.configure({ lock: 'server-state' });
 
-  test('the physical printers dialog lists a configured host instead of the form', async ({ app }) => {
+  test('the printers dialog lists a configured host instead of the form', async ({ app }) => {
     const created = [await addPrinter(app, { name: 'Listed host', presetName: E2E_PRINTER })];
     try {
       await app.evaluate(async () => {
         await window.webslicer.getState().refreshPhysicalPrinters();
       });
-      await openDialog(app, 'physicalPrinters');
+      await openDialog(app, 'printers', { tab: 'hosts' });
       // with a host stored the dialog opens on the list (the fixture data seeds none, so the other
       // spec sees the empty form) – the second branch of the t18 check
       const list = await app.evaluate(() => ({
@@ -500,7 +500,7 @@ test.describe('send: the printer dialog sees the mock host', () => {
         actions: Array.from(document.querySelectorAll('[data-testid="modal-actions"] button')).map((b) => b.textContent),
         form: document.querySelectorAll('.form').length,
       }));
-      expect(list.title).toBe('Physical printers');
+      expect(list.title).toBe('Printers');
       expect(list.rows).toHaveLength(1);
       expect(list.rows[0]).toContain('Listed host');
       expect(list.rows[0]).toContain('moonraker');

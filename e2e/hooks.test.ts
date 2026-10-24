@@ -151,6 +151,9 @@ const HOOKS = [
   'rail-preferences',
   'rail-about',
   'menu',
+  'menu-panel',
+  'menu-export',
+  'preferences-reset-layout',
   'hide-panels',
   'left-column',
   'left-column-toggle',
@@ -185,13 +188,19 @@ const HOOKS = [
   'toast',
 ] as const;
 
-/** Every `.tsx` of the web app, keyed by its path below `web/src` (slashes). */
+/**
+ * Every `.tsx` of the web app, keyed by its path below `web/src` (slashes) – plus the navigation map,
+ * which is a `.ts` table: the rail's per-entry hooks are its `testId` fields, and the rail renders
+ * them (`data-testid={entry.testId}`), so no component spells them out.
+ */
 function components(dir = WEB_SRC, prefix = ''): Map<string, string> {
   const out = new Map<string, string>();
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
     if (entry.isDirectory()) for (const [k, v] of components(path.join(dir, entry.name), rel)) out.set(k, v);
-    else if (entry.name.endsWith('.tsx')) out.set(rel, readFileSync(path.join(dir, entry.name), 'utf8'));
+    else if (entry.name.endsWith('.tsx') || (prefix === 'nav' && entry.name === 'navMap.ts')) {
+      out.set(rel, readFileSync(path.join(dir, entry.name), 'utf8'));
+    }
   }
   return out;
 }
@@ -201,9 +210,9 @@ const escape = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 test('every structural hook is a data-testid on a component', () => {
   const sources = [...components().values()];
   const missing = HOOKS.filter((hook) => {
-    // a fixed hook (`data-testid="modal"`) and a template hook (`preset-select-${type}`) both count,
-    // and so does a card that forwards its hook through a `testId` prop
-    const pattern = new RegExp(`(?:data-testid|testId|toggleTestId)=\\{?["'\`]${escape(hook)}`);
+    // a fixed hook (`data-testid="modal"`), a template hook (`preset-select-${type}`) and a table
+    // field (`testId: 'rail-slicing'`) all count, and so does a card that forwards a `testId` prop
+    const pattern = new RegExp(`(?:data-testid|testId|toggleTestId)\\s*[:=]\\s*\\{?["'\`]${escape(hook)}`);
     return !sources.some((src) => pattern.test(src));
   });
   assert.deepEqual(missing, [], 'hook missing on the components, or renamed – update the spec and this list');

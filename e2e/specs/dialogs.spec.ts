@@ -2,7 +2,7 @@
  * The dialogs and the settings fields – ported from `.claude/t18-browser.mjs` (S6, S11, S12).
  *
  * Three groups: the per-object / per-volume / per-range override dialogs, every dialog of the app
- * (printers, physical printers, send, save preset, About, library, unsaved changes) and the settings
+ * (printers, send, save preset, About, library, unsaved changes) and the settings
  * views, which are the only place every `OptionField` variant shows: number, text, checkbox, select,
  * vector, bed editor and the multiline G-code box with its commit-on-blur behaviour.
  */
@@ -137,7 +137,7 @@ test.describe('dialogs: the per-object, per-volume and per-range settings (S6)',
 
 test.describe('dialogs: the app dialogs (S11)', () => {
   test('the Printers dialog lists vendors, families and models, and its custom tab starts a two-step wizard', async ({ app }) => {
-    await openDialog(app, 'addPrinter');
+    await openDialog(app, 'printers', { tab: 'vendor' });
     const printers = await app.evaluate(() => ({
       title: document.querySelector('[data-testid="modal-title"]')?.textContent,
       filter: (document.querySelector('.vendor-list input') as HTMLInputElement | null)?.placeholder,
@@ -155,7 +155,7 @@ test.describe('dialogs: the app dialogs (S11)', () => {
     expect(printers.families.length).toBeGreaterThan(0);
     expect(printers.models).toBeGreaterThan(1);
     expect(printers.actions).toEqual(['Apply']);
-    expect(printers.tabs).toEqual(['Vendor profiles', 'Filaments', 'Custom printer']);
+    expect(printers.tabs).toEqual(['My printers', 'Vendor profiles', 'Filaments', 'Custom printer']);
 
     await click(app, '.subtabs button:has-text("Custom printer")', 600);
     const custom = await app.evaluate(() => ({
@@ -190,7 +190,7 @@ test.describe('dialogs: the app dialogs (S11)', () => {
   // same lock, so two workers never see each other's hosts
   test('the physical printer form offers the three host types and starts with Save disabled', { lock: 'server-state' }, async ({ app }) => {
     // the fixture data configures no host, so the dialog opens straight on the form of a new one
-    await openDialog(app, 'physicalPrinters');
+    await openDialog(app, 'printers', { tab: 'hosts' });
     const form = await app.evaluate(() => ({
       title: document.querySelector('[data-testid="modal-title"]')?.textContent,
       // the label text before the control only – a select's options are part of its textContent
@@ -204,7 +204,7 @@ test.describe('dialogs: the app dialogs (S11)', () => {
       ),
       limitLegend: document.querySelector('.form fieldset legend')?.textContent,
     }));
-    expect(form.title).toBe('Physical printers');
+    expect(form.title).toBe('Printers');
     // S1-d: the safety limits of the machine are part of the form
     expect(form.labels).toEqual(['Name', 'Host type', 'Hostname / IP', 'API key', 'Printer preset', 'Max hotend °C', 'Max bed °C']);
     expect(form.limitLegend).toBe('Safety limits');
@@ -219,7 +219,7 @@ test.describe('dialogs: the app dialogs (S11)', () => {
     'the PTFE preset fills the hotend limit and the limits travel with the saved host (S1-d)',
     { lock: 'server-state' },
     async ({ app }) => {
-      await openDialog(app, 'physicalPrinters');
+      await openDialog(app, 'printers', { tab: 'hosts' });
       await app.getByRole('button', { name: 'PTFE hotend (max 240 °C)' }).click();
       await app.locator('.form input').nth(0).fill('PTFE host');
       await app.locator('.form input').nth(1).fill('10.0.0.9');

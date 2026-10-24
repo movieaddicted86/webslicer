@@ -70,7 +70,7 @@ const section = (app: Page) =>
 test.describe('vendor profile updates', () => {
   test('an offered update is installed with one click and reported', async ({ app }) => {
     await mockRoutes(app, list(), installed());
-    await openDialog(app, 'addPrinter');
+    await openDialog(app, 'printers', { tab: 'vendor' });
 
     await expect(app.locator('.vendor-updates')).toHaveCount(1);
     await expect(app.locator('.vendor-update-list li')).toHaveCount(1);
@@ -100,7 +100,7 @@ test.describe('vendor profile updates', () => {
         ],
       },
     });
-    await openDialog(app, 'addPrinter');
+    await openDialog(app, 'printers', { tab: 'vendor' });
 
     await app.locator('.vendor-update-list li button:text-is("Update")').click();
     await expect(app.locator('.vendor-updates .error')).toContainText('was refused');
@@ -115,7 +115,7 @@ test.describe('vendor profile updates', () => {
 
   test('with the check switched off the section says so and offers a file instead', async ({ app }) => {
     await mockRoutes(app, list({ enabled: false, checkedAt: null }), installed());
-    await openDialog(app, 'addPrinter');
+    await openDialog(app, 'printers', { tab: 'vendor' });
 
     const off = await section(app);
     expect(off.disabled).toBe(true);
