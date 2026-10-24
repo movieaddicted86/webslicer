@@ -52,3 +52,37 @@ export const presetListSchema = z.looseObject({
     .optional()
     .transform((v) => !!v),
 });
+
+/** The body of `PATCH /api/presets/:type/:name`: the new name. */
+export const presetRenameSchema = z.looseObject({
+  name: z
+    .string({ error: () => 'new preset name required' })
+    .trim()
+    .min(1, 'new preset name required')
+    .max(200, 'invalid preset name'),
+});
+
+/** The body of `POST /api/presets/bundle/preview`: the bundle text to inspect. */
+export const presetBundleSchema = z.looseObject({
+  bundle: z.string({ error: () => 'bundle required' }),
+});
+
+/** One answer to a name clash: what to do with that preset. */
+export const clashAnswerSchema = z.looseObject({
+  type: z.enum(['print', 'filament', 'printer', 'sla_print', 'sla_material'], { error: () => 'invalid preset type' }),
+  name: z.string({ error: () => 'invalid preset name' }),
+  system: z.boolean().optional(),
+  choice: z.enum(['skip', 'overwrite', 'keep-both'], { error: () => 'invalid clash choice' }),
+});
+
+/**
+ * The body of `POST /api/presets/bundle/import`: the bundle text (echoed back from its preview, so
+ * what is imported is exactly what was shown) and one answer per clashing preset.
+ */
+export const presetBundleImportSchema = z.looseObject({
+  bundle: z.string({ error: () => 'bundle required' }),
+  choices: z
+    .array(clashAnswerSchema, { error: () => 'invalid clash choices' })
+    .max(500, 'too many clash choices')
+    .optional(),
+});
