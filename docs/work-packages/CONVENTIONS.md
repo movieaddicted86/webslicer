@@ -168,7 +168,10 @@ regions. A spec that encodes _where_ an element sits (`.sidebar .quick-settings`
 `.tool-bar button:nth-child(2)`, a descendant chain through a container) breaks on every move.
 
 - Structural elements carry a `data-testid` hook named by **role, not place**: `app-shell`,
-  `top-bar`, `sidebar`, `presets`, `preset-select-<type>`, `object-list`, `object-toolbar`,
+  `top-bar`, `rail` (+ `-slicing`, `-library`, `-printers`, `-preferences`, `-about`), `menu`,
+  `hide-panels`, `sidebar`, `left-column` (+ `-toggle`, `left-objects-toggle`,
+  `left-sliced-toggle`, `left-legend-toggle`, `objects-drawer-toggle`), `presets`,
+  `preset-select-<type>`, `object-list`, `object-toolbar`,
   `object-row` (plus `data-object-id`), `object-info`, `quick-settings`, `slice-panel`,
   `slice-button`, `tool-bar`, `tool-<toolId>`, `tool-panel` (+ `-title`, `-foot`, `-close`),
   `modal` (+ `-title`, `-actions`, `-primary`, `-close`, `-backdrop`), `preview-panel`,

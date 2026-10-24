@@ -166,6 +166,8 @@ export interface E2EState {
   brushRadius: number;
   view: string;
   mode: 'simple' | 'advanced' | 'expert';
+  /** the width of the open left column in px (layout 3.0, remembered per browser) */
+  leftWidth: number;
   sliceDirty: boolean;
   undoStack: unknown[];
   redoStack: unknown[];
