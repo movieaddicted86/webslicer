@@ -16,14 +16,15 @@ const DIR = fileURLToPath(new URL('./prusa', import.meta.url));
 const FILE = /\.svg$/;
 const FORBIDDEN = [/prusaslicer/i, /printables/i, /^connect$/i, /cloud/i, /logo/i];
 
-/** `#F7F7F7`, `#FFF`, `white` and every other near-white colour the artwork used for its dark theme. */
+/** `#F7F7F7`, `#FFF`, `white` and the neutral grey `#808080` the artwork uses for its themed chrome. */
 function isNearWhite(value: string): boolean {
   const v = value.trim().toLowerCase();
   if (v === 'white' || v === '#fff' || v === '#ffffff') return true;
   const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/.exec(v);
   if (!hex) return false;
   const digits = hex[1].length === 3 ? [...hex[1]].map((c) => c + c) : [hex[1].slice(0, 2), hex[1].slice(2, 4), hex[1].slice(4)];
-  return digits.every((c) => parseInt(c, 16) >= 240);
+  const channels = digits.map((c) => parseInt(c, 16));
+  return channels.every((c) => c >= 240) || channels.every((c) => c === 128);
 }
 
 const vendored = fs
@@ -52,6 +53,10 @@ test('a vendored icon carries no hard-coded near-white fill', () => {
     const svg = fs.readFileSync(path.join(DIR, `${file}.svg`), 'utf8');
     for (const match of svg.matchAll(/\b(?:fill|stroke)="([^"]*)"/g)) {
       assert.ok(!isNearWhite(match[1]), `${file}.svg still paints ${match[1]}; it must be currentColor`);
+    }
+    // an inline `style` beats the attribute, so a fixed colour there would win over currentColor
+    for (const match of svg.matchAll(/\b(?:fill|stroke):([^;"]*)/g)) {
+      assert.ok(!isNearWhite(match[1]), `${file}.svg still styles ${match[1]}; it must be currentColor`);
     }
   }
 });

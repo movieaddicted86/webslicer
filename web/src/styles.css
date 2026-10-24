@@ -252,19 +252,6 @@ kbd {
   margin-top: 6px;
 }
 
-.app {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-
-.main {
-  flex: 1;
-  display: flex;
-  min-height: 0;
-  min-width: 0;
-}
-
 .splash {
   height: 100%;
   display: flex;

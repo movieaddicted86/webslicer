@@ -16,6 +16,7 @@ import { createJobSlice } from './slices/job';
 import { createPreviewSlice } from './slices/preview';
 import { createHistorySlice } from './slices/history';
 import { createToolsSlice } from './slices/tools';
+import { createLayoutSlice } from './slices/layout';
 import type { State } from './types';
 
 export * from './types';
@@ -31,4 +32,5 @@ export const useStore = create<State>()((...a) => ({
   ...createPreviewSlice(...a),
   ...createHistorySlice(...a),
   ...createToolsSlice(...a),
+  ...createLayoutSlice(...a),
 }));

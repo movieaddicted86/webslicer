@@ -1,34 +1,29 @@
-import { useEffect, useRef } from 'react';
 import { useStore, isModified, type View } from '../state/store';
-import { importFiles } from '../importFiles';
-import { api, downloadBlob } from '../api';
-import type { Mode } from '../api';
-import { UpdateChip } from './UpdateChip';
+import { AppMenu } from './AppMenu';
 import { Icon } from '../icons/Icon';
 import './TopBar.css';
 
+/**
+ * The slim top bar of the 3.0 layout (L-1). Everything the wide bar carried as one button per action
+ * has moved: the actions into the `Menu` dropdown (`AppMenu`), Library/Printers/About onto the rail,
+ * the update notice onto the rail's About item. What stays is what a user reaches constantly and
+ * without a second click – undo/redo, the hide-panels toggle, the project name and the view tabs – so
+ * the bar is one 46 px row at any width.
+ *
+ * The tabs are the old ones, unchanged: the Plater and the Preview, then the three settings views (the
+ * rail's Preferences opens the same place). A modified preset keeps its dot.
+ */
 export function TopBar() {
   const view = useStore((s) => s.view);
   const setView = useStore((s) => s.setView);
-  const mode = useStore((s) => s.mode);
-  const setMode = useStore((s) => s.setMode);
-  const info = useStore((s) => s.info);
   const presets = useStore((s) => s.presets);
   const objects = useStore((s) => s.objects);
-  const job = useStore((s) => s.job);
-  const openDialog = useStore((s) => s.openDialog);
-  const fileRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && (e.key === 'i' || e.key === 'I' || e.key === 'o' || e.key === 'O')) {
-        e.preventDefault();
-        fileRef.current?.click();
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  const panelsHidden = useStore((s) => s.panelsHidden);
+  const togglePanels = useStore((s) => s.togglePanels);
+  const undo = useStore((s) => s.undo);
+  const redo = useStore((s) => s.redo);
+  const canUndo = useStore((s) => s.undoStack.length > 0);
+  const canRedo = useStore((s) => s.redoStack.length > 0);
 
   const tabs: Array<{ id: View; label: string; dot?: boolean }> = [
     { id: 'plater', label: 'Plater' },
@@ -37,124 +32,65 @@ export function TopBar() {
     { id: 'filament', label: 'Filament Settings', dot: presets.filament.some(isModified) },
     { id: 'printer', label: 'Printer Settings', dot: isModified(presets.printer) },
   ];
+  // the settings views are a page without side panels: there is nothing for the toggle to hide
+  const hideable = view === 'plater' || view === 'preview';
 
-  const exportProject = async () => {
-    const st = useStore.getState();
-    if (!st.objects.length) return st.toast('error', 'Nothing to export');
-    const req = st.buildSliceRequest();
-    if (!req.objects.length) return st.toast('error', 'Models are still uploading');
-    try {
-      const blob = await api.export3mf(req);
-      downloadBlob(blob, `${req.outputName || 'project'}.3mf`);
-    } catch (e) {
-      st.toast('error', (e as Error).message);
-    }
-  };
-  const exportConfig = async () => {
-    const st = useStore.getState();
-    const req = st.buildSliceRequest();
-    try {
-      downloadBlob(await api.exportConfig(req), 'config.ini');
-    } catch (e) {
-      st.toast('error', (e as Error).message);
-    }
-  };
-  const exportPresetBundle = async () => {
-    const st = useStore.getState();
-    try {
-      downloadBlob(await api.exportBundle(), 'WebSlicer config bundle.ini');
-    } catch (e) {
-      st.toast('error', (e as Error).message);
-    }
-  };
+  // The app has no project name yet (one plater per session); the first object names it as well as
+  // anything can, and the bar says "Untitled" while the plater is empty.
+  const projectName = objects[0]?.name.replace(/\.[^.]+$/, '') || 'Untitled';
 
   return (
     <header className="topbar" data-testid="top-bar">
-      <div className="brand" title={`WebSlicer ${info?.version || ''} · PrusaSlicer ${info?.slicerVersion || ''}`}>
-        <span className="logo" />
-        WebSlicer
+      <AppMenu />
+      <div className="topbar-group">
+        <button
+          className="topbar-icon"
+          title="Undo (Ctrl+Z)"
+          aria-label="Undo"
+          onClick={undo}
+          disabled={!canUndo}
+          data-testid="undo-button"
+        >
+          <Icon name="undo" size={16} />
+        </button>
+        <button
+          className="topbar-icon"
+          title="Redo (Ctrl+Shift+Z or Ctrl+Y)"
+          aria-label="Redo"
+          onClick={redo}
+          disabled={!canRedo}
+          data-testid="redo-button"
+        >
+          <Icon name="redo" size={16} />
+        </button>
+        <button
+          className={`topbar-icon ${panelsHidden ? 'active' : ''}`}
+          title={panelsHidden ? 'Show the side panels' : 'Hide the side panels – the 3D view fills the window'}
+          aria-label={panelsHidden ? 'Show the side panels' : 'Hide the side panels'}
+          aria-pressed={panelsHidden}
+          onClick={togglePanels}
+          disabled={!hideable}
+          data-testid="hide-panels"
+        >
+          <Icon name="hidePanels" size={16} />
+        </button>
       </div>
+      <span className="project-name" title="The project on the plater">
+        {projectName}
+      </span>
       <nav className="tabs">
         {tabs.map((t) => (
-          <button key={t.id} className={view === t.id ? 'active' : ''} onClick={() => setView(t.id)}>
+          <button
+            key={t.id}
+            className={view === t.id ? 'active' : ''}
+            aria-current={view === t.id ? 'page' : undefined}
+            onClick={() => setView(t.id)}
+          >
             {t.label}
             {t.dot && <span className="dot" title="modified" />}
           </button>
         ))}
       </nav>
-      <div className="spacer" />
-      {/* T-058: a quiet, dismissible hint when the repository moved on – it never covers anything */}
-      <UpdateChip />
-      <div className="menu">
-        <input
-          ref={fileRef}
-          type="file"
-          multiple
-          accept=".stl,.obj,.3mf,.amf,.step,.stp"
-          style={{ display: 'none' }}
-          onChange={(e) => {
-            if (e.target.files?.length) void importFiles(e.target.files);
-            e.target.value = '';
-          }}
-        />
-        <button onClick={() => fileRef.current?.click()} title="Import STL/OBJ/3MF/AMF/STEP from this computer (Ctrl+I)">
-          <Icon name="import" size={16} /> Import
-        </button>
-        <button
-          onClick={() => openDialog('importPresets')}
-          title="Import user presets from a PrusaSlicer or WebSlicer config bundle, or from the config block of a G-code file"
-        >
-          <Icon name="importPresets" size={16} /> Import presets…
-        </button>
-        <button
-          onClick={() => openDialog('library', 'open')}
-          title="Open models, projects and G-code from the server library (mounted folder)"
-        >
-          <Icon name="library" size={16} /> Library
-        </button>
-        <div className="dropdown">
-          <button>
-            <Icon name="export" size={16} /> Export ▾
-          </button>
-          <div className="dropdown-menu">
-            <button onClick={exportProject} disabled={!objects.length}>
-              Export project as 3MF
-            </button>
-            <button onClick={exportConfig}>Export current settings (.ini)</button>
-            <button
-              onClick={exportPresetBundle}
-              title="All user presets and physical printers as a PrusaSlicer-compatible bundle (no credentials)"
-            >
-              Export presets (.ini bundle)
-            </button>
-            <button disabled={!job || job.status !== 'done'} onClick={() => job && (location.href = api.gcodeUrl(job.id, true))}>
-              Export G-code
-            </button>
-            <button onClick={() => openDialog('library', 'saveProject')} disabled={!objects.length}>
-              Save project to library…
-            </button>
-            <button disabled={!job || job.status !== 'done'} onClick={() => openDialog('library', 'saveGcode')}>
-              Save G-code to library…
-            </button>
-          </div>
-        </div>
-        <button onClick={() => openDialog('physicalPrinters')} title="Physical printers (print hosts)">
-          <Icon name="printers" size={16} /> Printers
-        </button>
-        <select
-          className="mode"
-          value={mode}
-          onChange={(e) => setMode(e.target.value as Mode)}
-          title="Settings visibility in the Print / Filament / Printer tabs: Simple shows the basics, Expert everything"
-        >
-          <option value="simple">Simple</option>
-          <option value="advanced">Advanced</option>
-          <option value="expert">Expert</option>
-        </select>
-        <button onClick={() => openDialog('about')} title="About" aria-label="About">
-          ?
-        </button>
-      </div>
     </header>
   );
 }

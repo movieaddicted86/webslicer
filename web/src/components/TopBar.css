@@ -1,38 +1,60 @@
-/* TopBar: the styles of this component. */
+/* TopBar: the styles of this component (layout 3.0, L-1). */
 
 .topbar {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 0 12px;
-  height: auto;
+  gap: 8px;
+  padding: 0 10px;
+  min-height: 46px;
   background: var(--bg2);
   border-bottom: 1px solid var(--border);
-  flex-wrap: wrap;
-  min-height: 46px;
+  /* the bar is one row: the view tabs scroll on a narrow window instead of wrapping into a second row */
+  min-width: 0;
 }
 
-.brand {
+.topbar-group {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-weight: 700;
-  font-size: 15px;
-  margin-right: 10px;
+  gap: 2px;
+  flex: none;
 }
 
-.logo {
-  width: 22px;
-  height: 22px;
-  border-radius: 5px;
-  background: var(--accent)
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M8 22h16M8 16h16M8 10h16' stroke='white' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E")
-    center/contain;
+.topbar-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 6px;
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
+}
+
+.topbar-icon:hover:not(:disabled) {
+  background: var(--bg4);
+  color: var(--text);
+}
+
+.topbar-icon.active {
+  background: var(--bg4);
+  border-color: var(--border);
+  color: var(--accent2);
+}
+
+.project-name {
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  max-width: 220px;
 }
 
 .tabs {
   display: flex;
   gap: 2px;
+  margin-left: auto;
+  min-width: 0;
 }
 
 .tabs button {
@@ -44,6 +66,11 @@
   white-space: nowrap;
   color: var(--muted);
   position: relative;
+}
+
+.tabs button:hover:not(:disabled) {
+  background: transparent;
+  color: var(--text);
 }
 
 .tabs button.active {
@@ -62,75 +89,25 @@
   vertical-align: middle;
 }
 
-.spacer {
-  flex: 1;
-}
-
-.menu {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.menu button {
-  white-space: nowrap;
-}
-
-/* the top-level buttons carry their icon next to the name; the dropdown entries stay text */
-.menu > button,
-.dropdown > button {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-}
-
+/* the names go first on a narrow bar; the tabs keep their labels, the plater/preview pair too */
 @media (max-width: 1100px) {
-  .brand span.text {
-    display: none;
+  .project-name {
+    max-width: 140px;
   }
 }
 
-.menu select.mode {
-  padding: 4px;
-}
+@media (max-width: 900px) {
+  .project-name {
+    display: none;
+  }
 
-.dropdown {
-  position: relative;
-}
+  .tabs {
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
 
-.dropdown-menu {
-  display: none;
-  position: absolute;
-  right: 0;
-  top: 100%;
-  background: var(--bg3);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  min-width: 220px;
-  z-index: 20;
-  flex-direction: column;
-  padding: 4px;
-}
-
-.dropdown:hover .dropdown-menu,
-.dropdown:focus-within .dropdown-menu {
-  display: flex;
-}
-
-.dropdown-menu button {
-  background: transparent;
-  border: none;
-  text-align: left;
-  padding: 6px 10px;
-}
-
-.dropdown-menu button:hover:not(:disabled) {
-  background: var(--bg4);
-}
-
-@media (max-width: 640px) {
-  .tabs,
-  .menu {
-    flex-wrap: wrap;
+  .tabs button {
+    padding: 12px 7px;
+    font-size: 12px;
   }
 }

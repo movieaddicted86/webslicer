@@ -4,6 +4,18 @@ The short list is in the [README](../README.md); this page keeps the full descri
 PrusaSlicer feature exists here and which does not is in
 [Feature-Comparison.md](Feature-Comparison.md); what is still planned is in [TODO.md](../TODO.md).
 
+## Window
+
+- **Rail on the far left**: _Slicing_ (the plater and the preview), _Library_, _Printers_; at the
+  bottom _Preferences_ (the print, filament and printer settings) and _About_, which also carries the
+  update notice. The current place is marked in orange; on a narrow window the names drop away and on a
+  phone the rail becomes a bottom tab bar.
+- **Slim top bar**: the **Menu** (import models and presets, open from the library, save the project,
+  the export list, the Simple / Advanced / Expert mode, printers, About), undo and redo, a **hide the
+  side panels** switch that gives the 3D view the full width (remembered per browser), the project name
+  and the view tabs _Plater / Preview / Print / Filament / Printer_. Every action of the wide top bar
+  is still there, one click away.
+
 ## Plater
 
 - **3D plater** (Three.js): import STL / OBJ / 3MF / AMF / STEP (drag & drop; STEP is converted on the

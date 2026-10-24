@@ -17,6 +17,7 @@ import type { JobSlice } from './slices/job';
 import type { PreviewSlice } from './slices/preview';
 import type { HistorySlice } from './slices/history';
 import type { ToolsSlice } from './slices/tools';
+import type { LayoutSlice } from './slices/layout';
 
 /** A sub-volume of an object: additional part, modifier, support enforcer/blocker or negative volume. */
 export interface PlaterVolume extends Placement {
@@ -168,7 +169,7 @@ export interface CoreState {
 }
 
 /** The whole store state: what every slice contributes plus the state they share. */
-export type State = CoreState & UiSlice & PresetSlice & PlaterSlice & JobSlice & PreviewSlice & HistorySlice & ToolsSlice;
+export type State = CoreState & UiSlice & PresetSlice & PlaterSlice & JobSlice & PreviewSlice & HistorySlice & ToolsSlice & LayoutSlice;
 
 /**
  * A part of a slice: a creator that `createPlaterSlice` spreads into itself (painting, height
