@@ -1,7 +1,7 @@
 /**
- * The update notice (T-058): the server's answer to `GET /api/update-status` reaches the top bar as a
- * quiet chip and the About dialog as one row. Nothing appears when the install is current or the check
- * is switched off, and dismissing is remembered per `latest` value.
+ * The update notice (T-058): the server's answer to `GET /api/update-status` reaches the rail's About
+ * item as a quiet chip and the About dialog as one row. Nothing appears when the install is current or
+ * the check is switched off, and dismissing is remembered per `latest` value.
  *
  * The answer is mocked through route interception and applied with the store's own
  * `refreshUpdateStatus()`, so the spec exercises the same fetch → store → render path a real server
@@ -98,21 +98,23 @@ test.describe('update notice: chip, About row and dismissal', () => {
     await expect(chip).toHaveAttribute('aria-label', 'Update available · v1.1.0');
     await expect(chip.locator('a')).toHaveAttribute('href', 'https://github.com/movieaddicted86/webslicer/releases/tag/v1.1.0');
 
-    // the mobile layout keeps the one-liner inside the top bar
+    // the mobile layout keeps the chip inside the rail's bottom bar, and nothing overflows the window
     await app.setViewportSize({ width: 320, height: 640 });
     await app.waitForTimeout(500);
     const overflow = await app.evaluate(() => {
-      const top = document.querySelector('.topbar') as HTMLElement;
+      const rail = document.querySelector('[data-testid="rail"]') as HTMLElement;
       const chip = document.querySelector('.update-chip') as HTMLElement;
       return {
-        top: top.scrollWidth - top.clientWidth,
+        rail: rail.scrollWidth - rail.clientWidth,
+        doc: document.documentElement.scrollWidth - document.documentElement.clientWidth,
         chip: chip.getBoundingClientRect().right - window.innerWidth,
         height: Math.round(chip.getBoundingClientRect().height),
       };
     });
-    expect(overflow.top).toBeLessThanOrEqual(0);
+    expect(overflow.rail).toBeLessThanOrEqual(0);
+    expect(overflow.doc).toBeLessThanOrEqual(0);
     expect(overflow.chip).toBeLessThanOrEqual(0);
-    // one line, not a wrapped block
+    // one compact badge, not a wrapped block
     expect(overflow.height).toBeLessThan(40);
   });
 

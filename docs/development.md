@@ -46,6 +46,34 @@ the server builds a 3MF from all objects + transforms, writes the merged configu
 (print + filament(s) + printer) as `config.ini` and calls
 `prusa-slicer --export-gcode --load config.ini --dont-arrange model.3mf`.
 
+## The app shell
+
+`web/src/components/AppShell.tsx` is the frame; `App.tsx` only starts the session and renders it.
+One CSS grid in `AppShell.css` lays the app out, named by area:
+
+```
+rail | left | scene | right          (top bar spans all four)
+ 64px   0     1fr     --sidebar-w
+```
+
+- **rail** – `Rail.tsx`: the app's places (Slicing, Library, Printers, Preferences, About) and the
+  update notice. It becomes a bottom tab bar below 640 px.
+- **left** – reserved for the object list (layout step L-2); the track is 0 px until then.
+- **scene** – the `DropZone` with the `Viewer`; three.js resizes through its `ResizeObserver`, so the
+  canvas follows the grid without a second resize path.
+- **right** – the existing `Sidebar`, unchanged.
+- The settings views (Print/Filament/Printer) replace scene and sidebar and take the whole area right
+  of the rail.
+- The top bar (`TopBar.tsx`) is one row: the `Menu` dropdown (`AppMenu.tsx`), undo/redo, the
+  hide-panels switch, the project name and the view tabs.
+
+The only shell state is the `layout` slice (`web/src/state/slices/layout.ts`): `panelsHidden`, persisted
+in `localStorage` behind a try/catch. Hiding the panels takes the sidebar out of the grid (it stays
+mounted, so its state survives) and the scene takes the freed width. New regions carry a
+`data-testid` hook (`rail`, `rail-slicing`, `menu`, `hide-panels`, …); `e2e/hooks.test.ts` keeps that
+list and the components in agreement, so a later layout step can move a region without rewriting the
+specs. The design is in [design/Layout-3.0.md](design/Layout-3.0.md).
+
 ## Icons
 
 Every icon is addressed by the function it performs, never by its picture: components use
