@@ -109,16 +109,26 @@ export function PresetSelect({ type, slot, extruderIdx = 0, label }: Props) {
           </button>
         )}
         {current && !current.system && (
-          <button
-            className="icon"
-            title="Delete user preset"
-            aria-label="Delete user preset"
-            onClick={() =>
-              confirm(`Delete preset "${slot.name}"?`) && deletePreset(type, slot.name).catch((e) => toast('error', e.message))
-            }
-          >
-            <ACTION_ICONS.delete size={14} strokeWidth={2} aria-hidden="true" focusable="false" />
-          </button>
+          <>
+            <button
+              className="icon"
+              title="Rename user preset"
+              aria-label="Rename user preset"
+              onClick={() => openDialog('renamePreset', { type, name: slot.name })}
+            >
+              <ACTION_ICONS.rename size={14} strokeWidth={2} aria-hidden="true" focusable="false" />
+            </button>
+            <button
+              className="icon"
+              title="Delete user preset"
+              aria-label="Delete user preset"
+              onClick={() =>
+                confirm(`Delete preset "${slot.name}"?`) && deletePreset(type, slot.name).catch((e) => toast('error', e.message))
+              }
+            >
+              <ACTION_ICONS.delete size={14} strokeWidth={2} aria-hidden="true" focusable="false" />
+            </button>
+          </>
         )}
       </div>
     </div>

@@ -4,6 +4,8 @@ import { AddPrinterDialog } from './AddPrinterDialog';
 import { PhysicalPrintersDialog } from './PhysicalPrintersDialog';
 import { SendToPrinterDialog } from './SendToPrinterDialog';
 import { SavePresetDialog } from './SavePresetDialog';
+import { RenamePresetDialog } from './RenamePresetDialog';
+import { PresetImportDialog } from './PresetImportDialog';
 import { ObjectSettingsDialog } from './ObjectSettingsDialog';
 import { AboutDialog } from './AboutDialog';
 import { UnsavedChangesDialog } from './UnsavedChangesDialog';
@@ -26,6 +28,10 @@ export function Dialogs() {
       return <SendToPrinterDialog onClose={close} />;
     case 'savePreset':
       return <SavePresetDialog onClose={close} payload={payload as { type: PresetType; extruderIdx: number }} />;
+    case 'renamePreset':
+      return <RenamePresetDialog onClose={close} payload={payload as { type: PresetType; name: string }} />;
+    case 'importPresets':
+      return <PresetImportDialog onClose={close} />;
     case 'objectSettings':
       return <ObjectSettingsDialog onClose={close} {...(payload as { objectId: string; volumeId?: string; rangeId?: string })} />;
     case 'about':

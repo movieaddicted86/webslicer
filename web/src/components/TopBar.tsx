@@ -58,6 +58,14 @@ export function TopBar() {
       st.toast('error', (e as Error).message);
     }
   };
+  const exportPresetBundle = async () => {
+    const st = useStore.getState();
+    try {
+      downloadBlob(await api.exportBundle(), 'WebSlicer config bundle.ini');
+    } catch (e) {
+      st.toast('error', (e as Error).message);
+    }
+  };
 
   return (
     <header className="topbar">
@@ -92,6 +100,12 @@ export function TopBar() {
           ⤓ Import
         </button>
         <button
+          onClick={() => openDialog('importPresets')}
+          title="Import user presets from a PrusaSlicer or WebSlicer config bundle, or from the config block of a G-code file"
+        >
+          ⤒ Import presets…
+        </button>
+        <button
           onClick={() => openDialog('library', 'open')}
           title="Open models, projects and G-code from the server library (mounted folder)"
         >
@@ -103,7 +117,13 @@ export function TopBar() {
             <button onClick={exportProject} disabled={!objects.length}>
               Export project as 3MF
             </button>
-            <button onClick={exportConfig}>Export config bundle (.ini)</button>
+            <button onClick={exportConfig}>Export current settings (.ini)</button>
+            <button
+              onClick={exportPresetBundle}
+              title="All user presets and physical printers as a PrusaSlicer-compatible bundle (no credentials)"
+            >
+              Export presets (.ini bundle)
+            </button>
             <button disabled={!job || job.status !== 'done'} onClick={() => job && (location.href = api.gcodeUrl(job.id, true))}>
               Export G-code
             </button>
