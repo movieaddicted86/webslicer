@@ -35,7 +35,7 @@ Priority by frequency of use in everyday printing and PrusaSlicer parity.
 - [x] Continuous layer-height profile (adaptive, smoothing, brush, T-045)
 - [ ] Rename preset; config bundle import/export; import config from G-code
 - [x] Update vendor profiles online (PrusaSlicer-settings, T-060) – built, but no vendor has a newer online bundle than the image for engine 2.9.x (Q-007); profile updates come with engine upgrades (`docs/PrusaSlicer-Upgrade.md`)
-- [ ] Extend the configuration wizard (filaments per vendor, temperatures)
+- [x] Extend the configuration wizard (filaments per vendor, temperatures, T-061)
 - [x] Camera: views (iso/top/front/…), orthographic, zoom to selection
 - [x] Object toolbar with real SVG icons (lucide), grouped, 18 px, readable tooltips (T-036)
 - [x] Tool framework: left tool bar at the 3D view + one panel per tool, registry-driven (T-046)

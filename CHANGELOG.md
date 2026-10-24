@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+- **Configuration wizard (T-061):** the Printers dialog is now the whole setup wizard. A new **Filaments**
+  tab lists the system filaments of the installed vendors grouped by vendor and material, with a text
+  filter, counts, and **All** / **None** / **Only this type** per group. **Apply** stores the ticks
+  (`<DATA_DIR>/visible_filaments.json`, next to the installed printers) and the filament selector only
+  offers those presets from then on – user presets, the defaults and the active filament always stay,
+  an empty choice means "show all" (the previous behaviour), and a **Show all filaments** checkbox in
+  the sidebar lifts the filter for a session. **Custom printer** became two steps: the existing form
+  (name, bed, height, nozzle, firmware) is followed by its filament (name, first-layer/other-layer
+  hotend and bed temperatures, diameter; 215/215 °C, 60/60 °C, 1.75 mm defaults). Saving creates the
+  printer preset and a user filament preset `<printer> – <filament>` and selects both. Both steps run
+  the shared configuration limits: a blocking value reddens the field, names the limit and disables
+  **Save**, and a preset save now refuses such a value server-side with 400 and its issues (a soft-range
+  value still only warns). Nothing new is exposed over MCP.
 - **Vendor profile updates (T-060):** the printer bundle no longer ages with the image. The Printers
   dialog (Vendor profiles tab) lists every installed vendor with **installed → available**, checks the
   official PrusaSlicer-settings repository at most once a day, and installs a newer bundle with one
