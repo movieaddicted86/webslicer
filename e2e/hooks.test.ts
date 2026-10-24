@@ -1,5 +1,5 @@
 /**
- * The guard for the stable test hooks (T-062).
+ * The guard for the stable test hooks.
  *
  * The layout tasks move the sidebar, the tool bar and the top bar between regions. A spec that
  * selects a region by its structural class (`.sidebar`, `.tool-panel`, …) breaks on every move, so
