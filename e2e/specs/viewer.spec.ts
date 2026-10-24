@@ -337,7 +337,7 @@ test.describe('viewer: keyboard shortcuts', () => {
     });
     await app.waitForTimeout(900);
     // the volume comes from the app's own menu (the production build has no `/src` modules to import)
-    await app.locator('.object-row .icon.add').first().click();
+    await app.locator('[data-testid="object-add-volume"]').first().click();
     await app.locator('.add-volume-row:has-text("Modifier") button:text-is("box")').first().click();
     await app.waitForTimeout(2000);
     const withVolume = await read(app, (s) => ({

@@ -43,7 +43,7 @@ async function removePreset(app: Parameters<typeof settle>[0], name: string): Pr
 /** Type into the dialog's name field the way React sees it (the native setter + an input event). */
 async function typeName(app: Parameters<typeof settle>[0], value: string): Promise<void> {
   await app.evaluate((v) => {
-    const input = document.querySelector('.modal-body input') as HTMLInputElement;
+    const input = document.querySelector('[data-testid="modal"] .modal-body input') as HTMLInputElement;
     const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
     setter?.call(input, v);
     input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -59,19 +59,19 @@ test('a user preset is renamed from its row and the list follows', async ({ app 
   await app.evaluate((n) => window.webslicer.getState().selectPreset('print', n), from);
   await app.waitForTimeout(800);
 
-  await app.locator('.sidebar .preset-row button[aria-label="Rename user preset"]').first().click();
-  await app.waitForSelector('.modal', { state: 'visible' });
+  await app.locator('[data-testid="preset-select-print"] button[aria-label="Rename user preset"]').first().click();
+  await app.waitForSelector('[data-testid="modal"]', { state: 'visible' });
   expect(await dialogKind(app)).toBe('renamePreset');
   const dialog = await app.evaluate(() => ({
-    title: document.querySelector('.modal-head h2')?.textContent,
-    value: (document.querySelector('.modal-body input') as HTMLInputElement | null)?.value,
+    title: document.querySelector('[data-testid="modal-title"]')?.textContent,
+    value: (document.querySelector('[data-testid="modal"] .modal-body input') as HTMLInputElement | null)?.value,
   }));
   expect(dialog.title).toBe('Rename print preset');
   expect(dialog.value).toBe(from);
 
   await typeName(app, to);
-  await app.locator('.modal-actions button.primary').click();
-  await app.waitForSelector('.modal', { state: 'hidden', timeout: 15_000 });
+  await app.locator('[data-testid="modal-actions"] button.primary').click();
+  await app.waitForSelector('[data-testid="modal"]', { state: 'hidden', timeout: 15_000 });
   await settle(app, 1000);
 
   const after = await app.evaluate(() => {
@@ -92,11 +92,11 @@ test('a name that already exists is refused in the dialog, before anything is se
   await createPreset(app, 'E2E clash existing');
   await createPreset(app, 'E2E clash source');
   await app.evaluate(() => window.webslicer.getState().openDialog('renamePreset', { type: 'print', name: 'E2E clash source' }));
-  await app.waitForSelector('.modal', { state: 'visible' });
+  await app.waitForSelector('[data-testid="modal"]', { state: 'visible' });
   await typeName(app, 'E2E clash existing');
   const state = await app.evaluate(() => ({
-    error: document.querySelector('.modal-body .error')?.textContent?.trim(),
-    disabled: (document.querySelector('.modal-actions button.primary') as HTMLButtonElement | null)?.disabled,
+    error: document.querySelector('[data-testid="modal"] .modal-body .error')?.textContent?.trim(),
+    disabled: (document.querySelector('[data-testid="modal-actions"] button.primary') as HTMLButtonElement | null)?.disabled,
   }));
   expect(state.error).toMatch(/a user preset with this name exists/i);
   expect(state.disabled).toBe(true);
@@ -107,9 +107,9 @@ test('a name that already exists is refused in the dialog, before anything is se
 
 test('the import dialog offers a bundle and a G-code file, and Import waits for a file', async ({ app }) => {
   await app.evaluate(() => window.webslicer.getState().openDialog('importPresets'));
-  await app.waitForSelector('.modal', { state: 'visible' });
+  await app.waitForSelector('[data-testid="modal"]', { state: 'visible' });
   const dialog = await app.evaluate(() => ({
-    title: document.querySelector('.modal-head h2')?.textContent,
+    title: document.querySelector('[data-testid="modal-title"]')?.textContent,
     files: Array.from(document.querySelectorAll('.preset-import input[type="file"]')).map((i) => (i as HTMLInputElement).accept),
   }));
   expect(dialog.title).toBe('Import presets');
@@ -117,6 +117,6 @@ test('the import dialog offers a bundle and a G-code file, and Import waits for 
   expect(dialog.files[0]).toMatch(/\.ini/);
   expect(dialog.files[1]).toMatch(/gcode/);
   // no preview is shown before a file was read, so there is nothing to import
-  expect(await app.locator('.modal-actions').count()).toBe(0);
+  expect(await app.locator('[data-testid="modal-actions"]').count()).toBe(0);
   await closeDialog(app, 'escape');
 });

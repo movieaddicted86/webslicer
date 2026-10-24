@@ -13,7 +13,7 @@ import { read } from '../helpers/app';
 /** The values of the filament selector's options, as the sidebar shows them. */
 async function filamentOptions(app: Parameters<typeof read>[0]): Promise<string[]> {
   return app.evaluate(() => {
-    const select = Array.from(document.querySelectorAll('.presets .preset-select')).find(
+    const select = Array.from(document.querySelectorAll('[data-testid="presets"] [data-testid^="preset-select-"]')).find(
       (p) => p.querySelector('label')?.textContent?.trim() === 'Filament',
     );
     return Array.from(select?.querySelectorAll('option') ?? []).map((o) => (o as HTMLOptionElement).value);
@@ -64,7 +64,7 @@ test.describe('configuration wizard', () => {
 
     await click(app, '.filament-vendor-head button:text-is("All")', 600);
     expect(await app.locator('.filament-step-head .muted').textContent()).toContain('selected');
-    await click(app, '.filament-step .modal-actions button:text-is("Apply")', 1500);
+    await click(app, '.filament-step [data-testid="modal-actions"] button:text-is("Apply")', 1500);
     expect(await dialogKind(app)).toBeUndefined();
 
     const ticked = await read(app, (s) => s.visibleFilaments);
@@ -85,10 +85,10 @@ test.describe('configuration wizard', () => {
     expect(after).toContain(selected);
 
     // the escape hatch in the sidebar restores the full list for this session
-    await app.locator('.presets label.checkbox:has-text("Show all filaments") input').check();
+    await app.locator('[data-testid="presets"] label.checkbox:has-text("Show all filaments") input').check();
     await app.waitForTimeout(500);
     expect(await filamentOptions(app)).toEqual(before);
-    await app.locator('.presets label.checkbox:has-text("Show all filaments") input').uncheck();
+    await app.locator('[data-testid="presets"] label.checkbox:has-text("Show all filaments") input').uncheck();
     await app.waitForTimeout(500);
 
     // the tick list survives a reload – it is stored on the server, like the installed printers
@@ -109,17 +109,17 @@ test.describe('configuration wizard', () => {
 
     await fill(app, '#custom-printer-name', name, 400);
     const first = await app.evaluate(() => ({
-      step: document.querySelector('.custom-printer .modal-actions .muted')?.textContent,
-      action: document.querySelector('.custom-printer .modal-actions button')?.textContent,
+      step: document.querySelector('.custom-printer [data-testid="modal-actions"] .muted')?.textContent,
+      action: document.querySelector('.custom-printer [data-testid="modal-actions"] button')?.textContent,
     }));
     expect(first.step).toContain('Step 1 of 2');
     expect(first.action).toBe('Next');
 
-    await click(app, '.custom-printer .modal-actions button:text-is("Next")', 600);
+    await click(app, '.custom-printer [data-testid="modal-actions"] button:text-is("Next")', 600);
     const second = await app.evaluate(() => {
       const value = (id: string) => (document.querySelector(id) as HTMLInputElement | null)?.value;
       return {
-        step: document.querySelector('.filament-for-printer .modal-actions .muted')?.textContent,
+        step: document.querySelector('.filament-for-printer [data-testid="modal-actions"] .muted')?.textContent,
         filamentName: value('#custom-filament-name'),
         temperatures: [
           '#custom-filament-temperature',
@@ -128,7 +128,9 @@ test.describe('configuration wizard', () => {
           '#custom-filament-first_layer_bed_temperature',
           '#custom-filament-filament_diameter',
         ].map(value),
-        actions: Array.from(document.querySelectorAll('.filament-for-printer .modal-actions button')).map((b) => b.textContent),
+        actions: Array.from(document.querySelectorAll('.filament-for-printer [data-testid="modal-actions"] button')).map(
+          (b) => b.textContent,
+        ),
       };
     });
     expect(second.step).toContain('Step 2 of 2');
@@ -137,7 +139,7 @@ test.describe('configuration wizard', () => {
     expect(second.temperatures).toEqual(['215', '215', '60', '60', '1.75']);
     expect(second.actions).toEqual(['Back', 'Save']);
 
-    await click(app, '.filament-for-printer .modal-actions button:text-is("Save")', 2500);
+    await click(app, '.filament-for-printer [data-testid="modal-actions"] button:text-is("Save")', 2500);
     expect(await dialogKind(app)).toBeUndefined();
 
     // the printer and its filament are selected, and both presets are on the server
@@ -178,13 +180,13 @@ test.describe('configuration wizard', () => {
   test('an absurd temperature is blocked in the form and refused by the API', async ({ app }) => {
     await openDialog(app, 'addPrinter');
     await click(app, '.subtabs button:has-text("Custom printer")', 600);
-    await click(app, '.custom-printer .modal-actions button:text-is("Next")', 600);
+    await click(app, '.custom-printer [data-testid="modal-actions"] button:text-is("Next")', 600);
 
     await fill(app, '#custom-filament-temperature', '2150', 600);
     const blocked = await app.evaluate(() => ({
       issue: document.querySelector('#opt-temperature .field-issue')?.textContent ?? '',
       severity: document.querySelector('#opt-temperature')?.className ?? '',
-      save: (document.querySelector('.filament-for-printer .modal-actions .primary') as HTMLButtonElement | null)?.disabled,
+      save: (document.querySelector('.filament-for-printer [data-testid="modal-actions"] .primary') as HTMLButtonElement | null)?.disabled,
     }));
     expect(blocked.issue).toContain('temperature = 2150 °C');
     expect(blocked.severity).toContain('issue-block');
@@ -205,7 +207,7 @@ test.describe('configuration wizard', () => {
 
     // a corrected value unblocks Save
     await fill(app, '#custom-filament-temperature', '215', 600);
-    expect(await app.locator('.filament-for-printer .modal-actions .primary').isDisabled()).toBe(false);
+    expect(await app.locator('.filament-for-printer [data-testid="modal-actions"] .primary').isDisabled()).toBe(false);
     await closeDialog(app, 'escape');
   });
 });

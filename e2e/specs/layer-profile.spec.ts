@@ -59,7 +59,7 @@ test.describe('variable layer height', () => {
       s.openTool('layerHeight');
     });
     await settle(app, 600);
-    await expect(app.locator('.tool-panel')).toBeVisible();
+    await expect(app.locator('[data-testid="tool-panel"]')).toBeVisible();
     await expect(app.locator('.layer-profile-chart')).toBeVisible();
 
     // the reference: the sphere with its fixed 0.2 mm layers
@@ -81,8 +81,8 @@ test.describe('variable layer height', () => {
       if (s.activeTool !== 'layerHeight') s.openTool('layerHeight');
     });
     await settle(app, 600);
-    await expect(app.locator('.tool-panel')).toBeVisible();
-    await app.locator('.tool-panel button:has-text("Adaptive")').click();
+    await expect(app.locator('[data-testid="tool-panel"]')).toBeVisible();
+    await app.locator('[data-testid="tool-panel"] button:has-text("Adaptive")').click();
     await settle(app, 800);
 
     const before = await state(app);
@@ -110,7 +110,7 @@ test.describe('variable layer height', () => {
       s.openTool('layerHeight');
     });
     await settle(app, 600);
-    await app.locator('.tool-panel button:has-text("Adaptive")').click();
+    await app.locator('[data-testid="tool-panel"] button:has-text("Adaptive")').click();
     await settle(app, 800);
     expect((await state(app)).objects[0].layerProfile?.length || 0).toBeGreaterThan(0);
 
@@ -119,9 +119,9 @@ test.describe('variable layer height', () => {
     expect((await state(app)).objects[0].layerProfile).toBeUndefined();
 
     // Adaptive again, then Reset through the button: the object prints with its fixed layer height
-    await app.locator('.tool-panel button:has-text("Adaptive")').click();
+    await app.locator('[data-testid="tool-panel"] button:has-text("Adaptive")').click();
     await settle(app, 800);
-    await app.locator('.tool-panel button:has-text("Reset")').click();
+    await app.locator('[data-testid="tool-panel"] button:has-text("Reset")').click();
     await settle(app, 500);
     const after = await state(app);
     expect(after.objects[0].layerProfile).toBeUndefined();

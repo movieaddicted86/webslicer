@@ -89,7 +89,7 @@ test.describe('session: reload restores the plater (T-035)', () => {
     rotation.forEach((v, i) => expect(Math.abs(v - before.objects[0].instances[0].rotation[i])).toBeLessThan(1e-6));
     expect(await paintedTriangles(app)).toBe(painted);
     // the automatic restore says so, and offers to start over
-    await expect(app.locator('.toast', { hasText: 'Previous session restored' })).toBeVisible();
+    await expect(app.locator('[data-testid="toast"]', { hasText: 'Previous session restored' })).toBeVisible();
     await expect(app.locator('.toast-action', { hasText: 'Start empty' })).toBeVisible();
   });
 
@@ -131,6 +131,6 @@ test.describe('session: reload restores the plater (T-035)', () => {
     await waitReady(app);
     await app.waitForTimeout(3000);
     expect(await read(app, (s) => s.objects.length)).toBe(0);
-    await expect(app.locator('.toast', { hasText: 'Previous session restored' })).toHaveCount(0);
+    await expect(app.locator('[data-testid="toast"]', { hasText: 'Previous session restored' })).toHaveCount(0);
   });
 });
