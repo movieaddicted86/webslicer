@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- **New app shell with a rail and a slim top bar (layout 3.0, L-1):** the far-left rail holds the app's
+  places – _Slicing_ (plater and preview), _Library_, _Printers_, and at the bottom _Preferences_ (the
+  print/filament/printer settings) and _About_, which now carries the update notice. The current place
+  is marked in the accent colour and with `aria-current`. The top bar is one row at every width: a
+  **Menu** dropdown with every action the wide bar had (import models and presets, open from the
+  library, save the project, the full Export list, the Simple/Advanced/Expert mode, printers, about),
+  undo/redo, a **hide panels** switch that gives the 3D view the full width and is remembered per
+  browser, the project name and the unchanged view tabs. The shell is one CSS grid
+  (`rail | left | scene | sidebar`); the empty left track is ready for the object list of the next
+  step. Below 1100 px the rail shows icons only, and below 640 px it becomes a bottom tab bar; nothing
+  overflows at 360 px. New components: `AppShell`, `Rail`, `AppMenu`; the only new state is the
+  `layout` slice's `panelsHidden`.
 - **PrusaSlicer icons (I-1):** the tool bar, the top bar buttons (Import, Import presets, Library,
   Export, Printers), the object toolbar, the simple-mode object rows and the object list's row actions
   now use PrusaSlicer 3.0's artwork instead of the lucide glyphs – one icon per function, from one

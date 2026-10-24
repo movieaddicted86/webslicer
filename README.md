@@ -12,7 +12,8 @@ any browser – on a PC, a tablet or the workshop laptop.
 
 - **3D plater** (Three.js): import STL / OBJ / 3MF / AMF / STEP, move / rotate / scale, place on face,
   arrange, duplicate, instances, mirror, merge, cut, per-object settings and a left tool bar with one
-  panel per tool.
+  panel per tool. A rail on the far left switches between Slicing, Library, Printers and the settings,
+  and the slim top bar's menu carries import, save, export and the mode.
 - **Volumes and height ranges** like PrusaSlicer: modifiers, support enforcers/blockers, negative
   volumes, extra parts, and variable layer height.
 - **All slicing options** of the installed PrusaSlicer, sorted into the familiar Print / Filament /
@@ -66,14 +67,16 @@ PrusaSlicer pinning): [docs/installation.md](docs/installation.md). All environm
 
 **Updates.** WebSlicer never updates itself, but it tells you when the repository has moved on: the
 server compares its build commit (`GIT_COMMIT`, passed by Compose/CI/the Proxmox installer) with the
-head of your branch once a day, and a dismissible chip plus the About dialog link to the new commits
-or release. Set `WEBSLICER_UPDATE_CHECK=off` to switch the check – and every outbound request – off.
-Details: [docs/installation.md#update-notice](docs/installation.md#update-notice).
+head of your branch once a day, and a dismissible chip next to the rail's **About** item plus the About
+dialog link to the new commits or release. Set `WEBSLICER_UPDATE_CHECK=off` to switch the check – and
+every outbound request – off. Details: [docs/installation.md#update-notice](docs/installation.md#update-notice).
 
 ## A quick tour
 
-The plater with the tool bar, the object list and the quick settings. Move, rotate and scale have their
-own bar entries; painting, cut and layer height open a panel next to the bar.
+The plater with the rail on the left, the slim top bar and the object list with the quick settings on
+the right. Move, rotate and scale have their own bar entries; painting, cut and layer height open a
+panel next to the bar. The **Menu** in the top bar holds import, save, export, the visibility mode and
+the dialogs; **hide panels** gives the 3D view the full width.
 
 ![The plater](docs/images/plater.png)
 
