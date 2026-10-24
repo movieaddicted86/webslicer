@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **PrusaSlicer icons (I-1):** the tool bar, the top bar buttons (Import, Import presets, Library,
+  Export, Printers), the object toolbar, the simple-mode object rows and the object list's row actions
+  now use PrusaSlicer 3.0's artwork instead of the lucide glyphs – one icon per function, from one
+  table (`web/src/icons/table.ts`) through one component (`<Icon name>`). The toolbar icons keep their
+  size, hit areas, accessible names and "Name (Key)" tooltips. The SVGs are vendored from a pinned
+  PrusaSlicer commit by `node scripts/vendor-icons.mjs` (recoloured to `currentColor`, no new runtime
+  dependency), which also regenerates `docs/design/icon-sheet.html`; provenance is in
+  `THIRD_PARTY_NOTICES.md`. See `docs/development.md` for adding an icon.
 - **Stable test hooks (T-062, internal):** the app's structural elements carry `data-testid` hooks named
   by role (app shell, top bar, sidebar, object list, tool bar and its tools, tool panel, dialogs,
   preview controls, toasts), and the E2E suite selects them by those hooks instead of by class and

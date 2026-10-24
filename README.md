@@ -122,5 +122,6 @@ binding rules for code, tests and commits and lists the commands, including the 
 
 WebSlicer is licensed under the **GNU Affero General Public License, version 3 or later** (`LICENSE`),
 like PrusaSlicer itself. PrusaSlicer is © Prusa Research; WebSlicer is an independent project and not
-affiliated with Prusa Research. The bundled JavaScript dependencies and the PrusaSlicer source link are
+affiliated with Prusa Research. The UI icons are PrusaSlicer's artwork (AGPL-3.0), copied and
+recoloured. The bundled JavaScript dependencies, the icon source and the PrusaSlicer source link are
 listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

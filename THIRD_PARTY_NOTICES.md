@@ -17,6 +17,17 @@ Corresponding source: <https://github.com/prusa3d/PrusaSlicer> (tag `version_2.9
 release). PrusaSlicer is invoked as a separate program; the licence text is in the extracted
 AppImage under `usr/share/doc/prusaslicer/` and at <https://www.gnu.org/licenses/agpl-3.0.html>.
 
+## PrusaSlicer icons
+
+The UI uses the icon artwork from PrusaSlicer's `resources/icons/` directory. The icons were copied
+and recoloured (near-white fills changed to `currentColor`), with fixed `width`/`height` removed and
+the `viewBox` kept. They are vendored as `web/src/icons/prusa/*.svg` by `scripts/vendor-icons.mjs`;
+nothing is fetched at runtime.
+
+- Source: <https://github.com/prusa3d/PrusaSlicer>
+- Pinned commit: `30ef59195e0f3ee6f270b185bb5f9fb5f349f81f`
+- Licence: GNU Affero General Public License v3 (AGPL-3.0), © Prusa Research a.s. and contributors
+
 ## JavaScript dependencies
 
 Generated from the production dependency tree (`npm ls --omit=dev --all`). Each package ships its

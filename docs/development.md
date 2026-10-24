@@ -46,6 +46,29 @@ the server builds a 3MF from all objects + transforms, writes the merged configu
 (print + filament(s) + printer) as `config.ini` and calls
 `prusa-slicer --export-gcode --load config.ini --dont-arrange model.3mf`.
 
+## Icons
+
+Every icon is addressed by the function it performs, never by its picture: components use
+`<Icon name="move" />`, and `web/src/icons/table.ts` maps the function to PrusaSlicer's artwork or, for
+the few pieces of generic chrome Prusa has no icon for, to a lucide glyph. A component never imports
+an icon library directly.
+
+The Prusa SVGs are vendored, not fetched at runtime. `scripts/vendor-icons.mjs` downloads the fixed
+list from `prusa3d/PrusaSlicer` at the commit recorded in the script (network needed), normalises it
+and writes `web/src/icons/prusa/<file>.svg` plus the generated `web/src/icons/prusa/index.ts`. Run it
+from the repository root; it is idempotent and prints what changed:
+
+```bash
+node scripts/vendor-icons.mjs           # vendor the icons the map marks "we have it"
+node scripts/vendor-icons.mjs --sheet   # regenerate docs/design/icon-sheet.html
+```
+
+To add an icon: add the function and its Prusa file to the icon map (`docs/design/Icons-and-UX.md`
+§3) and to `ICONS` in the script, run the script, then add the function name to `ICON_TABLE` in
+`web/src/icons/table.ts`. `web/src/icons/icons.test.ts` fails when a table entry has no vendored file,
+when the generated index and the files disagree, or when an SVG still contains a near-white fill.
+Licence and provenance are in `THIRD_PARTY_NOTICES.md`.
+
 ## Continuous integration
 
 `.github/workflows/ci.yml` runs on every push and pull request: `npm ci` → `npm run typecheck` (the
