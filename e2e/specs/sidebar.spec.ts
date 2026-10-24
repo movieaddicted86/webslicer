@@ -116,7 +116,8 @@ test.describe('context panel: the plater view with one object', () => {
     await field.fill('1001');
     await app.waitForTimeout(400);
     expect(await read(app, (s) => s.objects[0].instances.length)).toBe(3);
-    await app.locator('[data-testid="slice-panel"]').click({ position: { x: 5, y: 5 } });
+    // a neutral click leaves the field: the panel header, not the footer (its first button is Slice)
+    await app.locator('[data-testid="context-header"]').click();
     await app.waitForTimeout(500);
     expect(await read(app, (s) => s.objects[0].instances.length)).toBe(3);
     expect(await field.inputValue()).toBe('3');
