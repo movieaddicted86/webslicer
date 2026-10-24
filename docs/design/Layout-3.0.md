@@ -155,3 +155,9 @@ D-5 (preview cards) slot in after L-3/L-5 because they need the new panels.
    objects_ but show only one printer and one bed; real multi-bed (D-11) comes later without a rewrite.
 5. **Order vs. current P2 work.** Recommendation: finish the running P2 tasks (T-060 vendor profiles, wizard
    extension) and start **L-0** right after; L-1…L-5 then replace the mobile task M-1 as the first P3 step.
+
+### Decided by Robert, 2026-10-24
+
+1. Tool strip: **top centre** of the scene (icons + tooltips, text when wide).
+2. Rail: **Slicing, Library, Printers**; bottom **Preferences, About**.
+3. Order: layout rebuild **directly after the icon system** (T-063); it replaces M-1 as the first P3 step. Decisions 3 and 4 stay as recommended (settings views full-page for now; printer groups prepared, one printer shown).
