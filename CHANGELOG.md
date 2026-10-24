@@ -2,6 +2,30 @@
 
 ## Unreleased
 
+- **One home per function (layout 3.0, L-3):** the navigation is now a single table
+  (`web/src/nav/navMap.ts`) that the rail, the menu and the preset rows render, so a function cannot
+  grow a second door. The rail holds Slicing, Library, Printers, Preferences and About; the menu keeps
+  only **Import models…**, **Import presets…** and the **Export** submenu (project 3MF, current
+  settings, presets bundle, G-code and the two "save to library" actions); the print, filament and
+  printer settings open from the cog of each preset row; undo/redo and hide-panels live in the top bar
+  only. The object toolbar lost its duplicate undo/redo and the quick settings lost their "All print
+  settings…" link, and the top bar's view tabs are back to Plater/Preview.
+- **The menu dropdown works like a menu:** one submenu at a time, opened by hover or click; leaving an
+  item and its flyout closes the flyout after a short grace, another top-level item takes it over at
+  once, and leaving the menu closes everything. A click keeps a flyout open, Escape closes the flyout
+  first and the menu second (focus back on the trigger), ↑/↓ walk the items, →/← enter and leave a
+  flyout, and a touch tap opens a flyout until another or an outside tap. The state machine is pure
+  (`web/src/components/menu/menuState.ts`) and unit-tested; `e2e/specs/menu.spec.ts` drives the DOM.
+- **Preferences is a real dialog:** the rail's **Preferences** opens the visibility mode
+  (Simple/Advanced/Expert – the menu no longer carries it), the read-only online-services status
+  (whether `WEBSLICER_UPDATE_CHECK` is on, when the last check ran, the variable itself) and **Reset
+  panel layout**, which restores the stored column width, folded cards and hidden panels.
+- **One Printers dialog:** the two dialogs called "printers" are now one dialog with four tabs –
+  **My printers** (the print hosts, formerly "Physical printers"), **Vendor profiles**, **Filaments**
+  and **Custom printer**. The rail opens it on My printers, the printer dropdown's _Add / remove
+  printers…_ on Vendor profiles, and all "Physical printers" labels are gone. `e2e/specs/navigation.spec.ts`
+  checks the rendered entries against the table and that no label appears in two regions; the
+  documentation gained a "Where do I find…" table in `docs/features.md`.
 - **The object list moved to the left column (layout 3.0, L-2):** the rows with their actions,
   instance and volume sub-lists and the manipulation fields now sit next to the 3D view, in a
   collapsible **Object list** card with the object count, and the right sidebar keeps the presets, the
