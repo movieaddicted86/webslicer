@@ -142,6 +142,9 @@ test.describe('cut', () => {
   });
 
   test('the button is disabled for an object with a modifier, with the reason as tooltip', async ({ app }) => {
+    // the mockup's window: the cards leave the pill enough room to hold the cut group itself, so the
+    // disabled button is read where it is. A narrower window moves it behind "⋯".
+    await app.setViewportSize({ width: 1440, height: 900 });
     await importCube(app);
     await app.evaluate(() => {
       const s = window.webslicer.getState();

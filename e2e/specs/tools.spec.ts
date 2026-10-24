@@ -17,16 +17,17 @@ import { expect, test } from '../helpers/fixtures';
 import { click } from '../helpers/dom';
 
 test.describe('tool strip', () => {
+  // the mockup's window: at 1440 px the band between the two cards holds every group, so the pill is
+  // the whole table and the tests below click its buttons directly. A 1280 px window is narrow enough
+  // for the trailing groups to move behind "⋯" – the overflow describe below covers that.
   test.beforeEach(async ({ app }) => {
+    await app.setViewportSize({ width: 1440, height: 900 });
     await importFile(app, CUBE);
     await app.evaluate(() => window.webslicer.getState().select([window.webslicer.getState().objects[0].id]));
     await settle(app, 700);
   });
 
   test('the strip is a horizontal pill at the top centre of the scene, in registry groups', async ({ app }) => {
-    // the mockup's window: at 1440 px the band between the two cards holds every group
-    await app.setViewportSize({ width: 1440, height: 900 });
-    await settle(app, 700);
     const strip = await app.evaluate(() => {
       const host = document.querySelector('[data-testid="tool-strip"]') as HTMLElement;
       const pill = document.querySelector('[data-testid="tool-bar"]') as HTMLElement;
