@@ -24,12 +24,14 @@ const PANEL_TOOLS: ReadonlySet<string> = new Set(['placeOnFace', 'paintSupports'
 const column = (app: Parameters<typeof read>[0]) =>
   app.evaluate(() => {
     const panel = document.querySelector('[data-testid="context-panel"]') as HTMLElement | null;
+    // the footer card (Destination + Slice) is the panel's sibling in `.context-stack`, not its child
+    const stack = panel?.closest('.context-stack') ?? panel;
     return {
       activeTool: window.webslicer.getState().activeTool ?? null,
       toolPanel: !!panel?.querySelector('[data-testid="tool-panel"]'),
       title: panel?.querySelector('[data-testid="tool-panel-title"]')?.textContent?.trim() ?? null,
-      slice: !!panel?.querySelector('[data-testid="slice-button"]'),
-      text: (panel?.textContent ?? '').replace(/\s+/g, ' ').trim(),
+      slice: !!stack?.querySelector('[data-testid="slice-button"]'),
+      text: (stack?.textContent ?? '').replace(/\s+/g, ' ').trim(),
     };
   });
 
