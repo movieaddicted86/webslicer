@@ -2,6 +2,28 @@
 
 ## Unreleased
 
+- **One selection that behaves the same in the object list, the scene and the Library (T-077, findings
+  F-03b and F-03c):** a click in the object list selected one object with Shift behaving like Ctrl, so a
+  range could not be picked at all, and the Library knew only one file at a time – loading or deleting
+  five models meant five rounds of the same click. Both lists now run one shared rule
+  (`web/src/selection.ts`, pure and unit tested): a plain click picks one row, **Ctrl/Cmd click**
+  toggles a row in or out, a **Shift click** selects the range from the row the last click landed on
+  (the anchor survives further Shift clicks, so a range extends), **Ctrl+A** selects all and **Esc**
+  clears. The object list and the 3D view share that one selection, so clicking a mesh in the scene
+  picks the same row, and the anchor lives in the store next to `selectedIds`. With several objects
+  selected the context panel shows **"N objects selected"** with the group actions it can offer –
+  **Merge** (only for single-instance objects, with the reason in the tooltip), **Duplicate**,
+  **Hide/Show**, **Arrange selection** and **Delete** – instead of a note pointing elsewhere; no
+  transform editing for a multi-selection. In the Library a plain click, the name and **Enter** still
+  open a file, a folder still opens on a click, and the checkbox (quiet until the row is hovered or a
+  selection exists) or a Ctrl click adds single files while Shift takes a range; folders are never
+  selected with files. The new bar above the list offers **Load all** (the selected files are imported
+  in one go – one undo step, arranged like a single load, then the dialog closes), **Delete selected**
+  (one confirmation that names the count; the API has no bulk delete, so the files are deleted one by
+  one and any failure is named back with the file still selected) and **Clear**. The arrow keys walk
+  the rows, **Space** toggles and **Enter** opens. No new settings, no API change; new
+  `web/src/selection.test.ts` and `e2e/specs/selection.spec.ts`, `docs/features.md`, a UAT case and the
+  shortcut list unchanged (Ctrl+A and Esc were already documented).
 - **The Vendor profiles tab is a short answer instead of a wall of versions (T-076, finding F-03a):**
   Robert's rc.5 test showed an endless list of every vendor with a version arrow, a source link and
   "up to date" on every row – and some arrows pointed _down_ (`1.1.0 → 0.1.0`,

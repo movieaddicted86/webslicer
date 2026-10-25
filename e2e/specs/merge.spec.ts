@@ -44,8 +44,11 @@ test.describe('merge, object info and rename', () => {
 
     await app.evaluate((sel) => window.webslicer.getState().select(sel), ids);
     await settle(app, 400);
-    await expect(app.locator(`button[title^="Merge the selected objects"]`)).toBeEnabled();
-    await app.locator('button[title^="Merge the selected objects"]').click();
+    // T-077: with two selected the context panel offers the same merge as the toolbar, so name the
+    // list's button by its hook (both carry the same tooltip on purpose)
+    const merge = app.locator('[data-testid="object-merge"]');
+    await expect(merge).toBeEnabled();
+    await merge.click();
     await waitUploads(app);
     await settle(app, 1200);
 

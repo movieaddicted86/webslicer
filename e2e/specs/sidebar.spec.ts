@@ -373,8 +373,8 @@ test.describe('context panel: quick settings and the mode switch', () => {
       rows: document.querySelectorAll('[data-testid="object-row"]').length,
       tools: document.querySelectorAll('[data-testid="object-toolbar"] button').length,
     }));
-    // L-4: the plate/selection commands moved to the tool strip, so the list keeps merge/duplicate/delete all
-    expect(advanced).toEqual({ mode: 'advanced', rows: 1, tools: 3 });
+    // L-4: the plate/selection commands moved to the tool strip, so the list keeps merge/duplicate/hide/delete all
+    expect(advanced).toEqual({ mode: 'advanced', rows: 1, tools: 4 });
   });
 
   test('the object toolbar keeps the list actions, each with its own 18 px SVG icon (T-036, L-4)', async ({ app }) => {
@@ -408,19 +408,21 @@ test.describe('context panel: quick settings and the mode switch', () => {
     expect(toolbar.buttons.map((b) => b.label)).toEqual([
       // T-042: disabled with one selected object, so it shows the prompt for the merge
       'Merge: select two or more objects with a single instance',
-      'Duplicate',
+      'Duplicate the selected objects',
+      // T-077: the group visibility toggle of the selection
+      'Hide the selected objects',
       'Delete all',
     ]);
     // the tooltip stays the shortcut line and is also the accessible name
     expect(toolbar.buttons.every((b) => b.title === b.label)).toBe(true);
     expect(toolbar.buttons.every((b) => b.text === '')).toBe(true);
-    expect(toolbar.buttons.map((b) => b.icon)).toEqual(Array(3).fill('18'));
+    expect(toolbar.buttons.map((b) => b.icon)).toEqual(Array(4).fill('18'));
     expect(toolbar.buttons.every((b) => (b.stroke ?? 0) > 0)).toBe(true);
     // the hit area is at least 30 px high
     expect(toolbar.buttons.every((b) => b.size >= 30)).toBe(true);
-    // two groups: merge/duplicate | delete all
+    // two groups: merge/duplicate/hide | delete all
     expect(toolbar.separators).toBe(1);
-    expect(new Set(toolbar.paths).size).toBe(3);
+    expect(new Set(toolbar.paths).size).toBe(4);
 
     // AC-2: the toolbar fits the card on one line, without overflow – also at the narrowest width the
     // user can drag the card to (220 px, the store clamps it)
@@ -439,7 +441,7 @@ test.describe('context panel: quick settings and the mode switch', () => {
     });
     expect(narrow.columnWidth).toBe(220);
     expect(narrow.toolsOverflow).toBeLessThanOrEqual(0);
-    // the icons keep their size; the three actions share one line
+    // the icons keep their size; the four actions share one line
     expect(narrow.widths.every((w) => w >= 30)).toBe(true);
     expect(narrow.lines).toBe(1);
     // back to the card's default width
