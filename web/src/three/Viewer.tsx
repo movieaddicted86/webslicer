@@ -9,6 +9,7 @@ import { usePlaterObjects } from './viewer/usePlaterObjects';
 import { useBed } from './viewer/useBed';
 import { useCamera, useCameraState } from './viewer/useCamera';
 import { useGcodePreview } from './viewer/useGcodePreview';
+import { useOutdatedResult } from '../state/useOutdatedResult';
 import { useScene } from './viewer/useScene';
 import { useShells } from './viewer/useShells';
 import { useCutPlane } from './viewer/useCutPlane';
@@ -48,6 +49,8 @@ export function Viewer() {
   const placeOnFace = useStore((s) => s.activeTool === 'placeOnFace');
   // the paint kind of the open paint tool, what the stroke code and the object colours read (T-046)
   const paintMode = useStore((s) => paintKindOf(s.activeTool));
+  // Z-06: the plate fails the checks while a result is on screen – the toolpaths turn grey
+  const outdated = useOutdatedResult();
   /** "Shells": the plater meshes shown translucent over the toolpaths */
   const shells = useStore((s) => s.previewShowShells) && view === 'preview' && !!gcode;
   // vendor bed model/texture of the selected printer ("vendor|model.stl|texture.svg", empty when none)
@@ -101,6 +104,7 @@ export function Viewer() {
     customGcodes,
     filamentColour,
     toolColorKey,
+    outdated,
   });
 
   // keyboard

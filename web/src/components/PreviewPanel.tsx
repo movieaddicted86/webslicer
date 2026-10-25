@@ -1,5 +1,6 @@
 import { useStore } from '../state/store';
 import { useSliceGuard } from '../state/useSliceGuard';
+import { useOutdatedResult } from '../state/useOutdatedResult';
 import { PanelCard } from './context/PanelCard';
 import { SliceBlockers } from './context/SliceBlockers';
 import { LayerCodes } from './preview/LayerCodes';
@@ -33,14 +34,17 @@ export function PreviewPanel() {
   const loadGcodePreview = useStore((s) => s.loadGcodePreview);
   const toast = useStore((s) => s.toast);
   const guard = useSliceGuard();
+  const outdated = useOutdatedResult();
 
   const running = job && (job.status === 'running' || job.status === 'queued');
   const blocked = guard.blocking.length > 0;
   const info = job?.info;
   const topZ = gcode?.layerZ[range[1]];
 
+  // `data-outdated` is the panel's and the 3D view's one flag for the greyed result (Z-06): the spec
+  // reads it, and the banner below names the reasons
   return (
-    <div className="preview-panel" data-testid="preview-panel">
+    <div className="preview-panel" data-testid="preview-panel" data-outdated={outdated ? 'true' : undefined}>
       {!job && (
         <section>
           <div className="muted">{blocked ? 'The plate fails the slice checks.' : 'No slicing result yet.'}</div>
@@ -96,8 +100,16 @@ export function PreviewPanel() {
       )}
       {job && job.status === 'done' && (
         <>
-          {sliceDirty && <div className="warn">Settings or objects changed since this result. Slice again to update.</div>}
-          <SliceBlockers blockers={guard.blocking} />
+          {outdated ? (
+            // Z-06: the result is kept but it belongs to a plate that no longer passes the checks, so
+            // the Preview says so instead of presenting it as the print that would come out
+            <div className="outdated-banner" data-testid="preview-outdated" role="status">
+              <strong>This result is outdated – the plate does not pass the checks</strong>
+              <SliceBlockers blockers={guard.blocking} />
+            </div>
+          ) : (
+            sliceDirty && <div className="warn">Settings or objects changed since this result. Slice again to update.</div>
+          )}
           {info?.warnings?.length ? (
             <details className="warnings" open>
               <summary>{info.warnings.length === 1 ? '1 slicer warning' : `${info.warnings.length} slicer warnings`}</summary>
