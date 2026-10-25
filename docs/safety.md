@@ -73,9 +73,40 @@ names its line and shows the line itself. The result also records the highest ho
 temperature the file asks for, so the send gate can compare it with the target printer's profile. The send gate merges the findings with the preset issues of S1-b: a
 block refuses the upload with 409 until it is overridden with a reason (audited), a warning is shown
 and only has to be confirmed when the print should start right away. The limits of the target machine
-are S1-d: a physical printer can carry `safety.maxHotend`/`safety.maxBed` (the dialog has a
-"PTFE hotend (max 240 °C)" preset), and the send gate compares the temperatures the job asks for with
-them – `send.printer_limit` (**block**), overridable with a reason like any other block.
+are S1-d: a physical printer can carry `safety.maxHotend`/`safety.maxBed` (the printer setup asks
+**"PTFE-lined or all-metal hotend?"** – PTFE stores 240 °C, all-metal an explicit 450 °C, and the
+answer is required so a host cannot be saved without one), and the send gate compares the
+temperatures the job asks for with them – `send.printer_limit` (**block**), overridable with a reason
+like any other block.
+
+A host that still has no profile (created before T-080 or through the API) sends with `send.no_limits`
+(**warn**): the send gate cannot tell whether its hotend is PTFE-lined, so the untouched 450 °C ceiling
+is all that is left. Existing hosts are not migrated silently – the warning stays until the owner
+answers the question. It is confirmed like the other warnings (with "Start printing after upload" it
+needs its own confirmation) and does not block an upload.
+
+### The settings side of the preflight
+
+The file scan above cannot see a **binary** `.bgcode` – v1 does not decode the format, so a forbidden
+`M500`, an `M211 S0` or a missing `G28` in a custom G-code block used to reach the printer behind a
+single `gcode.not_scanned` warning. For that reason `createJob` also scans the **settings that produce
+the file** (`scanConfigGcode`), and the result is stored beside the file scan as `info.preflight.config`:
+
+- the nine custom G-code keys of the merged printer/print/filament config (`start_gcode`, `end_gcode`,
+  `layer_gcode`, `before_layer_gcode`, `toolchange_gcode`, `color_change_gcode`, `pause_print_gcode`,
+  `template_custom_gcode`, `between_objects_gcode`), read with PrusaSlicer's escaped line breaks
+  (`\n`), and
+- the plater's own custom G-code entries (`customGcodes[].extra`), labelled by their position
+  (`custom G-code at 5 mm line 1: M500`).
+
+It uses the same rules and the same code path as the file scan – there is no second copy – but only the
+blocking ones, and the ordering rules (`gcode.no_homing`, `gcode.macro_before_move`) only for
+`start_gcode`: an end G-code may move without homing first, and reporting that would block every
+PrusaSlicer preset. Config findings carry `line: 0` (the line number lives in the message, after the
+setting's name) so nothing claims a line of the file. The send gate and the Preview merge the two lists
+and drop duplicates by rule and text – a forbidden command that the file scan already found is not
+reported twice. Binary output keeps its `gcode.not_scanned` warning (the body is still unread) but is
+no longer unprotected.
 
 ### The send endpoint
 
@@ -93,6 +124,14 @@ and is overridable exactly like a preset mismatch, with the line behind the issu
 `machine_max_*`), `gcode.macro_before_move` (a macro such as `PRINT_START` before the first move) and
 `gcode.not_scanned` (binary `.bgcode`) only warn. Each issue is `{ rule, severity, message, line, text }`
 (`line`/`text` only on preflight findings).
+
+The send gate adds the **settings-side** findings above (`info.preflight.config`, T-080), so a block in
+a custom G-code block reaches the 409 for a binary output too, and `send.no_limits` when the host has
+no safety profile. The override entry is written with the **strict** audit writer: an override is only
+acceptable because it is recorded, so if `data/audit.log` cannot be written the send is refused with
+**500** and nothing is uploaded (the server log names the cause, the response is the generic
+`Internal error` of every 5xx). MCP call logging keeps the fail-soft writer – a call has already run
+when it is logged.
 
 ## Server-side command execution
 
