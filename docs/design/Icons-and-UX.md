@@ -25,7 +25,10 @@ Visual overview of every icon below: **`docs/design/icon-sheet.html`** (open it 
   one-line action ("Remove painted colour", "Swap colours", "Tool size"), so nobody has to read a manual.
 - **Colour language:** one accent (orange) for the primary action, the active tool and selection outlines; blue-grey
   for selected rows; red/yellow only for errors/warnings; the dark and the light theme use the same icon set.
-- **Switches instead of checkboxes**, star = favourite, undo arrow = revert one option, cog = open the full settings.
+- **Switches instead of checkboxes**, star = favourite, undo arrow = revert one option. The **cog means
+  Preferences and nothing else**; the three settings views are the sliders (`settings_set`), a per-object
+  override is the object with its override dot (`overriden_object_icon`) and a layer range's settings are
+  the height-range icon (`height_range`). No two functions share the cog.
 
 ## 2. Where the icons come from
 
@@ -49,93 +52,96 @@ How (task I-1, no new dependency):
 
 ## 3. Icon map (the same list the sheet is generated from)
 
-| Group          | Function                            | Prusa icon (`resources/icons/…`) | Key    | Status         | WebSlicer today                                        |
-| -------------- | ----------------------------------- | -------------------------------- | ------ | -------------- | ------------------------------------------------------ |
-| Tool strip     | Add object / import                 | `add_object.svg`                 | –      | we have it     | Upload button in the top bar (text)                    |
-| Tool strip     | Delete selection                    | `delete_button.svg`              | Del    | we have it     | Trash2                                                 |
-| Tool strip     | Add instance                        | `rectangle_add.svg`              | +      | we have it     | Plus                                                   |
-| Tool strip     | Move                                | `move.svg`                       | M      | we have it     | Move                                                   |
-| Tool strip     | Rotate                              | `rotate.svg`                     | R      | we have it     | RotateCw                                               |
-| Tool strip     | Scale                               | `scale.svg`                      | S      | we have it     | Scaling                                                |
-| Tool strip     | Place on face                       | `place.svg`                      | F      | we have it     | PanelBottom                                            |
-| Tool strip     | Arrange                             | `layout.svg`                     | Q      | we have it     | LayoutGrid (our key: Shift+A)                          |
-| Tool strip     | Paint-on supports                   | `paint_supports.svg`             | L      | we have it     | Paintbrush                                             |
-| Tool strip     | Paint-on seams                      | `paint_seams.svg`                | P      | we have it     | Spline                                                 |
-| Tool strip     | Multimaterial painting              | `paint_multi_material.svg`       | N      | we have it     | Palette (no key yet)                                   |
-| Tool strip     | Cut                                 | `cut.svg`                        | C      | we have it     | Scissors                                               |
-| Tool strip     | Variable layer height               | `variable_layer_height.svg`      | V      | we have it     | Layers3                                                |
-| Tool strip     | Height range (layer range settings) | `height_range.svg`               | W      | on our roadmap | list rows today; becomes a tool with the context panel |
-| Tool strip     | Simplify                            | `simplify.svg`                   | E      | on our roadmap | TODO P3                                                |
-| Tool strip     | Measure                             | `ruler.svg`                      | U      | on our roadmap | TODO P3                                                |
-| Tool strip     | Emboss text                         | `text.svg`                       | T      | on our roadmap | TODO P3 (text/SVG embossing)                           |
-| Tool strip     | Paint-on fuzzy skin                 | `paint_fuzzy_skin.svg`           | H      | not planned    | not planned                                            |
-| Tool strip     | Prepare (view switch)               | `plater.svg`                     | –      | we have it     | the switch in the strip (L-4)                          |
-| Tool strip     | Preview (view switch)               | `preview.svg`                    | –      | we have it     | the switch in the strip (L-4)                          |
-| Tool strip     | More tools (overflow)               | –                                | –      | no artwork     | lucide `Ellipsis` in the strip's ⋯ menu (L-4)          |
-| Top bar        | Undo                                | `tb_undo.svg`                    | Ctrl+Z | we have it     | Undo2                                                  |
-| Top bar        | Redo                                | `tb_redo.svg`                    | Ctrl+Y | we have it     | Redo2                                                  |
-| Top bar        | Open / load project                 | `tb_load.svg`                    | Ctrl+O | we have it     | text button                                            |
-| Top bar        | Save project                        | `tb_save.svg`                    | Ctrl+S | we have it     | Save                                                   |
-| Top bar        | Hide / show side panels             | `tb_show_ui.svg`                 | –      | on our roadmap | layout draft (hide panels)                             |
-| Top bar        | Search                              | `search_gray.svg`                | Ctrl+F | on our roadmap | global search, TODO P3                                 |
-| Top bar        | New project tab                     | `plus_new.svg`                   | –      | on our roadmap | project tabs (D-10)                                    |
-| Mode           | Simple mode                         | `mode_simple.svg`                | –      | we have it     | select box                                             |
-| Mode           | Advanced mode                       | `mode_advanced.svg`              | –      | we have it     | select box                                             |
-| Mode           | Expert mode                         | `mode_expert.svg`                | –      | we have it     | select box                                             |
-| Object list    | Object                              | `object_icon.svg`                | –      | we have it     | none                                                   |
-| Object list    | Part (solid volume)                 | `union.svg`                      | –      | we have it     | none                                                   |
-| Object list    | Negative volume                     | `subtract.svg`                   | –      | we have it     | none                                                   |
-| Object list    | Modifier                            | `exclude.svg`                    | –      | we have it     | none                                                   |
-| Object list    | Support blocker                     | `support_blocker.svg`            | –      | we have it     | none                                                   |
-| Object list    | Support enforcer                    | `support_enforcer.svg`           | –      | we have it     | none                                                   |
-| Object list    | Instances                           | `instances_icon.svg`             | –      | we have it     | none                                                   |
-| Object list    | Overridden settings marker          | `overrides_marker.svg`           | –      | we have it     | none                                                   |
-| Object list    | Custom supports painted             | `fdm_supports.svg`               | –      | we have it     | none                                                   |
-| Object list    | Custom seam painted                 | `seam_.svg`                      | –      | we have it     | none                                                   |
-| Object list    | Multimaterial painted               | `mmu_segmentation_.svg`          | –      | we have it     | none                                                   |
-| Object list    | Sinking object                      | `sinking.svg`                    | –      | on our roadmap | floating/sinking objects (D-12)                        |
-| Object list    | Add bed                             | `add_bed.svg`                    | –      | on our roadmap | multiple beds (D-11)                                   |
-| Object list    | Delete bed                          | `del_bed.svg`                    | –      | on our roadmap | multiple beds (D-11)                                   |
-| Object list    | Not printed (eye)                   | `dont_print.svg`                 | –      | not planned    | no feature                                             |
-| Settings       | Open settings (cog)                 | `cog.svg`                        | –      | we have it     | Settings                                               |
-| Settings       | Favourite star                      | `star.svg`                       | –      | on our roadmap | favourites (D-1)                                       |
-| Settings       | Favourite star (set)                | `star_solid.svg`                 | –      | on our roadmap | favourites (D-1)                                       |
-| Settings       | Compare presets                     | `compare.svg`                    | –      | on our roadmap | TODO P3                                                |
-| Settings       | Revert to preset value              | `undo_r.svg`                     | –      | we have it     | RotateCcw                                              |
-| Settings       | Lock (value equals system preset)   | `lock_closed.svg`                | –      | we have it     | none                                                   |
-| Settings       | Unlocked (value differs)            | `lock_open.svg`                  | –      | we have it     | none                                                   |
-| Presets        | Printer                             | `printer.svg`                    | –      | we have it     | none                                                   |
-| Presets        | Physical printer                    | `printer_physical.svg`           | –      | we have it     | none                                                   |
-| Presets        | Filament                            | `spool.svg`                      | –      | we have it     | none                                                   |
-| Presets        | Print settings                      | `cog.svg`                        | –      | we have it     | none                                                   |
-| Presets        | Printer online / busy / offline     | `printer_available.svg`          | –      | on our roadmap | printer status, deferred until hardware beta           |
-| Presets        | Printer offline                     | `printer_offline.svg`            | –      | on our roadmap | printer status, deferred                               |
-| Export         | Export G-code                       | `export_gcode.svg`               | Ctrl+G | we have it     | text button                                            |
-| Export         | Save G-code to local file           | `save_print_to_local.svg`        | –      | we have it     | text button                                            |
-| Export         | Send to printer host                | `connect_gcode.svg`              | –      | we have it     | text button                                            |
-| Export         | Export config                       | `export_config.svg`              | –      | we have it     | text menu                                              |
-| Export         | Export config bundle                | `export_config_bundle.svg`       | –      | we have it     | T-059                                                  |
-| Export         | Import config                       | `import_config.svg`              | –      | we have it     | text menu                                              |
-| Export         | Import config bundle                | `import_config_bundle.svg`       | –      | we have it     | T-059                                                  |
-| Preview legend | Travel                              | `legend_travel.svg`              | –      | we have it     | colour swatch                                          |
-| Preview legend | Wipe                                | `legend_wipe.svg`                | –      | we have it     | colour swatch                                          |
-| Preview legend | Retractions                         | `legend_retract.svg`             | –      | we have it     | colour swatch                                          |
-| Preview legend | Deretractions                       | `legend_deretract.svg`           | –      | we have it     | colour swatch                                          |
-| Preview legend | Seams                               | `legend_seams.svg`               | –      | we have it     | colour swatch                                          |
-| Preview legend | Tool changes                        | `legend_toolchanges.svg`         | –      | we have it     | colour swatch                                          |
-| Preview legend | Colour changes                      | `legend_colorchanges.svg`        | –      | we have it     | colour swatch                                          |
-| Preview legend | Pauses                              | `legend_pauseprints.svg`         | –      | we have it     | colour swatch                                          |
-| Preview legend | Custom G-codes                      | `legend_customgcodes.svg`        | –      | we have it     | colour swatch                                          |
-| Preview legend | Shells                              | `legend_shells.svg`              | –      | we have it     | colour swatch                                          |
-| Preview legend | Tool marker                         | `legend_toolmarker.svg`          | –      | we have it     | colour swatch                                          |
-| Hints          | Mouse left                          | `mouse_left.svg`                 | –      | we have it     | the tool panels' key hints (L-4)                       |
-| Hints          | Mouse right                         | `mouse_right.svg`                | –      | we have it     | the tool panels' key hints (L-4)                       |
-| Hints          | Mouse wheel                         | `mouse_wheel.svg`                | –      | we have it     | the tool panels' key hints (L-4)                       |
-| Hints          | Mouse drag                          | `mouse_drag.svg`                 | –      | we have it     | the tool panels' key hints (L-4)                       |
-| Notifications  | Warning                             | `notification_warning.svg`       | –      | we have it     | text/colour                                            |
-| Notifications  | Error                               | `notification_error.svg`         | –      | we have it     | text/colour                                            |
-| Notifications  | Info                                | `notification_info.svg`          | –      | we have it     | text/colour                                            |
-| Notifications  | Close                               | `notification_close.svg`         | –      | we have it     | X                                                      |
+| Group          | Function                            | Prusa icon (`resources/icons/…`) | Key    | Status         | WebSlicer today                                                  |
+| -------------- | ----------------------------------- | -------------------------------- | ------ | -------------- | ---------------------------------------------------------------- |
+| Tool strip     | Add object / import                 | `add_object.svg`                 | –      | we have it     | Upload button in the top bar (text)                              |
+| Tool strip     | Delete selection                    | `delete_button.svg`              | Del    | we have it     | Trash2                                                           |
+| Tool strip     | Add instance                        | `rectangle_add.svg`              | +      | we have it     | Plus                                                             |
+| Tool strip     | Move                                | `move.svg`                       | M      | we have it     | Move                                                             |
+| Tool strip     | Rotate                              | `rotate.svg`                     | R      | we have it     | RotateCw                                                         |
+| Tool strip     | Scale                               | `scale.svg`                      | S      | we have it     | Scaling                                                          |
+| Tool strip     | Place on face                       | `place.svg`                      | F      | we have it     | PanelBottom                                                      |
+| Tool strip     | Arrange                             | `layout.svg`                     | Q      | we have it     | LayoutGrid (our key: Shift+A)                                    |
+| Tool strip     | Paint-on supports                   | `paint_supports.svg`             | L      | we have it     | Paintbrush                                                       |
+| Tool strip     | Paint-on seams                      | `paint_seams.svg`                | P      | we have it     | Spline                                                           |
+| Tool strip     | Multimaterial painting              | `paint_multi_material.svg`       | N      | we have it     | Palette (no key yet)                                             |
+| Tool strip     | Cut                                 | `cut.svg`                        | C      | we have it     | Scissors                                                         |
+| Tool strip     | Variable layer height               | `variable_layer_height.svg`      | V      | we have it     | Layers3                                                          |
+| Tool strip     | Height range (layer range settings) | `height_range.svg`               | W      | we have it     | the settings button of a layer range; the tool itself is roadmap |
+| Tool strip     | Simplify                            | `simplify.svg`                   | E      | on our roadmap | TODO P3                                                          |
+| Tool strip     | Measure                             | `ruler.svg`                      | U      | on our roadmap | TODO P3                                                          |
+| Tool strip     | Emboss text                         | `text.svg`                       | T      | on our roadmap | TODO P3 (text/SVG embossing)                                     |
+| Tool strip     | Paint-on fuzzy skin                 | `paint_fuzzy_skin.svg`           | H      | not planned    | not planned                                                      |
+| Tool strip     | Prepare (view switch)               | `plater.svg`                     | –      | we have it     | the switch in the strip (L-4)                                    |
+| Tool strip     | Preview (view switch)               | `preview.svg`                    | –      | we have it     | the switch in the strip (L-4)                                    |
+| Tool strip     | More tools (overflow)               | –                                | –      | no artwork     | lucide `Ellipsis` in the strip's ⋯ menu (L-4)                    |
+| Top bar        | Undo                                | `tb_undo.svg`                    | Ctrl+Z | we have it     | Undo2                                                            |
+| Top bar        | Redo                                | `tb_redo.svg`                    | Ctrl+Y | we have it     | Redo2                                                            |
+| Top bar        | Open / load project                 | `tb_load.svg`                    | Ctrl+O | we have it     | text button                                                      |
+| Top bar        | Save project                        | `tb_save.svg`                    | Ctrl+S | we have it     | Save                                                             |
+| Top bar        | Hide / show side panels             | `tb_show_ui.svg`                 | –      | on our roadmap | layout draft (hide panels)                                       |
+| Top bar        | Search                              | `search_gray.svg`                | Ctrl+F | on our roadmap | global search, TODO P3                                           |
+| Top bar        | New project tab                     | `plus_new.svg`                   | –      | on our roadmap | project tabs (D-10)                                              |
+| Mode           | Simple mode                         | `mode_simple.svg`                | –      | we have it     | select box                                                       |
+| Mode           | Advanced mode                       | `mode_advanced.svg`              | –      | we have it     | select box                                                       |
+| Mode           | Expert mode                         | `mode_expert.svg`                | –      | we have it     | select box                                                       |
+| Object list    | Object                              | `object_icon.svg`                | –      | we have it     | none                                                             |
+| Object list    | Part (solid volume)                 | `union.svg`                      | –      | we have it     | none                                                             |
+| Object list    | Negative volume                     | `subtract.svg`                   | –      | we have it     | none                                                             |
+| Object list    | Modifier                            | `exclude.svg`                    | –      | we have it     | none                                                             |
+| Object list    | Support blocker                     | `support_blocker.svg`            | –      | we have it     | none                                                             |
+| Object list    | Support enforcer                    | `support_enforcer.svg`           | –      | we have it     | none                                                             |
+| Object list    | Instances                           | `instances_icon.svg`             | –      | we have it     | none                                                             |
+| Object list    | Overridden settings marker          | `overrides_marker.svg`           | –      | we have it     | none                                                             |
+| Object list    | Object settings (overrides)         | `overriden_object_icon.svg`      | –      | we have it     | the Settings card and a volume's settings button                 |
+| Object list    | Custom supports painted             | `fdm_supports.svg`               | –      | we have it     | none                                                             |
+| Object list    | Custom seam painted                 | `seam_.svg`                      | –      | we have it     | none                                                             |
+| Object list    | Multimaterial painted               | `mmu_segmentation_.svg`          | –      | we have it     | none                                                             |
+| Object list    | Sinking object                      | `sinking.svg`                    | –      | on our roadmap | floating/sinking objects (D-12)                                  |
+| Object list    | Add bed                             | `add_bed.svg`                    | –      | on our roadmap | multiple beds (D-11)                                             |
+| Object list    | Delete bed                          | `del_bed.svg`                    | –      | on our roadmap | multiple beds (D-11)                                             |
+| Object list    | Not printed (eye)                   | `dont_print.svg`                 | –      | not planned    | no feature                                                       |
+| Settings       | Preferences (cog)                   | `cog.svg`                        | –      | we have it     | the rail's Preferences – the only cog in the UI                  |
+| Settings       | Print / filament / printer settings | `settings_set.svg`               | –      | we have it     | Menu → Settings and the settings button of a preset row          |
+| Settings       | Advanced options (wrench)           | `wrench.svg`                     | –      | we have it     | the arrange options popover                                      |
+| Settings       | Favourite star                      | `star.svg`                       | –      | on our roadmap | favourites (D-1)                                                 |
+| Settings       | Favourite star (set)                | `star_solid.svg`                 | –      | on our roadmap | favourites (D-1)                                                 |
+| Settings       | Compare presets                     | `compare.svg`                    | –      | on our roadmap | TODO P3                                                          |
+| Settings       | Revert to preset value              | `undo_r.svg`                     | –      | we have it     | RotateCcw                                                        |
+| Settings       | Lock (value equals system preset)   | `lock_closed.svg`                | –      | we have it     | none                                                             |
+| Settings       | Unlocked (value differs)            | `lock_open.svg`                  | –      | we have it     | none                                                             |
+| Presets        | Printer                             | `printer.svg`                    | –      | we have it     | none                                                             |
+| Presets        | Physical printer                    | `printer_physical.svg`           | –      | we have it     | none                                                             |
+| Presets        | Filament                            | `spool.svg`                      | –      | we have it     | none                                                             |
+| Presets        | Print settings                      | `settings_set.svg`               | –      | we have it     | the preset rows' settings button                                 |
+| Presets        | Printer online / busy / offline     | `printer_available.svg`          | –      | on our roadmap | printer status, deferred until hardware beta                     |
+| Presets        | Printer offline                     | `printer_offline.svg`            | –      | on our roadmap | printer status, deferred                                         |
+| Export         | Export G-code                       | `export_gcode.svg`               | Ctrl+G | we have it     | text button                                                      |
+| Export         | Save G-code to local file           | `save_print_to_local.svg`        | –      | we have it     | text button                                                      |
+| Export         | Send to printer host                | `connect_gcode.svg`              | –      | we have it     | text button                                                      |
+| Export         | Export config                       | `export_config.svg`              | –      | we have it     | text menu                                                        |
+| Export         | Export config bundle                | `export_config_bundle.svg`       | –      | we have it     | T-059                                                            |
+| Export         | Import config                       | `import_config.svg`              | –      | we have it     | text menu                                                        |
+| Export         | Import config bundle                | `import_config_bundle.svg`       | –      | we have it     | T-059                                                            |
+| Preview legend | Travel                              | `legend_travel.svg`              | –      | we have it     | colour swatch                                                    |
+| Preview legend | Wipe                                | `legend_wipe.svg`                | –      | we have it     | colour swatch                                                    |
+| Preview legend | Retractions                         | `legend_retract.svg`             | –      | we have it     | colour swatch                                                    |
+| Preview legend | Deretractions                       | `legend_deretract.svg`           | –      | we have it     | colour swatch                                                    |
+| Preview legend | Seams                               | `legend_seams.svg`               | –      | we have it     | colour swatch                                                    |
+| Preview legend | Tool changes                        | `legend_toolchanges.svg`         | –      | we have it     | colour swatch                                                    |
+| Preview legend | Colour changes                      | `legend_colorchanges.svg`        | –      | we have it     | colour swatch                                                    |
+| Preview legend | Pauses                              | `legend_pauseprints.svg`         | –      | we have it     | colour swatch                                                    |
+| Preview legend | Custom G-codes                      | `legend_customgcodes.svg`        | –      | we have it     | colour swatch                                                    |
+| Preview legend | Shells                              | `legend_shells.svg`              | –      | we have it     | colour swatch                                                    |
+| Preview legend | Tool marker                         | `legend_toolmarker.svg`          | –      | we have it     | colour swatch                                                    |
+| Hints          | Mouse left                          | `mouse_left.svg`                 | –      | we have it     | the tool panels' key hints (L-4)                                 |
+| Hints          | Mouse right                         | `mouse_right.svg`                | –      | we have it     | the tool panels' key hints (L-4)                                 |
+| Hints          | Mouse wheel                         | `mouse_wheel.svg`                | –      | we have it     | the tool panels' key hints (L-4)                                 |
+| Hints          | Mouse drag                          | `mouse_drag.svg`                 | –      | we have it     | the tool panels' key hints (L-4)                                 |
+| Notifications  | Warning                             | `notification_warning.svg`       | –      | we have it     | text/colour                                                      |
+| Notifications  | Error                               | `notification_error.svg`         | –      | we have it     | text/colour                                                      |
+| Notifications  | Info                                | `notification_info.svg`          | –      | we have it     | text/colour                                                      |
+| Notifications  | Close                               | `notification_close.svg`         | –      | we have it     | X                                                                |
 
 Legend: _we have it_ → swap now (I-1/I-2); _on our roadmap_ → the icon is vendored but not shown until the feature
 ships; _not planned_ → the icon is not vendored.

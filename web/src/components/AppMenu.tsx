@@ -3,18 +3,17 @@ import { useStore } from '../state/store';
 import { importFiles } from '../importFiles';
 import { setImportOpener } from '../importTrigger';
 import { Icon } from '../icons/Icon';
-import { MENU_ENTRIES, EXPORT_ENTRIES, type NavEntry } from '../nav/navMap';
+import { MENU_ENTRIES, MENU_SUBMENUS, type NavEntry, type NavSubmenu } from '../nav/navMap';
 import { runNavAction } from '../nav/actions';
 import { useMenuState } from './menu/useMenuState';
 import type { SubmenuId } from './menu/menuState';
 import './AppMenu.css';
 
-const EXPORT: SubmenuId = 'export';
-
 /**
- * The slim top bar's menu (layout 3.0): import models and presets, the Export submenu – and nothing
- * that has a home elsewhere. The rail owns Library, Printers, Preferences and About, the preset rows
- * own the settings views; a duplicate here would give a function two doors.
+ * The slim top bar's menu (layout 3.0): import models and presets, then two flyouts – Settings and
+ * Export – and nothing that has a home elsewhere. The rail owns Library, Printers, Preferences and
+ * About; the settings flyout is the stated exception (the three settings views also open from their
+ * preset row), rendered from the same `SETTINGS_ENTRIES` table as the rows.
  *
  * Behaviour: one submenu at a time, opened by hover or click; it closes when the pointer leaves the
  * item and the flyout (with a short grace, so the pointer can cross the gap), and another top-level
@@ -28,7 +27,8 @@ export function AppMenu() {
   const { state } = menu;
   const root = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
-  const exportRef = useRef<HTMLButtonElement>(null);
+  /** the trigger of each flyout, by submenu id: Escape and ArrowLeft hand the focus back to it */
+  const subTriggers = useRef<Record<SubmenuId, HTMLButtonElement | null>>({});
   const flyoutRef = useRef<HTMLDivElement>(null);
 
   // the import shortcut the old top bar owned: it belongs to the action, not to the button
@@ -63,7 +63,8 @@ export function AppMenu() {
       if (!menu.escape()) return;
       e.stopPropagation();
       // leaving the flyout with Escape puts the focus back on its item, not on the page body
-      if (hadSubmenu) requestAnimationFrame(() => exportRef.current?.focus());
+      const sub = menu.state.sub;
+      if (hadSubmenu && sub) requestAnimationFrame(() => subTriggers.current[sub]?.focus());
     };
     document.addEventListener('mousedown', onDown);
     document.addEventListener('keydown', onKey, true);
@@ -88,9 +89,10 @@ export function AppMenu() {
         ? !job || job.status !== 'done'
         : false;
 
-  const submenuItem = (e: React.MouseEvent<HTMLButtonElement>) => {
+  /** A click on a flyout's trigger opens it and keeps it: hover may already have done so. */
+  const submenuItem = (sub: NavSubmenu) => (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
-    menu.clickItem(EXPORT);
+    menu.clickItem(sub.id);
   };
 
   /** Move the focus to the first or last enabled item, after the panel has rendered. */
@@ -191,61 +193,65 @@ export function AppMenu() {
           ))}
 
           <div className="app-menu-sep" role="separator" />
-          <div className="app-menu-sub" onMouseEnter={() => menu.hoverItem(EXPORT)} onMouseLeave={() => menu.leaveSubmenu()}>
-            <button
-              ref={exportRef}
-              role="menuitem"
-              aria-haspopup="menu"
-              aria-expanded={state.sub === EXPORT}
-              onClick={submenuItem}
-              onKeyDown={(e) => {
-                if (e.key === 'ArrowRight') {
-                  e.preventDefault();
-                  menu.arrowRight(EXPORT);
-                  focusFlyout();
-                } else if (e.key === 'ArrowLeft') {
-                  e.preventDefault();
-                  menu.arrowLeft();
-                }
-              }}
-              data-testid="menu-export"
-              data-nav-id="export"
-            >
-              <Icon name="export" size={16} /> Export
-              <span className="app-menu-caret" aria-hidden="true">
-                ▸
-              </span>
-            </button>
-            {state.sub === EXPORT && (
-              <div
-                ref={flyoutRef}
-                className="app-menu-flyout"
-                role="menu"
-                aria-label="Export"
-                onMouseEnter={menu.enterSubmenu}
-                onKeyDown={(e) => {
-                  // ArrowLeft leaves the flyout and hands the focus back to its item
-                  if (e.key !== 'ArrowLeft') return;
-                  e.preventDefault();
-                  e.stopPropagation();
-                  menu.arrowLeft();
-                  requestAnimationFrame(() => exportRef.current?.focus());
+          {MENU_SUBMENUS.map((sub) => (
+            <div className="app-menu-sub" key={sub.id} onMouseEnter={() => menu.hoverItem(sub.id)} onMouseLeave={() => menu.leaveSubmenu()}>
+              <button
+                ref={(el) => {
+                  subTriggers.current[sub.id] = el;
                 }}
+                role="menuitem"
+                aria-haspopup="menu"
+                aria-expanded={state.sub === sub.id}
+                onClick={submenuItem(sub)}
+                onKeyDown={(e) => {
+                  if (e.key === 'ArrowRight') {
+                    e.preventDefault();
+                    menu.arrowRight(sub.id);
+                    focusFlyout();
+                  } else if (e.key === 'ArrowLeft') {
+                    e.preventDefault();
+                    menu.arrowLeft();
+                  }
+                }}
+                data-testid={sub.testId}
+                data-nav-id={sub.id}
               >
-                {EXPORT_ENTRIES.map((entry) => (
-                  <button
-                    key={entry.id}
-                    role="menuitem"
-                    disabled={disabled(entry)}
-                    onClick={() => void run(entry)()}
-                    data-nav-id={entry.id}
-                  >
-                    {entry.label}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+                <Icon name={sub.icon} size={16} /> {sub.label}
+                <span className="app-menu-caret" aria-hidden="true">
+                  ▸
+                </span>
+              </button>
+              {state.sub === sub.id && (
+                <div
+                  ref={flyoutRef}
+                  className="app-menu-flyout"
+                  role="menu"
+                  aria-label={sub.ariaLabel}
+                  onMouseEnter={menu.enterSubmenu}
+                  onKeyDown={(e) => {
+                    // ArrowLeft leaves the flyout and hands the focus back to its item
+                    if (e.key !== 'ArrowLeft') return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    menu.arrowLeft();
+                    requestAnimationFrame(() => subTriggers.current[sub.id]?.focus());
+                  }}
+                >
+                  {sub.items.map((entry) => (
+                    <button
+                      key={entry.id}
+                      role="menuitem"
+                      disabled={disabled(entry)}
+                      onClick={() => void run(entry)()}
+                      data-nav-id={entry.id}
+                    >
+                      <Icon name={entry.icon} size={16} /> {entry.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       )}
     </div>

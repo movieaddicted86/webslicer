@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+- **Settings are where people look for them, and no two functions share the cog (T-074):** the full
+  settings views were reachable only through the unlabelled cog next to a preset, and the same picture
+  also stood for Preferences, a per-object override and a layer range. The **Menu** now has a
+  **Settings** group with **Print settings…**, **Filament settings…** and **Printer settings…** – the
+  words Robert looked for – and they are keyboard-reachable like every other menu item (ArrowRight
+  opens the flyout, Enter picks an entry). The preset rows keep their own button, now labelled
+  ("Edit print settings") and drawn with PrusaSlicer's sliders; that menu/row pair is the one stated
+  exception to "one home per function" and the navigation map says so. The **quick settings** end with
+  an **All settings…** text button that opens the print settings view, so the short list leads on to
+  every option it leaves out. The **cog now means Preferences alone**: the object's **Settings** card
+  and a volume's settings button carry Prusa's object-with-override-dot, a layer range's button the
+  height-range icon, and the arrange options the wrench – each with a tooltip naming what it opens.
+  Nothing new to configure: only entry points, labels and icons changed.
+
 - **The plate and setting checks hold on every path into a slice, the Preview included (T-073):** the
   checks of T-034 and S1-e lived in the Prepare footer alone, so a plate whose skirt or brim ran over
   the bed edge disabled **Slice now** there – and switching to **Preview** sliced it anyway (a job came

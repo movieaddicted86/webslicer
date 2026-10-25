@@ -1,7 +1,11 @@
 /**
- * The navigation map: one table that gives every function exactly one home. The rail, the menu and
- * the preset rows render their entries from here, so a function cannot be added twice by accident and
- * a removed duplicate leaves nothing behind.
+ * The navigation map: one table that gives every function its homes. The rail, the menu and the preset
+ * rows render their entries from here, so a function cannot be added twice by accident and a removed
+ * duplicate leaves nothing behind.
+ *
+ * A function normally has one home. The three settings views are the stated exception: they open from
+ * Menu → Settings and from the preset rows' own entries, because Robert asked for words in the menu
+ * and the cogs next to the presets stay. They render from this one table either way.
  *
  * The file is deliberately free of runtime imports – the E2E suite reads the same table to check what
  * the UI renders.
@@ -32,7 +36,8 @@ export interface NavEntry {
   id: string;
   label: string;
   icon: IconName;
-  home: NavHome;
+  /** the entries' one region; a function with two doors lists both (`SETTINGS_ENTRIES`) */
+  home: NavHome | readonly NavHome[];
   action: NavAction;
   /** the element's test hook, where the region has one per entry */
   testId?: string;
@@ -82,7 +87,7 @@ export const RAIL_ENTRIES: readonly NavEntry[] = [
   },
 ];
 
-/** The menu's own entries; the Export submenu's items follow. */
+/** The menu's own entries; the flyouts (`MENU_SUBMENUS`) follow them. */
 export const MENU_ENTRIES: readonly NavEntry[] = [
   { id: 'importModels', label: 'Import models…', icon: 'import', home: 'menu', action: { kind: 'import' } },
   {
@@ -128,28 +133,68 @@ export const EXPORT_ENTRIES: readonly NavEntry[] = [
   },
 ];
 
-/** One entry per settings view, in the cog of the preset row. */
+/**
+ * One entry per settings view. These three are the one stated exception to "one home": they open from
+ * Menu → Settings (words, where Robert looked for them) and from the button in their preset row, both
+ * rendered from this table. The icon is the sliders, not the cog – the cog means Preferences alone.
+ */
 export const SETTINGS_ENTRIES: readonly NavEntry[] = [
   {
     id: 'settingsPrint',
-    label: 'Edit print settings',
-    icon: 'settings',
-    home: 'preset-row',
+    label: 'Print settings',
+    icon: 'presetSettings',
+    home: ['menu', 'preset-row'],
     action: { kind: 'view', view: 'print' },
   },
   {
     id: 'settingsFilament',
-    label: 'Edit filament settings',
-    icon: 'settings',
-    home: 'preset-row',
+    label: 'Filament settings',
+    icon: 'presetSettings',
+    home: ['menu', 'preset-row'],
     action: { kind: 'view', view: 'filament' },
   },
   {
     id: 'settingsPrinter',
-    label: 'Edit printer settings',
-    icon: 'settings',
-    home: 'preset-row',
+    label: 'Printer settings',
+    icon: 'presetSettings',
+    home: ['menu', 'preset-row'],
     action: { kind: 'view', view: 'printer' },
+  },
+];
+
+/** A top-level menu item that opens a flyout: the trigger plus the entries the flyout lists. */
+export interface NavSubmenu {
+  /** stable id; the trigger carries it as `data-nav-id` and opens it */
+  id: string;
+  label: string;
+  icon: IconName;
+  /** the flyout's accessible name */
+  ariaLabel: string;
+  /** the trigger's test hook (`menu-settings`) */
+  testId: string;
+  items: readonly NavEntry[];
+}
+
+/**
+ * The menu's flyouts, in the order the menu shows them: Settings (the words Robert looked for) and
+ * Export. Each trigger is one menu item; its items are the same entries the other homes render.
+ */
+export const MENU_SUBMENUS: readonly NavSubmenu[] = [
+  {
+    id: 'settings',
+    label: 'Settings',
+    icon: 'presetSettings',
+    ariaLabel: 'Settings',
+    testId: 'menu-settings',
+    items: SETTINGS_ENTRIES,
+  },
+  {
+    id: 'export',
+    label: 'Export',
+    icon: 'export',
+    ariaLabel: 'Export',
+    testId: 'menu-export',
+    items: EXPORT_ENTRIES,
   },
 ];
 
@@ -203,6 +248,11 @@ export const NAV_ENTRIES: readonly NavEntry[] = [
   ...TOP_BAR_ENTRIES,
   ...VIEW_SWITCH_ENTRIES,
 ];
+
+/** Every region an entry names, as one list (`home` is one region or the stated pair). */
+export function homesOf(entry: NavEntry): readonly NavHome[] {
+  return typeof entry.home === 'string' ? [entry.home] : entry.home;
+}
 
 /** The entry of a function id; a missing id is a programming error, the tests catch it. */
 export function navEntry(id: string): NavEntry {

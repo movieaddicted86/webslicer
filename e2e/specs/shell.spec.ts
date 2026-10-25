@@ -82,9 +82,10 @@ test.describe('shell: the rail and the slim top bar', () => {
       .locator('[data-testid="menu-panel"] [role="menuitem"]')
       .allInnerTexts()
       .then((texts) => texts.map((t) => t.replace(/\s+/g, ' ').trim()));
-    // the menu keeps only what has no other home: import and the Export submenu
+    // the menu keeps only what has no other home: import and the Settings and Export submenus
     expect(labels.join(' | ')).toContain('Import models');
     expect(labels.join(' | ')).toContain('Import presets');
+    expect(labels.join(' | ')).toContain('Settings');
     expect(labels.join(' | ')).toContain('Export');
     for (const gone of ['Open from library', 'Save project to library', 'Mode', 'Printers', 'About']) {
       expect(labels.join(' | ')).not.toContain(gone);

@@ -1,5 +1,6 @@
 import { VOLUME_TYPES } from '@webslicer/shared';
 import { useStore, VOLUME_LABELS, type PlaterObject, type PlaterVolume } from '../../state/store';
+import { Icon } from '../../icons/Icon';
 import { TransformInputs } from './TransformInputs';
 import type { VolumeType } from '../../api';
 import './manipulation.css';
@@ -53,7 +54,7 @@ export function VolumeManipulation({ o, v }: { o: PlaterObject; v: PlaterVolume 
         )}
         {canHaveSettings && (
           <button className="full" onClick={() => openDialog('objectSettings', { objectId: o.id, volumeId: v.id })}>
-            ⚙ {v.type === 'ParameterModifier' ? 'Modifier settings' : 'Part settings'}
+            <Icon name="objectSettings" size={14} /> {v.type === 'ParameterModifier' ? 'Modifier settings' : 'Part settings'}
             {Object.keys(v.config).length ? ` (${Object.keys(v.config).length})` : ''}
           </button>
         )}

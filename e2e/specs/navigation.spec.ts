@@ -3,8 +3,12 @@
  * render the navigation map, and no label appears in two regions. The spec reads the same table the
  * components render (`web/src/nav/navMap.ts`), so a function added in two places fails here.
  *
- * The walk drives each home once: the rail's places and dialogs, the menu's import and export lists,
- * the cog of every preset row and the printer dropdown's way into the unified Printers dialog.
+ * The walk drives each home once: the rail's places and dialogs, the menu's import list and its two
+ * flyouts (Settings, Export), the settings button of every preset row, the quick settings' "All
+ * settings…" and the printer dropdown's way into the unified Printers dialog.
+ *
+ * The three settings views are the stated exception to "one home": Menu → Settings and the preset row
+ * both open them, and the spec drives both doors.
  */
 import { expect, test } from '../helpers/fixtures';
 import { byId } from '../helpers/hooks';
@@ -13,6 +17,7 @@ import { read } from '../helpers/app';
 import {
   EXPORT_ENTRIES,
   MENU_ENTRIES,
+  MENU_SUBMENUS,
   PRESET_PRINTERS_ENTRY,
   RAIL_ENTRIES,
   SETTINGS_ENTRIES,
@@ -34,22 +39,29 @@ async function closeAll(app: Page): Promise<void> {
 }
 
 test.describe('navigation: one home per function', () => {
-  test('the rail, the menu, the export list and the preset rows render exactly the navigation map', async ({ app }) => {
+  test('the rail, the menu, its flyouts and the preset rows render exactly the navigation map', async ({ app }) => {
     expect(await navIds(app, '[data-testid="rail"] [data-nav-id]')).toEqual(RAIL_ENTRIES.map((e) => e.id));
 
     await byId(app, 'menu').click();
     await expect(byId(app, 'menu-panel')).toBeVisible();
-    // the flyout is still closed: the panel holds the two import entries and the Export item
-    expect(await navIds(app, '[data-testid="menu-panel"] [data-nav-id]')).toEqual([...MENU_ENTRIES.map((e) => e.id), 'export']);
+    // both flyouts are still closed: the panel holds the two import entries and the two flyout triggers
+    expect(await navIds(app, '[data-testid="menu-panel"] [data-nav-id]')).toEqual([
+      ...MENU_ENTRIES.map((e) => e.id),
+      ...MENU_SUBMENUS.map((s) => s.id),
+    ]);
+
+    await byId(app, 'menu-settings').hover();
+    await expect(app.getByRole('menu', { name: 'Settings' })).toBeVisible();
+    expect(await navIds(app, '[role="menu"][aria-label="Settings"] [data-nav-id]')).toEqual(SETTINGS_ENTRIES.map((e) => e.id));
 
     await byId(app, 'menu-export').hover();
     await expect(app.getByRole('menu', { name: 'Export' })).toBeVisible();
     expect(await navIds(app, '[role="menu"][aria-label="Export"] [data-nav-id]')).toEqual(EXPORT_ENTRIES.map((e) => e.id));
     await closeAll(app);
 
-    // one cog per preset row, and no other settings entry
-    const cogs = await navIds(app, '[data-testid="presets"] [data-nav-id]');
-    expect([...cogs].sort()).toEqual(SETTINGS_ENTRIES.map((e) => e.id).sort());
+    // one settings button per preset row, and no other settings entry there
+    const buttons = await navIds(app, '[data-testid="presets"] [data-nav-id]');
+    expect([...buttons].sort()).toEqual(SETTINGS_ENTRIES.map((e) => e.id).sort());
   });
 
   test('no label appears in two of the rail, the menu and the top bar', async ({ app }) => {
@@ -114,14 +126,17 @@ test.describe('navigation: one home per function', () => {
     await closeAll(app);
   });
 
-  test('each settings view opens from the cog of its preset row – and nowhere else', async ({ app }) => {
+  test('each settings view opens from its preset row and from Menu → Settings', async ({ app }) => {
     for (const entry of SETTINGS_ENTRIES) {
       if (entry.action.kind !== 'view') continue;
       await app.evaluate(() => window.webslicer.getState().setView('plater'));
       await app.waitForTimeout(400);
-      const cog = app.locator(`[data-testid="settings-open-${entry.action.view}"]`);
-      await expect(cog).toBeVisible();
-      await cog.click();
+      const button = app.locator(`[data-testid="settings-open-${entry.action.view}"]`);
+      await expect(button).toBeVisible();
+      // the picture is the sliders, not the cog: the cog means Preferences alone
+      await expect(button.locator('svg')).toHaveCount(1);
+      await expect(button).toHaveAttribute('title', /^Edit .* settings$/);
+      await button.click();
       await expect.poll(() => read(app, (s) => s.view)).toBe(entry.action.view);
     }
 
@@ -136,6 +151,44 @@ test.describe('navigation: one home per function', () => {
       await byId(app, entry.testId ?? entry.id).click();
       await expect.poll(() => read(app, (s) => s.view)).toBe(entry.action.view);
     }
-    expect(await app.locator('[data-testid="quick-settings"] a, [data-testid="quick-settings"] .link').count()).toBe(0);
+  });
+
+  test('Menu → Settings opens every settings view, by pointer and by keyboard', async ({ app }) => {
+    for (const entry of SETTINGS_ENTRIES) {
+      if (entry.action.kind !== 'view') continue;
+      await app.evaluate(() => window.webslicer.getState().setView('plater'));
+      await app.waitForTimeout(400);
+      await byId(app, 'menu').click();
+      await byId(app, 'menu-settings').click();
+      const flyout = app.getByRole('menu', { name: 'Settings' });
+      await expect(flyout).toBeVisible();
+      await flyout.getByRole('menuitem', { name: new RegExp(`^${entry.label}`) }).click();
+      await expect.poll(() => read(app, (s) => s.view)).toBe(entry.action.view);
+    }
+
+    // the keyboard's way in: the trigger, ArrowDown to the Settings item, ArrowRight into its flyout
+    await app.evaluate(() => window.webslicer.getState().setView('plater'));
+    await app.waitForTimeout(400);
+    await byId(app, 'menu').click();
+    await app.keyboard.press('ArrowDown');
+    await app.keyboard.press('ArrowDown');
+    await app.keyboard.press('ArrowDown');
+    await expect(byId(app, 'menu-settings')).toBeFocused();
+    await app.keyboard.press('ArrowRight');
+    await expect(app.getByRole('menu', { name: 'Settings' })).toBeVisible();
+    await expect(app.getByRole('menuitem', { name: 'Print settings' })).toBeFocused();
+    await app.keyboard.press('Enter');
+    await expect.poll(() => read(app, (s) => s.view)).toBe('print');
+  });
+
+  test('the quick settings stay short and lead on to the full print settings', async ({ app }) => {
+    await app.evaluate(() => window.webslicer.getState().setView('plater'));
+    await app.waitForTimeout(400);
+    const link = byId(app, 'all-settings');
+    await expect(link).toHaveText('All settings…');
+    // the only link in the short list, so nothing else competes with it
+    await expect(app.locator('[data-testid="quick-settings"] .link')).toHaveCount(1);
+    await link.click();
+    await expect.poll(() => read(app, (s) => s.view)).toBe('print');
   });
 });

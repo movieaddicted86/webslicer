@@ -7,11 +7,12 @@ import './Presets.css';
  * The print, filament and printer preset rows and the quick settings – the part of the panel that
  * describes the print rather than the selection, so it is above the mode content in every plater mode.
  *
- * The card is the mockup's "Print settings": one heading with the print preset's cog, the print preset
- * select, then the filament and printer rows (with their own cogs) and the two visibility switches,
- * then the grouped quick settings a group title at a time. Each preset row keeps its save, discard,
- * rename and delete buttons; the quick settings write the print preset as before. In the Preview the
- * panel shows the slicing result instead, so these rows stay with the plater.
+ * The card is the mockup's "Print settings": one heading with the print preset's settings button, the
+ * print preset select, then the filament and printer rows (with their own buttons) and the two
+ * visibility switches, then the grouped quick settings a group title at a time and the **All
+ * settings…** link that opens the full view. Each preset row keeps its save, discard, rename and
+ * delete buttons; the quick settings write the print preset as before. In the Preview the panel shows
+ * the slicing result instead, so these rows stay with the plater.
  */
 export function Presets() {
   const presets = useStore((s) => s.presets);

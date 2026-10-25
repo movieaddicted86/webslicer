@@ -16,7 +16,8 @@ const MODES: Array<{ id: Mode; label: string; hint: string }> = [
  * mode (which used to sit in the menu), the read-only online-services status (the
  * `WEBSLICER_UPDATE_CHECK` switch the server answers with) and a reset of the stored panel layout.
  *
- * The print, filament and printer settings are not here: they open from the cog in each preset row.
+ * The print, filament and printer settings are not here: they open from **Menu → Settings** and from
+ * the button in each preset row.
  */
 export function PreferencesDialog({ onClose }: { onClose: () => void }) {
   const mode = useStore((s) => s.mode);

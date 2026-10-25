@@ -16,7 +16,7 @@ import './TopBar.css';
  *
  * The switch is a radiogroup rendered from the navigation map (`VIEW_SWITCH_ENTRIES`), so the bar keeps
  * the one home of the two views; the tool strip below carries the tools only. The settings views never
- * were tabs – their one door is the cog in their preset row (as in PrusaSlicer).
+ * were tabs – they open from the menu's Settings flyout and from the button in their preset row.
  *
  * On a phone the object list is a drawer instead of a card, so the bar carries the button that opens
  * it; on a wider window the card's own chevron does that job.

@@ -4,8 +4,9 @@ import { Icon } from '../../icons/Icon';
 import './RangePanel.css';
 
 /**
- * The height ranges of the selected object: one row of from/to/layer height per range, the ⚙ for the
- * range's own settings and the remove button. The heading and the "add" button are the Layer ranges
+ * The height ranges of the selected object: one row of from/to/layer height per range, the settings
+ * button for the range's own overrides and the remove button. The settings button carries Prusa's
+ * height-range icon, so it cannot be mistaken for Preferences. The heading and the "add" button are the Layer ranges
  * card's (`ContextPanel`), so the rows stand alone here.
  */
 export function RangePanel({ o }: { o: PlaterObject }) {
@@ -61,7 +62,8 @@ export function RangePanel({ o }: { o: PlaterObject }) {
               aria-label="Settings for this range"
               onClick={() => openDialog('objectSettings', { objectId: o.id, rangeId: r.id })}
             >
-              ⚙{Object.keys(r.config).filter((k) => k !== 'layer_height').length ? '•' : ''}
+              <Icon name="rangeSettings" size={14} />
+              {Object.keys(r.config).filter((k) => k !== 'layer_height').length ? <span aria-hidden="true">•</span> : ''}
             </button>
             <button className="icon" title="Remove range" aria-label="Remove range" onClick={() => removeRange(o.id, r.id)}>
               <Icon name="remove" size={14} />

@@ -9,12 +9,14 @@ PrusaSlicer feature exists here and which does not is in
 - **Rail on the far left**: _Slicing_ (the plater and the preview), _Library_, _Printers_; at the
   bottom _Preferences_ and _About_. The current place is filled with the accent colour; on a narrow
   window the names drop away and on a phone the rail becomes a bottom tab bar.
-- **48 px top bar**: the **Menu** (import models and presets, and the **Export** submenu with project
-  3MF, current settings, presets bundle, G-code and the two "save to library" actions), undo and redo,
-  a **hide the side panels** switch that gives the 3D view the full width (remembered per browser), the
-  project name with its save state, the **Prepare | Preview** switch centred in the bar and, at the
-  right edge, the update notice. Every function has one home: the rail opens the dialogs, the preset
-  rows' cogs open the settings views, and the menu keeps only import and export.
+- **48 px top bar**: the **Menu** (import models and presets, then two flyouts – **Settings** with print,
+  filament and printer settings, and **Export** with project 3MF, current settings, presets bundle,
+  G-code and the two "save to library" actions), undo and redo, a **hide the side panels** switch that
+  gives the 3D view the full width (remembered per browser), the project name with its save state, the
+  **Prepare | Preview** switch centred in the bar and, at the right edge, the update notice. Every
+  function has one home: the rail opens the dialogs, the menu keeps import and the two flyouts, and the
+  preset rows' own settings buttons carry the stated exception – the three settings views open from
+  **Menu → Settings** and from their row, both rendered from the one navigation table.
 - **Floating cards over the scene**: the 3D view fills everything right of the rail below the bar, and
   the object list and the context panel are cards that float over it – so folding a card or hiding the
   panels never moves or resizes the canvas.
@@ -39,10 +41,11 @@ PrusaSlicer feature exists here and which does not is in
 - **Context panel** at the scene's top right, with the destination/Slice footer as its own card: it
   shows what the current state is about. With nothing selected it is the plate – a **Printer &
   material** card (printer tile, name, nozzle and bed summary, the loaded filament with its colour dot
-  and nozzle) above the **Print settings** card: the print preset select with its cog in the heading,
-  the filament and printer rows, and the quick settings as grouped rows (Walls & perimeters, Infill,
-  Supports & adhesion) with the label on the left and a 150 px control on the right, switches for the
-  on/off ones. With one object selected the header carries a thumbnail tile, the name, the "1 instance ·
+  and nozzle) above the **Print settings** card: the print preset select with its settings button in
+  the heading, the filament and printer rows, and the quick settings as grouped rows (Walls &
+  perimeters, Infill, Supports & adhesion) with the label on the left and a 150 px control on the
+  right, switches for the on/off ones. Below the last group an **All settings…** link opens the full
+  print settings view: the list stays short and every other option is one click away. With one object selected the header carries a thumbnail tile, the name, the "1 instance ·
   size" line and the ✎ rename, the preset and quick-setting rows stay, and the object's own cards
   follow: **Transform** (X/Y/Z column headers in the axis colours, Position / Rotation / Size / Scale
   rows with the unit inside the field, the instances stepper with **Fill bed**, one row of 34 px icon
@@ -59,27 +62,27 @@ PrusaSlicer feature exists here and which does not is in
 
 ### Where do I find…
 
-| I want to…                                           | Go to                                                                                      |
-| ---------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| Slice, arrange, edit objects                         | Rail **Slicing** (the plater); the preview is **Preview** in the top bar's switch          |
-| Open a model from the file library                   | Rail **Library**                                                                           |
-| Import models from my computer                       | **Menu → Import models…** (Ctrl+I / Ctrl+O)                                                |
-| Import presets from a bundle or a G-code file        | **Menu → Import presets…**                                                                 |
-| Load, add, test or remove a print host               | Rail **Printers → My printers**                                                            |
-| Install or update vendor profiles                    | Rail **Printers → Vendor profiles**, or **Add / remove printers…** in the printer dropdown |
-| Choose which system filaments the selector shows     | Rail **Printers → Filaments**                                                              |
-| Create a printer with its filament                   | Rail **Printers → Custom printer**                                                         |
-| Change the Simple / Advanced / Expert mode           | Rail **Preferences → Mode**                                                                |
-| See whether the update check is on, and reset panels | Rail **Preferences → Online services / Interface**                                         |
-| Edit the print, filament or printer settings         | The cog next to the preset in its row (plater or settings view)                            |
-| Edit an object's position, parts, overrides, ranges  | Select its row in the object list – the context panel on the right shows them              |
-| Open a tool (move, paint, cut, layer height)         | The **tool strip** at the top of the 3D view – its controls then take the context panel    |
-| Choose the print host the G-code goes to             | The **Destination** select in the context panel's footer (or ask in the send dialog)       |
-| Export the project, settings, presets or G-code      | **Menu → Export ▸**                                                                        |
-| Save the project or the G-code to the library        | **Menu → Export ▸ Save … to library…**                                                     |
-| Undo or redo                                         | The top bar's ↶ / ↷ (or Ctrl+Z / Ctrl+Shift+Z)                                             |
-| Give the 3D view the full width                      | The top bar's **hide panels** button                                                       |
-| See the version, the licence and the update notice   | Rail **About**                                                                             |
+| I want to…                                           | Go to                                                                                                          |
+| ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Slice, arrange, edit objects                         | Rail **Slicing** (the plater); the preview is **Preview** in the top bar's switch                              |
+| Open a model from the file library                   | Rail **Library**                                                                                               |
+| Import models from my computer                       | **Menu → Import models…** (Ctrl+I / Ctrl+O)                                                                    |
+| Import presets from a bundle or a G-code file        | **Menu → Import presets…**                                                                                     |
+| Load, add, test or remove a print host               | Rail **Printers → My printers**                                                                                |
+| Install or update vendor profiles                    | Rail **Printers → Vendor profiles**, or **Add / remove printers…** in the printer dropdown                     |
+| Choose which system filaments the selector shows     | Rail **Printers → Filaments**                                                                                  |
+| Create a printer with its filament                   | Rail **Printers → Custom printer**                                                                             |
+| Change the Simple / Advanced / Expert mode           | Rail **Preferences → Mode**                                                                                    |
+| See whether the update check is on, and reset panels | Rail **Preferences → Online services / Interface**                                                             |
+| Edit the print, filament or printer settings         | **Menu → Settings ▸**, the button next to the preset in its row, or **All settings…** below the quick settings |
+| Edit an object's position, parts, overrides, ranges  | Select its row in the object list – the context panel on the right shows them                                  |
+| Open a tool (move, paint, cut, layer height)         | The **tool strip** at the top of the 3D view – its controls then take the context panel                        |
+| Choose the print host the G-code goes to             | The **Destination** select in the context panel's footer (or ask in the send dialog)                           |
+| Export the project, settings, presets or G-code      | **Menu → Export ▸**                                                                                            |
+| Save the project or the G-code to the library        | **Menu → Export ▸ Save … to library…**                                                                         |
+| Undo or redo                                         | The top bar's ↶ / ↷ (or Ctrl+Z / Ctrl+Shift+Z)                                                                 |
+| Give the 3D view the full width                      | The top bar's **hide panels** button                                                                           |
+| See the version, the licence and the update notice   | Rail **About**                                                                                                 |
 
 ## Plater
 
