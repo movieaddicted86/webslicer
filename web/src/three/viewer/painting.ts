@@ -24,6 +24,8 @@ interface Painting {
   move(e: PointerEvent): void;
   /** pointer up or leave: the stroke ends */
   endStroke(): void;
+  /** the tool closed: the stroke ends and the brush cursor leaves the scene at once */
+  stop(): void;
   contextMenu(e: Event): void;
 }
 
@@ -137,9 +139,15 @@ export function createPainting(refs: SceneRefs): Painting {
     paintStroke = null;
     controls.enabled = !refs.dragging;
   };
+  /** the tool closed: a running stroke ends with it, and the brush cursor leaves the scene */
+  const stop = () => {
+    paintStroke = null;
+    brushCursor.visible = false;
+    controls.enabled = !refs.dragging;
+  };
   const contextMenu = (e: Event) => {
     if (paintModeOf(useStore.getState())) e.preventDefault();
   };
 
-  return { down, move, endStroke, contextMenu };
+  return { down, move, endStroke, stop, contextMenu };
 }

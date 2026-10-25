@@ -1,9 +1,9 @@
-/* The 3D view shell: canvas, view toolbar, view hints (Viewer.tsx).
+/* The 3D view shell: canvas, view bar, view hints (Viewer.tsx).
  *
  * The scene fills everything right of the rail and below the bar; the object list and the context
  * panel float over it as cards. The scene's own overlays keep to the band the cards leave free, so a
- * card never covers a control the user needs: the strip sits at the top of the band, the view toolbar
- * and the fit button to its right/left edges.
+ * card never covers a control the user needs: the strip owns the top of the band, the view bar sits
+ * below it, centred in the same band.
  */
 
 .viewer {
@@ -31,11 +31,25 @@
 
 /* The strip pill owns the top band of the scene (9 px from the top, ~42 px tall). The view overlays
    start below it: a centred pill on a narrow scene reaches both corners, and an overlay underneath
-   would be visible but unclickable. The right card's width keeps them out from under the panel. */
+   would be visible but unclickable. The band under the strip is the same room the cards leave free,
+   so the view bar sits centred in it like the strip and the Prepare|Preview switch, instead of
+   hugging the context panel. The band is a measuring box: only the bar and the button take the
+   pointer, the scene orbits through the rest. */
+.viewer-bar-band {
+  position: absolute;
+  top: 64px;
+  left: calc(var(--list-w) + 2 * var(--card-gap));
+  right: calc(var(--panel-w) + 2 * var(--card-gap));
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+/* the reset view button keeps the right end of the band, next to the context panel */
 .viewer-fit {
   position: absolute;
-  right: calc(var(--panel-w) + 2 * var(--card-gap));
-  top: 64px;
+  right: 0;
+  top: 0;
   width: 34px;
   height: 34px;
   padding: 0;
@@ -45,20 +59,25 @@
   border: 1px solid var(--line);
   border-radius: 8px;
   color: var(--text);
+  pointer-events: auto;
 }
 
 .viewer-toolbar {
-  position: absolute;
-  right: calc(var(--panel-w) + 2 * var(--card-gap) + 42px);
-  top: 64px;
   display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 2px;
   align-items: center;
+  /* centred in the band; a narrow band wraps the buttons instead of running the bar under a card,
+     and the reserved width keeps the reset button's corner free on both sides */
+  min-width: 0;
+  max-width: calc(100% - 88px);
   background: color-mix(in srgb, var(--card) 90%, transparent);
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 3px;
   backdrop-filter: blur(6px);
+  pointer-events: auto;
 }
 
 .viewer-toolbar button {
@@ -82,14 +101,8 @@
   color: var(--on-accent);
 }
 
-/* the panels are hidden: the overlays use the freed right edge */
-.app-shell.panels-hidden .viewer-toolbar {
-  right: calc(var(--card-gap) + 42px);
-}
-
-.app-shell.panels-hidden .viewer-fit {
-  right: var(--card-gap);
-}
+/* the panels are hidden: both card widths are 0, so the band already uses the whole scene minus the
+   two edge gaps – nothing else to do here */
 
 .viewer.place-on-face canvas {
   cursor: crosshair;
