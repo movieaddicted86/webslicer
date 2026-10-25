@@ -349,9 +349,9 @@ test.describe('context panel: quick settings and the mode switch', () => {
       fill: s.presets.print.current.fill_density,
     }));
     expect(back).toEqual({ support: '0', fill: '15%' });
-    // the settings views have one home: the cog of the preset row, not a link in the quick settings
+    // the preset row keeps its settings button; the quick settings' one link is the way to the full view
     await expect(app.locator('[data-testid="settings-open-print"]')).toBeVisible();
-    expect(await app.locator('[data-testid="quick-settings"] button.link').count()).toBe(0);
+    expect(await app.locator('[data-testid="quick-settings"] button.link').count()).toBe(1);
   });
 
   test('Simple mode hides the object list and the manipulation panel, Advanced brings them back', async ({ app }) => {

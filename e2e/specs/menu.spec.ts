@@ -13,6 +13,8 @@ import type { Page } from '@playwright/test';
 
 /** The Export flyout, named by its accessible name. */
 const flyout = (app: Page) => app.getByRole('menu', { name: 'Export' });
+/** The Settings flyout. */
+const settingsFlyout = (app: Page) => app.getByRole('menu', { name: 'Settings' });
 
 test.describe('menu: one submenu, opened by hover or click', () => {
   test('hovering Export opens its flyout; another top-level item takes it away at once', async ({ app }) => {
@@ -99,6 +101,9 @@ test.describe('menu: one submenu, opened by hover or click', () => {
 
     await app.keyboard.press('ArrowDown');
     await expect(app.getByRole('menuitem', { name: 'Import presets' })).toBeFocused();
+    // the two flyouts follow the plain items, Settings first
+    await app.keyboard.press('ArrowDown');
+    await expect(byId(app, 'menu-settings')).toBeFocused();
     await app.keyboard.press('ArrowDown');
     await expect(byId(app, 'menu-export')).toBeFocused();
 
@@ -112,5 +117,23 @@ test.describe('menu: one submenu, opened by hover or click', () => {
     await expect(flyout(app)).toHaveCount(0);
     await expect(byId(app, 'menu-export')).toHaveAttribute('aria-expanded', 'false');
     await expect(byId(app, 'menu-export')).toBeFocused();
+  });
+
+  test('Menu → Settings opens its flyout and one of its views', async ({ app }) => {
+    await byId(app, 'menu').click();
+    await byId(app, 'menu-settings').hover();
+    await expect(settingsFlyout(app)).toBeVisible();
+    await expect(settingsFlyout(app).getByRole('menuitem')).toHaveText(['Print settings', 'Filament settings', 'Printer settings']);
+
+    // another flyout takes over at once; the Settings one is gone
+    await byId(app, 'menu-export').hover();
+    await expect(flyout(app)).toBeVisible();
+    await expect(settingsFlyout(app)).toHaveCount(0);
+
+    // a click on a settings view closes the menu and lands on that view
+    await byId(app, 'menu-settings').click();
+    await settingsFlyout(app).getByRole('menuitem', { name: 'Filament settings' }).click();
+    await expect(byId(app, 'menu-panel')).toHaveCount(0);
+    await expect.poll(() => app.evaluate(() => window.webslicer.getState().view)).toBe('filament');
   });
 });
