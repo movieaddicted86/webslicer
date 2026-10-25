@@ -18,14 +18,14 @@ const LEFT_COLLAPSED_KEY = 'webslicer.leftCollapsed';
 /** The folded cards of the left column, as a JSON object of `card key → true`. */
 const LEFT_CARDS_KEY = 'webslicer.leftCards';
 
-/** The left column's default and allowed width: wide enough for the object rows, narrow enough for the scene. */
-export const LEFT_COLUMN_DEFAULT_WIDTH = 300;
+/** The left card's default and allowed width: the mockup's 276 px, draggable between 220 and 420. */
+export const LEFT_COLUMN_DEFAULT_WIDTH = 276;
 export const LEFT_COLUMN_MIN_WIDTH = 220;
 export const LEFT_COLUMN_MAX_WIDTH = 420;
-/** The width of the folded column: the chevron and, on the plater, the object count. */
-export const LEFT_COLUMN_COLLAPSED_WIDTH = 52;
-/** From this window width on the column is open unless the user says otherwise. */
-export const LEFT_COLUMN_OPEN_MIN_WINDOW = 1100;
+/** The width of the folded card: its header row with the title, the count and the chevron. */
+export const LEFT_COLUMN_COLLAPSED_WIDTH = 148;
+/** From this window width on the card is open unless the user says otherwise. */
+export const LEFT_COLUMN_OPEN_MIN_WINDOW = 1280;
 
 const clampWidth = (value: number): number =>
   Number.isFinite(value) ? Math.min(LEFT_COLUMN_MAX_WIDTH, Math.max(LEFT_COLUMN_MIN_WIDTH, Math.round(value))) : LEFT_COLUMN_DEFAULT_WIDTH;

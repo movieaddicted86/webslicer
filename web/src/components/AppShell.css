@@ -1,39 +1,63 @@
-/* AppShell: the frame of the 3.0 layout (AppShell.tsx). One grid for the whole app, tokens only.
+/* AppShell: the frame of the visual pass (AppShell.tsx). Tokens only.
  *
- *   rail | left | scene | right
+ *   rail | bar
+ *   rail | scene
  *
- * The top bar spans all four columns. `left` is as wide as the object list column says (`--left-track`,
- * set by the component from the persisted width / the folded strip / 0 on a phone). */
+ * The rail runs the full height on the left, the 48 px top bar starts next to it, and the scene fills
+ * everything right of the rail below the bar. The object list and the context panel are no longer grid
+ * tracks: they are floating cards over the scene (their own stylesheets place them), so the canvas
+ * keeps its size whenever a card folds or the hide-panels toggle hides both.
+ */
 
 .app-shell {
+  position: relative;
   display: grid;
   grid-template-areas:
-    'top top top top'
-    'rail left scene right';
-  grid-template-columns: 64px var(--left-track, 0) minmax(0, 1fr) var(--sidebar-w);
-  grid-template-rows: auto minmax(0, 1fr);
+    'rail bar'
+    'rail scene';
+  grid-template-columns: var(--rail-w) minmax(0, 1fr);
+  grid-template-rows: var(--bar-h) minmax(0, 1fr);
   height: 100%;
   background: var(--bg);
+
+  /* the measurements the floating cards and the scene's overlays share */
+  --rail-w: 64px;
+  --bar-h: 48px;
+  --card-gap: 12px;
+  --panel-w: 344px;
+  /* the user's width of the object list card (the frame publishes it from the layout slice) */
+  --list-w: var(--list-width, 276px);
+}
+
+.app-shell > .rail {
+  grid-area: rail;
 }
 
 .app-shell > .topbar {
-  grid-area: top;
+  grid-area: bar;
 }
 
-/* the scene track is the DropZone holding the viewer; the viewer positions itself inside it */
-.app-shell > .dropzone {
+/* the scene's rectangle: the viewer fills it and the two cards float over it */
+.app-shell > .scene-area {
   grid-area: scene;
   position: relative;
   min-width: 0;
   min-height: 0;
 }
 
-/* the settings views are a page: the whole area right of the rail, no side columns */
+/* the DropZone holding the viewer; the viewer positions itself inside it */
+.app-shell > .scene-area > .dropzone {
+  position: absolute;
+  inset: 0;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* the settings views are a page: the whole area right of the rail, no overlay cards */
 .app-shell.settings-mode {
   grid-template-areas:
-    'top top'
+    'rail bar'
     'rail settings';
-  grid-template-columns: 64px minmax(0, 1fr);
 }
 
 .app-shell > .settings {
@@ -41,77 +65,65 @@
   min-width: 0;
 }
 
-.app-shell > .context-panel {
-  grid-area: right;
-  min-height: 0;
-}
-
-.app-shell > .left-column {
-  grid-area: left;
-  min-height: 0;
-}
-
-/* Hide panels: the side columns leave the grid, so the scene takes their width. Both stay mounted
-   (their state and scroll position survive) and the canvas resizes through the viewer's ResizeObserver. */
-.app-shell.panels-hidden {
-  grid-template-columns: 64px 0 minmax(0, 1fr) 0;
-}
-
-.app-shell.panels-hidden > .context-panel,
-.app-shell.panels-hidden > .left-column {
+/* Hide panels: the cards leave the screen, the scene and the canvas keep their size and position.
+   Both stay mounted (their scroll position and card state survive), and the scene's overlays use the
+   freed corner again. */
+.app-shell.panels-hidden .left-column,
+.app-shell.panels-hidden .context-stack {
   display: none;
+}
+
+.app-shell.panels-hidden,
+.app-shell.panels-hidden:has(.left-column.folded) {
+  --panel-w: 0px;
+  --list-w: 0px;
+}
+
+/* the folded card is a narrow header: the band starts beside it */
+.app-shell:has(.left-column.folded) {
+  --list-w: 148px;
+}
+
+@media (max-width: 1279px) {
+  .app-shell {
+    --panel-w: 300px;
+  }
 }
 
 @media (max-width: 1100px) {
   .app-shell {
-    grid-template-columns: 52px var(--left-track, 0) minmax(0, 1fr) var(--sidebar-w);
-  }
-
-  .app-shell.settings-mode {
-    grid-template-columns: 52px minmax(0, 1fr);
-  }
-
-  .app-shell.panels-hidden {
-    grid-template-columns: 52px 0 minmax(0, 1fr) 0;
+    --rail-w: 52px;
   }
 }
 
-/* phone: the rail is a bottom tab bar, so the frame stacks the bar, the scene, the panel and the bar;
-   the object list is a drawer over the scene (its own stylesheet) and takes no track */
+/* below 900 px the object list is a drawer, not a card: it takes no place of its own */
+@media (max-width: 899px) {
+  .app-shell {
+    --list-w: 0px;
+  }
+}
+
+/* phone: the rail becomes a bottom tab bar, so the frame stacks the bar, the scene and the bar; the
+   cards cover parts of the scene as drawers and sheets (their own stylesheets) */
 @media (max-width: 640px) {
   .app-shell {
     grid-template-areas:
-      'top'
+      'bar'
       'scene'
-      'right'
       'rail';
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto minmax(0, 1fr) auto auto;
-  }
-
-  .app-shell > .rail {
-    grid-area: rail;
-  }
-
-  .app-shell > .context-panel {
-    grid-area: right;
-    width: 100%;
-    max-height: 40vh;
-    border-left: none;
-    border-top: 1px solid var(--border);
+    grid-template-rows: var(--bar-h) minmax(0, 1fr) auto;
+    --rail-w: 0px;
+    --card-gap: 8px;
+    /* the panel is a sheet at the bottom on a phone: the strip keeps the full width */
+    --panel-w: 0px;
   }
 
   .app-shell.settings-mode {
     grid-template-areas:
-      'top'
+      'bar'
       'settings'
       'rail';
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto minmax(0, 1fr) auto;
-  }
-
-  /* a phone hides the panels by sliding the context panel away instead of freeing a column */
-  .app-shell.panels-hidden {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: var(--bar-h) minmax(0, 1fr) auto;
   }
 }

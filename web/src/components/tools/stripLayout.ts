@@ -1,16 +1,19 @@
 /**
- * The tool strip's table (layout 3.0, L-4) and how much of it fits.
+ * The tool strip's table (layout 3.0, L-4; visual pass) and how much of it fits.
  *
- * The strip floats over the top of the scene, so the room it has is the scene's width, not the
- * window's. Its groups keep PrusaSlicer's order – the selection's object command, the instance pair,
- * the transform tools with arrange and its settings, the paint tools, cut and the layer tools. When the
- * pill does not fit, the trailing groups move into an overflow menu ("⋯") that lists the same entries;
- * the strip itself never wraps.
+ * The strip floats over the top of the scene, between the two floating cards (the object list on the
+ * left, the context panel on the right), centred in that band. The room it has is that band, not the
+ * window: folding a card gives the strip more space, hiding the panels gives it the whole scene. Its groups keep
+ * PrusaSlicer's order – the selection's object command, the instance pair, the transform tools with
+ * arrange and its settings, the paint tools, cut and the layer tools. When the pill does not fit, the
+ * trailing groups move into an overflow menu ("⋯") that lists the same entries; the strip itself never
+ * wraps.
  *
  * The widths are estimates of the rendered controls (an icon button is a square, a label adds its
  * text), so the fit is a pure function of the room, the label mode and the table, and can be unit
- * tested. A little slack is built in: the strip may end short, never clipped. The estimates only
- * decide which groups show – the real widths come from the stylesheet.
+ * tested. The estimate uses the largest button size of the stylesheet, so the real pill is never wider
+ * than the number it was fitted with. The estimates only decide which groups show – the real widths
+ * come from the stylesheet.
  */
 import { TOOLS, type ToolDefinition } from '../../tools/registry';
 import { COMMAND_LABELS, type StripCommand } from '../../tools/stripCommands';
@@ -32,26 +35,20 @@ const COMMANDS: Partial<Record<StripGroupId, StripCommand[]>> = {
 };
 
 /** An icon button, in px (the square every strip button has). */
-const ICON_BUTTON = 28;
+const ICON_BUTTON = 34;
 /** The gap between two buttons of a group. */
 const INNER_GAP = 2;
-/** A thin divider between groups: its line, its margins and the two gaps around it. */
-export const SEPARATOR = 10;
-/** The pill's padding, left + right. */
-export const PILL_PADDING = 8;
-/** The margin the strip keeps to the scene's edges on each side. */
-export const STRIP_EDGE = 12;
-/** The Prepare | Preview switch, icon only. */
-export const SWITCH_ICON_WIDTH = 54;
-/** The same switch with its two names, as on a wide window. */
-export const SWITCH_TEXT_WIDTH = 166;
-/** The overflow button; its room is only taken when groups are hidden. */
-export const OVERFLOW_WIDTH = 28;
-/** Average label character width at 12 px, plus the button's inner gaps. */
-const LABEL_CHAR = 6.6;
-const LABEL_INSET = 12;
-/** The safety margin between the pill's estimate and the scene's edge. */
-const SLACK = 8;
+/** A thin divider between groups: its 1 px line and its 3 px margins on each side. */
+export const SEPARATOR = 7;
+/** The pill's padding left + right and its two 1 px borders. */
+export const PILL_PADDING = 12;
+/** The overflow button and the divider's margin before it; its room is only taken when groups are hidden. */
+export const OVERFLOW_WIDTH = 37;
+/** Average label character width at 12 px, plus the button's inner gaps and padding. */
+const LABEL_CHAR = 6.5;
+const LABEL_INSET = 8;
+/** The safety margin between the pill's estimate and the band's edge: its own 1 px borders and a pixel. */
+const SLACK = 2;
 
 /** The registry tools of one strip group, in registry order (the object groups have none). */
 export function toolsOfGroup(group: StripGroupId, tools: ToolDefinition[] = TOOLS): ToolDefinition[] {
@@ -72,25 +69,28 @@ export function itemName(item: StripItem): string {
   return item.kind === 'tool' ? item.tool.label : COMMAND_LABELS[item.command];
 }
 
-/** The estimated width of one group, with labels when they are on. */
+/**
+ * The estimated width of one group, with labels when they are on: its divider, its buttons and the gap
+ * between every pair of its children (the divider is one of them).
+ */
 export function groupWidth(group: StripGroupId, labels: boolean, tools: ToolDefinition[] = TOOLS): number {
   const items = itemsOfGroup(group, tools);
   if (!items.length) return 0;
   const each = items.map((item) => (labels ? ICON_BUTTON + LABEL_INSET + Math.round(itemName(item).length * LABEL_CHAR) : ICON_BUTTON));
-  return each.reduce((a, b) => a + b, 0) + (items.length - 1) * INNER_GAP;
+  return SEPARATOR + each.reduce((a, b) => a + b, 0) + items.length * INNER_GAP;
 }
 
 /**
- * The room the groups have when the scene is `sceneWidth` px wide: the scene's edge margins, the
- * pill's padding, the switch and the safety slack. Each group's own divider is added by `fitGroups`.
+ * The room the groups have in a band `band` px wide: the pill's padding and the safety slack. The
+ * band is the part of the scene the floating cards leave free – the strip's own layer measures it
+ * (`ToolStrip`), so folding a card gives the pill more room at the same window size.
  */
-export function stripRoom(sceneWidth: number, switchText: boolean): number {
-  const fixed = 2 * STRIP_EDGE + PILL_PADDING + (switchText ? SWITCH_TEXT_WIDTH : SWITCH_ICON_WIDTH) + SLACK;
-  return sceneWidth - fixed;
+export function stripRoom(band: number): number {
+  return band - PILL_PADDING - SLACK;
 }
 
 /**
- * Which groups fit into `room` px. The first group is always kept, so a very narrow scene still shows
+ * Which groups fit into `room` px. The first group is always kept, so a very narrow band still shows
  * the selection command; the rest move into the overflow menu as soon as a group – or the overflow
  * button that the hidden ones need – would not fit.
  */
@@ -103,10 +103,10 @@ export function fitGroups(
   let used = 0;
   for (let i = 0; i < STRIP_GROUPS.length; i++) {
     const group = STRIP_GROUPS[i];
-    // every group stands behind a divider, and the overflow button behind one too
-    const width = groupWidth(group, labels, tools) + SEPARATOR;
-    const overflow = STRIP_GROUPS.length - i - 1 ? OVERFLOW_WIDTH + SEPARATOR : 0;
-    // the first group always stays, so a narrow scene still shows the selection command
+    // the group's width includes its own divider; the overflow button stands beside the last group
+    const width = groupWidth(group, labels, tools);
+    const overflow = STRIP_GROUPS.length - i - 1 ? OVERFLOW_WIDTH : 0;
+    // the first group always stays, so a narrow band still shows the selection command
     if (visible.length && used + width + overflow > room) return { visible, hidden: STRIP_GROUPS.slice(i) };
     used += width;
     visible.push(group);
@@ -123,9 +123,6 @@ export function stripFits(room: number, labels: boolean, tools: ToolDefinition[]
 export function hiddenItems(hidden: StripGroupId[], tools: ToolDefinition[] = TOOLS): StripItem[] {
   return hidden.flatMap((g) => itemsOfGroup(g, tools));
 }
-
-/** From this window width on the switch shows the names Prepare and Preview next to its icons. */
-export const SWITCH_TEXT_QUERY = '(min-width: 1400px)';
 
 /** Below this window width the strip becomes a horizontally scrollable pill instead of an overflow menu. */
 export const COMPACT_QUERY = '(max-width: 900px)';

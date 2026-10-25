@@ -1,9 +1,16 @@
-/* The 3D view shell: canvas, view toolbar, view hints (Viewer.tsx). */
+/* The 3D view shell: canvas, view toolbar, view hints (Viewer.tsx).
+ *
+ * The scene fills everything right of the rail and below the bar; the object list and the context
+ * panel float over it as cards. The scene's own overlays keep to the band the cards leave free, so a
+ * card never covers a control the user needs: the strip sits at the top of the band, the view toolbar
+ * and the fit button to its right/left edges.
+ */
 
 .viewer {
   position: absolute;
   inset: 0;
   overflow: hidden;
+  background: radial-gradient(ellipse at 50% 45%, #3c4149 0%, #2b2f35 55%, #23262b 100%);
 }
 
 .viewer canvas {
@@ -12,46 +19,76 @@
   height: 100%;
 }
 
+/* the key hints sit at the bottom of the band, never under a card */
 .viewer-hint {
   position: absolute;
-  left: 10px;
+  left: calc(var(--list-w) + 2 * var(--card-gap));
   bottom: 8px;
   color: var(--muted);
   font-size: 11px;
   pointer-events: none;
 }
 
-/* The strip pill owns the top band of the scene (8 px from the top, ~36 px tall). The view overlays
+/* The strip pill owns the top band of the scene (9 px from the top, ~42 px tall). The view overlays
    start below it: a centred pill on a narrow scene reaches both corners, and an overlay underneath
-   would be visible but unclickable. */
+   would be visible but unclickable. The right card's width keeps them out from under the panel. */
 .viewer-fit {
   position: absolute;
-  right: 10px;
-  top: 52px;
+  right: calc(var(--panel-w) + 2 * var(--card-gap));
+  top: 64px;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--card) 90%, transparent);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
 }
 
 .viewer-toolbar {
   position: absolute;
-  right: 52px;
-  top: 52px;
+  right: calc(var(--panel-w) + 2 * var(--card-gap) + 42px);
+  top: 64px;
   display: flex;
   gap: 2px;
   align-items: center;
-  background: rgba(27, 30, 36, 0.75);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 2px;
+  background: color-mix(in srgb, var(--card) 90%, transparent);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 3px;
+  backdrop-filter: blur(6px);
 }
 
 .viewer-toolbar button {
-  padding: 2px 7px;
+  height: 28px;
+  padding: 0 8px;
   font-size: 11px;
   background: transparent;
   border-color: transparent;
+  border-radius: 6px;
+  color: var(--muted);
 }
 
 .viewer-toolbar button:hover:not(:disabled) {
-  background: var(--bg4);
+  background: var(--field-h);
+  color: var(--text);
+}
+
+.viewer-toolbar button.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+
+/* the panels are hidden: the overlays use the freed right edge */
+.app-shell.panels-hidden .viewer-toolbar {
+  right: calc(var(--card-gap) + 42px);
+}
+
+.app-shell.panels-hidden .viewer-fit {
+  right: var(--card-gap);
 }
 
 .viewer.place-on-face canvas {

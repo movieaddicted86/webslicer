@@ -1,18 +1,26 @@
-/* LeftColumn: the object list column of the 3.0 layout (LeftColumn.tsx). Tokens only.
+/* LeftColumn: the object list card of the visual pass (LeftColumn.tsx). Tokens only.
  *
- * The column fills its grid track (AppShell.css sizes the track from `--left-track`); folded it is a
- * strip with the chevron and the object count, and on a phone it lies over the scene as a drawer. */
+ * The card floats over the top-left of the scene (`--card-gap` from both edges) with the mockup's
+ * width and radius; it is not a column of the frame, so the canvas is not laid out around it. Folded,
+ * it keeps its header row only. On a phone it is a drawer that covers the left part of the scene.
+ */
 
 .left-column {
-  /* its grid area is the frame's (`AppShell.css`), the same way it places the sidebar */
-  position: relative;
+  position: absolute;
+  left: var(--card-gap);
+  top: var(--card-gap);
+  width: var(--list-w);
+  max-height: calc(100% - 2 * var(--card-gap));
   display: flex;
   flex-direction: column;
   min-height: 0;
-  height: 100%;
-  background: var(--bg2);
-  border-right: 1px solid var(--border);
+  background: color-mix(in srgb, var(--card) 96%, transparent);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(6px);
   overflow: hidden;
+  z-index: 3;
 }
 
 .left-column[hidden] {
@@ -22,9 +30,26 @@
 .left-column-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 6px 6px 0;
-  min-height: 34px;
+  gap: 8px;
+  padding: 8px 8px 8px 12px;
+  min-height: 40px;
+  flex: none;
+}
+
+.left-column-title {
+  margin: 0;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.left-column-grow {
+  flex: 1;
 }
 
 .left-column-toggle,
@@ -35,21 +60,29 @@
   gap: 4px;
   min-width: 28px;
   min-height: 28px;
-  padding: 2px 4px;
+  height: 28px;
+  padding: 0 5px;
   background: transparent;
   border-color: transparent;
+  border-radius: 6px;
   color: var(--muted);
+  flex: none;
 }
 
 .left-column-toggle:hover,
 .left-drawer-close:hover {
-  background: var(--bg4);
+  background: var(--field-h);
   color: var(--text);
 }
 
-/* the chevron points to the scene while the column is open and to the cards while it is folded */
+/* the chevron points to the scene while the card is open and to the cards while it is folded */
 .left-column-toggle svg {
   transform: rotate(-90deg);
+}
+
+.left-column.folded {
+  /* the narrow header the frame reserves for it (`--list-w`), so the strip's band starts beside it */
+  width: var(--list-w);
 }
 
 .left-column.folded .left-column-toggle svg {
@@ -59,7 +92,7 @@
 .left-count {
   font-size: 11px;
   color: var(--muted);
-  background: var(--bg4);
+  background: var(--field-h);
   border-radius: 10px;
   padding: 0 5px;
 }
@@ -71,16 +104,7 @@
   overflow-x: hidden;
 }
 
-.left-column.folded .left-column-head {
-  justify-content: center;
-  padding: 6px 0;
-}
-
-.left-column.folded .left-column-toggle {
-  flex-direction: column;
-}
-
-/* the object sections bring their own heading and padding; inside a card the row keeps the body flush */
+/* the object sections bring their own heading and padding; inside the card the row keeps the body flush */
 .left-cards .objects {
   padding: 0;
   border-bottom: none;
@@ -90,52 +114,41 @@
   max-height: none;
 }
 
-/* the grip between the column and the scene */
+/* the grip on the card's right edge: drag it, or focus it and use the arrow keys */
 .left-resize {
   position: absolute;
   top: 0;
   right: 0;
   bottom: 0;
-  width: 5px;
+  width: 6px;
   cursor: col-resize;
   background: transparent;
+  border-radius: 0 var(--r) var(--r) 0;
   z-index: 2;
 }
 
 .left-resize:hover,
 .left-resize:focus-visible {
-  background: var(--border);
+  background: var(--accent);
   outline: none;
 }
 
-/* the phone drawer: the column leaves the grid and lies over the scene, dismissed by its own button */
+/* the phone drawer: the card leaves its place and covers the scene, dismissed by its own button */
 .left-column.drawer {
   position: fixed;
-  top: 46px;
-  bottom: 0;
   left: 0;
-  z-index: 20;
+  top: calc(var(--bar-h) + var(--card-gap));
+  bottom: calc(var(--card-gap) + 48px);
   width: min(300px, 86vw);
-  box-shadow: 4px 0 18px #0008;
+  max-height: none;
+  border-radius: 0 var(--r) var(--r) 0;
+  z-index: 20;
 }
 
 .left-column.drawer .left-column-head {
-  justify-content: space-between;
-  padding: 6px 8px;
-}
-
-.left-column.drawer .left-column-toggle {
-  display: none;
+  padding: 8px 8px 8px 12px;
 }
 
 .left-drawer-title {
   font-weight: 600;
-}
-
-@media (max-width: 640px) {
-  .app-shell:not(.settings-mode) .left-column.drawer {
-    top: auto;
-    bottom: 38px;
-    height: 60vh;
-  }
 }

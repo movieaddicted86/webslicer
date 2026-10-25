@@ -20,11 +20,11 @@
 }
 
 .object-row:hover {
-  background: var(--bg3);
+  background: var(--field);
 }
 
 .object-row.selected {
-  background: #2a3b55;
+  background: var(--sel);
 }
 
 .object-row.outside .name {
@@ -55,11 +55,11 @@
 }
 
 .instance-row:hover {
-  background: var(--bg3);
+  background: var(--field);
 }
 
 .instance-row.selected {
-  background: #2a3b55;
+  background: var(--sel);
 }
 
 .instance-row .iname {
@@ -78,7 +78,7 @@
   cursor: pointer;
   border: none;
   color: inherit;
-  background: var(--bg4);
+  background: var(--field-h);
 }
 
 .object-info {

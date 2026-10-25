@@ -11,10 +11,10 @@ any browser – on a PC, a tablet or the workshop laptop.
 ## Features
 
 - **3D plater** (Three.js): import STL / OBJ / 3MF / AMF / STEP, move / rotate / scale, place on face,
-  arrange, duplicate, instances, mirror, merge, cut, per-object settings and a tool strip that floats at
-  the top centre of the scene, with the open tool's controls and its key hints in the context panel. A
-  rail on the far left holds Slicing, Library, Printers, Preferences and About, and the slim top bar's
-  menu carries import and the export list; the settings open from the cog of each preset row.
+  arrange, duplicate, instances, mirror, merge, cut, per-object settings and a tool strip that floats
+  between the two cards over the scene, with the open tool's controls and its key hints in the context
+  panel. A rail on the far left holds Slicing, Library, Printers, Preferences and About, and the 48 px
+  top bar's menu carries import and the export list; the settings open from the cog of each preset row.
 - **Volumes and height ranges** like PrusaSlicer: modifiers, support enforcers/blockers, negative
   volumes, extra parts, and variable layer height.
 - **All slicing options** of the installed PrusaSlicer, sorted into the familiar Print / Filament /
@@ -74,20 +74,22 @@ every outbound request – off. Details: [docs/installation.md#update-notice](do
 
 ## A quick tour
 
-The plater with the rail on the far left, the slim top bar, the object list column next to the scene
-and the context panel on the right. The object list card folds on its own and the whole column folds to
-a narrow strip; its width is draggable. The tool strip floats at the top centre of the scene: it opens
-every tool (move, rotate, scale, place on face, arrange and its settings, painting, cut, variable layer
-height), carries delete, add/remove instance and the **Prepare | Preview** switch, and turns the
-trailing groups into an overflow menu when the view is narrow. The open tool's controls take over the
-context panel, with its one primary action pinned at the bottom and the mouse and key hints below the
-controls. The context panel otherwise follows the selection: with nothing on the plater it shows the
-printer card, the preset rows, the quick settings and the Slice button; selecting an object adds its
-**Transform**, **Settings**, **Parts** and **Layer ranges** cards, and the footer keeps the destination
-and Slice in view. The **Menu** in the top bar holds import models and presets and the **Export** list
-(project 3MF, settings, presets bundle, G-code, save to library); the rail holds the app's places and
-dialogs, **Preferences** the visibility mode and the panel layout reset, and each preset row's cog the
-print/filament/printer settings; **hide panels** gives the 3D view the full width.
+The 3D view fills the window right of the rail, with the object list and the context panel as cards
+floating over it – folding a card or hiding the panels never moves or resizes the canvas. The object
+list card folds to its header and its width (276 px by default) is draggable. The 48 px top bar holds
+the **Menu**, undo/redo, hide-panels, the project name, the centred **Prepare | Preview** switch and
+the update notice. The tool strip floats over the top of the scene, centred between the two cards: it
+opens every tool (move, rotate, scale, place on face, arrange and its settings, painting, cut, variable
+layer height) and carries delete and add/remove instance; a narrow band turns its trailing groups into
+an overflow menu. The open tool's controls take over the context panel, with its one primary action
+pinned at the bottom and the mouse and key hints below the controls. The context panel otherwise
+follows the selection: with nothing on the plater it shows the printer card, the preset rows, the quick
+settings and the Slice button; selecting an object adds its **Transform**, **Settings**, **Parts** and
+**Layer ranges** cards, and the footer card keeps the destination and Slice in view. The **Menu** in
+the top bar holds import models and presets and the **Export** list (project 3MF, settings, presets
+bundle, G-code, save to library); the rail holds the app's places and dialogs, **Preferences** the
+visibility mode and the panel layout reset, and each preset row's cog the print/filament/printer
+settings; **hide panels** gives the 3D view the full width.
 
 ![The plater](docs/images/plater.png)
 
@@ -103,7 +105,7 @@ options are shown.
 ![Print settings](docs/images/settings.png)
 
 The G-code preview with toolpaths by feature, the layer slider, layer codes and the legend with print
-time and filament per feature; the **Sliced info** and **Legend** cards sit in the left column.
+time and filament per feature; the **Sliced info** and **Legend** cards sit in the object list card.
 
 ![G-code preview](docs/images/preview.png)
 

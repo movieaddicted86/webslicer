@@ -11,6 +11,5 @@ webslicer-src.tar.gz
 server/src/slicer/fixtures/
 # captured G-code of the preflight sweep (T-031) – real slicer output, compared byte for byte
 shared/src/safety/fixtures/
-
-# generated design mockup (inline SVG, built by a script)
+# the approved layout mockup: hand-written HTML with the design's own spacing, read as it stands
 docs/design/mockup-layout.html

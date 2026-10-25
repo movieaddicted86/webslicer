@@ -1,8 +1,8 @@
 /* DropZone: the styles of this component. */
 
 .dropzone {
-  flex: 1;
-  position: relative;
+  position: absolute;
+  inset: 0;
   min-width: 0;
 }
 
@@ -12,7 +12,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(237, 107, 33, 0.15);
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
   border: 3px dashed var(--accent);
   font-size: 20px;
   pointer-events: none;

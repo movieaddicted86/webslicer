@@ -3,12 +3,13 @@ import { useStore } from '../state/store';
 import { Icon } from '../icons/Icon';
 import { RAIL_ENTRIES } from '../nav/navMap';
 import { runNavAction } from '../nav/actions';
-import { UpdateChip } from './UpdateChip';
 import './Rail.css';
 
 /**
- * The far-left rail of the 3.0 layout: the app's places as icon buttons over their names – Slicing
- * (the plater), Library, Printers – and, at the bottom, Preferences and About with the update notice.
+ * The far-left rail of the visual pass: the app's places as icon buttons over their 11 px names –
+ * Slicing (the plater), Library, Printers – and, at the bottom, Preferences and About. The current
+ * place is filled with the accent colour. The update notice is the top bar's (the About dialog keeps
+ * its row).
  *
  * The entries come from the navigation map (`nav/navMap.ts`), the single home of every function, so
  * the rail cannot grow a second door next to the menu. Slicing is current on the plater and in the
@@ -46,13 +47,7 @@ export function Rail() {
       <div className="rail-group">{top.map(button)}</div>
       <div className="rail-group rail-bottom">
         {preferences && button(preferences)}
-        {about && (
-          <div className="rail-about">
-            {button(about)}
-            {/* the update notice lives on the rail's About item; it renders nothing while current */}
-            <UpdateChip compact />
-          </div>
-        )}
+        {about && button(about)}
       </div>
     </nav>
   );

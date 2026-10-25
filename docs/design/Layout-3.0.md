@@ -166,4 +166,29 @@ D-5 (preview cards) slot in after L-3/L-5 because they need the new panels.
 
 After Robert's review of the first implementation ("far from good UX"), the visual direction is `docs/design/mockup-layout.html` (three states, open in a browser) with PNGs in
 `docs/design/mockup/` (plate, object, preview): floating cards over a full-width scene, a compact tool strip, Prepare/Preview in the top bar, grouped rows with 32 px controls, icon
-buttons instead of text-button walls, one accent colour. It becomes the visual-pass task once Robert approves it.
+buttons instead of text-button walls, one accent colour. Robert approved it (2026-10-24), and it became T-070.
+
+### Implemented (T-070, round (a), 2026-10-24)
+
+The shell and the visual language are in place; the panel content and the preview mode follow in round (b).
+
+- **The frame** is `rail | bar / rail | scene`: the rail runs the full height, the 48 px bar starts beside it, and the scene takes everything right of the rail below the bar. The
+  object list and the context panel are no longer grid tracks; they are absolutely positioned cards over the scene, so folding a card or hiding the panels leaves the canvas at its
+  place and size. `--card-gap`, `--panel-w` (344 unset, 300 below 1280) and `--list-w` (the `layout` slice's width, 276 by default, 148 folded, 0 hidden and on a phone) are the
+  frame's measurements; the cards, the strip's band and the scene overlays all read them. The panel and its footer are one flex column (`.context-stack`), so the footer's own
+  height sets where the panel ends – a fixed `--foot-h` guess would overlap them as soon as the footer grows (a slice result, a plate warning).
+- **Tokens** are the mockup's set in `styles.css` (`--rail --bar --card --card-2 --line --field --field-h --text --muted --faint --accent --accent-h --sel --r --h` plus
+  `--bg --edge --shadow`); the older names are aliased onto them, so untouched components keep working while new ones use the mockup's names only. Control height 32 px, card radius
+  10 px, 12 px card padding, 34 px icon buttons.
+- **Top bar**: Menu, undo/redo, hide-panels, project name with its save state, the **Prepare | Preview** segmented switch centred in the bar and the update chip at the right edge.
+  The switch left the tool strip; `VIEW_SWITCH_ENTRIES` keeps its one home in the navigation map.
+- **Rail**: 52 × 56 tiles with the icon above an 11 px name, the current place filled with the accent colour; the update chip moved from the rail to the top bar.
+- **Object list card**: the card's own header carries the title, the count and the fold chevron; the width grip still drags it (220–420 px). It starts folded below 1280 px and is a
+  drawer below 900 px.
+- **Context panel**: the panel card and a separate footer card (Destination + Slice) below it, both in one flex column at the scene's right edge; the footer's own height keeps
+  them from overlapping, whichever warnings or slice result it carries.
+- **Tool strip**: the pill is centred in the band the two cards leave free (the band is a measured
+  layer between the cards, observed with a `ResizeObserver`), 34 px buttons, accent tool, 7 px
+  dividers and the overflow menu; the switch is gone from it.
+- **Responsive**: ≥ 1280 px as the mockup; 900–1279 px the panel is 300 px and the list starts folded; below 900 px the list is a drawer and the strip scrolls; below 640 px the rail
+  is a bottom tab bar and the cards are sheets.

@@ -171,7 +171,7 @@ regions. A spec that encodes _where_ an element sits (`.sidebar .quick-settings`
 - Structural elements carry a `data-testid` hook named by **role, not place**: `app-shell`,
   `top-bar`, `rail` (+ `-slicing`, `-library`, `-printers`, `-preferences`, `-about`), `menu`,
   `hide-panels`, `context-panel` (+ `-header`, `-footer`), `left-column` (+ `-toggle`,
-  `left-objects-toggle`, `left-sliced-toggle`, `left-legend-toggle`, `objects-drawer-toggle`),
+  `left-sliced-toggle`, `left-legend-toggle`, `objects-drawer-toggle`),
   `presets`, `preset-select-<type>`, `object-list`, `object-toolbar`,
   `object-row` (plus `data-object-id`), `object-info`, `object-transform`, `object-settings-card`,
   `object-settings`, `parts-card`, `object-add-volume`, `volume-list`, `range-card`, `range-list`,

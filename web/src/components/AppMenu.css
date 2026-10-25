@@ -8,20 +8,23 @@
 .app-menu-trigger {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
+  gap: 8px;
+  height: 34px;
+  padding: 0 12px;
   background: transparent;
   border-color: transparent;
+  border-radius: 8px;
+  font-weight: 600;
   white-space: nowrap;
 }
 
-.app-menu-trigger:hover:not(:disabled) {
-  background: var(--bg4);
+.app-menu-trigger:hover:not(:disabled),
+.app-menu-trigger.active {
+  background: var(--field-h);
 }
 
 .app-menu-trigger.active {
-  background: var(--bg4);
-  border-color: var(--border);
+  color: var(--text);
 }
 
 .app-menu-panel,
@@ -35,10 +38,10 @@
   flex-direction: column;
   gap: 1px;
   padding: 4px;
-  background: var(--bg3);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  box-shadow: 0 6px 24px #0008;
+  background: var(--card-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  box-shadow: var(--shadow);
 }
 
 .app-menu-panel button,
@@ -50,14 +53,15 @@
   padding: 6px 8px;
   background: transparent;
   border: none;
-  border-radius: 4px;
+  border-radius: 6px;
+  height: auto;
   text-align: left;
   white-space: nowrap;
 }
 
 .app-menu-panel button:hover:not(:disabled),
 .app-menu-flyout button:hover:not(:disabled) {
-  background: var(--bg4);
+  background: var(--field-h);
 }
 
 .app-menu-panel kbd {
@@ -67,7 +71,7 @@
 .app-menu-sep {
   height: 1px;
   margin: 4px 2px;
-  background: var(--border);
+  background: var(--line);
 }
 
 /* the submenu opens over the panel's right edge, as Prusa's menus do */

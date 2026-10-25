@@ -8,7 +8,6 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   OVERFLOW_WIDTH,
-  SEPARATOR,
   STRIP_GROUPS,
   fitGroups,
   groupWidth,
@@ -50,13 +49,13 @@ test('the object commands sit in the groups the design gives them', () => {
 });
 
 test('a wide scene keeps every group and the whole strip fits', () => {
-  const room = stripRoom(1600, false);
+  const room = stripRoom(1600);
   assert.deepEqual(fitGroups(room, false), { visible: STRIP_GROUPS, hidden: [] });
   assert.equal(stripFits(room, false), true);
 });
 
 test('a narrow scene hides the trailing groups whole, never part of one', () => {
-  const room = stripRoom(420, false);
+  const room = stripRoom(420);
   const { visible, hidden } = fitGroups(room, false);
   assert.ok(visible.length >= 1, 'the first group always stays');
   assert.deepEqual([...visible, ...hidden], STRIP_GROUPS, 'the split is a cut, not a reorder');
@@ -70,22 +69,36 @@ test('the first group stays even when nothing else fits', () => {
 });
 
 test('the room a hidden group needs includes the overflow button behind it', () => {
-  const selection = groupWidth('selection', false) + SEPARATOR;
-  const instance = groupWidth('instance', false) + SEPARATOR;
+  const selection = groupWidth('selection', false);
+  const instance = groupWidth('instance', false);
   // just too narrow for the second group plus the "⋯" button: it has to move into the menu
-  const tight = selection + instance + OVERFLOW_WIDTH + SEPARATOR - 1;
+  const tight = selection + instance + OVERFLOW_WIDTH - 1;
   assert.deepEqual(fitGroups(tight, false).visible, ['selection']);
   assert.equal(fitGroups(tight + 1, false).visible.length > 1, true);
 });
 
-test('names cost room, so a scene that fits icons may still hide groups', () => {
-  const room = stripRoom(1000, false);
+test('names cost room, so a band that fits icons may still hide groups', () => {
+  const room = stripRoom(1000);
   assert.equal(stripFits(room, false), true);
   assert.equal(stripFits(room, true), false);
 });
 
-test('the switch with its names takes more of the scene than the icon pair', () => {
-  assert.ok(stripRoom(1000, true) < stripRoom(1000, false));
+test('the band the cards leave free decides the fit, not the window', () => {
+  // the rail, the card and the gap on both sides of it: the scene a window leaves for the pill
+  const band = (windowWidth: number) => windowWidth - 64 - (276 + 2 * 12) - (344 + 2 * 12);
+  // the mockup's 1440 px window with both cards open: every group fits, the names do not
+  assert.equal(stripFits(stripRoom(band(1440)), false), true);
+  assert.equal(stripFits(stripRoom(band(1440)), true), false);
+  // a narrower window trades the trailing groups for the overflow button
+  assert.equal(stripFits(stripRoom(band(1280)), false), false);
+  // hiding the panels gives the pill the whole scene (both card widths are 0); the names still need a
+  // wide monitor
+  const hiddenBand = (windowWidth: number) => windowWidth - 64 - 2 * (2 * 12);
+  assert.equal(stripFits(stripRoom(hiddenBand(1440)), false), true);
+  assert.equal(stripFits(stripRoom(hiddenBand(1440)), true), false);
+  assert.equal(stripFits(stripRoom(hiddenBand(2560)), true), true);
+  // a narrow band hides the trailing groups whatever the window width
+  assert.equal(stripFits(stripRoom(480), false), false);
 });
 
 test('the overflow menu lists every entry of the hidden groups, in strip order', () => {

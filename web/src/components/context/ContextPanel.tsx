@@ -15,24 +15,25 @@ import { ToolMode } from './ToolMode';
 import './ContextPanel.css';
 
 /**
- * The context panel (layout 3.0): the right column of the frame, showing what the current state is
- * about instead of one fixed sidebar. Tool mode when a tool is open, plate mode when nothing is
- * selected, object mode for the selection, the preview panel in the Preview view.
+ * The context panel (layout 3.0, visual pass): a floating card on the right of the scene, showing what
+ * the current state is about instead of one fixed sidebar. Tool mode when a tool is open, plate mode
+ * when nothing is selected, object mode for the selection, the preview panel in the Preview view.
  *
  * The mode is derived (`contextMode`), never stored: closing the tool, deselecting or leaving the
- * preview switches the content back on its own. The header and the footer stay put while the body
- * scrolls, so the object name and the Slice button are always in view.
+ * preview switches the content back on its own. The header and the body live in the card; the footer
+ * (destination + Slice) is a **separate card** below it, so it stays visible while the body scrolls and
+ * keeps its place when the body is long.
  *
- * Tool mode brings its own frame (`ToolPanel`: title, ✕, the tool's fields and its primary action),
- * so the panel renders neither the destination/Slice footer nor a second header there – the tool's
- * action is the one accent while it is open. Its key hints come from the tool's registry entry.
+ * Tool mode brings its own frame (`ToolPanel`: title, ✕, the tool's fields and its primary action), so
+ * the panel renders no second header and no Slice footer there – the tool's action is the one accent
+ * while it is open. Its key hints come from the tool's registry entry.
  *
  * The preset rows and the quick settings stay in every plater mode – they describe the print, not the
- * selection, and a selected object would otherwise hide the way to change the infill. The printer
- * card, the object cards and the multi-selection note are what follows the selection.
+ * selection, and a selected object would otherwise hide the way to change the infill. The object cards
+ * and the multi-selection note are what follows the selection.
  *
  * Simple mode keeps the reduced set it had: the plate content only, no object internals (parts,
- * overrides, ranges). Preview mode keeps `PreviewPanel` unchanged and has no Slice footer.
+ * overrides, ranges). Preview mode keeps `PreviewPanel` and has no Slice footer.
  */
 export function ContextPanel() {
   const activeTool = useStore((s) => s.activeTool);
@@ -49,78 +50,82 @@ export function ContextPanel() {
   const mode = base === 'tool' ? 'tool' : base === 'preview' ? 'preview' : objectMode ? 'object' : 'plate';
   const object: PlaterObject | undefined = objectMode ? selected[0] : undefined;
 
-  // tool mode: the tool's own frame fills the column (its head is the header, its foot the footer)
+  // tool mode: the tool's own frame fills the card (its head is the header, its foot the footer)
   if (mode === 'tool') {
     return (
-      <aside className="context-panel" data-testid="context-panel" aria-label="Context">
-        <div className="context-body context-tool" data-testid="context-tool">
-          <ToolMode />
-        </div>
-      </aside>
+      <div className="context-stack">
+        <aside className="context-panel" data-testid="context-panel" aria-label="Context">
+          <div className="context-body context-tool" data-testid="context-tool">
+            <ToolMode />
+          </div>
+        </aside>
+      </div>
     );
   }
 
   return (
-    <aside className="context-panel" data-testid="context-panel" aria-label="Context">
-      <div className="context-header" data-testid="context-header">
-        {mode === 'object' && object ? (
-          <>
-            <h2 className="context-title" title={object.name}>
-              {object.name}
-            </h2>
-            <span className="muted small">
-              {object.instances.length} {object.instances.length === 1 ? 'instance' : 'instances'}
-            </span>
-          </>
-        ) : (
-          <h2 className="context-title">{mode === 'preview' ? 'Preview' : 'Plate'}</h2>
-        )}
-      </div>
-      <div className="context-body">
-        {mode === 'preview' ? (
-          <PreviewPanel />
-        ) : (
-          <>
-            {mode === 'plate' && <PlateMode />}
-            <Presets />
-            {mode === 'object' && object ? (
-              <div className="manip">
-                <TransformCard o={object} />
-                <SettingsCard o={object} />
-                <PartsCard o={object} selectedVolumeId={selectedVolumeId} />
-                <PanelCard
-                  title="Layer ranges"
-                  icon="layerHeight"
-                  testId="range-card"
-                  aside={
-                    <button
-                      data-testid="range-add"
-                      title="Add a height range with its own layer height / settings"
-                      onClick={() => addRange(object.id)}
-                    >
-                      ＋ Range
-                    </button>
-                  }
-                >
-                  <RangePanel o={object} />
-                </PanelCard>
-              </div>
-            ) : (
-              selected.length > 1 && (
-                <div className="multi-selection muted small" data-testid="multi-selection">
-                  {selected.length} objects selected – merge them from the object list's toolbar, or pick one to edit its transform.
+    <div className="context-stack">
+      <aside className="context-panel" data-testid="context-panel" aria-label="Context">
+        <div className="context-header" data-testid="context-header">
+          {mode === 'object' && object ? (
+            <>
+              <h2 className="context-title" title={object.name}>
+                {object.name}
+              </h2>
+              <span className="muted small">
+                {object.instances.length} {object.instances.length === 1 ? 'instance' : 'instances'}
+              </span>
+            </>
+          ) : (
+            <h2 className="context-title">{mode === 'preview' ? 'Preview' : 'Plate'}</h2>
+          )}
+        </div>
+        <div className="context-body">
+          {mode === 'preview' ? (
+            <PreviewPanel />
+          ) : (
+            <>
+              {mode === 'plate' && <PlateMode />}
+              <Presets />
+              {mode === 'object' && object ? (
+                <div className="manip">
+                  <TransformCard o={object} />
+                  <SettingsCard o={object} />
+                  <PartsCard o={object} selectedVolumeId={selectedVolumeId} />
+                  <PanelCard
+                    title="Layer ranges"
+                    icon="layerHeight"
+                    testId="range-card"
+                    aside={
+                      <button
+                        data-testid="range-add"
+                        title="Add a height range with its own layer height / settings"
+                        onClick={() => addRange(object.id)}
+                      >
+                        ＋ Range
+                      </button>
+                    }
+                  >
+                    <RangePanel o={object} />
+                  </PanelCard>
                 </div>
-              )
-            )}
-          </>
-        )}
-      </div>
+              ) : (
+                selected.length > 1 && (
+                  <div className="multi-selection muted small" data-testid="multi-selection">
+                    {selected.length} objects selected – merge them from the object list's toolbar, or pick one to edit its transform.
+                  </div>
+                )
+              )}
+            </>
+          )}
+        </div>
+      </aside>
       {mode !== 'preview' && (
         <footer className="context-footer" data-testid="context-footer">
           <Destination />
           <SlicePanel />
         </footer>
       )}
-    </aside>
+    </div>
   );
 }

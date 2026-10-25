@@ -15,10 +15,10 @@
   flex-direction: column;
   gap: 6px;
   padding: 8px;
-  background: var(--bg3);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  box-shadow: 0 4px 12px #0006;
+  background: var(--card-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  box-shadow: var(--shadow);
   font-weight: 400;
   text-align: left;
 }
