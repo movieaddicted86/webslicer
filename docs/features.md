@@ -1,5 +1,7 @@
 # Features in detail
 
+![WebSlicer: load a model, slice, preview, send to the printer in 13 seconds](images/hero.gif)
+
 The short list is in the [README](../README.md); this page keeps the full description. Which
 PrusaSlicer feature exists here and which does not is in
 [Feature-Comparison.md](Feature-Comparison.md); what is still planned is in [TODO.md](../TODO.md).

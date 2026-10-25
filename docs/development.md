@@ -244,3 +244,14 @@ The images in `docs/images/` are generated, not hand-made: `npm run docs:screens
 with Playwright, loads the sample models and writes the PNGs used by the README and the docs pages.
 Refresh them after a UI change; [e2e/scripts/screenshots.ts](../e2e/scripts/screenshots.ts) documents
 what each shot shows.
+
+The animation at the head of the README and of [features.md](features.md) is generated too:
+`npm run docs:gif` records library → model → slice → preview → send and writes `docs/images/hero.gif`
+(1280 × 720, about 13 s). It starts the E2E image and the mock print host from `e2e/mock-host` on a
+private Docker network with a throwaway copy of the fixture data, so a real printer is never involved;
+the send step uploads to the mock only. `GIF_SKIP_BUILD=1` reuses an existing `webslicer:e2e`.
+[e2e/scripts/hero-gif.ts](../e2e/scripts/hero-gif.ts) documents the steps it records.
+
+The image budget is 300 KB per PNG – a screenshot above it was not clipped enough. The GIF is the one
+exception: it may reach 4 MB, and the script fails with a clear message when it does, so a recording
+that grew cannot land in the docs unnoticed.

@@ -4,7 +4,7 @@ A full-featured 3D printing slicer in the browser. WebSlicer runs the **original
 (CLI) on the server and brings the plater, settings, profiles, G-code preview and printer upload to
 any browser – on a PC, a tablet or the workshop laptop.
 
-![WebSlicer plater](docs/images/hero.png)
+![WebSlicer: load a model, slice, preview, send to the printer in 13 seconds](docs/images/hero.gif)
 
 ![Stack](https://img.shields.io/badge/engine-PrusaSlicer%202.9.x-orange) ![Node](https://img.shields.io/badge/node-%E2%89%A522-green) ![License](https://img.shields.io/badge/license-AGPL--3.0-blue)
 
@@ -130,7 +130,7 @@ The file library can be a shared folder or a NAS mount: models, projects and fin
 - [docs/archive/](docs/archive/) – finished reports and work packages, kept for traceability
 
 The screenshots above are generated: `npm run docs:screenshots` drives the Docker image with Playwright
-and refreshes `docs/images/`.
+and refreshes `docs/images/`; the animation at the top comes from `npm run docs:gif`.
 
 ## Contributing
 

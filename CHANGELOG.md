@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **The documentation opens with an animation (T-083):** the README and [docs/features.md](docs/features.md)
+  start with a 13-second recording of a real session – library, model, slice, G-code preview and the
+  send dialog – instead of the still hero image. It is generated like the screenshots:
+  `npm run docs:gif` replays the flow against the E2E image and the mock print host and writes
+  `docs/images/hero.gif` (1280 × 720, ≤ 4 MB). No app code changed.
+
 - **The settings side of the G-code preflight, a required hotend answer and an override that is really
   audited (T-080, review findings P-1, P-2 and P-3 of rc.5):** three print-safety gaps of the send
   gate are closed. **(P-1)** A binary `.bgcode` could not be read, so a forbidden `M500`, an `M211 S0`
