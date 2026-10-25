@@ -8,8 +8,14 @@
   height: 60vh;
 }
 
-/* the update section above the vendor/model lists: one line per vendor, the actions at the end */
+/* the update section above the vendor/model lists: one summary line, then only the rows that matter.
+   It stays in place when the dialog body scrolls over the model list – the summary is the answer the
+   tab gives, so it must not scroll away. */
 .vendor-updates {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--bg2);
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -25,34 +31,46 @@
   gap: 8px;
 }
 
-.vendor-updates-head h3 {
-  margin: 0;
+.vendor-updates-summary {
   font-size: 13px;
-  color: var(--accent2);
+  font-weight: 600;
+  color: var(--text);
 }
 
+/* the list itself does not scroll: the dialog body does, under the sticky summary */
 .vendor-update-list {
   list-style: none;
   margin: 0;
   padding: 0;
-  max-height: 30vh;
-  overflow-y: auto;
 }
 
 .vendor-update-list li {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
-  gap: 8px;
-  padding: 2px 0;
+  gap: 4px 8px;
+  padding: 3px 0;
 }
 
 .vendor-update-list .name {
+  flex: 0 1 auto;
+  min-width: 0;
   font-weight: 600;
+  overflow-wrap: anywhere;
 }
 
 .vendor-update-list .versions {
-  flex: 1;
+  flex: 1 1 auto;
   min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.vendor-update-list .reason {
+  flex-basis: 100%;
+}
+
+.vendor-updates-all {
+  align-self: flex-start;
 }
 
 .vendor-update-list a {

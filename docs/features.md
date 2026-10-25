@@ -31,7 +31,10 @@ PrusaSlicer feature exists here and which does not is in
   printers…_, with four tabs – **My printers** (the PrusaLink / OctoPrint / Moonraker hosts), **Vendor
   profiles** (install and update the vendor bundles), **Filaments** (the visible-filament filter) and
   **Custom printer** (the two-step wizard). The entry point picks the tab: the rail opens on _My
-  printers_, the printer dropdown on _Vendor profiles_.
+  printers_, the printer dropdown on _Vendor profiles_. Vendor profiles opens with one line – all up
+  to date, or how many vendors have an update – and lists only the vendors with an update and the
+  user's own ones; **Show all vendors** reveals the rest. A row names the installed version and, only
+  when it is really newer and stable, the offered one.
 - **Object list card** at the scene's top left: the **Object list** card holds the thumbnail tiles with
   the name, the size/instances line and the row's markers, and its empty state offers the **open the
   library** link and the **Add objects…** button beside the drop hint. In the Preview it shows the
