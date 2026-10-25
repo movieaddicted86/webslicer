@@ -31,6 +31,26 @@ test('an open tool wins over the preview and the selection', () => {
   assert.equal(contextMode(input({ activeTool: 'cut', view: 'preview', selectedIds: ['o1'] })), 'tool');
 });
 
+test('a transform tool never turns the column into tool mode – it has no panel', () => {
+  // move/rotate/scale are gizmo modes; their id in `activeTool` used to leave an empty column with
+  // no Slice footer, which is the bug this fixes
+  for (const id of ['move', 'rotate', 'scale']) {
+    assert.equal(contextMode(input({ activeTool: id, selectedIds: ['o1'] })), 'object', `${id} keeps object mode`);
+    assert.equal(contextMode(input({ activeTool: id })), 'plate', `${id} keeps plate mode`);
+  }
+});
+
+test('a tool id the registry does not know is not tool mode', () => {
+  assert.equal(contextMode(input({ activeTool: 'nonsense', selectedIds: ['o1'] })), 'object');
+});
+
+test('every tool with a panel is tool mode, whatever its availability', () => {
+  // availability is the guard's business: an unshowable tool is closed, never rendered empty
+  for (const id of ['cut', 'paintSupports', 'paintSeam', 'paintMmu', 'placeOnFace', 'layerHeight']) {
+    assert.equal(contextMode(input({ activeTool: id, selectedIds: ['o1'] })), 'tool', `${id} is tool mode`);
+  }
+});
+
 test('a selection that names no object on the plater does not hold object mode', () => {
   assert.equal(contextMode(input({ selectedIds: ['gone'] })), 'plate');
 });
