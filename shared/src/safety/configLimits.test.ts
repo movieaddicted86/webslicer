@@ -13,6 +13,7 @@ import {
   GLOBAL_LIMITS,
   maxTemperaturesOf,
   printerLimitIssues,
+  printerLimitsMissingIssue,
   softRangeOf,
 } from './configLimits.js';
 
@@ -343,4 +344,26 @@ test('a per-object and per-range layer_height override is checked with the nozzl
   assert.match(issues[0].message, /object\[1\]: layer_height = 0.9 mm/);
   // an object override must not be reported on its own: the nozzle is the printer's
   assert.deepEqual(checkRequestConfigLimits({ objects: [{ config: { layer_height: '0.9' } }] }), []);
+});
+
+// ---------------------------------------------------------------------------
+// T-080/P-2: the warning of a host without a safety profile
+// ---------------------------------------------------------------------------
+
+test('a host without a safety profile warns, one with a profile does not', () => {
+  const missing = printerLimitsMissingIssue({ name: 'Garage host' });
+  assert.equal(missing.length, 1);
+  assert.equal(missing[0].rule, 'send.no_limits');
+  assert.equal(missing[0].severity, 'warn');
+  assert.match(missing[0].message, /"Garage host" has no safety limits/);
+  assert.match(missing[0].message, /240 .C/);
+  assert.match(missing[0].message, /PTFE-lined .*all-metal/);
+
+  // either limit answers the question – the profile does not have to be complete
+  assert.deepEqual(printerLimitsMissingIssue({ name: 'a', safety: { maxHotend: 240 } }), []);
+  assert.deepEqual(printerLimitsMissingIssue({ name: 'a', safety: { maxBed: 100 } }), []);
+  // an empty block is "not answered" (the store clears one, but a hand-written file may carry it)
+  assert.equal(printerLimitsMissingIssue({ name: 'a', safety: {} }).length, 1);
+  // and a missing host has no message to warn about
+  assert.deepEqual(printerLimitsMissingIssue(undefined), []);
 });

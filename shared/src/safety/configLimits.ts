@@ -75,6 +75,7 @@ export const CONFIG_LIMIT_SEVERITY: Readonly<Record<string, SendIssueSeverity>> 
   'config.filament_temperature': 'warn',
   'config.filament_bed_temperature': 'warn',
   'send.printer_limit': 'block',
+  'send.no_limits': 'warn',
 };
 
 /** A hotend/bed window a material is usually printed in, and where the numbers come from. */
@@ -474,4 +475,25 @@ export function printerLimitIssues(temperatures: MaxTemperatures | undefined, sa
     });
   }
   return out;
+}
+
+/**
+ * The `send.no_limits` warning of a host without a safety profile (T-080, P-2).
+ *
+ * Without a profile the gate can only compare against the global typo catchers (450 °C hotend), and
+ * those are far above what a PTFE-lined hotend survives (it decomposes from about 240–250 °C). The
+ * warning does not block – the machine may well be all-metal – but it asks the owner to say which
+ * hotend the printer has, which is what the printer setup is for.
+ */
+export function printerLimitsMissingIssue(printer: { name: string; safety?: PrinterSafety } | undefined): SendIssue[] {
+  if (!printer || (printer.safety && Object.keys(printer.safety).length > 0)) return [];
+  return [
+    {
+      rule: 'send.no_limits',
+      severity: 'warn',
+      message:
+        `"${printer.name}" has no safety limits, so WebSlicer can only check this G-code against the global 450 °C ceiling. ` +
+        'Say in the printer setup whether the hotend is PTFE-lined (240 °C) or all-metal – a PTFE hotend is damaged well below 450 °C.',
+    },
+  ];
 }

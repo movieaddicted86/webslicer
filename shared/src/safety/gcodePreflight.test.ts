@@ -9,16 +9,22 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import {
+  combinedPreflight,
+  configIssuesBeyond,
+  configPreflightIssues,
+  CONFIG_GCODE_KEYS,
   DEFAULT_BED_LIMIT,
   DEFAULT_HOTEND_LIMIT,
   GcodePreflight,
   MAX_ISSUES_PER_RULE,
   preflightSendIssues,
   preflightSummary,
+  scanConfigGcode,
   scanGcodeText,
   notScannedIssue,
   currentPreflight,
   PREFLIGHT_VERSION,
+  storedPreflightIssues,
 } from './gcodePreflight.js';
 
 /** The G-code PrusaSlicer 2.9.6 wrote from `samples/bridge_table.stl` – real output, not a mock. */
@@ -479,4 +485,119 @@ test('the chunked scan of a real file equals the one-shot scan', { skip: skips('
   const chunked = scan.finish();
   const oneShot = scanGcodeText(text, { machineLimits: MK3S_MACHINE });
   assert.deepEqual(chunked, oneShot);
+});
+
+// ---------------------------------------------------------------------------
+// the settings side (T-080, P-1)
+// ---------------------------------------------------------------------------
+
+test('every config key that carries G-code is scanned, and the finding names the setting', () => {
+  // one forbidden command in each of the nine keys – a key the scanner does not read is a hole
+  for (const key of CONFIG_GCODE_KEYS) {
+    const scan = scanConfigGcode({ [key]: 'G28\nM500' });
+    assert.equal(scan.version, PREFLIGHT_VERSION);
+    assert.equal(scan.issues.length, 1, key);
+    assert.equal(scan.issues[0].rule, 'gcode.forbidden_command');
+    assert.equal(scan.issues[0].severity, 'block');
+    assert.match(scan.issues[0].message, new RegExp(`^${key} line 2:`));
+    // a config finding stands for a setting, not for a file line
+    assert.equal(scan.issues[0].line, 0);
+    assert.deepEqual(scan.counts, { 'gcode.forbidden_command': 1 });
+  }
+});
+
+test('a config finding is detected in its escaped form, the way PrusaSlicer stores it', () => {
+  // preset values carry the line breaks as `\n`; the scanner reads them as lines
+  const scan = scanConfigGcode({ start_gcode: 'G28\nG1 X0 Y0\nM211 S0' });
+  assert.deepEqual(
+    scan.issues.map((i) => [i.rule, i.severity]),
+    [['gcode.forbidden_command', 'block']],
+  );
+  assert.match(scan.issues[0].message, /start_gcode line 3: "M211 S0"/);
+});
+
+test('the plater custom G-code entries are scanned and named with their height', () => {
+  const scan = scanConfigGcode({}, [
+    { printZ: 5, extra: 'M500 ; save' },
+    { printZ: 0, type: 'color_change' } as never,
+    { printZ: 12.5, extra: 'G1 X1 Y1' },
+  ]);
+  assert.equal(scan.issues.length, 1);
+  assert.match(scan.issues[0].message, /^custom G-code at 5 mm line 1: /);
+});
+
+test('an empty or missing config has nothing to scan', () => {
+  assert.deepEqual(scanConfigGcode({}), { version: PREFLIGHT_VERSION, issues: [], counts: {} });
+  assert.deepEqual(scanConfigGcode({ start_gcode: '', end_gcode: undefined }, []).issues, []);
+});
+
+test('only blocking rules are reported from the config: a warning stays the file scan own', () => {
+  // M907 is a warning in the file scan (PrusaSlicer's presets write it); the config side stays quiet
+  const scan = scanConfigGcode({ start_gcode: 'M907 E430' });
+  assert.deepEqual(scan.issues, []);
+  assert.deepEqual(scan.counts, {});
+});
+
+test('the ordering rules apply to the start G-code only', () => {
+  // a move before G28 in an end G-code runs after the file homed – no finding there
+  assert.deepEqual(scanConfigGcode({ end_gcode: 'G1 Z10' }).issues, []);
+  assert.deepEqual(
+    scanConfigGcode({ start_gcode: 'G1 Z10' }).issues.map((i) => i.rule),
+    ['gcode.no_homing'],
+  );
+});
+
+test('an M104 above the ceiling in a config block is a block, and names the setting', () => {
+  const scan = scanConfigGcode({ end_gcode: 'M104 S500' });
+  assert.deepEqual(
+    scan.issues.map((i) => [i.rule, i.severity]),
+    [['gcode.max_temp', 'block']],
+  );
+});
+
+test('config findings are deduplicated against the file scan by rule and line text', () => {
+  const stored = {
+    version: PREFLIGHT_VERSION,
+    issues: [{ rule: 'gcode.forbidden_command', severity: 'block' as const, message: 'Line 2: M500', line: 2, text: 'M500' }],
+    counts: { 'gcode.forbidden_command': 1 },
+    maxTemperatures: { hotend: 215, bed: 60 },
+    config: {
+      version: PREFLIGHT_VERSION,
+      issues: [
+        // the same command the file scan already reports: one problem, not two
+        { rule: 'gcode.forbidden_command', severity: 'block' as const, message: 'end_gcode line 1: M500', line: 0, text: 'M500' },
+        { rule: 'gcode.forbidden_command', severity: 'block' as const, message: 'end_gcode line 2: M502', line: 0, text: 'M502' },
+      ],
+      counts: { 'gcode.forbidden_command': 2 },
+    },
+  };
+  assert.deepEqual(
+    configIssuesBeyond(stored, stored.issues).map((i) => i.text),
+    ['M502'],
+    'the M500 is already a file finding',
+  );
+  assert.deepEqual(
+    storedPreflightIssues(stored).map((i) => i.text),
+    ['M500', 'M502'],
+  );
+  // the counts keep both, the file finding and the one the file does not have
+  assert.deepEqual(preflightSummary(stored), { blocking: 2, warnings: 0 });
+  // a binary output has no file findings to compare with – everything the config says stands
+  assert.deepEqual(
+    configIssuesBeyond({ ...stored, issues: [], counts: {}, maxTemperatures: { hotend: 0, bed: 0 } }, []).map((i) => i.text),
+    ['M500', 'M502'],
+  );
+});
+
+test('a stored result without the config scan still works: a job from before T-080', () => {
+  const old = {
+    version: PREFLIGHT_VERSION,
+    issues: [],
+    counts: {},
+    maxTemperatures: { hotend: 215, bed: 60 },
+  };
+  assert.deepEqual(configPreflightIssues(old), []);
+  assert.deepEqual(combinedPreflight(old), { issues: [], counts: {} });
+  // a result of another rule set is not trusted at all
+  assert.deepEqual(configPreflightIssues({ ...old, version: 1 }), []);
 });

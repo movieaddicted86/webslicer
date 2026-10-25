@@ -40,7 +40,8 @@
  * value into a real line break itself (reproduced in the T-049 report), but the scanner must not rely
  * on that. A command word may also carry blanks after its letter (`M 500`, accepted by Marlin).
  */
-import type { MaxTemperatures, PreflightIssue, PreflightResult, SendIssue, SendIssueSeverity } from '../types/jobs.js';
+import { unescapeStringCstyle } from '../values.js';
+import type { ConfigPreflightScan, MaxTemperatures, PreflightIssue, PreflightResult, SendIssue, SendIssueSeverity } from '../types/jobs.js';
 
 /** Version of the rule set; a stored result of another version is re-scanned. */
 export const PREFLIGHT_VERSION = 2;
@@ -527,6 +528,122 @@ export function scanGcodeText(text: string, options: PreflightOptions = {}): Pre
   return scan.finish();
 }
 
+// ---------------------------------------------------------------------------
+// the settings side: the custom G-code of the request
+// ---------------------------------------------------------------------------
+
+/**
+ * The preset keys that carry G-code PrusaSlicer inserts verbatim into the output – the merged config
+ * is scanned for them before a job is queued (T-080, P-1). The plater's custom G-code entries are
+ * scanned the same way.
+ */
+export const CONFIG_GCODE_KEYS = [
+  'start_gcode',
+  'end_gcode',
+  'layer_gcode',
+  'before_layer_gcode',
+  'toolchange_gcode',
+  'color_change_gcode',
+  'pause_print_gcode',
+  'template_custom_gcode',
+  'between_objects_gcode',
+] as const;
+
+/** One block of custom G-code and the name it is reported under. */
+export interface ConfigGcodeEntry {
+  /** `start_gcode`, or `custom G-code at 5 mm` for a plater entry */
+  label: string;
+  text: string;
+}
+
+/** The custom G-code of a request: the merged config's keys plus the plater's entries, unescaped. */
+export function configGcodeEntries(
+  config: Readonly<Record<string, string | undefined>>,
+  customGcodes: ReadonlyArray<{ printZ?: number; extra?: string }> = [],
+): ConfigGcodeEntry[] {
+  const entries: ConfigGcodeEntry[] = [];
+  for (const key of CONFIG_GCODE_KEYS) {
+    const raw = config[key];
+    if (raw) entries.push({ label: key, text: unescapeStringCstyle(raw) });
+  }
+  for (const entry of customGcodes) {
+    if (entry.extra) entries.push({ label: `custom G-code at ${entry.printZ ?? 0} mm`, text: unescapeStringCstyle(entry.extra) });
+  }
+  return entries;
+}
+
+/**
+ * The blocking findings of the request's own custom G-code, with the setting named in the message.
+ *
+ * This closes the hole a binary output leaves (T-080, P-1): the preflight never reads a `.bgcode`
+ * body, so a forbidden command in a preset's start/end G-code would reach the printer behind one
+ * "not scanned" warning. The settings that produce the file are known before the slicer runs, and
+ * the same scanner reads them – one rule set, no second copy.
+ *
+ * Only the **blocking** rules are reported here: the file scan of an ASCII output already finds the
+ * same commands (the send gate drops the duplicate), and its warnings stay its own. The ordering
+ * rules (`no_homing`, `macro_before_move`) apply to the start G-code only – an end G-code follows a
+ * file that homed long before, and a mid-print entry runs after the start G-code.
+ */
+export function scanConfigGcode(
+  config: Readonly<Record<string, string | undefined>>,
+  customGcodes: ReadonlyArray<{ printZ?: number; extra?: string }> = [],
+  options: PreflightOptions = {},
+): ConfigPreflightScan {
+  const issues: PreflightIssue[] = [];
+  const counts: Record<string, number> = {};
+  const max = Math.max(1, options.maxIssuesPerRule ?? MAX_ISSUES_PER_RULE);
+  for (const entry of configGcodeEntries(config, customGcodes)) {
+    const scan = new GcodePreflight(options);
+    scan.push(entry.text);
+    for (const issue of scan.finish().issues) {
+      if (issue.severity !== 'block') continue;
+      // the ordering rules describe a print start; an end or mid-print block runs later
+      if (entry.label !== 'start_gcode' && (issue.rule === 'gcode.no_homing' || issue.rule === 'gcode.macro_before_move')) continue;
+      counts[issue.rule] = (counts[issue.rule] ?? 0) + 1;
+      if (counts[issue.rule] > max) continue;
+      // the scanner's message starts with the line inside *its* text; for a setting the setting and
+      // the line inside it are the reference, and `line: 0` keeps a dialog from naming a file line
+      // that cannot be looked at (a `.bgcode` has no readable body)
+      issues.push({ ...issue, line: 0, message: `${entry.label} line ${issue.line}: ${issue.message.replace(/^Line \d+: /, '')}` });
+    }
+  }
+  return { version: PREFLIGHT_VERSION, issues, counts };
+}
+
+/** The config findings of a stored preflight result, if it was made with the current rule set. */
+export function configPreflightIssues(result: PreflightResult | undefined): PreflightIssue[] {
+  return currentPreflight(result)?.config?.issues ?? [];
+}
+
+/**
+ * The config findings that add to what the file scan found. A finding the file scan already reports
+ * (same rule, same G-code line) is one command, not a second problem, so it is dropped; with an
+ * unread body (binary G-code) nothing is dropped.
+ */
+export function configIssuesBeyond(result: PreflightResult | undefined, fileIssues: readonly PreflightIssue[]): PreflightIssue[] {
+  const seen = new Set(fileIssues.map((issue) => `${issue.rule}\u0000${issue.text}`));
+  return configPreflightIssues(result).filter((issue) => !seen.has(`${issue.rule}\u0000${issue.text}`));
+}
+
+/** What the preview and the send gate list: the file findings and the config findings they miss. */
+export function combinedPreflight(result: PreflightResult | undefined): { issues: PreflightIssue[]; counts: Record<string, number> } {
+  const current = currentPreflight(result);
+  if (!current) return { issues: [], counts: {} };
+  const extra = configIssuesBeyond(current, current.issues);
+  const counts = { ...current.counts };
+  for (const issue of extra) counts[issue.rule] = (counts[issue.rule] ?? 0) + 1;
+  return { issues: [...current.issues, ...extra], counts };
+}
+
+/**
+ * The issues of a stored result as the send gate and the dialog show them: the file scan plus the
+ * config findings it does not already cover.
+ */
+export function storedPreflightIssues(result: PreflightResult | undefined): SendIssue[] {
+  return combinedPreflight(result).issues;
+}
+
 /** The stored preflight of a job, if it was made with the current rule set. */
 export function currentPreflight(result: PreflightResult | undefined): PreflightResult | undefined {
   return result && result.version === PREFLIGHT_VERSION ? result : undefined;
@@ -546,10 +663,10 @@ export function preflightSendIssues(result: PreflightResult | undefined): SendIs
   return currentPreflight(result)?.issues ?? [];
 }
 
-/** Blocking issues and warnings of a stored result, the capped ones included. */
+/** Blocking issues and warnings of a stored result, the capped ones and the config findings included. */
 export function preflightSummary(result: PreflightResult | undefined): PreflightSummary {
   const summary: PreflightSummary = { blocking: 0, warnings: 0 };
-  for (const [rule, count] of Object.entries(currentPreflight(result)?.counts ?? {})) {
+  for (const [rule, count] of Object.entries(combinedPreflight(result).counts)) {
     if (PREFLIGHT_SEVERITY[rule] === 'block') summary.blocking += count;
     else summary.warnings += count;
   }
