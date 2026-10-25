@@ -1,4 +1,4 @@
-import { preflightSummary, type PreflightIssue } from '@webslicer/shared';
+import { combinedPreflight, preflightSummary, type PreflightIssue } from '@webslicer/shared';
 import { useStore } from '../../state/store';
 
 /** "1 blocking, 0 warnings" / "no preflight findings" for the summary line. */
@@ -15,6 +15,10 @@ function summaryText(blocking: number, warnings: number): string {
  * the findings, so a forbidden command or a suspicious temperature is visible in the preview without
  * opening the send dialog. An old job has no stored result – it shows the "not scanned" note only
  * when the output is binary G-code.
+ *
+ * T-080: the list and the counts include the scan of the job's **settings** (`info.preflight.config`),
+ * which is the only preflight a binary output has. A config finding names the setting instead of a
+ * file line, so it lists without the `gcode-line`.
  */
 export function Preflight() {
   const job = useStore((s) => s.job);
@@ -23,10 +27,11 @@ export function Preflight() {
     const binary = job?.outputName.toLowerCase().endsWith('.bgcode');
     return binary ? <div className="muted small">Preflight: not scanned (binary G-code)</div> : null;
   }
+  const { issues, counts } = combinedPreflight(preflight);
   const summary = preflightSummary(preflight);
   const total = summary.blocking + summary.warnings;
   // the scan keeps only the first findings of a rule; the counts name the rest
-  const capped = Object.entries(preflight.counts).some(([rule, count]) => count > preflight.issues.filter((i) => i.rule === rule).length);
+  const capped = Object.entries(counts).some(([rule, count]) => count > issues.filter((i) => i.rule === rule).length);
   return (
     <details className={summary.blocking ? 'preflight blocking' : 'preflight'} open={summary.blocking > 0}>
       <summary>
@@ -37,7 +42,7 @@ export function Preflight() {
         <div className="muted small">Nothing to report.</div>
       ) : (
         <ul>
-          {preflight.issues.map((issue: PreflightIssue, index: number) => (
+          {issues.map((issue: PreflightIssue, index: number) => (
             <li key={`${issue.rule}-${index}`} className={issue.severity === 'block' ? 'error' : undefined}>
               {issue.message}
               {issue.text ? (

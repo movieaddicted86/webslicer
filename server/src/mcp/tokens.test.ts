@@ -25,7 +25,7 @@ const {
   saveTokens,
   verifyTokenHash,
 } = await import('./tokens.js');
-const { appendAudit, readAudit, sanitizeParams } = await import('../services/audit.js');
+const { appendAudit, appendAuditStrict, readAudit, sanitizeParams } = await import('../services/audit.js');
 
 before(() => ensureDirs());
 after(() => fs.rmSync(DATA_DIR, { recursive: true, force: true }));
@@ -192,4 +192,26 @@ test('audit parameters drop secret looking keys and cut long values', () => {
   assert.equal(long.text.length, 401);
   assert.deepEqual(sanitizeParams(null), null);
   assert.deepEqual(sanitizeParams([1, 2, 3]), [1, 2, 3]);
+});
+
+test('the fail-soft writer swallows a write error, the strict one throws (T-080, P-3)', () => {
+  const entry = { time: 'now', token: '', owner: '', tool: 'send_to_printer', ok: true, durationMs: 1 };
+  // a directory where the log file should be: every append fails
+  fs.rmSync(config.auditLog, { force: true });
+  fs.mkdirSync(config.auditLog, { recursive: true });
+  try {
+    // the MCP call logging must never break the call it describes – the tool already ran
+    assert.doesNotThrow(() => appendAudit(entry));
+    // the send gate's override is only acceptable because it is recorded: the failure has to reach it
+    assert.throws(() => appendAuditStrict(entry));
+  } finally {
+    fs.rmSync(config.auditLog, { recursive: true, force: true });
+  }
+  // with a log that can be written, both write the same line
+  appendAudit({ ...entry, tool: 'webslicer.slice' });
+  appendAuditStrict(entry);
+  assert.deepEqual(
+    readAudit().map((e) => e.tool),
+    ['webslicer.slice', 'send_to_printer'],
+  );
 });

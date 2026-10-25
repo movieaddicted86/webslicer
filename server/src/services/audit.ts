@@ -49,13 +49,31 @@ function serialize(entry: AuditEntry): string {
   return line;
 }
 
+/** The one write both variants use; a failure is the caller's to decide about. */
+function writeEntry(entry: AuditEntry): void {
+  fs.mkdirSync(path.dirname(config.auditLog), { recursive: true });
+  fs.appendFileSync(config.auditLog, serialize(entry) + '\n', { mode: 0o600 });
+}
+
+/**
+ * Log an entry, best effort (the MCP tool calls). A log that cannot be written must never break the
+ * call it describes – the tool still ran, and refusing it afterwards would not undo that.
+ */
 export function appendAudit(entry: AuditEntry): void {
   try {
-    fs.mkdirSync(path.dirname(config.auditLog), { recursive: true });
-    fs.appendFileSync(config.auditLog, serialize(entry) + '\n', { mode: 0o600 });
+    writeEntry(entry);
   } catch {
     /* logging must never break a tool call */
   }
+}
+
+/**
+ * Log an entry and **fail when that is impossible** (T-080, P-3): the send gate's override is only
+ * acceptable because it is audited, so an override nobody could record must not happen at all. The
+ * caller answers 500 and does not send. Throws the file system's error.
+ */
+export function appendAuditStrict(entry: AuditEntry): void {
+  writeEntry(entry);
 }
 
 /** The audit log as entries (newest last); an unreadable line is skipped. */

@@ -203,12 +203,28 @@ test.describe('dialogs: the app dialogs (S11)', () => {
         (b) => `${b.textContent}${(b as HTMLButtonElement).disabled ? ' (disabled)' : ''}`,
       ),
       limitLegend: document.querySelector('.form fieldset legend')?.textContent,
+      hotendType: (document.querySelector('.form select.hotend-type') as HTMLSelectElement | null)?.value,
+      hotendOptions: Array.from((document.querySelector('.form select.hotend-type') as HTMLSelectElement | null)?.options ?? []).map(
+        (o) => o.value,
+      ),
     }));
     expect(form.title).toBe('Printers');
-    // S1-d: the safety limits of the machine are part of the form
-    expect(form.labels).toEqual(['Name', 'Host type', 'Hostname / IP', 'API key', 'Printer preset', 'Max hotend °C', 'Max bed °C']);
+    // S1-d: the safety limits of the machine are part of the form; T-080 asks for the hotend type
+    expect(form.labels).toEqual([
+      'Name',
+      'Host type',
+      'Hostname / IP',
+      'API key',
+      'Printer preset',
+      'Hotend type',
+      'Max hotend °C',
+      'Max bed °C',
+    ]);
     expect(form.limitLegend).toBe('Safety limits');
     expect(form.hostTypes[0]).toEqual(['prusalink', 'octoprint', 'moonraker']);
+    // the hotend question starts unanswered, and Save waits for the answer (T-080)
+    expect(form.hotendType).toBe('');
+    expect(form.hotendOptions).toEqual(['', 'ptfe', 'all-metal']);
     // the host field names an example; the form may only be saved with a name and a host
     expect(form.placeholders[1]).toBe('192.168.1.50 or http://printer.local');
     expect(form.actions).toEqual(['Cancel', 'Test connection (disabled)', 'Save (disabled)']);
@@ -216,16 +232,20 @@ test.describe('dialogs: the app dialogs (S11)', () => {
   });
 
   test(
-    'the PTFE preset fills the hotend limit and the limits travel with the saved host (S1-d)',
+    'the hotend question is required and sets the limit that travels with the saved host (S1-d, T-080)',
     { lock: 'server-state' },
     async ({ app }) => {
       await openDialog(app, 'printers', { tab: 'hosts' });
-      await app.getByRole('button', { name: 'PTFE hotend (max 240 °C)' }).click();
       await app.locator('.form input').nth(0).fill('PTFE host');
       await app.locator('.form input').nth(1).fill('10.0.0.9');
+      // name and host are there, but the hotend is not answered: Save stays disabled
+      const save = app.getByRole('button', { name: 'Save', exact: true });
+      await expect(save).toBeDisabled();
+      await app.locator('.form select.hotend-type').selectOption('ptfe');
       const hotend = app.locator('fieldset.safety-limits input').first();
       await expect(hotend).toHaveValue('240');
-      await app.getByRole('button', { name: 'Save', exact: true }).click();
+      await expect(save).toBeEnabled();
+      await save.click();
       await expect(app.locator('.printer-list')).toContainText('PTFE host');
       const saved = await app.evaluate(async () => {
         const res = await fetch('/api/printers');
@@ -237,6 +257,44 @@ test.describe('dialogs: the app dialogs (S11)', () => {
       await app.evaluate(async (id) => {
         await fetch(`/api/printers/${id}`, { method: 'DELETE' });
       }, host?.id);
+      await closeDialog(app, 'escape');
+    },
+  );
+
+  test(
+    'the all-metal answer stores an explicit 450 °C profile, which ends the no-limits warning (T-080)',
+    { lock: 'server-state' },
+    async ({ app }) => {
+      await openDialog(app, 'printers', { tab: 'hosts' });
+      await app.locator('.form input').nth(0).fill('All-metal host');
+      await app.locator('.form input').nth(1).fill('10.0.0.10');
+      // an unanswered host carries no profile – the send gate warns about it
+      const unanswered = await app.evaluate(async () => {
+        const res = await fetch('/api/printers', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ name: 'Unanswered host', type: 'moonraker', host: '10.0.0.11' }),
+        });
+        return (await res.json()) as { id: string; safety?: unknown };
+      });
+      expect(unanswered.safety).toBeUndefined();
+
+      await app.locator('.form select.hotend-type').selectOption('all-metal');
+      await expect(app.locator('fieldset.safety-limits input').first()).toHaveValue('450');
+      await app.getByRole('button', { name: 'Save', exact: true }).click();
+      await expect(app.locator('.printer-list')).toContainText('All-metal host');
+      const saved = await app.evaluate(async () => {
+        const res = await fetch('/api/printers');
+        return (await res.json()) as Array<{ id: string; name: string; safety?: { maxHotend?: number } }>;
+      });
+      expect(saved.find((p) => p.name === 'All-metal host')?.safety).toEqual({ maxHotend: 450 });
+      // clean up both hosts; the fixture data seeds none
+      await app.evaluate(
+        async (ids) => {
+          for (const id of ids) await fetch(`/api/printers/${id}`, { method: 'DELETE' });
+        },
+        saved.filter((p) => p.name === 'All-metal host' || p.name === 'Unanswered host').map((p) => p.id),
+      );
       await closeDialog(app, 'escape');
     },
   );

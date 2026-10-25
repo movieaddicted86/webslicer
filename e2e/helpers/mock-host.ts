@@ -76,6 +76,10 @@ export interface TestPrinter {
 /**
  * Create a print host through the API, as the app's printer dialog does. The body goes through the
  * page, so it shares the app's origin and the route's own validation.
+ *
+ * A host gets a full all-metal profile by default (T-080): the dialog asks for the hotend type, and a
+ * host without a profile would otherwise carry the `send.no_limits` warning in every test. `safety:
+ * null` creates the unanswered host on purpose.
  */
 export async function addPrinter(
   app: Page,
@@ -83,7 +87,7 @@ export async function addPrinter(
     name: string;
     type?: 'octoprint' | 'moonraker' | 'prusalink';
     presetName?: string;
-    safety?: { maxHotend?: number; maxBed?: number };
+    safety?: { maxHotend?: number; maxBed?: number } | null;
   },
 ): Promise<TestPrinter> {
   const res = await rest<TestPrinter>(app, 'POST', '/api/printers', {
@@ -91,7 +95,7 @@ export async function addPrinter(
     type: printer.type ?? 'moonraker',
     host: mockHost(),
     presetName: printer.presetName,
-    safety: printer.safety,
+    safety: printer.safety === null ? undefined : (printer.safety ?? { maxHotend: 450, maxBed: 150 }),
   });
   if (res.status !== 200) throw new Error(`creating the printer "${printer.name}" failed: ${res.status} ${JSON.stringify(res.json)}`);
   return res.json;

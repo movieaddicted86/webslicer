@@ -117,6 +117,24 @@ export interface PreflightResult {
    * printer's `safety` limits. A result without it (an older rule set) is re-scanned.
    */
   maxTemperatures?: MaxTemperatures;
+  /**
+   * The scan of the **settings** that produce the file (T-080, P-1): the custom G-code of the merged
+   * config and the plater's custom G-code entries, read with the same rules. It is what protects a
+   * binary output, whose body the preflight never reads.
+   */
+  config?: ConfigPreflightScan;
+}
+
+/**
+ * The settings side of the preflight: the custom G-code a job carries, scanned before the slicer runs
+ * (`start_gcode`, `end_gcode`, the plater's entries, …). Same rule ids and severity as the file scan,
+ * so the send gate and the preview treat both alike. `line` counts inside the block the finding came
+ * from; the message names the setting, because the file line of a binary output is not readable.
+ */
+export interface ConfigPreflightScan {
+  version: number;
+  issues: PreflightIssue[];
+  counts: Record<string, number>;
 }
 
 /** What the server parsed out of a G-code; every field is optional because the slicer may skip it. */

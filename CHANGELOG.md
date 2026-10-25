@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+- **The settings side of the G-code preflight, a required hotend answer and an override that is really
+  audited (T-080, review findings P-1, P-2 and P-3 of rc.5):** three print-safety gaps of the send
+  gate are closed. **(P-1)** A binary `.bgcode` could not be read, so a forbidden `M500`, an `M211 S0`
+  or a missing `G28` in a custom G-code block reached the printer behind the single
+  `gcode.not_scanned` warning. The server now scans the **settings that produce the file** as well –
+  the nine custom G-code keys of the merged config plus the plater's own blocks – with the same rules
+  and the same code, stores the result as `info.preflight.config` and merges it into the send gate and
+  the Preview (a finding names the setting and the line inside it, and is deduplicated against the
+  file scan). Binary output keeps its "not read" warning but is no longer unprotected. **(P-2)** A
+  printer host without a safety profile was only held to the global 450 °C ceiling; the printer setup
+  now asks **"PTFE-lined or all-metal hotend?"** as a required choice (PTFE 240 °C, all-metal an
+  explicit 450 °C), and a host that still has no profile warns with `send.no_limits` on every send
+  until the question is answered – no silent migration. **(P-3)** The send gate's override is only
+  acceptable because it is recorded, so its audit entry is written strictly: if `data/audit.log`
+  cannot be written, the send is refused with 500 and nothing is uploaded. MCP call logging stays
+  fail-soft. New: no settings; the hotend question replaces the "PTFE hotend (max 240 °C)" preset.
+
 - **A tool panel's ✕ is meant to be found, and an outdated Preview says so (T-075, findings Z-03 and
   Z-06):** Robert could not find the close button of an open tool panel although it was there (Esc
   worked), and with a blocked plate the Preview kept showing the old sliced model as if it were

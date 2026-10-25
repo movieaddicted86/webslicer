@@ -19,6 +19,7 @@ import {
   addPrinter,
   clearUploads,
   HAS_MOCK_HOST,
+  mockHost,
   removePreset,
   removePrinters,
   rest,
@@ -425,6 +426,52 @@ test.describe('send: the send gate and the upload (S1-b, T-026)', () => {
     await app.locator('[data-testid="modal-actions"] button:has-text("Cancel")').click();
   });
 
+  test('a host without a safety profile warns in the dialog and on the server, and still uploads (T-080)', async ({ app }) => {
+    await prepare(app, ['exact']);
+    // the printer setup asks for the hotend type; a host that has not answered carries no profile
+    const unanswered = await addPrinter(app, { name: 'Unanswered host', presetName: E2E_PRINTER, safety: null });
+    created.push(unanswered);
+    expect(unanswered.safety).toBeUndefined();
+    await app.evaluate(async () => window.webslicer.getState().refreshPhysicalPrinters());
+    await sendDialog(app);
+    await app.locator('[data-testid="modal"] .form select').selectOption(unanswered.id);
+    await settle(app, 300);
+    // a warning, not a block: the machine may well be all-metal, but the owner has not said so
+    const warning = app.locator('[data-testid="modal"] .warn').first();
+    await expect(warning).toContainText('has no safety limits');
+    await expect(warning).toContainText('PTFE-lined (240 °C) or all-metal');
+    await expect(uploadButton(app), 'a warning does not block the upload').toBeEnabled();
+
+    // the server answers with the same warning
+    const jobId = await read(app, (s) => s.job?.id ?? '');
+    clearUploads();
+    const sent = await rest<{ ok: boolean; issues: Array<{ rule: string; severity: string }> }>(app, 'POST', `/api/jobs/${jobId}/send`, {
+      printerId: unanswered.id,
+      filename: 'no-limits.gcode',
+    });
+    expect(sent.status).toBe(200);
+    expect(sent.json.issues).toContainEqual({ rule: 'send.no_limits', severity: 'warn', message: expect.any(String) });
+    expect(uploads()).toHaveLength(1);
+
+    // answering the question (all-metal) stores a profile – the warning is gone
+    await rest(app, 'PUT', `/api/printers/${unanswered.id}`, {
+      name: 'Unanswered host',
+      type: 'moonraker',
+      host: mockHost(),
+      presetName: E2E_PRINTER,
+      safety: { maxHotend: 450 },
+    });
+    await app.evaluate(async () => window.webslicer.getState().refreshPhysicalPrinters());
+    clearUploads();
+    const answered = await rest<{ issues: Array<{ rule: string }> }>(app, 'POST', `/api/jobs/${jobId}/send`, {
+      printerId: unanswered.id,
+      filename: 'answered.gcode',
+    });
+    expect(answered.status).toBe(200);
+    expect(answered.json.issues.map((i) => i.rule)).not.toContain('send.no_limits');
+    expect(uploads()).toHaveLength(1);
+  });
+
   test('a job hotter than the host allows is a printer-limit block with an audited override (S1-d)', async ({ app }) => {
     await prepare(app, ['exact']);
     // raise the hotend above a PTFE hotend's 240 °C: the value stays inside the global catcher
@@ -509,7 +556,7 @@ test.describe('send: the printer dialog sees the mock host', () => {
 
       // the dialog's own form is the way back in
       await app.locator('[data-testid="modal-actions"] button:has-text("Add printer")').click();
-      await expect(app.locator('.form label')).toHaveCount(7); // five fields, the two safety limits (S1-d)
+      await expect(app.locator('.form label')).toHaveCount(8); // five fields, the hotend question and the two limits (S1-d, T-080)
       await app.locator('[data-testid="modal"] [data-testid="modal-close"]').click();
     } finally {
       await removePrinters(app, created);

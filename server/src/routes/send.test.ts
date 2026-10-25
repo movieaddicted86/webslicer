@@ -14,7 +14,7 @@ import os from 'node:os';
 import path from 'node:path';
 import type { Server } from 'node:http';
 import type express from 'express';
-import { PREFLIGHT_VERSION } from '@webslicer/shared';
+import { PREFLIGHT_VERSION, notScannedIssue } from '@webslicer/shared';
 
 const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'webslicer-send-'));
 process.env.DATA_DIR = DATA_DIR;
@@ -42,6 +42,8 @@ const JOB_BAD_ID = 'bbbbbbbb-cccc-dddd-eeee-ffffffffffff';
 const JOB_STORED_ID = 'cccccccc-dddd-eeee-ffff-000000000000';
 /** A binary-G-code job: v1 cannot scan it, which is one warn. */
 const JOB_BINARY_ID = 'dddddddd-eeee-ffff-0000-111111111111';
+/** A binary job whose *config* carries a forbidden command (T-080, P-1) – the only preflight it has. */
+const JOB_BINARY_CONFIG_ID = 'dddddddd-eeee-ffff-0000-222222222222';
 /** A hot job (S1-d): 250 °C hotend, 90 °C bed. */
 const JOB_HOT_ID = 'ffffffff-0000-1111-2222-333333333333';
 /** A hot job from before S1-d: no stored temperatures, the stored request is the source. */
@@ -81,9 +83,25 @@ async function call(method: string, url: string, body?: object): Promise<Res> {
   return { status: res.status, json };
 }
 
-/** Create a print host through the API and answer its id. */
-async function addPrinter(name: string, presetName?: string, safety?: { maxHotend?: number; maxBed?: number }): Promise<string> {
-  const res = await call('POST', '/api/printers', { name, type: 'moonraker', host: mockBase.replace('http://', ''), presetName, safety });
+/**
+ * Create a print host through the API and answer its id.
+ *
+ * A host gets a full all-metal profile by default (T-080): without one every send carries the
+ * `send.no_limits` warning, which these tests are not about. `null` means "no safety profile" – the
+ * dialog has not asked yet – and is what the `send.no_limits` tests use.
+ */
+async function addPrinter(
+  name: string,
+  presetName?: string,
+  safety: { maxHotend?: number; maxBed?: number } | null = { maxHotend: 450, maxBed: 150 },
+): Promise<string> {
+  const res = await call('POST', '/api/printers', {
+    name,
+    type: 'moonraker',
+    host: mockBase.replace('http://', ''),
+    presetName,
+    safety: safety ?? undefined,
+  });
   assert.equal(res.status, 200, JSON.stringify(res.json));
   return (res.json as { id: string }).id;
 }
@@ -149,6 +167,30 @@ before(async () => {
     },
   });
   seedJob(JOB_BINARY_ID, JOB_PRESET, { name: 'part.bgcode', text: 'not really binary' });
+  // T-080/P-1: the body cannot be read, but the request's own end G-code can – and it says M500
+  seedJob(JOB_BINARY_CONFIG_ID, JOB_PRESET, {
+    name: 'part.bgcode',
+    text: 'not really binary',
+    preflight: {
+      version: PREFLIGHT_VERSION,
+      issues: [{ ...notScannedIssue('the output is binary G-code (.bgcode), which the preflight does not read'), line: 0, text: '' }],
+      counts: { 'gcode.not_scanned': 1 },
+      maxTemperatures: { hotend: 215, bed: 60 },
+      config: {
+        version: PREFLIGHT_VERSION,
+        issues: [
+          {
+            rule: 'gcode.forbidden_command',
+            severity: 'block',
+            message: 'end_gcode line 2: "M500" stores the printer\'s settings in its EEPROM – a forbidden command.',
+            line: 0,
+            text: 'M500',
+          },
+        ],
+        counts: { 'gcode.forbidden_command': 1 },
+      },
+    },
+  });
   // N3: the file commands 300 °C; the job asks for 215 °C, so only the file shows it
   seedJob(JOB_FILE_HOT_ID, JOB_PRESET, { text: 'G28\nM104 S300 ; custom start g-code\nG1 X10 Y10\n' });
   seedJob(JOB_FILE_HOT_STORED_ID, JOB_PRESET, {
@@ -404,12 +446,84 @@ test('binary G-code is a warn, not a silent pass and not a block', async () => {
   assert.equal(uploads.length, before + 1);
 });
 
+test('binary G-code with a forbidden command in its config is blocked by the config finding (T-080)', async () => {
+  fs.rmSync(config.auditLog, { force: true });
+  const id = await addPrinter('Binary config host', JOB_PRESET);
+  const before = uploads.length;
+  const res = await send(id, {}, JOB_BINARY_CONFIG_ID);
+  assert.equal(res.status, 409, JSON.stringify(res.json));
+  const body = res.json as { issues: Array<{ rule: string; severity: string; message: string }> };
+  // the unread body stays a warning – but it is no longer the only protection
+  assert.deepEqual(
+    body.issues.map((i) => [i.rule, i.severity]),
+    [
+      ['gcode.not_scanned', 'warn'],
+      ['gcode.forbidden_command', 'block'],
+    ],
+  );
+  assert.match(body.issues[1].message, /end_gcode line 2: "M500"/);
+  assert.equal(uploads.length, before, 'the config block never reaches the printer');
+
+  // the same block is overridable with a reason, like every other block
+  const overridden = await send(id, { override: true, reason: 'the EEPROM save is intended' }, JOB_BINARY_CONFIG_ID);
+  assert.equal(overridden.status, 200, JSON.stringify(overridden.json));
+  assert.equal(uploads.length, before + 1);
+  const params = readAudit()[0]?.params as { issues: Array<{ rule: string }> } | undefined;
+  assert.deepEqual(
+    params?.issues.map((i) => i.rule),
+    ['gcode.forbidden_command'],
+  );
+});
+
 test('a clean job with a matching host uploads without any issue', async () => {
   const id = await addPrinter('Clean host', JOB_PRESET);
   const res = await send(id, {}, JOB_ID);
   const body = res.json as { ok: boolean; issues: unknown[] };
   assert.equal(res.status, 200, JSON.stringify(res.json));
   assert.deepEqual(body.issues, [], 'a clean file and a matching preset have nothing to report');
+});
+
+test('a host without a safety profile warns with send.no_limits, and the answer names it', async () => {
+  const id = await addPrinter('No limits host', JOB_PRESET, null);
+  const before = uploads.length;
+  const res = await send(id);
+  assert.equal(res.status, 200, JSON.stringify(res.json));
+  const body = res.json as { issues: Array<{ rule: string; severity: string; message: string }> };
+  const issue = body.issues.find((i) => i.rule === 'send.no_limits');
+  assert.ok(issue, JSON.stringify(body.issues));
+  assert.equal(issue.severity, 'warn');
+  assert.match(issue.message, /"No limits host" has no safety limits/);
+  assert.match(issue.message, /PTFE-lined \(240 .C\) or all-metal/);
+  assert.equal(uploads.length, before + 1, 'a warning does not stop the upload');
+});
+
+test('a host with a safety profile gets no send.no_limits warning', async () => {
+  const id = await addPrinter('All-metal host 2', JOB_PRESET, { maxHotend: 450 });
+  const res = await send(id);
+  assert.equal(res.status, 200, JSON.stringify(res.json));
+  assert.deepEqual((res.json as { issues: unknown[] }).issues, []);
+});
+
+test('an override whose audit entry cannot be written is a 500 and uploads nothing (T-080, P-3)', async () => {
+  const id = await addPrinter('Garage MINI 4', OTHER_PRESET);
+  const before = uploads.length;
+  // a directory where the log file should be: the append fails every time
+  fs.rmSync(config.auditLog, { force: true });
+  fs.mkdirSync(config.auditLog, { recursive: true });
+  try {
+    const res = await send(id, { override: true, reason: 'same nozzle, checked by hand' });
+    assert.equal(res.status, 500, JSON.stringify(res.json));
+    // a 5xx body stays generic (S10): the file system detail is in the server log only
+    assert.equal((res.json as { error: string }).error, 'Internal error');
+    assert.equal(uploads.length, before, 'nothing is sent without its audit entry');
+  } finally {
+    fs.rmSync(config.auditLog, { recursive: true, force: true });
+  }
+  // ... and with a writable log the same override goes through
+  const ok = await send(id, { override: true, reason: 'same nozzle, checked by hand' });
+  assert.equal(ok.status, 200, JSON.stringify(ok.json));
+  assert.equal(uploads.length, before + 1);
+  assert.equal(readAudit().length, 1);
 });
 
 /**

@@ -1,5 +1,13 @@
 import { useMemo, useState } from 'react';
-import { checkSend, preflightSendIssues, printerLimitIssues, sendMatch, type PresetLink, type PreflightIssue } from '@webslicer/shared';
+import {
+  checkSend,
+  printerLimitIssues,
+  printerLimitsMissingIssue,
+  sendMatch,
+  storedPreflightIssues,
+  type PresetLink,
+  type PreflightIssue,
+} from '@webslicer/shared';
 import { Modal } from './Modal';
 import { useStore } from '../../state/store';
 import { api, type SendIssue, type SendResult } from '../../api';
@@ -15,17 +23,20 @@ function isPreflight(issue: SendIssue): issue is PreflightIssue {
   return typeof (issue as PreflightIssue).line === 'number';
 }
 
-/** One issue as the dialog lists it: the message, and for a preflight finding the line behind it. */
+/**
+ * One issue as the dialog lists it: the message, and for a finding of the *file* the line behind it.
+ *
+ * A config finding (T-080) carries `line: 0` and no text – it stands for a setting, and the message
+ * already names the setting and its line inside that block.
+ */
 function IssueLine({ issue }: { issue: SendIssue }) {
-  if (!isPreflight(issue)) return <div>{issue.message}</div>;
+  if (!isPreflight(issue) || !issue.text) return <div>{issue.message}</div>;
   return (
     <div>
       {issue.message}
-      {issue.text ? (
-        <div className="muted small gcode-line">
-          Line {issue.line}: {issue.text}
-        </div>
-      ) : null}
+      <div className="muted small gcode-line">
+        Line {issue.line}: {issue.text}
+      </div>
     </div>
   );
 }
@@ -81,11 +92,14 @@ export function SendToPrinterDialog({ onClose }: { onClose: () => void }) {
   const issues: SendIssue[] = useMemo(() => {
     if (!printer || !job) return [];
     // S1-c/S1-d: the preflight issues of the finished file and the target's own safety limits join the
-    // preset issues – the server merges the same lists, so the dialog shows what the gate will enforce
+    // preset issues – the server merges the same lists, so the dialog shows what the gate will enforce.
+    // T-080: the preflight list carries the config findings as well, and a host without a safety
+    // profile warns that it is only checked against the global ceiling.
     return [
       ...checkSend({ presets: { printer: jobPreset } }, printer, { presets: links }),
       ...printerLimitIssues(job.temperatures, printer.safety),
-      ...preflightSendIssues(job.info?.preflight),
+      ...printerLimitsMissingIssue(printer),
+      ...storedPreflightIssues(job.info?.preflight),
     ];
   }, [printer, job, jobPreset, links]);
 

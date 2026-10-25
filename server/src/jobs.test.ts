@@ -20,7 +20,7 @@ const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'webslicer-jobs-'));
 process.env.DATA_DIR = DATA_DIR;
 process.env.LIBRARY_DIR = path.join(DATA_DIR, 'library');
 
-const { completeJob, failureMessage } = await import('./jobs.js');
+const { completeJob, configPreflightOf, failureMessage } = await import('./jobs.js');
 
 test.after(() => fs.rmSync(DATA_DIR, { recursive: true, force: true }));
 
@@ -88,7 +88,13 @@ test('a job without an FFF G-code output still gets its info before it is done',
   assert.equal(job.info?.sizeBytes, 'SLA output'.length);
   assert.deepEqual(
     job.info?.preflight,
-    { version: PREFLIGHT_VERSION, issues: [], counts: {}, maxTemperatures: { hotend: 0, bed: 0 } },
+    {
+      version: PREFLIGHT_VERSION,
+      issues: [],
+      counts: {},
+      maxTemperatures: { hotend: 0, bed: 0 },
+      config: { version: PREFLIGHT_VERSION, issues: [], counts: {} },
+    },
     'still scanned once, no findings here',
   );
 });
@@ -106,4 +112,45 @@ test("the slicer's plate refusal reaches the user instead of a generic failure",
   // and the generic path stays as it was
   assert.equal(failureMessage(['not useful'], 'boom\nrest', 1), 'boom | rest');
   assert.equal(failureMessage([], '', 3), 'Slicer exited with code 3');
+});
+
+/** A schema that knows the G-code keys of a printer preset (`mergeConfigs` drops anything it does not). */
+const SCHEMA = {
+  slicerVersion: 'test',
+  layout: [],
+  presetKeys: { print: [], filament: ['end_gcode', 'start_gcode'], printer: ['end_gcode', 'start_gcode'], sla_print: [], sla_material: [] },
+  options: {},
+} as never;
+
+test('the config scan of a request reaches the stored preflight (T-080/P-1)', async () => {
+  // the file itself is clean; the settings that produce it are not
+  const file = path.join(DATA_DIR, 'config-scan.gcode');
+  fs.writeFileSync(file, 'G28\nG1 X10 Y10\n');
+  const job = { ...runningJob(), id: 'job-config' };
+  const scan = configPreflightOf(
+    {
+      objects: [],
+      print: { name: 'p', config: {} },
+      // PrusaSlicer stores the line breaks of a preset value escaped
+      printer: { name: 'pr', config: { end_gcode: 'M104 S200\\nM500' } },
+      filaments: [{ name: 'PLA', config: {} }],
+    },
+    SCHEMA,
+  );
+  assert.deepEqual(scan.counts, { 'gcode.forbidden_command': 1 });
+  assert.match(scan.issues[0].message, /^end_gcode line 2: /);
+
+  // the clean file scans clean; the config finding rides along in the same stored result
+  await completeJob(job, file, [], {}, scan);
+  assert.equal(job.status, 'done');
+  assert.deepEqual(job.info?.preflight?.issues, [], 'the file itself has nothing');
+  assert.deepEqual(job.info?.preflight?.config, scan, 'the settings scan is stored with it');
+});
+
+test('a job completed without a config scan still carries an empty one (T-080)', async () => {
+  const file = path.join(DATA_DIR, 'no-config-scan.gcode');
+  fs.writeFileSync(file, 'G28\n');
+  const job = { ...runningJob(), id: 'job-no-config' };
+  await completeJob(job, file, [], {});
+  assert.deepEqual(job.info?.preflight?.config, { version: PREFLIGHT_VERSION, issues: [], counts: {} });
 });

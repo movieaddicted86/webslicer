@@ -26,8 +26,13 @@ import {
   notScannedIssue,
   preflightSendIssues,
   printerLimitIssues,
+  printerLimitsMissingIssue,
+  storedPreflightIssues,
   usablePreflight,
+  configIssuesBeyond,
+  configPreflightIssues,
   type PresetLink,
+  type PreflightIssue,
 } from '@webslicer/shared';
 import type { JobRecord, PhysicalPrinter, SendIssue, SendResult } from '@webslicer/shared';
 import { loadBundles } from '../slicer/bundles.js';
@@ -35,8 +40,8 @@ import { listUserPresets, resolvePreset } from '../slicer/presets.js';
 import { activeSchema } from './schema.js';
 import { isBinaryGcode, machineLimitsOf, scanGcodeFile } from '../slicer/gcodePreflight.js';
 import { readJobRequest } from '../jobs/persistence.js';
-import { appendAudit } from './audit.js';
-import { ConflictError } from '../errors.js';
+import { appendAuditStrict } from './audit.js';
+import { ConflictError, HttpError } from '../errors.js';
 import { uploadToPrinter } from './printers.js';
 
 /**
@@ -63,6 +68,10 @@ export function sendIssues(job: JobRecord, printer: PhysicalPrinter, presets: re
  * and bed temperature of the file** is compared with the printer's `safety` profile
  * (`send.printer_limit`) – the stored scan only knows the global catchers, so `M104 S300` in a
  * custom start G-code is invisible to it but blocks a 260 °C machine here.
+ *
+ * The **config findings** (`info.preflight.config`, T-080/P-1) join both paths: they are the only
+ * preflight a binary output has, since its body is never read. `storedPreflightIssues` drops a config
+ * finding the file scan already reports, so one command is one issue.
  */
 export async function preflightIssues(
   job: JobRecord,
@@ -73,11 +82,15 @@ export async function preflightIssues(
   const limits = { hotendLimit: printer.safety?.maxHotend, bedLimit: printer.safety?.maxBed };
   const stored = usablePreflight(job.info?.preflight);
   if (stored) {
-    return [...preflightSendIssues(stored), ...printerLimitIssues(stored.maxTemperatures, printer.safety)];
+    return [...storedPreflightIssues(stored), ...printerLimitIssues(stored.maxTemperatures, printer.safety)];
   }
-  if (isBinaryGcode(job.outputName)) return [notScannedIssue('the output is binary G-code (.bgcode), which the preflight does not read')];
+  const configIssues = configPreflightIssues(job.info?.preflight);
+  if (isBinaryGcode(job.outputName)) {
+    return [notScannedIssue('the output is binary G-code (.bgcode), which the preflight does not read'), ...configIssues];
+  }
   const result = await scanGcodeFile(gcodePath, machineLimits, limits);
-  return [...preflightSendIssues(result), ...printerLimitIssues(result.maxTemperatures, printer.safety)];
+  const file = preflightSendIssues(result) as PreflightIssue[];
+  return [...file, ...configIssuesBeyond(job.info?.preflight, file), ...printerLimitIssues(result.maxTemperatures, printer.safety)];
 }
 
 /**
@@ -100,7 +113,13 @@ export async function printerLimitSendIssues(job: JobRecord, printer: PhysicalPr
   return printerLimitIssues(temperatures, printer.safety);
 }
 
-/** An accepted override as it goes into the audit log: job, host, the issues, the reason. */
+/**
+ * An accepted override as it goes into the audit log: job, host, the issues, the reason.
+ *
+ * Written with the **strict** writer (T-080, P-3): the override is only acceptable because it is
+ * recorded, so a log that cannot take the entry ends the send – `sendJobOutput` answers 500 and
+ * uploads nothing. MCP tool logging keeps the fail-soft writer.
+ */
 export function auditOverride(
   job: JobRecord,
   printer: PhysicalPrinter,
@@ -108,7 +127,7 @@ export function auditOverride(
   reason: string,
   started = Date.now(),
 ): void {
-  appendAudit({
+  appendAuditStrict({
     time: new Date().toISOString(),
     // no MCP token is involved in a send from the web app; the empty strings mark such an entry
     token: '',
@@ -155,9 +174,12 @@ export async function sendJobOutput({ job, printer, gcodePath, filename, startPr
   // `M104`/`M140` lines (and their maxima, whether the result was stored or scanned)
   const schema = await activeSchema();
   const jobPreset = resolvePreset(schema, 'printer', job.presets.printer);
-  // S1-c: the file's own issues join the preset issues – a block from either side needs the override
+  // S1-c: the file's own issues join the preset issues – a block from either side needs the override.
+  // T-080/P-2: a host without a safety profile also only gets a warning – it may be all-metal, but the
+  // owner should say so in the printer setup.
   const issues = [
     ...sendIssues(job, printer),
+    ...printerLimitsMissingIssue(printer),
     ...(await printerLimitSendIssues(job, printer)),
     ...(await preflightIssues(job, gcodePath, printer, machineLimitsOf(jobPreset?.config ?? {}))),
   ];
@@ -165,7 +187,16 @@ export async function sendJobOutput({ job, printer, gcodePath, filename, startPr
   if (blocking.length && !override) {
     throw new ConflictError(blocking[0].message, { issues });
   }
-  if (override && blocking.length && reason) auditOverride(job, printer, blocking, reason, started);
+  // the audit entry goes in before the upload, and an entry that cannot be written stops the send
+  if (override && blocking.length && reason) {
+    try {
+      auditOverride(job, printer, blocking, reason, started);
+    } catch (e) {
+      const detail = (e as Error).message || String(e);
+      console.error(`[webslicer] the audit log could not record a send override: ${detail}`);
+      throw new HttpError(500, 'The override could not be written to the audit log, so the G-code was not sent.');
+    }
+  }
   const result = await uploadToPrinter(printer, gcodePath, filename, startPrint);
   return { ...result, issues };
 }

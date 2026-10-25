@@ -18,7 +18,7 @@ import { injectThumbnails } from './slicer/thumbnails.js';
 import { mergeConfigs } from './services/configMerge.js';
 import { build3mfForRequest } from './services/slice.js';
 import { pruneModels } from './services/models.js';
-import { maxTemperaturesOf } from '@webslicer/shared';
+import { maxTemperaturesOf, PREFLIGHT_VERSION, scanConfigGcode } from '@webslicer/shared';
 import {
   fileSize,
   initJobDir,
@@ -34,7 +34,7 @@ import {
   writeJobLog,
   writeJobModel,
 } from './jobs/persistence.js';
-import type { ConfigIssue, JobEvent, JobRecord, Schema, SliceRequest } from '@webslicer/shared';
+import type { ConfigIssue, ConfigPreflightScan, JobEvent, JobRecord, PreflightResult, Schema, SliceRequest } from '@webslicer/shared';
 
 const jobs = new Map<string, JobRecord>();
 const emitters = new Map<string, EventEmitter>();
@@ -48,6 +48,8 @@ let running = 0;
 let schemaRef: Schema | undefined;
 /** set by `shutdownJobs`: no new job is queued, and what runs is cancelled (W5) */
 let shuttingDown = false;
+/** the config preflight of each queued job (T-080), written into the record once the file is done */
+const configScans = new Map<string, ConfigPreflightScan>();
 
 export function setSchema(s: Schema) {
   schemaRef = s;
@@ -106,6 +108,7 @@ export async function deleteJob(id: string): Promise<boolean> {
   jobs.delete(id);
   emitters.delete(id);
   cancelling.delete(id);
+  configScans.delete(id);
   await removeJobDir(id);
   return true;
 }
@@ -197,6 +200,18 @@ function sanitizeFilename(name: string, ext: string): string {
   return `${base}${ext}`;
 }
 
+/**
+ * The settings-side preflight of a request (T-080, P-1): the custom G-code of the merged config and
+ * of the plater's entries, read with the same rules as the finished file.
+ *
+ * The file scan cannot read a binary `.bgcode`, so the commands a preset's start/end G-code carries
+ * were unchecked in that format. They are known before the slicer runs, and this scan is done once
+ * per job – the record's `info.preflight.config` – not again on every send.
+ */
+export function configPreflightOf(req: SliceRequest, schema: Schema): ConfigPreflightScan {
+  return scanConfigGcode(mergeConfigs(schema, req), req.customGcodes);
+}
+
 /** Queue a job for a validated request; the caller has already checked the request. */
 export async function createJob(req: SliceRequest, schema: Schema, configIssues: ConfigIssue[] = []): Promise<JobRecord> {
   if (shuttingDown) throw new Error('the server is shutting down');
@@ -219,6 +234,9 @@ export async function createJob(req: SliceRequest, schema: Schema, configIssues:
     // S1-d: what the send dialog compares against the safety profile of the chosen host
     temperatures: maxTemperaturesOf(req),
   };
+  // T-080/P-1: the custom G-code of the request is scanned now, before the slicer runs – it is the
+  // only preflight a binary output gets, and an ASCII file gets the same finding from its own scan
+  configScans.set(id, configPreflightOf(req, schema));
   await initJobDir(id, req);
   jobs.set(id, job);
   await saveJobRecord(job);
@@ -309,10 +327,13 @@ async function collectJobInfo(
   outFile: string,
   warnings: string[],
   machineLimits: Readonly<Record<string, string>>,
+  configScan: ConfigPreflightScan,
 ): Promise<void> {
   // S1-c: the finished file is scanned once, here; the result is stored in the record and the send
-  // gate merges its issues into the preset issues (no second scan on every send).
-  const preflight = await scanGcodeFile(outFile, machineLimits);
+  // gate merges its issues into the preset issues (no second scan on every send). T-080 adds the
+  // scan of the request's own custom G-code – the only protection a binary output gets.
+  const scanned = await scanGcodeFile(outFile, machineLimits);
+  const preflight: PreflightResult = { ...scanned, config: configScan };
   if (job.technology === 'FFF' && outFile.endsWith('.gcode')) {
     try {
       job.info = { ...readGcodeInfo(outFile), warnings, preflight };
@@ -335,8 +356,9 @@ export async function completeJob(
   outFile: string,
   warnings: string[],
   machineLimits: Readonly<Record<string, string>>,
+  configScan: ConfigPreflightScan = { version: PREFLIGHT_VERSION, issues: [], counts: {} },
 ): Promise<void> {
-  await collectJobInfo(job, outFile, warnings, machineLimits);
+  await collectJobInfo(job, outFile, warnings, machineLimits, configScan);
   job.status = 'done';
   job.percent = 100;
   job.message = 'Done';
@@ -399,7 +421,9 @@ async function runJob(job: JobRecord) {
     return;
   }
   await embedThumbnails(job, req, outFile, logLines);
-  await completeJob(job, outFile, extractWarnings(logLines), machineLimitsOf(req.printer.config));
+  const configScan = configScans.get(job.id) ?? configPreflightOf(req, schema);
+  await completeJob(job, outFile, extractWarnings(logLines), machineLimitsOf(req.printer.config), configScan);
+  configScans.delete(job.id);
   await saveJobRecord(job);
   emit(job.id, { type: 'done', job });
 }
