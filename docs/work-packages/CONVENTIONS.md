@@ -162,6 +162,14 @@ A work package (and each phase of it) is done only when all of this holds:
 6. Docs updated: `CHANGELOG.md` (Unreleased), `TODO.md` checkbox, `docs/Feature-Comparison.md`
    row, a new UAT case in `docs/UAT.md` for user-visible features, README only if setup changes.
 
+### The main README stays short
+
+`README.md` is the shop window, not the manual (Robert, 2026-10-24): **at most ~150 lines**, in this order – what WebSlicer is (two sentences), one hero screenshot, the feature
+list as short grouped bullets with links, quick start (the shortest working install), a link table to `docs/`, contributing, licence. Details, option lists, long how-tos,
+configuration tables and design notes belong in `docs/` (`features.md`, `installation.md`, `configuration.md`, `development.md`, …) and are only linked. A task that needs to
+document something adds it to `docs/`, adds at most one line or one link to the README, and **never grows the README by more than a few lines**; if the README is over the limit
+the task moves text out to `docs/` first. The reviewer rejects a README that got longer without a reason.
+
 ### E2E selectors: hooks, not structure
 
 The layout work moves the sidebar, the tool bar, the top bar and the preview controls between
