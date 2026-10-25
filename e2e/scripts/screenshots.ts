@@ -189,12 +189,23 @@ async function previewShot(page: Page): Promise<void> {
   await shot(page, 'preview', 'the G-code preview with the legend and the layer slider');
 }
 
-/** The file library with the sample models the image seeds. */
+/**
+ * The file library with the sample models the image seeds, and a selection of two files: the
+ * checkboxes and the action bar (Load all / Delete selected / Clear) only appear once something is
+ * selected, so a shot of the resting list would not show a reader what the library can do (T-077).
+ */
 async function libraryShot(page: Page): Promise<void> {
   await page.evaluate(() => window.webslicer.getState().setView('plater'));
   await page.evaluate(() => window.webslicer.getState().openDialog('library', 'open'));
   await page.waitForTimeout(1200);
-  await shot(page, 'library', 'the file library dialog');
+  // the samples folder holds the files; open it and tick the first two
+  await page.locator('[data-testid="library-row"]').filter({ hasText: 'samples' }).first().locator('.name').click();
+  await page.waitForTimeout(900);
+  const picks = page.locator('[data-testid="library-check"]');
+  await picks.nth(0).check();
+  await picks.nth(1).check();
+  await page.waitForTimeout(600);
+  await shot(page, 'library', 'the file library with a two-file selection');
   await page.evaluate(() => window.webslicer.getState().closeDialog());
 }
 
