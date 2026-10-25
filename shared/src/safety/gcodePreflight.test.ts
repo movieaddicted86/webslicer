@@ -577,8 +577,9 @@ test('config findings are deduplicated against the file scan by rule and line te
     'the M500 is already a file finding',
   );
   assert.deepEqual(
-    storedPreflightIssues(stored).map((i) => i.text),
-    ['M500', 'M502'],
+    storedPreflightIssues(stored).map((i) => i.message),
+    ['Line 2: M500', 'end_gcode line 2: M502'],
+    'the file finding first, then the config finding the file does not have',
   );
   // the counts keep both, the file finding and the one the file does not have
   assert.deepEqual(preflightSummary(stored), { blocking: 2, warnings: 0 });
