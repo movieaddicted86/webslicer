@@ -45,7 +45,8 @@ export const ICON_TABLE = {
   scale: { source: 'prusa', file: 'scale' },
   placeOnFace: { source: 'prusa', file: 'place' },
   arrange: { source: 'prusa', file: 'layout' },
-  arrangeSettings: { source: 'prusa', file: 'cog' },
+  /** the arrange options popover – Prusa's wrench for "advanced options", never a cog */
+  arrangeSettings: { source: 'prusa', file: 'wrench' },
   addInstance: { source: 'prusa', file: 'rectangle_add' },
   removeInstance: { source: 'lucide', icon: Minus },
   duplicate: { source: 'lucide', icon: Copy },
@@ -72,6 +73,10 @@ export const ICON_TABLE = {
   spool: { source: 'prusa', file: 'spool' },
   // "overridden settings": PrusaSlicer's dot, the marker of a per-object override
   overridden: { source: 'prusa', file: 'overrides_marker' },
+  /** the per-object / per-volume override dialog: Prusa's object with its override dot */
+  objectSettings: { source: 'prusa', file: 'overriden_object_icon' },
+  /** a layer range's own settings: Prusa's height-range icon (the pair of arrows over the layers) */
+  rangeSettings: { source: 'prusa', file: 'height_range' },
   // the volume types, as the icon map of `docs/design/Icons-and-UX.md` names them
   part: { source: 'prusa', file: 'union' },
   modifier: { source: 'prusa', file: 'exclude' },
@@ -108,7 +113,10 @@ export const ICON_TABLE = {
   printers: { source: 'prusa', file: 'lb_printers' },
   save: { source: 'prusa', file: 'tb_save' },
   open: { source: 'prusa', file: 'tb_load' },
+  /** Preferences: the only cog left – the settings views use `presetSettings` */
   settings: { source: 'prusa', file: 'cog' },
+  /** the three preset settings views (menu and preset rows): Prusa's sliders, not the cog */
+  presetSettings: { source: 'prusa', file: 'settings_set' },
   /** the slimming of the top bar: the rail's first item, Slicing, and its mark in the brand */
   slicing: { source: 'prusa', file: 'lb_slicing' },
   about: { source: 'prusa', file: 'info' },
