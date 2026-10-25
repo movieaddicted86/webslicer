@@ -12,35 +12,39 @@ interface Props {
   slot: PresetSlot;
   extruderIdx?: number;
   label: string;
-  /** the row draws the cog itself (default); a card that moves the cog to its heading turns it off */
+  /** the row draws the settings button itself (default); a card that moves it to its heading turns it off */
   showCog?: boolean;
   /** the card heading already names this row: keep the label for the screen reader, hide it visually */
   labelHidden?: boolean;
 }
 
 /** The settings entry and the hook of one preset type: the card heading and the preset row share them. */
-function cogOf(type: PresetType) {
+function settingsEntryOf(type: PresetType) {
   // SLA presets use the print/filament views like FFF ones
   return settingsEntryFor(type === 'sla_print' ? 'print' : type === 'sla_material' ? 'filament' : type);
 }
 
 /**
- * The cog of a preset type – the one door into its full settings view. The preset row draws it inline;
- * a card that puts it in the heading (the Print settings card of the plate mode) renders this instead,
- * so the hook and the navigation id stay in one place.
+ * The settings button of a preset type – the row's door into its full settings view. The preset row
+ * draws it inline; a card that puts it in the heading (the Print settings card of the plate mode)
+ * renders this instead, so the hook and the navigation id stay in one place.
+ *
+ * The picture is the sliders, not the cog: the cog means Preferences alone now. The tooltip says what
+ * it edits, so the arrow never stands for a bare "settings".
  */
 export function PresetCog({ type }: { type: PresetType }) {
-  const settingsEntry = cogOf(type);
+  const settingsEntry = settingsEntryOf(type);
+  const title = `Edit ${settingsEntry.label.toLowerCase()}`;
   return (
     <button
       className="icon"
-      title={`${settingsEntry.label}…`}
-      aria-label={`${settingsEntry.label}…`}
+      title={title}
+      aria-label={title}
       onClick={() => void runNavAction(settingsEntry.action)}
       data-testid={`settings-open-${type}`}
       data-nav-id={settingsEntry.id}
     >
-      <Icon name="settings" size={14} />
+      <Icon name={settingsEntry.icon} size={14} />
     </button>
   );
 }
@@ -136,7 +140,7 @@ export function PresetSelect({ type, slot, extruderIdx = 0, label, showCog = tru
             </optgroup>
           )}
         </select>
-        {/* the one door to the full settings view of this preset: the cog (Icons-and-UX §2) */}
+        {/* the one door to the full settings view of this preset: the sliders (Icons-and-UX §2) */}
         {showCog && <PresetCog type={type} />}
         <button
           className={`icon ${modified ? 'accent' : ''}`}

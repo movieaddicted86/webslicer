@@ -10,7 +10,8 @@ import './SettingsCard.css';
  *
  * The rows are the mockup's labelled rows – the name on the left, a compact "Edit…" button on the
  * right. The dialog itself is unchanged; this card is the door to it, with the count of the overrides
- * in the button, as before.
+ * in the button, as before. The icon is Prusa's object with its override dot, never the cog: that one
+ * means Preferences.
  */
 export function SettingsCard({ o }: { o: PlaterObject }) {
   const openDialog = useStore((s) => s.openDialog);
@@ -19,7 +20,7 @@ export function SettingsCard({ o }: { o: PlaterObject }) {
   const extruders = useStore((s) => s.extruderCount());
   const overrides = Object.keys(o.config).length;
   return (
-    <PanelCard title="Settings" icon="settings" testId="object-settings-card">
+    <PanelCard title="Settings" icon="objectSettings" testId="object-settings-card">
       {extruders > 1 && (
         <PanelRow label="Extruder" title="Which extruder prints this object">
           <select
@@ -46,7 +47,7 @@ export function SettingsCard({ o }: { o: PlaterObject }) {
           onClick={() => openDialog('objectSettings', { objectId: o.id })}
           title="Override print settings for this object only"
         >
-          <Icon name="settings" size={14} />
+          <Icon name="objectSettings" size={14} />
           Edit…
           {overrides > 0 && <span className="count">({overrides})</span>}
         </button>

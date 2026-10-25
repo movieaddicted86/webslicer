@@ -11,3 +11,9 @@
 .quick-settings .panel-row .ctl input[type='number'] {
   width: 100%;
 }
+
+/* the short list's way to the full view, under the last group */
+.quick-settings .quick-all-settings {
+  align-self: flex-start;
+  margin: 2px 0 4px 10px;
+}

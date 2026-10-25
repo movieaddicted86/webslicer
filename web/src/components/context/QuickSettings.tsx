@@ -1,5 +1,7 @@
 import { useStore } from '../../state/store';
 import { toBool } from '../../values';
+import { settingsEntryFor } from '../../nav/navMap';
+import { runNavAction } from '../../nav/actions';
 import { GroupTitle } from '../common/GroupTitle';
 import { NumericField } from '../common/NumericField';
 import { PanelRow } from '../common/PanelRow';
@@ -14,6 +16,9 @@ import './QuickSettings.css';
  * They edit the current print preset (marking it modified) like in PrusaSlicer; the rows write the same
  * `setOption` the full settings view writes, so nothing is reachable only here. A resin printer has none
  * of the FFF options, so the block is empty there.
+ *
+ * The list stays short on purpose: "All settings…" below the groups is the one way to the full view,
+ * for every option these rows leave out.
  */
 export function QuickSettings() {
   const print = useStore((s) => s.presets.print);
@@ -107,6 +112,15 @@ export function QuickSettings() {
       <PanelRow label={brim ? `Brim (${c.brim_width} mm)` : 'Brim'} title="A brim around the first layer, for adhesion">
         <Switch checked={brim} onChange={setBrim} label="Brim" title="A brim around the first layer, for adhesion" testId="quick-brim" />
       </PanelRow>
+      {/* the short list's own way out: the full print settings view, the same action as the row's button */}
+      <button
+        type="button"
+        className="link quick-all-settings"
+        data-testid="all-settings"
+        onClick={() => void runNavAction(settingsEntryFor('print').action)}
+      >
+        All settings…
+      </button>
     </div>
   );
 }

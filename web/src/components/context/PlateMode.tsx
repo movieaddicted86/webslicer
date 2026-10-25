@@ -10,8 +10,9 @@ import './PlateMode.css';
  * summary of nozzle and build volume, and the filament that is loaded, as a row with its colour dot,
  * its name and its nozzle.
  *
- * It is a summary, not a second place to pick a preset: the printer and filament preset rows (with the
- * cogs into their settings) are in the Print settings card below, so each function keeps one home.
+ * It is a summary, not a second place to pick a preset: the printer and filament preset rows (with
+ * their buttons into the full views) are in the Print settings card below, so each function keeps one
+ * home.
  */
 export function PlateMode() {
   const presets = useStore((s) => s.presets);
