@@ -30,6 +30,22 @@ print and 482 SLA material presets in 2.9.6) and reports no finding.
 The UI shows the same findings at the field (S1-e): a blocked value disables **Slice** with the
 reason, a warning is listed in the slice panel.
 
+## Plate checks
+
+`shared/src/plater/plateCheck.ts` decides whether the plate may be sliced at all: every object (and
+every instance) has to lie inside the bed polygon, the skirt and the brim have to fit around it, the
+footprints of two objects may not overlap, and sequential printing keeps its extruder clearance.
+`plate.outside`, `plate.too_tall`, `plate.skirt_outside`, `plate.brim_outside` and `plate.overlap`
+block; `plate.clearance` warns.
+
+The same file runs in the browser and in the server, so the two cannot disagree. In the browser the
+store action `slice` asks it before it builds a request – that one seam covers the Prepare footer, the
+Preview's own button, the automatic re-slice after a colour change and any scripted caller – and the
+Preview lists the reasons beside its disabled button. On the server `POST /api/slice`, the project
+slice and the MCP `webslicer.slice` tool compute the issues from the stored meshes and the request's
+transforms and answer 400 `{ error, issues }` for a block. A result whose plate no longer passes the
+checks can be read in the Preview but not exported, saved or sent until it does.
+
 ## G-code preflight
 
 Custom start/end/layer G-code goes 1:1 into the output – that is the point of a custom G-code – so a
