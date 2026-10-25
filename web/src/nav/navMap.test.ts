@@ -71,7 +71,8 @@ test('the menu keeps import, then the Settings and Export flyouts', () => {
   );
   // a flyout's trigger is one menu item with a name of its own, not a copy of an entry's label
   const labels = new Set(NAV_ENTRIES.map((e) => e.label));
-  for (const sub of MENU_SUBMENUS) assert.ok(!labels.has(sub.label), `the trigger "${sub.label}" repeats an entry label`);});
+  for (const sub of MENU_SUBMENUS) assert.ok(!labels.has(sub.label), `the trigger "${sub.label}" repeats an entry label`);
+});
 
 test('the settings views open from Menu → Settings and from their preset rows, nowhere else', () => {
   for (const entry of SETTINGS_ENTRIES) {
