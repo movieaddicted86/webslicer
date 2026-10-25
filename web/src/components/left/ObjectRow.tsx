@@ -3,6 +3,7 @@ import { useStore, type PlaterObject } from '../../state/store';
 import { objectInfo } from '../../plater/info';
 import { objectIsOutside } from '../../plater/plateCheck';
 import { fmt } from '../../format';
+import { modsOf, type ClickMods } from '../../selection';
 import { Icon } from '../../icons/Icon';
 import { InlineName } from '../common/InlineName';
 import './ObjectRow.css';
@@ -12,6 +13,9 @@ import './ObjectRow.css';
  * count with its sub-list and the info line. Double-clicking a name (or F2 on the selected object)
  * renames it; selecting the row shows the object in the context panel, where its parts, settings,
  * ranges and transform live.
+ *
+ * The row does not decide what a click means: it hands the click (with its Ctrl/Shift state) to the
+ * store's `selectByClick`, which runs the one selection rule (`selection.ts`) over the plate's order.
  */
 export function ObjectRow({
   o,
@@ -20,6 +24,7 @@ export function ObjectRow({
   renaming,
   onRename,
   onStopRename,
+  onSelect,
 }: {
   o: PlaterObject;
   instancesShown: boolean;
@@ -28,13 +33,14 @@ export function ObjectRow({
   renaming: boolean;
   onRename: () => void;
   onStopRename: () => void;
+  /** a click on the row body, already reduced to the modifier state the selection rule reads */
+  onSelect: (mods: ClickMods) => void;
 }) {
   const selectedIds = useStore((s) => s.selectedIds);
   const selectedVolumeId = useStore((s) => s.selectedVolumeId);
   const selectedInstanceId = useStore((s) => s.selectedInstanceId);
   const bedShape = useStore((s) => s.presets.printer.current.bed_shape || '');
   const maxHeight = useStore((s) => Number(s.presets.printer.current.max_print_height || 200));
-  const select = useStore((s) => s.select);
   const selectInstance = useStore((s) => s.selectInstance);
   const removeInstance = useStore((s) => s.removeInstance);
   const instanceToObject = useStore((s) => s.instanceToObject);
@@ -52,7 +58,7 @@ export function ObjectRow({
     // the buttons inside the row handle their own keys
     if ((e.target as HTMLElement).closest('input, button')) return;
     e.preventDefault();
-    select([o.id]);
+    onSelect(modsOf(e));
   };
   return (
     <li className="object-item">
@@ -63,7 +69,7 @@ export function ObjectRow({
         role="button"
         aria-pressed={isSel && !selectedVolumeId}
         tabIndex={0}
-        onClick={(e) => select([o.id], e.ctrlKey || e.shiftKey)}
+        onClick={(e) => onSelect(modsOf(e))}
         onKeyDown={selectOnKey}
         onDoubleClick={(e) => {
           // a double-click on the row (not on a button) starts the rename, like PrusaSlicer

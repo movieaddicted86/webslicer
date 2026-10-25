@@ -37,7 +37,13 @@ PrusaSlicer feature exists here and which does not is in
   when it is really newer and stable, the offered one.
 - **Object list card** at the scene's top left: the **Object list** card holds the thumbnail tiles with
   the name, the size/instances line and the row's markers, and its empty state offers the **open the
-  library** link and the **Add objects…** button beside the drop hint. In the Preview it shows the
+  library** link and the **Add objects…** button beside the drop hint. A click on a row selects it;
+  **Ctrl/Cmd click** toggles a row in and out of the selection, a **Shift click** selects the range from
+  the row the last click landed on, **Ctrl+A** selects every object and **Esc** (or a click on the empty
+  bed) clears. The row selection and the 3D view's are the same selection, so clicking a mesh in the
+  scene picks the same row. With several objects selected the context panel shows "N objects selected"
+  with the group actions – **Merge**, **Duplicate**, **Hide/Show**, **Arrange selection** and
+  **Delete** – and the cards of a single object's transform stay away. In the Preview it shows the
   **Sliced info** card – with the green **SLICED** badge in its heading – and the **Legend** card, whose
   heading carries the colour-scheme drop-down. Each inner card folds on its own and the whole card
   folds to its header row, which keeps the object count; a chevron in the header toggles that, and the
@@ -63,7 +69,8 @@ PrusaSlicer feature exists here and which does not is in
   column shows the **View**, **G-code check** and **Layer** cards over a footer with **Send to
   printer**, the export icon and the destination. While a tool is open the column is the tool's panel:
   its title and ✕, its controls, the primary action pinned at the bottom and the key hints below them.
-  Simple mode shows the plate content only; a multi-selection is explained instead of the object cards.
+  Simple mode shows the plate content only; with several objects selected it shows the count and the
+  group actions (merge, duplicate, hide/show, arrange selection, delete) instead of the object cards.
 
 ### Where do I find…
 
@@ -208,7 +215,13 @@ PrusaSlicer feature exists here and which does not is in
   is overridden with a reason; the preview and the send dialog show them with their line.
 - **File library**: a mounted directory (`/library`, e.g. a NAS share) with STL/OBJ/3MF/AMF/STEP,
   projects and G-code. Files can be browsed and opened in the browser, projects stored as 3MF and finished
-  G-code dropped there, without uploading through the browser.
+  G-code dropped there, without uploading through the browser. A click opens a file as before; the
+  checkbox (on hover, or while a selection exists) and a **Ctrl/Cmd click** add single files to a
+  selection and a **Shift click** takes the whole range from the row the last click landed on. The bar
+  above the list then offers **Load all** (every selected file in one go, arranged on the plate as a
+  single load is), **Delete selected** (one confirmation that names the count – deleting is permanent)
+  and **Clear**; the arrow keys walk the rows, **Space** toggles and **Enter** opens. A folder is never
+  part of a multiple selection.
 - **Autosave**: the plater is saved automatically as a project and offered for restore after a reload
   or browser crash; **session restore** survives closing the browser.
 - Multi-user capable on the LAN, no client installation, also works on tablets.

@@ -235,7 +235,13 @@ test.describe('tool strip', () => {
       await app.evaluate(() =>
         Array.from(document.querySelectorAll('[data-testid="object-toolbar"] button')).map((b) => b.getAttribute('aria-label')),
       ),
-    ).toEqual(['Merge: select two or more objects with a single instance', 'Duplicate', 'Delete all']);
+    ).toEqual([
+      'Merge: select two or more objects with a single instance',
+      'Duplicate the selected objects',
+      // T-077: the group visibility toggle of the selection
+      'Hide the selected objects',
+      'Delete all',
+    ]);
     // arrange, the instance pair and delete exist once – in the strip
     for (const id of ['tool-deleteSelection', 'tool-addInstance', 'tool-removeInstance', 'tool-arrange', 'tool-arrangeSettings']) {
       expect(await app.locator(`[data-testid="${id}"]`).count(), `${id} has one home`).toBe(1);
