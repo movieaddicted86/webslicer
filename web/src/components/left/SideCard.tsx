@@ -14,6 +14,7 @@ import './SideCard.css';
 export function SideCard({
   title,
   count,
+  aside,
   open,
   onToggle,
   toggleLabel,
@@ -24,6 +25,8 @@ export function SideCard({
   title: ReactNode;
   /** a small number after the title (the object count) */
   count?: number;
+  /** a control of the whole card in its heading, before the fold chevron (a badge, a select) */
+  aside?: ReactNode;
   /** the body is visible; the chevron reports it as `aria-expanded` */
   open: boolean;
   onToggle: () => void;
@@ -46,6 +49,7 @@ export function SideCard({
           </span>
         }
       >
+        {aside}
         <button
           className="card-chevron"
           data-testid={toggleTestId}

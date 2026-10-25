@@ -12,6 +12,37 @@ interface Props {
   slot: PresetSlot;
   extruderIdx?: number;
   label: string;
+  /** the row draws the cog itself (default); a card that moves the cog to its heading turns it off */
+  showCog?: boolean;
+  /** the card heading already names this row: keep the label for the screen reader, hide it visually */
+  labelHidden?: boolean;
+}
+
+/** The settings entry and the hook of one preset type: the card heading and the preset row share them. */
+function cogOf(type: PresetType) {
+  // SLA presets use the print/filament views like FFF ones
+  return settingsEntryFor(type === 'sla_print' ? 'print' : type === 'sla_material' ? 'filament' : type);
+}
+
+/**
+ * The cog of a preset type – the one door into its full settings view. The preset row draws it inline;
+ * a card that puts it in the heading (the Print settings card of the plate mode) renders this instead,
+ * so the hook and the navigation id stay in one place.
+ */
+export function PresetCog({ type }: { type: PresetType }) {
+  const settingsEntry = cogOf(type);
+  return (
+    <button
+      className="icon"
+      title={`${settingsEntry.label}…`}
+      aria-label={`${settingsEntry.label}…`}
+      onClick={() => void runNavAction(settingsEntry.action)}
+      data-testid={`settings-open-${type}`}
+      data-nav-id={settingsEntry.id}
+    >
+      <Icon name="settings" size={14} />
+    </button>
+  );
 }
 
 /**
@@ -46,7 +77,7 @@ function collapseAliases(
   return out;
 }
 
-export function PresetSelect({ type, slot, extruderIdx = 0, label }: Props) {
+export function PresetSelect({ type, slot, extruderIdx = 0, label, showCog = true, labelHidden = false }: Props) {
   const list = useStore((s) => s.presetLists[type]);
   const showIncompatible = useStore((s) => s.showIncompatible);
   const showAllFilaments = useStore((s) => s.showAllFilaments);
@@ -69,8 +100,6 @@ export function PresetSelect({ type, slot, extruderIdx = 0, label }: Props) {
     groups.set(g, [...(groups.get(g) || []), e]);
   }
   const current = list.find((p) => p.name === slot.name);
-  // the cog of a preset row opens its view; SLA presets use the print/filament views like FFF ones
-  const settingsEntry = settingsEntryFor(type === 'sla_print' ? 'print' : type === 'sla_material' ? 'filament' : type);
   const change = async (name: string) => {
     // the dropdown's setup entry opens the one printers dialog on its vendor profiles tab
     if (name === PRESET_PRINTERS_ENTRY.id) return openNavDialog('printers', { tab: 'vendor' });
@@ -84,7 +113,9 @@ export function PresetSelect({ type, slot, extruderIdx = 0, label }: Props) {
 
   return (
     <div className="preset-select" data-testid={`preset-select-${type}`}>
-      <label htmlFor={selectId}>{label}</label>
+      <label htmlFor={selectId} className={labelHidden ? 'visually-hidden' : undefined}>
+        {label}
+      </label>
       <div className="preset-row">
         <select id={selectId} value={slot.name} onChange={(e) => change(e.target.value)} title={slot.name}>
           {!entries.some((e) => e.value === slot.name) && <option value={slot.name}>{slot.name}</option>}
@@ -106,16 +137,7 @@ export function PresetSelect({ type, slot, extruderIdx = 0, label }: Props) {
           )}
         </select>
         {/* the one door to the full settings view of this preset: the cog (Icons-and-UX §2) */}
-        <button
-          className="icon"
-          title={`${settingsEntry.label}…`}
-          aria-label={`${settingsEntry.label}…`}
-          onClick={() => void runNavAction(settingsEntry.action)}
-          data-testid={`settings-open-${type}`}
-          data-nav-id={settingsEntry.id}
-        >
-          <Icon name="settings" size={14} />
-        </button>
+        {showCog && <PresetCog type={type} />}
         <button
           className={`icon ${modified ? 'accent' : ''}`}
           title="Save preset"

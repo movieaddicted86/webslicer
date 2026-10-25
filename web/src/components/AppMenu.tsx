@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useStore } from '../state/store';
 import { importFiles } from '../importFiles';
+import { setImportOpener } from '../importTrigger';
 import { Icon } from '../icons/Icon';
 import { MENU_ENTRIES, EXPORT_ENTRIES, type NavEntry } from '../nav/navMap';
 import { runNavAction } from '../nav/actions';
@@ -40,6 +41,12 @@ export function AppMenu() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  // the menu owns the one file input; other hosts (the empty object list) ask for it here
+  useEffect(() => {
+    setImportOpener(() => fileRef.current?.click());
+    return () => setImportOpener(undefined);
   }, []);
 
   // a click outside closes; the pointer leaving the whole menu starts the grace, which the flyout's

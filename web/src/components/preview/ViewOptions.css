@@ -1,32 +1,22 @@
-/* ViewOptions: the styles of this component. */
-
-.view-mode {
-  display: grid;
-  grid-template-columns: 40px 1fr;
-  align-items: center;
-  gap: 6px;
-  margin: 4px 0;
-}
+/* ViewOptions: the colour scheme row and the "Show" rows of the preview (ViewOptions.tsx).
+   The rows themselves are `PanelRow.css`, the group title `GroupTitle.css`. Tokens only. */
 
 .view-options {
-  margin: 6px 0;
+  padding-bottom: 2px;
 }
 
-.view-options > .muted {
-  margin-bottom: 2px;
-}
-
-.view-options label.checkbox {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  margin: 1px 0;
-}
-
+/* the legend swatch of a row: the colour the preview draws that thing in */
 .view-options .swatch {
+  flex: none;
   width: 10px;
   height: 10px;
+  margin-right: 6px;
   border-radius: 2px;
-  border: 1px solid #0006;
-  flex: none;
+  border: 1px solid color-mix(in srgb, black 40%, transparent);
+}
+
+/* the row's name is the swatch and the label on one line */
+.view-options .panel-row .lab {
+  display: flex;
+  align-items: center;
 }

@@ -1,27 +1,21 @@
-/* SlicedInfo: the styles of this component. */
+/* SlicedInfo: the numbers of the result and its badge (SlicedInfo.tsx). The rows are `PanelRow.css`;
+   tokens only. */
 
-.stats table {
-  width: 100%;
-  border-collapse: collapse;
+.stats {
+  padding: 2px 0 4px;
 }
 
-.stats td {
-  padding: 2px 0;
-  vertical-align: top;
+/* the file name is the one long value of the card: it wraps instead of pushing the row wide */
+.stats .file-name {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
 }
 
-.stats td:first-child {
-  color: var(--muted);
-  width: 110px;
-}
-
-.stats td:last-child {
-  overflow-wrap: anywhere;
-}
-
-.stats .actions {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-top: 8px;
+/* the badge of the card heading: the job is done */
+.badge.ok {
+  color: var(--green);
+  background: color-mix(in srgb, var(--green) 16%, transparent);
 }

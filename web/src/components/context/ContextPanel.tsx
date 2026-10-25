@@ -4,12 +4,14 @@ import { useSelectedObjects } from '../left/selection';
 import { PlateMode } from './PlateMode';
 import { Presets } from './Presets';
 import { TransformCard } from './TransformCard';
+import { ObjectHeader } from './ObjectHeader';
 import { SettingsCard } from './SettingsCard';
 import { PartsCard } from './PartsCard';
 import { RangePanel } from './RangePanel';
 import { PanelCard } from './PanelCard';
 import { Destination } from './Destination';
 import { SlicePanel } from './SlicePanel';
+import { PreviewFooter } from './PreviewFooter';
 import { PreviewPanel } from '../PreviewPanel';
 import { ToolMode } from './ToolMode';
 import './ContextPanel.css';
@@ -66,20 +68,16 @@ export function ContextPanel() {
   return (
     <div className="context-stack">
       <aside className="context-panel" data-testid="context-panel" aria-label="Context">
-        <div className="context-header" data-testid="context-header">
-          {mode === 'object' && object ? (
-            <>
-              <h2 className="context-title" title={object.name}>
-                {object.name}
-              </h2>
-              <span className="muted small">
-                {object.instances.length} {object.instances.length === 1 ? 'instance' : 'instances'}
-              </span>
-            </>
-          ) : (
-            <h2 className="context-title">{mode === 'preview' ? 'Preview' : 'Plate'}</h2>
-          )}
-        </div>
+        {mode === 'object' && object ? (
+          /* object mode: the header is the object's own card – picture, name, size and rename */
+          <div className="context-header object-header-slot" data-testid="context-header">
+            <ObjectHeader o={object} />
+          </div>
+        ) : mode === 'plate' ? (
+          <div className="context-header" data-testid="context-header">
+            <h2 className="context-title">Plate</h2>
+          </div>
+        ) : null}
         <div className="context-body">
           {mode === 'preview' ? (
             <PreviewPanel />
@@ -120,7 +118,12 @@ export function ContextPanel() {
           )}
         </div>
       </aside>
-      {mode !== 'preview' && (
+      {mode === 'preview' ? (
+        <footer className="context-footer" data-testid="context-footer">
+          <Destination />
+          <PreviewFooter />
+        </footer>
+      ) : (
         <footer className="context-footer" data-testid="context-footer">
           <Destination />
           <SlicePanel />

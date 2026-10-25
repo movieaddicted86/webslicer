@@ -1,0 +1,68 @@
+/* Switch: the on/off control of the panel rows (Switch.tsx). Tokens only. */
+
+.switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  width: 36px;
+  height: 20px;
+  gap: 0;
+}
+
+/* the checkbox fills the switch: the whole track is the hit area, the skin is drawn by the knob */
+.switch input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 1;
+}
+
+.switch .knob {
+  position: absolute;
+  inset: 0;
+  border-radius: 10px;
+  background: var(--field-h);
+  border: 1px solid var(--line);
+  transition: background 0.12s ease;
+}
+
+.switch .knob::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.switch.on .knob {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.switch.on .knob::after {
+  left: 18px;
+  background: var(--on-accent);
+}
+
+/* the keyboard still has to see where it is */
+.switch input:focus-visible + .knob {
+  outline: 1px solid var(--blue);
+  outline-offset: 1px;
+}
+
+.switch input:disabled {
+  cursor: default;
+}
+
+.switch input:disabled + .knob {
+  opacity: 0.45;
+}

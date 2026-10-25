@@ -3,11 +3,18 @@ import {
   Combine,
   Copy,
   Ellipsis,
+  FlipHorizontal,
+  FlipHorizontal2,
+  FlipVertical,
   FolderPlus,
+  Lock,
+  LockOpen,
   Menu,
   Minus,
   PencilLine,
   RefreshCw,
+  RotateCcw,
+  Scaling,
   Split,
   SquarePlus,
   SquareSplitHorizontal,
@@ -50,6 +57,27 @@ export const ICON_TABLE = {
   splitToParts: { source: 'lucide', icon: Ungroup },
   merge: { source: 'lucide', icon: Combine },
   addVolume: { source: 'lucide', icon: SquarePlus },
+  // the transform of the selected object: the icon rows of the context panel (I-2)
+  mirrorX: { source: 'lucide', icon: FlipHorizontal },
+  mirrorY: { source: 'lucide', icon: FlipHorizontal2 },
+  mirrorZ: { source: 'lucide', icon: FlipVertical },
+  resetRotation: { source: 'lucide', icon: RotateCcw },
+  resetScale: { source: 'lucide', icon: Scaling },
+  /** the mockup's "lock proportions": locked = the scale rows keep all three axes together */
+  lockProportions: { source: 'lucide', icon: Lock },
+  unlockProportions: { source: 'lucide', icon: LockOpen },
+  // "instances": PrusaSlicer's own artwork, the count of copies of an object
+  instances: { source: 'prusa', file: 'instances_icon' },
+  /** the filament of the plate: the spool beside the printer card's filament row */
+  spool: { source: 'prusa', file: 'spool' },
+  // "overridden settings": PrusaSlicer's dot, the marker of a per-object override
+  overridden: { source: 'prusa', file: 'overrides_marker' },
+  // the volume types, as the icon map of `docs/design/Icons-and-UX.md` names them
+  part: { source: 'prusa', file: 'union' },
+  modifier: { source: 'prusa', file: 'exclude' },
+  negativeVolume: { source: 'prusa', file: 'subtract' },
+  supportEnforcer: { source: 'prusa', file: 'support_enforcer' },
+  supportBlocker: { source: 'prusa', file: 'support_blocker' },
 
   // tools
   cut: { source: 'prusa', file: 'cut' },

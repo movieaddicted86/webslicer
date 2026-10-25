@@ -1,10 +1,11 @@
-/* PreviewPanel: the styles of this component. */
+/* PreviewPanel: the cards of the preview (PreviewPanel.tsx). Tokens only. */
 
-pre.log {
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 6px;
+.log {
+  background: var(--field);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  margin: 8px 0;
+  padding: 8px;
   max-height: 180px;
   overflow: auto;
   font-size: 11px;
@@ -12,10 +13,77 @@ pre.log {
   word-break: break-all;
 }
 
-.preview-panel section {
-  border-bottom: 1px solid var(--border);
+/* a state section (no result, a running slice, an error) keeps the card padding of the panel body */
+.preview-panel > section {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
 }
 
+/* the layer card: the range summary, then the sliders and the codes. The card supplies the padding,
+   so the block adds none of its own */
+.layers {
+  padding-bottom: 4px;
+}
+
+.layer-summary {
+  padding: 3px 0 8px;
+  color: var(--text);
+}
+
+/* the label and the value badge on one line above each slider */
+.layers .slider-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.layers .slider-value {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--field-h);
+  color: var(--muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* the accent handle and the restyled track of the mockup's layer sliders */
 .layers input[type='range'] {
   width: 100%;
+  height: 18px;
+  margin: 0;
+  background: transparent;
+  appearance: none;
+}
+
+.layers input[type='range']::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--field);
+  border: 1px solid var(--line);
+}
+
+.layers input[type='range']::-webkit-slider-thumb {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -6px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--card);
+}
+
+.layers input[type='range']::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--field);
+  border: 1px solid var(--line);
+}
+
+.layers input[type='range']::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--card);
 }

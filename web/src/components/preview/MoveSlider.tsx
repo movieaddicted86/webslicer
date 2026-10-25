@@ -23,9 +23,14 @@ export function MoveSlider({ gcode }: { gcode: ParsedGcode }) {
   const done = value - first + 1;
   return (
     <div className="move-slider" data-testid="move-slider-panel">
-      <label className="small" htmlFor={sliderId}>
-        Move
-      </label>
+      <div className="slider-row">
+        <label className="small" htmlFor={sliderId}>
+          Move
+        </label>
+        <span className="slider-value">
+          {done} / {moves.length}
+        </span>
+      </div>
       <input
         id={sliderId}
         type="range"

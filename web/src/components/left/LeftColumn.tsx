@@ -3,8 +3,9 @@ import { SideCard } from './SideCard';
 import { useLeftColumn } from './useLeftColumn';
 import { ObjectsSection } from './ObjectsSection';
 import { SimpleObjects } from './SimpleObjects';
-import { SlicedInfo } from '../preview/SlicedInfo';
+import { SlicedInfo, SlicedBadge } from '../preview/SlicedInfo';
 import { PreviewLegend } from '../preview/Legend';
+import { SchemeSelect } from '../preview/SchemeSelect';
 import { useLegendData } from '../preview/useLegendData';
 import { Icon } from '../../icons/Icon';
 import './LeftColumn.css';
@@ -69,6 +70,7 @@ export function LeftColumn() {
               {job && (
                 <SideCard
                   title="Sliced info"
+                  aside={<SlicedBadge />}
                   open={open('slicedInfo')}
                   onToggle={() => toggleCard('slicedInfo')}
                   toggleLabel={open('slicedInfo') ? 'Fold the sliced info' : 'Unfold the sliced info'}
@@ -81,6 +83,7 @@ export function LeftColumn() {
               {legend.gcode && (
                 <SideCard
                   title="Legend"
+                  aside={<SchemeSelect className="scheme-head" testId="legend-scheme" />}
                   open={open('legend')}
                   onToggle={() => toggleCard('legend')}
                   toggleLabel={open('legend') ? 'Fold the legend' : 'Unfold the legend'}

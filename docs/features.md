@@ -28,23 +28,32 @@ PrusaSlicer feature exists here and which does not is in
   profiles** (install and update the vendor bundles), **Filaments** (the visible-filament filter) and
   **Custom printer** (the two-step wizard). The entry point picks the tab: the rail opens on _My
   printers_, the printer dropdown on _Vendor profiles_.
-- **Object list card** at the scene's top left: the **Object list** card holds the rows and their
-  actions, and in the Preview it shows the **Sliced info** and the **Legend**. Each inner card folds
-  on its own and the whole card folds to its header row, which keeps the object count; a chevron in
-  the header toggles that, and the width (276 px by default, 220–420 px) can be dragged on its right
-  edge. Both are remembered per browser. Below 1280 px the card starts folded; on a phone it is a
-  drawer that the top bar opens.
+- **Object list card** at the scene's top left: the **Object list** card holds the thumbnail tiles with
+  the name, the size/instances line and the row's markers, and its empty state offers the **open the
+  library** link and the **Add objects…** button beside the drop hint. In the Preview it shows the
+  **Sliced info** card – with the green **SLICED** badge in its heading – and the **Legend** card, whose
+  heading carries the colour-scheme drop-down. Each inner card folds on its own and the whole card
+  folds to its header row, which keeps the object count; a chevron in the header toggles that, and the
+  width (276 px by default, 220–420 px) can be dragged on its right edge. Both are remembered per
+  browser. Below 1280 px the card starts folded; on a phone it is a drawer that the top bar opens.
 - **Context panel** at the scene's top right, with the destination/Slice footer as its own card: it
-  shows what the current state is about. With nothing selected it
-  is the plate – a **Printer** card (preset, bed size, height, nozzle) above the print/filament/printer
-  preset rows and the quick settings. With one object selected the preset rows and quick settings stay
-  and the object's own cards follow: **Transform** (position, rotation, scale, size, instances and
-  **Fill bed**, bounding box and object info, mirror, split to objects/parts, the resets), **Settings**
-  (extruder and the **⚙ Per-object settings** overrides), **Parts** (the add menu for parts, modifiers,
-  support enforcers/blockers and negative volumes, the volume rows with rename, and the manipulation of
-  the picked volume) and **Layer ranges**. The header keeps the object name and instance count, the
-  footer keeps the **Destination** choice and the **Slice** button in view while the cards scroll. In
-  the Preview the column shows the preview panel. While a tool is open the column is the tool's panel:
+  shows what the current state is about. With nothing selected it is the plate – a **Printer &
+  material** card (printer tile, name, nozzle and bed summary, the loaded filament with its colour dot
+  and nozzle) above the **Print settings** card: the print preset select with its cog in the heading,
+  the filament and printer rows, and the quick settings as grouped rows (Walls & perimeters, Infill,
+  Supports & adhesion) with the label on the left and a 150 px control on the right, switches for the
+  on/off ones. With one object selected the header carries a thumbnail tile, the name, the "1 instance ·
+  size" line and the ✎ rename, the preset and quick-setting rows stay, and the object's own cards
+  follow: **Transform** (X/Y/Z column headers in the axis colours, Position / Rotation / Size / Scale
+  rows with the unit inside the field, the instances stepper with **Fill bed**, one row of 34 px icon
+  buttons for mirror X/Y/Z, reset rotation/scale/all, the proportions lock, split to objects/parts and
+  add instance – each with its tooltip – and the bounding box and object info), **Settings** (extruder
+  and **Per-object settings** as a row with an **Edit…** button and the count of overrides), **Parts**
+  (the add menu, the rows with the volume-type icon, the name and a delete action, the rename on a
+  double-click, and the manipulation of the picked volume) and **Layer ranges**. The footer keeps the
+  **Destination** choice and the **Slice** button in view while the cards scroll. In the Preview the
+  column shows the **View**, **G-code check** and **Layer** cards over a footer with **Send to
+  printer**, the export icon and the destination. While a tool is open the column is the tool's panel:
   its title and ✕, its controls, the primary action pinned at the bottom and the key hints below them.
   Simple mode shows the plate content only; a multi-selection is explained instead of the object cards.
 
@@ -139,11 +148,15 @@ PrusaSlicer feature exists here and which does not is in
 - **Slicing** with the real engine (FFF and SLA), progress via server-sent events, job queue with
   parallel jobs.
 - **G-code preview**: toolpaths coloured by feature type (PrusaSlicer colours) or as colour print, layer
-  slider (top/bottom), travel moves, legend with lengths, print time / filament usage / cost, and the
-  colour schemes (height, width, speed, fan speed, temperature, volumetric flow, layer time). The
-  **Sliced info** card (file, time, filament, cost, layers, size, export and send actions) and the
-  **Legend** card sit in the floating object list card at the scene's top left; the context panel on
-  the right keeps the layer controls, the view options and the preflight.
+  slider (top/bottom) with a value badge, travel moves, legend with lengths, print time / filament usage
+  / cost, and the colour schemes (height, width, speed, fan speed, temperature, volumetric flow, layer
+  time). The **Sliced info** card (file, filament in m/g/cm³, time, layers, size – and the **SLICED**
+  badge in its heading) and the **Legend** card (swatches with their amounts, the scheme drop-down in
+  its heading) sit in the floating object list card at the scene's top left; the context panel on the
+  right carries the **View** card (colour scheme, a "Show" section with a legend swatch and a switch per
+  layer – travel, retractions, seams, tool changes, shells), the **G-code check** (preflight) and the
+  **Layer** card (range summary, the two layer sliders with their badges, the layer codes and the move
+  slider). The footer card holds **Send to printer** (primary), the export icon and the destination.
 - **Colour change, pause and custom G-code at a layer**: add them at the top slider position like the
   "+" on PrusaSlicer's vertical slider (M600 / pause with message / any G-code), markers on the slider,
   automatic re-slice, stored in the 3MF project.

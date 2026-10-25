@@ -64,26 +64,33 @@ test.describe('preview: the sliced result (UAT-14)', () => {
     expect(await app.locator('.object-list').count()).toBe(0);
     expect(await app.locator('[data-testid="quick-settings"]').count()).toBe(0);
 
-    const stats = await app.evaluate(() => ({
-      head: document.querySelector('[data-testid="sliced-info"] .section-head')?.textContent,
-      rows: Array.from(document.querySelectorAll('[data-testid="sliced-info"] table tr')).map((tr) =>
-        Array.from(tr.children).map((td) => td.getAttribute('title') || td.textContent),
-      ),
-      href: document.querySelector('[data-testid="sliced-info"] a.button.primary')?.getAttribute('href'),
-      actions: Array.from(
-        document.querySelectorAll('[data-testid="sliced-info"] .actions a, [data-testid="sliced-info"] .actions button'),
-      ).map((b) => b.textContent),
-      sendDisabled: (
-        document.querySelector('[data-testid="sliced-info"] .actions button.secondary:last-of-type') as HTMLButtonElement | null
-      )?.disabled,
-    }));
+    const stats = await app.evaluate(() => {
+      const rows = Array.from(document.querySelectorAll('[data-testid="sliced-info"] .panel-row')).map((r) => [
+        r.querySelector('.lab')?.textContent?.trim(),
+        r.querySelector('.ctl')?.textContent?.trim(),
+      ]);
+      const send = document.querySelector('[data-testid="preview-actions"] [data-testid="send-button"]') as HTMLButtonElement | null;
+      return {
+        head: document.querySelector('[data-testid="sliced-info"] .section-head')?.textContent,
+        rows,
+        badge: document.querySelector('[data-testid="sliced-badge"]')?.textContent,
+        href: document.querySelector('[data-testid="export-gcode"]')?.getAttribute('href'),
+        actions: Array.from(document.querySelectorAll('[data-testid="preview-actions"] > *')).map(
+          (b) => b.getAttribute('aria-label') || b.textContent?.trim(),
+        ),
+        sendDisabled: send?.disabled,
+      };
+    });
     expect(stats.head).toContain('Sliced info');
+    // the result is done: its card carries the badge, the rows are the mockup's labels
+    expect(stats.badge).toBe('SLICED');
     const labels = stats.rows.map((r) => r[0]);
-    expect(labels).toEqual(expect.arrayContaining(['File', 'Estimated time', 'Filament', 'Layers', 'Size']));
+    expect(labels).toEqual(expect.arrayContaining(['File', 'Used filament', 'Estimated time', 'Layers', 'Size']));
     expect(stats.rows.find((r) => r[0] === 'File')?.[1]).toBe(slice.outputName);
     expect(stats.rows.find((r) => r[0] === 'Layers')?.[1]).toBe(String(slice.layers));
     expect(stats.href).toBe(`/api/jobs/${jobId}/gcode?download`);
-    expect(stats.actions).toEqual(['⤓ Export G-code', '🗂 Save to library', '➤ Send to printer']);
+    // L-5: the result's actions live in the footer card – Send is the label, the two icons their names
+    expect(stats.actions).toEqual(['Send to printer', 'Export G-code', 'Save to library']);
     // the fixture data configures no host, so there is nothing to send to
     expect(stats.sendDisabled).toBe(true);
   });
@@ -92,7 +99,7 @@ test.describe('preview: the sliced result (UAT-14)', () => {
     await openPreview(app);
     const [download] = await Promise.all([
       app.waitForEvent('download', { timeout: 90_000 }),
-      app.locator('[data-testid="sliced-info"] a.button.primary').click(),
+      app.locator('[data-testid="export-gcode"]').click(),
     ]);
     const file = await download.path();
     expect(file).toBeTruthy();
@@ -108,14 +115,12 @@ test.describe('preview: the sliced result (UAT-14)', () => {
 });
 
 test.describe('preview: the sliders (UAT-06, UAT-19)', () => {
-  test('the layers section has both layer sliders, the marker track and the three code buttons', async ({ app }) => {
+  test('the layer card has both layer sliders, the marker track and the three code buttons', async ({ app }) => {
     await openPreview(app);
     const layers = await read(app, (s) => s.gcode?.layerCount ?? 0);
     const panel = await app.evaluate(() => ({
-      head: document.querySelector('.layers .section-head')?.textContent,
-      labels: Array.from(document.querySelectorAll('.layers > label.small:not(.checkbox):not(.view-mode)')).map((l) =>
-        l.firstChild?.textContent?.trim(),
-      ),
+      summary: document.querySelector('[data-testid="layer-summary"]')?.textContent,
+      labels: Array.from(document.querySelectorAll('.layers .layer-row label')).map((l) => l.textContent?.trim()),
       sliders: Array.from(document.querySelectorAll('.layers input[type=range]')).map((i) => ({
         min: (i as HTMLInputElement).min,
         max: (i as HTMLInputElement).max,
@@ -127,7 +132,7 @@ test.describe('preview: the sliders (UAT-06, UAT-19)', () => {
       atZ: document.querySelector('.layer-codes-add .muted')?.textContent,
       note: document.querySelector('.layers .muted.small')?.textContent,
     }));
-    expect(panel.head).toContain(`/ ${layers}`);
+    expect(panel.summary).toContain(`/ ${layers}`);
     expect(panel.labels).toEqual(['Top', 'Bottom']);
     // the top slider, the bottom slider and the move slider of the top layer
     expect(panel.sliders).toHaveLength(3);
@@ -161,7 +166,7 @@ test.describe('preview: the sliders (UAT-06, UAT-19)', () => {
     await fill(app, '[data-testid="layer-slider"]', '10', 800);
     expect(await read(app, (s) => s.previewLayerRange)).toEqual([0, 10]);
     expect(await top.inputValue()).toBe('10');
-    expect(await app.locator('.layers .section-head').textContent()).toContain('Layers 1 – 11');
+    expect(await app.locator('[data-testid="layer-summary"]').textContent()).toContain('Showing layers 1 – 11');
   });
 
   test('the Move slider cuts the top layer and puts it back', async ({ app }) => {
@@ -236,19 +241,21 @@ test.describe('preview: the sliders (UAT-06, UAT-19)', () => {
 });
 
 test.describe('preview: what is drawn (UAT-19)', () => {
-  test('the view options list the six markers and Shells, and the toggles reach the store', async ({ app }) => {
+  test('the view card lists the six markers and Shells as switches, and the toggles reach the store', async ({ app }) => {
     await openPreview(app);
     const options = await app.evaluate(() => ({
-      labels: Array.from(document.querySelectorAll('.view-options label')).map((l) => ({
-        text: l.textContent?.trim(),
-        title: l.getAttribute('title'),
-        swatch: l.querySelector('.swatch')?.getAttribute('style') ?? null,
-        checked: (l.querySelector('input') as HTMLInputElement).checked,
+      labels: Array.from(document.querySelectorAll('[data-testid="preview-view-card"] .view-options .panel-row')).map((r) => ({
+        text: r.querySelector('.lab')?.textContent?.trim(),
+        title: r.querySelector('.lab')?.getAttribute('title'),
+        swatch: r.querySelector('.swatch')?.getAttribute('style') ?? null,
+        checked: (r.querySelector('input') as HTMLInputElement).checked,
       })),
-      modes: Array.from(document.querySelectorAll('.view-mode select option')).map((o) => (o as HTMLOptionElement).value),
+      travel: (document.querySelector('[data-testid="preview-show-travel"] input') as HTMLInputElement | null)?.checked,
+      modes: Array.from(document.querySelectorAll('[data-testid="preview-view-mode"] option')).map((o) => (o as HTMLOptionElement).value),
     }));
-    expect(options.labels).toHaveLength(7);
-    expect(options.labels.slice(0, 6).map((l) => l.text)).toEqual([
+    // travel comes first, then the six markers, then Shells
+    expect(options.labels).toHaveLength(8);
+    expect(options.labels.slice(1, 7).map((l) => l.text)).toEqual([
       'Retractions',
       'Deretractions',
       'Seams',
@@ -256,7 +263,8 @@ test.describe('preview: what is drawn (UAT-19)', () => {
       'Tool changes',
       'Color changes',
     ]);
-    expect(options.labels[6].text).toBe('Shells');
+    expect(options.labels[0].text).toBe('Travel');
+    expect(options.labels[7].text).toBe('Shells');
     expect(options.labels.every((l) => l.swatch !== null || l.text === 'Shells')).toBe(true);
     expect(options.modes).toEqual([
       'feature',
@@ -273,19 +281,19 @@ test.describe('preview: what is drawn (UAT-19)', () => {
     ]);
 
     const before = await read(app, (s) => s.previewMarkers);
-    await app.locator('.view-options label').first().click();
+    await app.locator('[data-testid="preview-show-retract"]').click();
     await app.waitForTimeout(600);
     const after = await read(app, (s) => s.previewMarkers);
     expect(after.retract).toBe(!before.retract);
-    await app.locator('.view-options label').first().click();
+    await app.locator('[data-testid="preview-show-retract"]').click();
     await app.waitForTimeout(400);
 
-    await app.locator('.view-options label:has-text("Shells") input').click();
-    await app.locator('.layers label.checkbox:has-text("Show travel moves") input').click();
+    await app.locator('[data-testid="preview-show-shells"]').click();
+    await app.locator('[data-testid="preview-show-travel"]').click();
     await app.waitForTimeout(600);
     const toggles = await read(app, (s) => ({ shells: s.previewShowShells, travel: s.previewShowTravel }));
     expect(toggles).toEqual({ shells: true, travel: true });
-    expect(await app.locator('.view-options label:last-of-type input').isChecked()).toBe(true);
+    expect(await app.locator('[data-testid="preview-show-shells"] input').isChecked()).toBe(true);
   });
 
   test('toggling a marker kind draws its markers, and Show travel draws the travel moves', async ({ app }) => {
@@ -359,11 +367,11 @@ test.describe('preview: what is drawn (UAT-19)', () => {
     await openPreview(app);
     const ref = (await gcodeScene(app)).segs;
     const modes = await app.evaluate(() =>
-      Array.from(document.querySelectorAll('.view-mode select option')).map((o) => (o as HTMLOptionElement).value),
+      Array.from(document.querySelectorAll('[data-testid="preview-view-mode"] option')).map((o) => (o as HTMLOptionElement).value),
     );
     const seen: Record<string, { mode: string; segs: number; legend: string | null; lines: number }> = {};
     for (const mode of modes) {
-      await app.locator('.view-mode select').selectOption(mode);
+      await app.locator('[data-testid="preview-view-mode"]').selectOption(mode);
       await app.waitForTimeout(800);
       const legend = app.locator('[data-testid="legend"]').first();
       const has = await legend.count();
@@ -382,7 +390,7 @@ test.describe('preview: what is drawn (UAT-19)', () => {
     const withLegend = Object.values(seen).filter((s) => s.legend);
     expect(withLegend.length).toBeGreaterThanOrEqual(4);
     expect(withLegend.every((s) => s.lines > 1)).toBe(true);
-    await app.locator('.view-mode select').selectOption('feature');
+    await app.locator('[data-testid="preview-view-mode"]').selectOption('feature');
     await app.waitForTimeout(600);
   });
 

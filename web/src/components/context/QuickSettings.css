@@ -1,27 +1,13 @@
-/* QuickSettings: the styles of this component. */
+/* QuickSettings: the grouped rows of the print settings (QuickSettings.tsx).
+   The row itself is `PanelRow.css`, the group titles `GroupTitle.css`. */
 
 .quick-settings {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  padding-bottom: 4px;
 }
 
-.quick-settings label {
-  display: grid;
-  grid-template-columns: 64px minmax(0, 1fr) minmax(0, 1fr);
-  align-items: center;
-  gap: 6px;
-}
-
-.quick-settings label.checkbox {
-  display: flex;
-}
-
-.quick-settings select {
-  min-width: 0;
+/* the number field of the perimeters row fills its column like the selects do */
+.quick-settings .panel-row .ctl input[type='number'] {
   width: 100%;
-}
-
-.quick-settings label.span select {
-  grid-column: 2 / 4;
 }

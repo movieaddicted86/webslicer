@@ -62,12 +62,10 @@
   white-space: nowrap;
 }
 
-/* object mode names the thing, not a section: the name is the heading and stays readable */
-.context-header .context-title {
-  font-size: 14px;
-  letter-spacing: 0;
-  text-transform: none;
-  color: var(--text);
+/* object mode: the header is the object's own card, which brings its own padding and border */
+.context-header.object-header-slot {
+  padding: 0;
+  border-bottom: none;
 }
 
 .context-body {

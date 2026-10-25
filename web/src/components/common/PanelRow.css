@@ -1,0 +1,41 @@
+/* PanelRow: one labelled row of a panel card (PanelRow.tsx). Tokens only. */
+
+.panel-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 3px 12px;
+  min-height: 38px;
+}
+
+.panel-row .lab {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.panel-row .ctl {
+  width: 150px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  min-width: 0;
+}
+
+/* a control that fills its column: the selects and the number fields of the quick settings */
+.panel-row .ctl > select,
+.panel-row .ctl > input {
+  width: 100%;
+  min-width: 0;
+}
+
+/* inside a card that already pads its body, the row adds no second margin: the names line up with the
+   card heading */
+.panel-card-body > .panel-row,
+.side-card-body .panel-row {
+  padding-left: 0;
+  padding-right: 0;
+}

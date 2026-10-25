@@ -1,76 +1,58 @@
 import { useStore } from '../../state/store';
-import { api } from '../../api';
 import { fmtMegabytes, fmtTime } from '../../format';
+import { PanelRow } from '../common/PanelRow';
 import './SlicedInfo.css';
 
 /**
- * PrusaSlicer's "Sliced info": the numbers of the finished job and what can be done with the G-code.
- * The heading is the card that holds it (the left column), so the body starts with the table.
+ * PrusaSlicer's "Sliced info": the numbers of the finished job, as the mockup's rows – used filament,
+ * estimated time and layers – over the file and its size.
+ *
+ * The actions on the result (export, save to library, send) are in the footer card of the preview, so
+ * this card stays a reading of the numbers. The heading is the card that holds it (the left column).
  */
 export function SlicedInfo() {
   const job = useStore((s) => s.job);
   const gcode = useStore((s) => s.gcode);
-  const openDialog = useStore((s) => s.openDialog);
-  const physical = useStore((s) => s.physicalPrinters);
   if (!job) return null;
   const info = job.info;
+  const filamentMm = info?.filamentUsedMm?.reduce((a, b) => a + b, 0) ?? 0;
   return (
     <div className="stats">
-      <table>
-        <tbody>
-          <tr>
-            <td>File</td>
-            <td title={job.outputName}>{job.outputName}</td>
-          </tr>
-          <tr>
-            <td>Estimated time</td>
-            <td>{info?.estimatedTime || fmtTime(info?.estimatedTimeSeconds)}</td>
-          </tr>
-          <tr>
-            <td>Filament</td>
-            <td>
-              {info?.filamentUsedMm ? `${(info.filamentUsedMm.reduce((a, b) => a + b, 0) / 1000).toFixed(2)} m` : '–'}
-              {info?.totalFilamentG ? ` · ${info.totalFilamentG.toFixed(1)} g` : ''}
-              {info?.filamentUsedCm3 ? ` · ${info.filamentUsedCm3.reduce((a, b) => a + b, 0).toFixed(1)} cm³` : ''}
-            </td>
-          </tr>
-          {info?.totalFilamentCost ? (
-            <tr>
-              <td>Cost</td>
-              <td>{info.totalFilamentCost.toFixed(2)}</td>
-            </tr>
-          ) : null}
-          <tr>
-            <td>Layers</td>
-            <td>{gcode?.layerCount ?? '–'}</td>
-          </tr>
-          <tr>
-            <td>Size</td>
-            <td>{info ? fmtMegabytes(info.sizeBytes) : '–'}</td>
-          </tr>
-        </tbody>
-      </table>
-      <div className="actions">
-        <a className="button primary" href={api.gcodeUrl(job.id, true)} download>
-          ⤓ Export G-code
-        </a>
-        <button
-          className="secondary"
-          onClick={() => openDialog('library', 'saveGcode')}
-          title="Copy the G-code into the server library (mounted folder)"
-        >
-          🗂 Save to library
-        </button>
-        <button
-          className="secondary"
-          data-testid="send-button"
-          onClick={() => openDialog('sendToPrinter')}
-          disabled={!physical.length}
-          title={physical.length ? '' : 'Add a print host first'}
-        >
-          ➤ Send to printer
-        </button>
-      </div>
+      <PanelRow label="File" title={job.outputName}>
+        <span className="file-name">{job.outputName}</span>
+      </PanelRow>
+      <PanelRow label="Used filament" title="Filament of the whole print, length and weight">
+        <span>
+          {filamentMm ? `${(filamentMm / 1000).toFixed(2)} m` : '–'}
+          {info?.totalFilamentG ? ` · ${info.totalFilamentG.toFixed(1)} g` : ''}
+          {info?.filamentUsedCm3 ? ` · ${info.filamentUsedCm3.reduce((a, b) => a + b, 0).toFixed(1)} cm³` : ''}
+        </span>
+      </PanelRow>
+      <PanelRow label="Estimated time">
+        <b>{info?.estimatedTime || fmtTime(info?.estimatedTimeSeconds)}</b>
+      </PanelRow>
+      {info?.totalFilamentCost ? (
+        <PanelRow label="Cost" title="Cost of the filament the print uses">
+          <span>{info.totalFilamentCost.toFixed(2)}</span>
+        </PanelRow>
+      ) : null}
+      <PanelRow label="Layers">
+        <span>{gcode?.layerCount ?? '–'}</span>
+      </PanelRow>
+      <PanelRow label="Size" title="Size of the G-code file on the server">
+        <span>{info ? fmtMegabytes(info.sizeBytes) : '–'}</span>
+      </PanelRow>
     </div>
+  );
+}
+
+/** The "SLICED" badge of the result card: the job is done and its numbers are the ones shown. */
+export function SlicedBadge() {
+  const job = useStore((s) => s.job);
+  if (job?.status !== 'done') return null;
+  return (
+    <span className="badge ok" data-testid="sliced-badge">
+      SLICED
+    </span>
   );
 }

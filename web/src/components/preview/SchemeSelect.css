@@ -1,0 +1,21 @@
+/* SchemeSelect: the colour scheme select of the preview (SchemeSelect.tsx). Tokens only. */
+
+/* in the legend card's heading it is a plain compact select; in the View card's row it fills the column */
+.scheme-head {
+  height: 24px;
+  padding: 0 4px;
+  font-size: 11px;
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
+}
+
+.scheme-head:hover {
+  background: var(--field-h);
+  color: var(--text);
+}
+
+.view-mode {
+  width: 100%;
+  min-width: 0;
+}
