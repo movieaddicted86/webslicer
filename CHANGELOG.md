@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.0.0-rc.5 – 2026-10-25
+
 - **Settings are where people look for them, and no two functions share the cog (T-074):** the full
   settings views were reachable only through the unlabelled cog next to a preset, and the same picture
   also stood for Preferences, a per-object override and a layer range. The **Menu** now has a
