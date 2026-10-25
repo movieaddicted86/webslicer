@@ -24,15 +24,30 @@
   font-size: 13px;
 }
 
+/* The ✕ that leaves a tool (Z-03): the same in every panel, top right of the head. It used to be a
+   transparent 26 px button whose faint icon read as decoration, so it is a real button now – 28 px
+   hit area, an outlined field, the text colour on the glyph – and it keeps a focus ring. */
 .tool-panel-close {
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
   padding: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: transparent;
-  border-color: transparent;
+  flex: none;
+  color: var(--text);
+  background: var(--field);
+  border: 1px solid var(--line);
+}
+
+.tool-panel-close:hover:not(:disabled) {
+  background: var(--field-h);
+  border-color: var(--muted);
+}
+
+.tool-panel-close:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 
 .tool-panel-body {

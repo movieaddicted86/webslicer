@@ -12,7 +12,7 @@ import type { ReactNode } from 'react';
 import { useStore } from '../../state/store';
 import { toolById } from '../../tools/registry';
 import { ToolHints } from './ToolHints';
-import { ToolbarButton } from '../common/ToolbarButton';
+import { Icon } from '../../icons/Icon';
 import './ToolPanel.css';
 
 export function ToolPanel({
@@ -36,13 +36,16 @@ export function ToolPanel({
         <span className="tool-panel-title" data-testid="tool-panel-title">
           {title}
         </span>
-        <ToolbarButton
-          title={`Close ${title} (Esc)`}
-          icon="close"
-          onClick={onClose}
+        <button
+          type="button"
           className="tool-panel-close"
-          testId="tool-panel-close"
-        />
+          title="Close (Esc)"
+          aria-label="Close (Esc)"
+          onClick={onClose}
+          data-testid="tool-panel-close"
+        >
+          <Icon name="close" size={16} />
+        </button>
       </div>
       <div className="tool-panel-body">
         {children}
