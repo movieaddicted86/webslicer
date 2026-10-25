@@ -27,7 +27,8 @@
     "version:check": "node scripts/version.mjs --check",
     "pins:update": "tsx server/scripts/pins-update.ts",
     "help-diff": "tsx server/scripts/help-diff.ts",
-    "docs:screenshots": "tsx e2e/scripts/screenshots.ts"
+    "docs:screenshots": "tsx e2e/scripts/screenshots.ts",
+    "docs:gif": "tsx e2e/scripts/hero-gif.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
@@ -35,6 +36,7 @@
     "concurrently": "^9.1.2",
     "eslint": "^9.39.5",
     "eslint-plugin-react-hooks": "^7.1.1",
+    "gifenc": "1.0.3",
     "prettier": "^3.9.10",
     "typescript-eslint": "^8.72.0"
   },
