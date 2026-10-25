@@ -105,7 +105,9 @@ options are shown.
 ![Print settings](docs/images/settings.png)
 
 The G-code preview with toolpaths by feature, the layer slider, layer codes and the legend with print
-time and filament per feature; the **Sliced info** and **Legend** cards sit in the object list card.
+time and filament per feature; the **Sliced info** and **Legend** cards sit in the object list card,
+and the panel on the right holds the **View**, **G-code check** and **Layer** cards above a footer with
+**Send to printer** and the export.
 
 ![G-code preview](docs/images/preview.png)
 

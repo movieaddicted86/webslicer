@@ -40,7 +40,7 @@ test.describe('dialogs: the per-object, per-volume and per-range settings (S6)',
 
   test('the per-object dialog adds an override, commits on Enter, resets and removes it', async ({ app }) => {
     const name = (await plater(app)).objects[0].name;
-    await click(app, '.manip .manip-row.extruder button.full', 800);
+    await click(app, '[data-testid="object-settings"]', 800);
     const opened = await app.evaluate(() => ({
       title: document.querySelector('[data-testid="modal-title"]')?.textContent,
       search: (document.querySelector('.object-settings-list input') as HTMLInputElement | null)?.placeholder,

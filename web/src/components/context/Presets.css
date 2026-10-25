@@ -1,12 +1,48 @@
 /* Presets: the preset rows and the quick settings of the context panel (Presets.tsx). Tokens only. */
 
-.presets,
-.quick {
+.presets {
   padding: 10px 12px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--line);
+}
+
+.presets-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.presets-title {
+  flex: 1;
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* the printer and filament rows are the preset selects; the card's own heading is the print preset's */
+.presets .preset-select {
+  margin-bottom: 6px;
+}
+
+.presets-flags {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 2px 0 2px;
 }
 
 .presets label.checkbox {
   display: flex;
   margin-top: 4px;
+}
+
+/* the quick settings are the second part of the card: a rule, not a second card */
+.presets .quick {
+  margin: 8px -12px 0;
+  padding: 0 0 2px;
+  border-top: 1px solid var(--line);
+  border-bottom: none;
 }

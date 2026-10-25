@@ -6,6 +6,11 @@
   line-height: 1;
 }
 
+/* the per-object settings door is the label row of the card (`.panel-row`) */
+.parts-settings {
+  padding-bottom: 4px;
+}
+
 .volume-list {
   list-style: none;
   margin: 0 0 4px;
@@ -16,18 +21,19 @@
   display: flex;
   align-items: center;
   gap: 6px;
+  min-height: 30px;
   padding: 3px 6px;
   font-size: 12px;
-  border-radius: 4px;
+  border-radius: 6px;
   cursor: pointer;
 }
 
 .volume-row:hover {
-  background: var(--bg3);
+  background: var(--field-h);
 }
 
 .volume-row.selected {
-  background: #2a3b55;
+  background: var(--sel);
 }
 
 .volume-row .name {
@@ -37,10 +43,31 @@
   white-space: nowrap;
 }
 
+/* the volume-type icon: the picture of the type, the legend colour of it */
 .vtype {
-  font-size: 11px;
-  min-width: 14px;
-  text-align: center;
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+}
+
+/* the row's delete button stays quiet until the row is hovered or focused */
+.volume-row .row-action {
+  flex: none;
+  padding: 2px;
+  color: var(--faint);
+  opacity: 0;
+}
+
+.volume-row:hover .row-action,
+.volume-row:focus-within .row-action,
+.volume-row.selected .row-action {
+  opacity: 1;
+}
+
+.volume-row .row-action:hover {
+  color: var(--red);
 }
 
 .vtype.ParameterModifier {

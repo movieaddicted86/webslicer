@@ -14,9 +14,14 @@ export function LayerSlider({ gcode }: { gcode: ParsedGcode }) {
   const bottomId = useId();
   return (
     <>
-      <label className="small" htmlFor={topId}>
-        Top
-      </label>
+      <div className="slider-row layer-row">
+        <label className="small" htmlFor={topId}>
+          Top
+        </label>
+        <span className="slider-value" data-testid="layer-slider-value">
+          {range[1] + 1} / {gcode.layerCount}
+        </span>
+      </div>
       <div className="slider-with-markers">
         <input
           id={topId}
@@ -44,9 +49,14 @@ export function LayerSlider({ gcode }: { gcode: ParsedGcode }) {
           })}
         </div>
       </div>
-      <label className="small" htmlFor={bottomId}>
-        Bottom
-      </label>
+      <div className="slider-row layer-row">
+        <label className="small" htmlFor={bottomId}>
+          Bottom
+        </label>
+        <span className="slider-value" data-testid="layer-slider-bottom-value">
+          {range[0] + 1} / {gcode.layerCount}
+        </span>
+      </div>
       <input
         id={bottomId}
         type="range"

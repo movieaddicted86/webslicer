@@ -1,12 +1,10 @@
-/* LayerSlider: the styles of this component. */
+/* LayerSlider: the top and bottom layer sliders of the preview (LayerSlider.tsx). Tokens only.
+   The track, the accent handle and the label/value line (`.slider-row`) are in `PreviewPanel.css`,
+   because the move slider of the same card shares them. */
 
 .slider-with-markers {
   position: relative;
-  padding-bottom: 8px;
-}
-
-.slider-with-markers input[type='range'] {
-  width: 100%;
+  padding-bottom: 10px;
 }
 
 .slider-markers {
@@ -25,7 +23,7 @@
   padding: 0;
   margin-left: -4px;
   border-radius: 2px;
-  border: 1px solid #000a;
+  border: 1px solid color-mix(in srgb, black 60%, transparent);
   background: var(--yellow);
   cursor: pointer;
 }
@@ -38,5 +36,5 @@
 .slider-markers .marker.custom,
 .slider-markers .marker.template,
 .slider-markers .marker.tool_change {
-  background: #9aa3b2;
+  background: var(--muted);
 }

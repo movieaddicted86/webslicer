@@ -2,6 +2,31 @@
 
 ## Unreleased
 
+- **The visual pass, part (b): the panel content and the preview mode (layout 3.0, T-070):** the
+  context panel now reads like the mockup in all three modes. **Plate mode** keeps a **Printer &
+  material** card (printer tile, name, nozzle and bed summary, the loaded filament with its colour dot
+  and nozzle) above a **Print settings** card – the print preset select with its cog in the heading,
+  the filament and printer rows – whose quick settings are grouped rows now: **Walls & perimeters**
+  (perimeters), **Infill** (fill density, fill pattern) and **Supports & adhesion** (generate supports,
+  brim as a switch), label left, 150 px control right. **Object mode** opens with a header card – the
+  thumbnail tile, the object name, the "1 instance · size" line and the ✎ rename – and its **Transform**
+  card carries X/Y/Z column headers in the axis colours, the Position / Rotation / Size / Scale rows
+  with the unit inside each field, the instances stepper with **Fill bed**, and one row of 34 px icon
+  buttons (mirror X/Y/Z, reset rotation/scale/all, the proportions lock, split to objects/parts, add
+  instance) with a tooltip per button instead of the wall of text buttons; the proportions lock is now
+  a control (locked, a typed scale moves all three axes). **Settings** is a row with **Edit…** and the
+  override count, **Parts** lists the volumes with their type icon, the name and a delete action (the
+  rename stays on a double-click). The **object list** rows are thumbnail tiles with the name and a
+  size/instances line, and the empty list offers **Add objects…** beside the library link (the menu's
+  file input, so the menu keeps its entry). **Preview mode**: the left cards are **Sliced info** (file,
+  filament in m/g/cm³, time, cost, layers, size – with the green **SLICED** badge in the heading) and
+  **Legend** (swatches with their amounts and the colour-scheme drop-down in the heading); the right
+  panel is three cards – **View** (colour scheme, a "Show" section with a legend swatch and a switch
+  per layer: travel, retractions, deretractions, seams, wipe, tool changes, colour changes, shells),
+  **G-code check** (the preflight) and **Layer** (range summary, both layer sliders with value badges,
+  the layer codes and the move slider) – over a footer card with **Send to printer** (primary), the
+  export icon, save to library and the destination. Nothing the old preview panel held is gone (the
+  report lists old control → new place); the sliders stay on the scene in the mockup's style.
 - **The visual pass, part (a): floating cards, a 48 px bar and the mockup's tokens (layout 3.0, T-070):**
   the 3D view now fills everything right of the rail below the bar; the **object list** and the
   **context panel** are cards that float over it, with the destination/Slice footer as a card of its

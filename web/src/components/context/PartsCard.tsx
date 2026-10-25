@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useStore, VOLUME_LABELS, type PlaterObject, type PlaterVolume } from '../../state/store';
 import { Icon } from '../../icons/Icon';
 import { InlineName } from '../common/InlineName';
-import { VOLUME_ICONS } from './volumes';
+import { VOLUME_ICON_NAMES } from './volumes';
 import { AddVolumeMenu } from './AddVolumeMenu';
 import { VolumeManipulation } from './VolumeManipulation';
 import { PanelCard } from './PanelCard';
@@ -56,6 +56,7 @@ export function PartsCard({ o, selectedVolumeId }: { o: PlaterObject; selectedVo
 function VolumeRow({ o, v, selected }: { o: PlaterObject; v: PlaterVolume; selected: boolean }) {
   const selectVolume = useStore((s) => s.selectVolume);
   const renameVolume = useStore((s) => s.renameVolume);
+  const removeVolume = useStore((s) => s.removeVolume);
   const [renaming, setRenaming] = useState(false);
   return (
     <li
@@ -76,7 +77,9 @@ function VolumeRow({ o, v, selected }: { o: PlaterObject; v: PlaterVolume; selec
       }}
       title={`${VOLUME_LABELS[v.type]}: ${v.name}`}
     >
-      <span className={`vtype ${v.type}`}>{VOLUME_ICONS[v.type]}</span>
+      <span className={`vtype ${v.type}`} title={VOLUME_LABELS[v.type]}>
+        <Icon name={VOLUME_ICON_NAMES[v.type]} size={14} />
+      </span>
       {renaming ? (
         <InlineName
           initial={v.name}
@@ -93,7 +96,24 @@ function VolumeRow({ o, v, selected }: { o: PlaterObject; v: PlaterVolume; selec
         </span>
       )}
       <span className="muted small">{VOLUME_LABELS[v.type]}</span>
-      {Object.keys(v.config).length > 0 && <span className="badge">⚙</span>}
+      {/* the row's own action: the picked volume's settings and its removal, without leaving the list */}
+      {Object.keys(v.config).length > 0 && (
+        <span className="badge" title="This volume overrides print settings">
+          <Icon name="overridden" size={12} />
+        </span>
+      )}
+      <button
+        className="icon row-action"
+        data-testid="volume-remove"
+        title="Delete volume"
+        aria-label="Delete volume"
+        onClick={(e) => {
+          e.stopPropagation();
+          removeVolume(o.id, v.id);
+        }}
+      >
+        <Icon name="delete" size={14} />
+      </button>
     </li>
   );
 }

@@ -1,5 +1,5 @@
 import { useStore } from '../state/store';
-import { SectionHeader } from './common/SectionHeader';
+import { PanelCard } from './context/PanelCard';
 import { LayerCodes } from './preview/LayerCodes';
 import { LayerSlider } from './preview/LayerSlider';
 import { MoveSlider } from './preview/MoveSlider';
@@ -10,9 +10,13 @@ import './PreviewPanel.css';
 import './common/progress.css';
 
 /**
- * The preview of the context panel (F-14): the state of the job, the preflight and the layer controls.
- * The slicing result itself (Sliced info, Legend) is in the left column since the layout 3.0 step L-2
- * and is not repeated here; the layer slider, the code list, the move slider and the view options stay.
+ * The preview of the context panel (F-14, L-5): the state of the job, the view card (colour scheme and
+ * the "Show" rows), the G-code check and the layer card with the range summary and the layer controls.
+ * The result itself (Sliced info, Legend) is in the left column and is not repeated here.
+ *
+ * The cards are the mockup's: one heading per thing the user does to the result. The slicing state –
+ * a running job, an error, a stale result, the slicer warnings – keeps its section above them, so a
+ * running slice still shows its progress, its log and its cancel button.
  */
 export function PreviewPanel() {
   const job = useStore((s) => s.job);
@@ -29,6 +33,7 @@ export function PreviewPanel() {
 
   const running = job && (job.status === 'running' || job.status === 'queued');
   const info = job?.info;
+  const topZ = gcode?.layerZ[range[1]];
 
   return (
     <div className="preview-panel" data-testid="preview-panel">
@@ -91,22 +96,24 @@ export function PreviewPanel() {
               </ul>
             </details>
           ) : null}
-          <Preflight />
+          <PanelCard title="View" icon="preview" testId="preview-view-card">
+            <ViewOptions />
+          </PanelCard>
+          <PanelCard title="G-code check" icon="about" testId="preview-check-card">
+            <Preflight />
+          </PanelCard>
           {gcode && (
-            <section className="layers">
-              <SectionHeader
-                title={
-                  <>
-                    Layers {range[0] + 1} – {range[1] + 1} / {gcode.layerCount}
-                    <span className="muted"> (Z {gcode.layerZ[range[1]] !== undefined && fmtZ(gcode.layerZ[range[1]])} mm)</span>
-                  </>
-                }
-              />
-              <LayerSlider gcode={gcode} />
-              <LayerCodes printZ={gcode.layerZ[range[1]]} firstLayer={range[1] === 0} maxZ={gcode.layerZ[gcode.layerCount - 1] ?? 0} />
-              <MoveSlider gcode={gcode} />
-              <ViewOptions />
-            </section>
+            <PanelCard title="Layer" icon="layerHeight" testId="preview-layer-card">
+              <div className="layers">
+                <div className="layer-summary" data-testid="layer-summary">
+                  Showing layers {range[0] + 1} – {range[1] + 1} / {gcode.layerCount}
+                  {topZ !== undefined && <span className="muted"> · Z {fmtZ(topZ)} mm</span>}
+                </div>
+                <LayerSlider gcode={gcode} />
+                <LayerCodes printZ={gcode.layerZ[range[1]]} firstLayer={range[1] === 0} maxZ={gcode.layerZ[gcode.layerCount - 1] ?? 0} />
+                <MoveSlider gcode={gcode} />
+              </div>
+            </PanelCard>
           )}
           {!gcode && gcodeLoading && <div className="muted small">Loading preview…</div>}
           {!gcode && !gcodeLoading && job.outputName.endsWith('.gcode') && (

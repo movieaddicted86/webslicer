@@ -1,4 +1,6 @@
 import { useStore, type PlaterObject } from '../../state/store';
+import { Icon } from '../../icons/Icon';
+import { PanelRow } from '../common/PanelRow';
 import { PanelCard } from './PanelCard';
 import './SettingsCard.css';
 
@@ -6,8 +8,9 @@ import './SettingsCard.css';
  * The Settings card of the selected object: its extruder and the per-object overrides (PrusaSlicer's
  * "Object settings"). Simple mode hides the overrides, as it did in the object row.
  *
- * The dialog itself is unchanged; this card is the door to it, with the count of the overrides in the
- * button, as before.
+ * The rows are the mockup's labelled rows – the name on the left, a compact "Edit…" button on the
+ * right. The dialog itself is unchanged; this card is the door to it, with the count of the overrides
+ * in the button, as before.
  */
 export function SettingsCard({ o }: { o: PlaterObject }) {
   const openDialog = useStore((s) => s.openDialog);
@@ -17,35 +20,37 @@ export function SettingsCard({ o }: { o: PlaterObject }) {
   const overrides = Object.keys(o.config).length;
   return (
     <PanelCard title="Settings" icon="settings" testId="object-settings-card">
-      <div className="manip-row extruder">
-        {extruders > 1 && (
-          <>
-            <span>Extruder</span>
-            <select
-              value={o.extruder}
-              onChange={(e) => {
-                recordHistory();
-                updateObject(o.id, { extruder: Number(e.target.value) });
-              }}
-            >
-              <option value={0}>default</option>
-              {Array.from({ length: extruders }, (_, i) => (
-                <option key={i} value={i + 1}>
-                  {i + 1}
-                </option>
-              ))}
-            </select>
-          </>
-        )}
+      {extruders > 1 && (
+        <PanelRow label="Extruder" title="Which extruder prints this object">
+          <select
+            value={o.extruder}
+            onChange={(e) => {
+              recordHistory();
+              updateObject(o.id, { extruder: Number(e.target.value) });
+            }}
+            title="Extruder"
+          >
+            <option value={0}>default</option>
+            {Array.from({ length: extruders }, (_, i) => (
+              <option key={i} value={i + 1}>
+                {i + 1}
+              </option>
+            ))}
+          </select>
+        </PanelRow>
+      )}
+      <PanelRow label="Per-object settings" title="Override print settings for this object only">
         <button
-          className="full"
+          className="edit"
           data-testid="object-settings"
           onClick={() => openDialog('objectSettings', { objectId: o.id })}
           title="Override print settings for this object only"
         >
-          ⚙ Per-object settings{overrides ? ` (${overrides})` : ''}
+          <Icon name="settings" size={14} />
+          Edit…
+          {overrides > 0 && <span className="count">({overrides})</span>}
         </button>
-      </div>
+      </PanelRow>
     </PanelCard>
   );
 }

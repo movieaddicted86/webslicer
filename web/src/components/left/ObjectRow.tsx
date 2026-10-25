@@ -82,23 +82,46 @@ export function ObjectRow({
           onClick={(e) => e.stopPropagation()}
           title="Visible / printable"
         />
-        {renaming ? (
-          <InlineName
-            initial={o.name}
-            title="Name (Enter saves, Esc cancels)"
-            onSave={(name) => {
-              renameObject(o.id, name);
-              onStopRename();
-            }}
-            onCancel={onStopRename}
-          />
-        ) : (
-          <span className="name" title={`${o.name} – double-click to rename`}>
-            {o.name}
+        <span className="object-thumb" aria-hidden="true">
+          <Icon name="objects" size={18} />
+        </span>
+        <div className="object-text">
+          {renaming ? (
+            <InlineName
+              initial={o.name}
+              title="Name (Enter saves, Esc cancels)"
+              onSave={(name) => {
+                renameObject(o.id, name);
+                onStopRename();
+              }}
+              onCancel={onStopRename}
+            />
+          ) : (
+            <b className="name" title={`${o.name} – double-click to rename`}>
+              {o.name}
+            </b>
+          )}
+          <div
+            className="object-info"
+            data-testid="object-info"
+            title="Size, volume, triangles, manifold state and instances of this object"
+          >
+            {fmt(info.size[0])} × {fmt(info.size[1])} × {fmt(info.size[2])} mm · {fmt(info.volume, 2)} cm³ ·{' '}
+            {info.triangles.toLocaleString()} triangles · {info.instances} {info.instances === 1 ? 'instance' : 'instances'}
+            {info.openEdges > 0 && (
+              <span className="not-manifold" title="The mesh has boundary edges – the slicer will repair or refuse it">
+                {' '}
+                · Not manifold – {info.openEdges} open edges
+              </span>
+            )}
+          </div>
+        </div>
+        {o.extruder > 0 && <span className="badge">E{o.extruder}</span>}
+        {Object.keys(o.config).length > 0 && (
+          <span className="badge" title="This object overrides print settings">
+            <Icon name="overridden" size={12} />
           </span>
         )}
-        {o.extruder > 0 && <span className="badge">E{o.extruder}</span>}
-        {Object.keys(o.config).length > 0 && <span className="badge">⚙</span>}
         {o.instances.length > 1 && (
           <button
             className="badge inst"
@@ -112,20 +135,6 @@ export function ObjectRow({
           >
             ×{o.instances.length}
           </button>
-        )}
-      </div>
-      <div
-        className="object-info muted small"
-        data-testid="object-info"
-        title="Size, volume, triangles, manifold state and instances of this object"
-      >
-        {fmt(info.size[0])} × {fmt(info.size[1])} × {fmt(info.size[2])} mm · {fmt(info.volume, 2)} cm³ · {info.triangles.toLocaleString()}{' '}
-        triangles · {info.instances} {info.instances === 1 ? 'instance' : 'instances'}
-        {info.openEdges > 0 && (
-          <span className="not-manifold" title="The mesh has boundary edges – the slicer will repair or refuse it">
-            {' '}
-            · Not manifold – {info.openEdges} open edges
-          </span>
         )}
       </div>
       {o.instances.length > 1 && instancesShown && (

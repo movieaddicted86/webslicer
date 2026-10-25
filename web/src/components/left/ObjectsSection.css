@@ -42,9 +42,22 @@
 }
 
 .object-list li.empty {
+  display: block;
+  padding: 6px 8px 10px;
   color: var(--muted);
+  line-height: 1.45;
   cursor: default;
   white-space: normal;
+}
+
+/* the empty list's own way in: it asks the menu's file input, so the menu stays the only entry */
+.object-list .add-objects {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  margin-top: 10px;
 }
 
 .object-list li.restore {

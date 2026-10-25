@@ -1,18 +1,12 @@
-/* MoveSlider: the styles of this component. */
+/* MoveSlider: the move-by-move slider of the top layer (MoveSlider.tsx). Tokens only.
+   The track and the accent handle come from `PreviewPanel.css` (the `.layers` controls). */
 
 .move-slider {
-  display: grid;
-  grid-template-columns: 40px 1fr;
-  align-items: center;
-  gap: 6px;
-  margin: 6px 0 2px;
-}
-
-.move-slider input[type='range'] {
-  width: 100%;
+  margin: 10px 0 0;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
 }
 
 .move-slider > .muted {
-  grid-column: 2;
-  margin-top: -4px;
+  margin-top: 2px;
 }

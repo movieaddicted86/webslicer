@@ -1,0 +1,44 @@
+/* PreviewFooter: the slice result's actions in the footer card. The Destination row above them is
+   `Destination.css`. */
+
+.preview-footer-actions {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.preview-footer-actions .primary {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.preview-footer-actions .icon-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  min-width: 46px;
+  height: auto;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--field);
+  color: var(--text);
+}
+
+.preview-footer-actions .icon-action:hover {
+  background: var(--field-h);
+  color: var(--accent-h);
+}
+
+/* a coarse pointer gets a 44 px square without growing the picture */
+@media (pointer: coarse) {
+  .preview-footer-actions .icon-action {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}

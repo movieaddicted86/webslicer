@@ -50,13 +50,18 @@ test.describe('context panel: the plater view with one object', () => {
         inputs: r.querySelectorAll('input').length,
       })),
     );
-    // head, Position, Rotation, Scale, Size – the first row is the axis header and has no input
+    // head, Position, Rotation, Size, Scale – the first row is the axis header and has no input.
+    // The unit sits inside each field (a `small.unit`), so the row label is the bare name
     expect(rows.slice(0, 5).map((r) => r.inputs)).toEqual([0, 3, 3, 3, 3]);
-    expect(rows.slice(1, 5).map((r) => r.label)).toEqual(['Position', 'Rotation °', 'Scale %', 'Size mm']);
+    expect(rows.slice(1, 5).map((r) => r.label)).toEqual(['Position', 'Rotation', 'Size', 'Scale']);
+    const units = await app.evaluate(() =>
+      Array.from(document.querySelectorAll('.manip .manip-row .num-field small.unit')).map((u) => u.textContent),
+    );
+    expect(units).toEqual(['mm', 'mm', 'mm', '°', '°', '°', 'mm', 'mm', 'mm', '%', '%', '%']);
   });
 
   test('the transform fields apply while typing, and an emptied field keeps the value', async ({ app }) => {
-    const rotation = manipulationRow(app, 'Rotation °').locator('input');
+    const rotation = manipulationRow(app, 'Rotation').locator('input');
     await rotation.nth(0).fill('45');
     await app.waitForTimeout(500);
     expect((await instance(app)).rotation[0]).toBeCloseTo(Math.PI / 4, 6);
@@ -71,32 +76,32 @@ test.describe('context panel: the plater view with one object', () => {
     expect(await rotation.nth(2).inputValue()).toBe('0');
   });
 
-  test('Scale % and Size mm drive the instance, and the mirror keeps magnitudes in the panel', async ({ app }) => {
+  test('the Scale and Size rows drive the instance, and the mirror keeps magnitudes in the panel', async ({ app }) => {
     const before = await state(app);
     const size = before.objects[0].size;
 
-    await manipulationRow(app, 'Scale %').locator('input').nth(0).fill('150');
+    await manipulationRow(app, 'Scale').locator('input').nth(0).fill('150');
     await app.waitForTimeout(500);
     expect((await instance(app)).scale.every((v) => Math.abs(v - 1.5) < 1e-6)).toBe(true);
 
-    await manipulationRow(app, 'Size mm').locator('input').nth(0).fill('30');
+    await manipulationRow(app, 'Size').locator('input').nth(0).fill('30');
     await app.waitForTimeout(500);
     expect(Math.abs((await instance(app)).scale[0] * size[0] - 30)).toBeLessThan(1e-4);
 
     // Mirror X hides the sign in the panel but flips it in the store; a second click restores it
-    await click(app, '.manip-actions.mirror button:text-is("Mirror X")', 700);
+    await click(app, '[data-testid="object-mirror-X"]', 700);
     const mirrored = await instance(app);
     expect(mirrored.scale[0]).toBeLessThan(0);
-    const fields = await manipulationRow(app, 'Size mm')
+    const fields = await manipulationRow(app, 'Size')
       .locator('input')
       .evaluateAll((els) => (els as HTMLInputElement[]).map((e) => e.value));
     expect(fields.every((f) => !f.startsWith('-'))).toBe(true);
 
-    await click(app, '.manip-actions.mirror button:text-is("Mirror X")', 700);
+    await click(app, '[data-testid="object-mirror-X"]', 700);
     expect((await instance(app)).scale[0]).toBeGreaterThan(0);
 
-    await click(app, '.manip-actions button:text-is("Reset rotation")', 700);
-    await click(app, '.manip-actions button:text-is("Reset scale")', 700);
+    await click(app, '[data-testid="object-reset-rotation"]', 700);
+    await click(app, '[data-testid="object-reset-scale"]', 700);
     const reset = await instance(app);
     expect(reset.rotation.every((v) => v === 0)).toBe(true);
     expect(reset.scale.every((v) => v === 1)).toBe(true);
@@ -127,7 +132,7 @@ test.describe('context panel: the plater view with one object', () => {
 
     // rotating the second copy turns only that copy
     await click(app, '.instance-list .instance-row:nth-child(2)', 600);
-    await manipulationRow(app, 'Rotation °').locator('input').nth(2).fill('30');
+    await manipulationRow(app, 'Rotation').locator('input').nth(2).fill('30');
     await app.waitForTimeout(600);
     const rotations = await read(app, (s) => ({
       selected: s.objects[0].instances[1].id === s.selectedInstanceId,
@@ -307,7 +312,7 @@ test.describe('context panel: the paint panel (UAT-09)', () => {
 test.describe('context panel: quick settings and the mode switch', () => {
   test('the quick settings write the print preset and can be switched back', async ({ app }) => {
     await importFile(app, CUBE);
-    await app.locator('[data-testid="quick-settings"] select').first().selectOption('enforcers');
+    await app.locator('[data-testid="quick-supports"]').selectOption('enforcers');
     await app.waitForTimeout(900);
     const enforcers = await read(app, (s) => ({
       support: s.presets.print.current.support_material,
@@ -316,7 +321,7 @@ test.describe('context panel: quick settings and the mode switch', () => {
     }));
     expect(enforcers).toEqual({ support: '1', auto: '0', buildplate: '0' });
 
-    await app.locator('[data-testid="quick-settings"] select').nth(1).selectOption('40%');
+    await app.locator('[data-testid="quick-density"]').selectOption('40%');
     await app.waitForTimeout(900);
     expect(await read(app, (s) => s.presets.print.current.fill_density)).toBe('40%');
     expect(await app.locator('[data-testid="quick-settings"] select').count()).toBe(3);
@@ -336,8 +341,8 @@ test.describe('context panel: quick settings and the mode switch', () => {
     await expect(brim).toBeChecked();
 
     await brim.click();
-    await app.locator('[data-testid="quick-settings"] select').first().selectOption('none');
-    await app.locator('[data-testid="quick-settings"] select').nth(1).selectOption('15%');
+    await app.locator('[data-testid="quick-supports"]').selectOption('none');
+    await app.locator('[data-testid="quick-density"]').selectOption('15%');
     await settle(app, 900);
     const back = await read(app, (s) => ({
       support: s.presets.print.current.support_material,

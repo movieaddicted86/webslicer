@@ -1,7 +1,22 @@
-/* SettingsCard: the extruder row and the per-object settings door (SettingsCard.tsx). The grid is
-   `manipulation.css`; tokens only. */
+/* SettingsCard: the extruder row and the per-object settings door (SettingsCard.tsx). The row layout
+   is `PanelRow.css`; tokens only. */
 
-.object-settings-card .full {
-  grid-column: 1 / -1;
-  padding: 4px;
+.object-settings-card .edit {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--field);
+  white-space: nowrap;
+}
+
+.object-settings-card .edit:hover {
+  background: var(--field-h);
+}
+
+.object-settings-card .edit .count {
+  color: var(--muted);
 }

@@ -3,6 +3,8 @@ import { useStore } from '../../state/store';
 import { navEntry } from '../../nav/navMap';
 import { runNavAction } from '../../nav/actions';
 import { retrySession } from '../../state/session';
+import { requestImport } from '../../importTrigger';
+import { Icon } from '../../icons/Icon';
 import { ToolbarButton } from '../common/ToolbarButton';
 import { ObjectToolbar } from './ObjectToolbar';
 import { ObjectRow } from './ObjectRow';
@@ -93,17 +95,24 @@ export function ObjectsSection() {
         )}
         {!objects.length && !autosaveError && (
           <li className="empty">
-            Drop STL / OBJ / 3MF / AMF files onto the 3D view, use Import or{' '}
-            <a
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                void runNavAction(navEntry('library').action);
-              }}
-            >
-              open the library
-            </a>
-            .
+            <div>
+              Drop STL / OBJ / 3MF / AMF files onto the 3D view, use Import or{' '}
+              <a
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  void runNavAction(navEntry('library').action);
+                }}
+              >
+                open the library
+              </a>
+              .
+            </div>
+            {/* the file input belongs to the menu; the empty list asks it to open – no second menu entry */}
+            <button className="add-objects" data-testid="add-objects" onClick={requestImport}>
+              <Icon name="import" size={16} />
+              Add objects…
+            </button>
           </li>
         )}
       </ul>

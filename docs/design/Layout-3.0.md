@@ -192,3 +192,25 @@ The shell and the visual language are in place; the panel content and the previe
   dividers and the overflow menu; the switch is gone from it.
 - **Responsive**: ≥ 1280 px as the mockup; 900–1279 px the panel is 300 px and the list starts folded; below 900 px the list is a drawer and the strip scrolls; below 640 px the rail
   is a bottom tab bar and the cards are sheets.
+
+### Implemented (T-070, round (b), 2026-10-25) – panel content and preview mode (L-5)
+
+The content of the three modes follows the mockup; the shared building blocks are `PanelCard` (a titled card with an optional control in its
+heading), `PanelRow` (label left, control right), `GroupTitle` (the 11 px uppercase group rule) and `Switch`.
+
+- **Plate mode**: `PlateMode` is the **Printer & material** card – printer tile, preset name, nozzle/bed/height summary, the loaded filament with its colour dot, name and
+  nozzle. `Presets` is the **Print settings** card: the print preset select with `PresetCog` in the heading, the filament and printer rows and the two visibility
+  switches, then `QuickSettings` regrouped into **Walls & perimeters**, **Infill** and **Supports & adhesion** as `PanelRow`s (the brim is a `Switch`). The
+  quick rows write the same `setOption` as the settings view, so nothing is reachable only there.
+- **Object mode**: `ObjectHeader` is the header card (thumbnail tile, name, "n instance(s) · size", the ✎ rename that writes `renameObject` directly).
+  `TransformInputs` draws the axis-coloured X/Y/Z headers and keeps the unit inside each 30 px field; `TransformCard` keeps the instances stepper with
+  **Fill bed**, then one `.object-actions` row of 34 px icon buttons from `table.ts` (`mirrorX/Y/Z`, `resetRotation`, `resetScale`, `reset`, `lock/unlockProportions`,
+  `splitToObjects`, `splitToParts`, `addInstance`), the proportions lock as state on the card. `SettingsCard` is a `PanelRow` with an **Edit…** button and the
+  override count, `PartsCard` rows carry the volume-type icon (`VOLUME_ICON_NAMES`) and a delete action. Only icons of `table.ts` are used.
+- **Left card**: `ObjectRow` is a thumbnail tile with the name and the size/instances line above the instance list; the empty list keeps the library link and
+  adds **Add objects…**, which calls the menu's file input through `importTrigger` (not a second `navMap` entry).
+- **Preview mode (L-5)**: the **Sliced info** card (`PanelRow`s, the `SLICED` badge through `SideCard`'s new `aside`) and the **Legend** card (the scheme
+  drop-down in the heading) stay in the left card; the right panel is **View** (`ViewOptions`: the scheme select plus the "Show" rows with a swatch and a
+  `Switch` each), **G-code check** (`Preflight`) and **Layer** (`layer-summary`, both sliders with value badges, the codes, the move slider). The footer card
+  swaps `SlicePanel` for `PreviewFooter` (**Send to printer**, export, save to library) and keeps `Destination`. The sliders keep their store logic and are
+  restyled only. The old → new table is in `.ai/reports/T-070.md`.

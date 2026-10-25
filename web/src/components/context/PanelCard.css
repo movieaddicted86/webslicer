@@ -2,7 +2,7 @@
 
 .panel-card {
   padding: 10px 12px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--line);
 }
 
 .panel-card-head {
