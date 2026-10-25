@@ -193,7 +193,7 @@ The shell and the visual language are in place; the panel content and the previe
 - **Responsive**: ≥ 1280 px as the mockup; 900–1279 px the panel is 300 px and the list starts folded; below 900 px the list is a drawer and the strip scrolls; below 640 px the rail
   is a bottom tab bar and the cards are sheets.
 
-### Implemented (T-070, round (b), 2026-10-24) – panel content and preview mode (L-5)
+### Implemented (T-070, round (b), 2026-10-25) – panel content and preview mode (L-5)
 
 The content of the three modes follows the mockup; the shared building blocks are `PanelCard` (a titled card with an optional control in its
 heading), `PanelRow` (label left, control right), `GroupTitle` (the 11 px uppercase group rule) and `Switch`.
