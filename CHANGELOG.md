@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+- **The Vendor profiles tab is a short answer instead of a wall of versions (T-076, finding F-03a):**
+  Robert's rc.5 test showed an endless list of every vendor with a version arrow, a source link and
+  "up to date" on every row – and some arrows pointed _down_ (`1.1.0 → 0.1.0`,
+  `Prusa Research SLA 1.0.7 → 1.0.0-alpha0`), because the list printed the newest version of each
+  vendor's index whether or not it was newer, or a prerelease. The tab now opens with one summary
+  line – "All vendor profiles are up to date", or "N vendors have updates" – the time of the last check
+  and **Check for updates**. The list appears only when there is something to say and holds the vendors
+  with an update plus the vendors the user has printers or a printer preset from; **Show all vendors**
+  reveals the rest, and a long list scrolls inside the dialog body while the summary stays in view. A
+  row reads _installed 2.4.14 · update 2.4.15_ with **Update** and never draws an arrow towards a lower
+  or equal version; a remote prerelease is labelled "pre-release" behind **Show all vendors** and never
+  counts as an update, and a newer bundle the engine cannot run names its reason. The source link moved
+  from every row to one footer link to the profile repository, and rows wrap instead of clipping at
+  ~1000 px. New `web/src/components/dialogs/printers/vendorUpdates.ts` (pure row/status rules, unit
+  tested); no server or API change. `e2e/specs/vendor-update.spec.ts` covers the summary, the toggle,
+  a lower version and a prerelease.
+
 - **The documentation opens with an animation (T-083):** the README and [docs/features.md](docs/features.md)
   start with a 13-second recording of a real session – library, model, slice, G-code preview and the
   send dialog – instead of the still hero image. It is generated like the screenshots:

@@ -43,9 +43,16 @@ systemctl restart webslicer
 ## Vendor profile updates
 
 The vendor bundles (the printer/filament/print presets of every vendor) ship in the image. A self-hosted
-install can replace them without rebuilding the image: **Printers → Vendor profiles** shows every
-installed vendor as _installed version → available version_ and offers **Update** per vendor and
-**Update all**. The switch `WEBSLICER_UPDATE_CHECK` (see above) governs it:
+install can replace them without rebuilding the image: **Printers → Vendor profiles** opens with one
+summary line – _All vendor profiles are up to date_ or _N vendors have updates_ – the time of the last
+check and the **Check for updates** button. When something is available the list below it holds only
+the vendors with an update and the vendors you have printers from; every other vendor waits behind
+**Show all vendors**. A row reads _installed 2.4.14 · update 2.4.15_ with **Update**, and
+**Update all** installs every offered bundle. A version that is not newer is never shown as an arrow,
+and an upstream pre-release (`2.5.0-alpha1`, `1.0.0-rc.2`) never counts as an update – it is labelled
+"pre-release" behind **Show all vendors** only. A bundle the installed PrusaSlicer cannot run
+(`min_slic3r_version`/`max_slic3r_version`) is listed with the reason, not offered. The switch
+`WEBSLICER_UPDATE_CHECK` (see above) governs the whole section:
 
 - **on** (default): the server reads `index.idx` of the fixed repository
   `raw.githubusercontent.com/prusa3d/PrusaSlicer-settings/master/live/<VendorId>/` at most once per
