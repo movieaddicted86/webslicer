@@ -108,6 +108,13 @@ PrusaSlicer feature exists here and which does not is in
   chips). A band too narrow for the strip moves its trailing groups into a **⋯** menu; below 900 px the
   strip scrolls sideways instead. Names appear next to the icons while the whole strip fits with them;
   a disabled tool's tooltip says why it is disabled.
+- **Leaving a tool**: the ✕ in its panel, **Esc**, its own strip button, or a **click on the empty
+  scene**. The empty click runs the same close as Esc, so the cut plane, the brush cursor and the layer
+  chart disappear with the tool, and it clears the selection, so the context panel returns to the plate
+  panel with the presets, the destination and the **Slice** button. A click on an object keeps the tool
+  open; an orbit or pan drag is not a click and leaves it open as well. Move, rotate and scale are gizmo
+  modes, not tool panels – they never take the context panel, so the Slice footer always stays in reach.
+  A tool whose object or selection goes away (delete, merge, undo, project load) closes by itself.
 
 ## Settings and profiles
 
