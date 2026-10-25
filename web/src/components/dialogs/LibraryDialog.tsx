@@ -15,7 +15,9 @@ function fmtDate(s?: string) {
   return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-const ICONS: Record<string, string> = { model: '◆', project: '🗂', gcode: '⚙', other: '·' };
+/** The file kind of a row; G-code draws PrusaSlicer's export icon, so no cog stands for a file */
+const GLYPHS: Record<string, string> = { model: '◆', project: '🗂', other: '·' };
+const KIND_ICON = { gcode: 'export' } as const;
 
 export function LibraryDialog({ onClose, mode }: { onClose: () => void; mode: LibraryMode }) {
   const toast = useStore((s) => s.toast);
@@ -193,7 +195,9 @@ export function LibraryDialog({ onClose, mode }: { onClose: () => void; mode: Li
                 else setName(e.name);
               }}
             >
-              <span className="icon">{e.dir ? '📁' : ICONS[e.kind || 'other']}</span>
+              <span className="icon">
+                {e.dir ? '📁' : e.kind === 'gcode' ? <Icon name={KIND_ICON.gcode} size={14} /> : GLYPHS[e.kind || 'other']}
+              </span>
               <span className="name" onClick={() => (e.dir || mode === 'open' ? open(e) : setName(e.name))} title={e.path}>
                 {e.name}
               </span>
