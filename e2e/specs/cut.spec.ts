@@ -85,6 +85,20 @@ test.describe('cut', () => {
     expect(lines).toHaveLength(2);
     for (const line of lines) expect(line, line).not.toMatch(/Not manifold/);
 
+    // T-073: with `placeOnCut: false` both halves keep the cube's footprint, so their footprints
+    // overlap by their full 20 mm and the plate check refuses the slice (the guard the Preview used
+    // to bypass). A user arranges the halves before slicing; the spec does the same.
+    await app.evaluate(() => window.webslicer.getState().slice());
+    await settle(app, 500);
+    const errors = await read(app, (s) => s.toasts.filter((t) => t.kind === 'error').map((t) => t.text));
+    expect(
+      errors.some((t) => /G-code path conflict .* overlap/.test(t)),
+      errors.join(' | '),
+    ).toBe(true);
+    expect(await read(app, (s) => s.job?.id)).toBe(before.job?.id);
+
+    await app.evaluate(() => window.webslicer.getState().arrange());
+    await settle(app, 800);
     await sliceAndWait(app, before.job?.id);
     const cut = await filament(app);
     expect(Math.abs(cut - original) / original, `uncut ${original} mm, cut ${cut} mm`).toBeLessThan(0.02);
