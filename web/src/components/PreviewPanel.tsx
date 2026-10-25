@@ -1,5 +1,7 @@
 import { useStore } from '../state/store';
+import { useSliceGuard } from '../state/useSliceGuard';
 import { PanelCard } from './context/PanelCard';
+import { SliceBlockers } from './context/SliceBlockers';
 import { LayerCodes } from './preview/LayerCodes';
 import { LayerSlider } from './preview/LayerSlider';
 import { MoveSlider } from './preview/MoveSlider';
@@ -30,8 +32,10 @@ export function PreviewPanel() {
   const gcodeLoading = useStore((s) => s.gcodeLoading);
   const loadGcodePreview = useStore((s) => s.loadGcodePreview);
   const toast = useStore((s) => s.toast);
+  const guard = useSliceGuard();
 
   const running = job && (job.status === 'running' || job.status === 'queued');
+  const blocked = guard.blocking.length > 0;
   const info = job?.info;
   const topZ = gcode?.layerZ[range[1]];
 
@@ -39,8 +43,15 @@ export function PreviewPanel() {
     <div className="preview-panel" data-testid="preview-panel">
       {!job && (
         <section>
-          <div className="muted">No slicing result yet.</div>
-          <button className="primary big" onClick={slice}>
+          <div className="muted">{blocked ? 'The plate fails the slice checks.' : 'No slicing result yet.'}</div>
+          <SliceBlockers blockers={guard.blocking} />
+          <button
+            className="primary big"
+            data-testid="preview-slice-button"
+            onClick={slice}
+            disabled={blocked}
+            title={guard.reason || undefined}
+          >
             Slice now
           </button>
         </section>
@@ -86,6 +97,7 @@ export function PreviewPanel() {
       {job && job.status === 'done' && (
         <>
           {sliceDirty && <div className="warn">Settings or objects changed since this result. Slice again to update.</div>}
+          <SliceBlockers blockers={guard.blocking} />
           {info?.warnings?.length ? (
             <details className="warnings" open>
               <summary>{info.warnings.length === 1 ? '1 slicer warning' : `${info.warnings.length} slicer warnings`}</summary>
