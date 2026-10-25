@@ -4,15 +4,16 @@
  */
 import { cancelJob, createJob, deleteJob, getJob, jobOutputPath, listJobs, readJobLog } from '../jobs.js';
 import { activeSchema } from './schema.js';
-import { validateConfigLimits, validateSliceRequest } from './slice.js';
+import { validateConfigLimits, validatePlate, validateSliceRequest } from './slice.js';
 import { ValidationError } from '../errors.js';
 import type { JobRecord, SliceRequest } from '@webslicer/shared';
 
 /**
- * Validate a slice request, check its configuration limits and queue it.
+ * Validate a slice request, check its plate and its configuration limits, and queue it.
  *
  * The validation error is mapped to the `ValidationError` the error handler answers as the 400 the
- * slice route has always shown; the limits arrive on the job as warnings.
+ * slice route has always shown; a plate that fails the checks is refused the same way (the browser
+ * gates the same rules, this is the authority behind it); the limits arrive on the job as warnings.
  */
 export async function submitSliceRequest(raw: unknown): Promise<JobRecord> {
   let body: SliceRequest;
@@ -23,6 +24,7 @@ export async function submitSliceRequest(raw: unknown): Promise<JobRecord> {
   }
   const schema = await activeSchema();
   const configIssues = validateConfigLimits(body, schema);
+  await validatePlate(body);
   return createJob(body, schema, configIssues);
 }
 

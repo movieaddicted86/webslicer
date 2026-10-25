@@ -1,7 +1,6 @@
 import { useStore, isModified } from '../../state/store';
-import { useLimitIssues } from '../../state/useLimitIssues';
+import { useSliceGuard } from '../../state/useSliceGuard';
 import { issueTargetOf } from '../../safety/configIssues';
-import { plateIssues } from '../../plater/plateCheck';
 import { toBool } from '../../values';
 import './SlicePanel.css';
 import '../common/progress.css';
@@ -27,20 +26,21 @@ export function SlicePanel() {
   const sliceDirty = useStore((s) => s.sliceDirty);
   const setView = useStore((s) => s.setView);
   const focusSetting = useStore((s) => s.focusSetting);
-  const limitIssues = useLimitIssues();
+  const guard = useSliceGuard();
 
-  const issues = plateIssues(objects, presets.printer.current, presets.print.current);
-  const blocking = issues.filter((i) => i.severity === 'block');
+  const issues = guard.plate;
+  const blocking = guard.blocking.length > 0;
+  const limitIssues = guard.limits;
   const blockingLimits = limitIssues.filter((i) => i.severity === 'block');
   const warningLimits = limitIssues.filter((i) => i.severity === 'warn');
-  const blockReason = [...blocking.map((i) => i.message), ...blockingLimits.map((i) => i.message)].join(' ');
+  const blockReason = guard.reason;
   const running = job && (job.status === 'running' || job.status === 'queued');
   const anyModified = isModified(presets.print) || isModified(presets.printer) || presets.filament.some(isModified);
 
   return (
     <section className="slice-panel" data-testid="slice-panel">
       {issues.length > 0 && (
-        <ul className={`plate-issues ${blocking.length ? 'blocking' : ''}`}>
+        <ul className={`plate-issues ${blocking ? 'blocking' : ''}`}>
           {issues.map((i) => (
             <li key={`${i.code}:${i.objectIds.join(',')}`} className={i.severity === 'block' ? 'warn' : 'muted small'} title={i.message}>
               {i.message}
@@ -97,7 +97,7 @@ export function SlicePanel() {
           className="primary big"
           data-testid="slice-button"
           onClick={slice}
-          disabled={!objects.length || blocking.length > 0 || blockingLimits.length > 0}
+          disabled={!objects.length || blocking}
           title={blockReason || undefined}
         >
           {sliceDirty || !job ? 'Slice now' : job.status === 'done' ? 'Slice again' : 'Slice now'}

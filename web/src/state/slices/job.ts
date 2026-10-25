@@ -10,6 +10,7 @@ import { decodeVector } from '../../values';
 import { parseThumbnailSpec, placementMatrix } from '@webslicer/shared';
 import { clientId } from '../client';
 import { clearCachedRequest, clearPendingFlush, markPendingFlush, writeCachedRequest } from '../sessionCache';
+import { currentSliceGuard } from '../sliceGuard';
 import type { PlaterObject, PlaterVolume, State } from '../types';
 
 /** Keepalive requests share a 64 KiB budget per page; past it the flush goes to the local cache. */
@@ -87,6 +88,14 @@ export const createJobSlice: StateCreator<State, [], [], JobSlice> = (set, get) 
       const s = get();
       if (!s.objects.length) {
         get().toast('error', 'Add a model first');
+        return;
+      }
+      // The plate and limit checks gate **every** path into a slice (the Prepare footer, the Preview's
+      // button, the re-slice after a colour change, scripted callers): one seam, so no path can skip a
+      // check the panel would have shown.
+      const guard = currentSliceGuard(s);
+      if (guard.blocking.length) {
+        get().toast('error', guard.blocking[0].message);
         return;
       }
       const pending = s.objects.filter((o) => (!o.modelId && !o.uploadError) || o.volumes.some((v) => !v.modelId && !v.uploadError));

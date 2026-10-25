@@ -9,6 +9,7 @@
  */
 import { test, beforeEach, after } from 'node:test';
 import assert from 'node:assert/strict';
+import * as THREE from 'three';
 import { useStore } from './store';
 import { api } from '../api';
 import type { JobEvent, JobRecord } from '../api';
@@ -38,7 +39,8 @@ const object = {
   id: 'a',
   name: 'a.stl',
   modelId: 'm-a',
-  geometry: undefined,
+  // a real geometry: the store's plate checks read the object's bounding box before it slices
+  geometry: new THREE.BoxGeometry(10, 10, 10),
   size: [10, 10, 10] as [number, number, number],
   config: {},
   extruder: 0,
@@ -47,7 +49,8 @@ const object = {
   instances: [
     {
       id: 'a-i',
-      position: [0, 0, 0] as [number, number, number],
+      // the middle of the default 200 × 200 bed, so the default 1-loop skirt fits
+      position: [100, 100, 0] as [number, number, number],
       rotation: [0, 0, 0] as [number, number, number],
       scale: [1, 1, 1] as [number, number, number],
     },

@@ -135,6 +135,12 @@ PrusaSlicer feature exists here and which does not is in
   commands, output paths, unknown keys – are dropped and listed with the reason.
 - **Configuration limits** while editing (see [safety.md](safety.md)): a blocked value disables
   **Slice** with its reason.
+- **Plate and setting checks on every path into a slice** (T-034, S1-e, T-073): an object off the bed,
+  a skirt or brim past the print area, overlapping toolpaths, a blocked setting – the reason is listed
+  and **Slice** is disabled. The same guard runs in the store action, so the **Preview** button, the
+  re-slice after a colour change and a scripted caller are refused too, and the Preview lists the same
+  reasons (a setting issue opens its field). A finished result for a plate that no longer passes stays
+  readable but cannot be exported, saved or sent. The server refuses the same plates with a 400.
 - **Printer setup wizard** (**Add / remove printers…** in the printer dropdown opens the Printers dialog
   on _Vendor profiles_; the rail's **Printers** opens the same dialog on _My printers_): vendor profiles
   to install, a **Filaments** step and a **Custom printer** in two steps. The filament step

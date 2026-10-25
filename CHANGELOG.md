@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+- **The plate and setting checks hold on every path into a slice, the Preview included (T-073):** the
+  checks of T-034 and S1-e lived in the Prepare footer alone, so a plate whose skirt or brim ran over
+  the bed edge disabled **Slice now** there – and switching to **Preview** sliced it anyway (a job came
+  back whose skirt printed beside the bed). The check is now one guard the store action `slice` runs
+  before it builds a request, so every trigger is covered: both **Slice** buttons, the automatic
+  re-slice after a colour change or pause, a scripted call. The **Preview** shows the same reasons the
+  footer lists (a setting issue still opens its field) and disables its own **Slice now** with the
+  reason as tooltip; a result that is already on screen stays visible. A finished result whose plate
+  no longer passes the checks cannot leave the app either – **Export G-code**, **Save to library** and
+  **Send to printer** are disabled with the reason until the plate passes again. The server refuses
+  the same plates on `POST /api/slice`, on the project slice and in the MCP `webslicer.slice` tool with
+  a 400 and the reason, so neither the API nor an agent can skip the check. The rules moved to
+  `shared/src/plater/plateCheck.ts`; the browser and the server both run that one copy. Warnings still
+  slice.
 - **Leaving a tool, and a context panel that never goes empty:** move, rotate and scale were stored as
   the open tool although they only drive the gizmo, so the context panel switched to tool mode with
   nothing to render – no presets, no printer, no **Slice**. They now only set the gizmo mode, their

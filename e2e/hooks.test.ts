@@ -217,6 +217,8 @@ const HOOKS = [
   'modal-actions',
   'modal-primary',
   'preview-panel',
+  'preview-blockers',
+  'preview-slice-button',
   'preview-view-card',
   'preview-check-card',
   'preview-layer-card',

@@ -24,7 +24,7 @@ import { defaultPresetName, resolvePreset } from '../slicer/presets.js';
 import { loadModelFile } from '../plater/meshes.js';
 import { copiesSchema, type ProjectPresetRef } from '../validation/projects.js';
 import { createJob } from '../jobs.js';
-import { validateConfigLimits, validateSliceRequest } from './slice.js';
+import { validateConfigLimits, validatePlate, validateSliceRequest } from './slice.js';
 import {
   arrangementSpacing,
   bedShapeOf,
@@ -422,6 +422,7 @@ export async function sliceProject(
   // no thumbnails here: rendering them needs a browser (concept §3.5, rasterizer comes in phase 3)
   validateSliceRequest(request);
   const configIssues = validateConfigLimits(request, schema);
+  await validatePlate(request);
   const job = await createJob(request, schema, configIssues);
   await touchProject(project);
   return job;
