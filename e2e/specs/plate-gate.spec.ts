@@ -9,8 +9,14 @@
  *
  * Both acceptance criteria of the task are driven through the UI: the block in both views with the
  * reasons visible (AC-1), and the slice working again once the cause is gone (AC-2).
+ *
+ * T-075 / Z-06: a finished result whose plate now fails the checks is shown as **outdated** – the
+ * toolpaths lose their colours (one grey, low opacity) and the Preview opens with the "outdated" banner
+ * above the blocker list, so the old result cannot read as the print that would come out. Fixing the
+ * plate brings the colours back without a new slice.
  */
 import { CUBE, importFile, read, settle, sliceAndWait, waitNewJob, waitSliceDone } from '../helpers/app';
+import { gcodeLook } from '../helpers/canvas';
 import { expect, test } from '../helpers/fixtures';
 
 /** The cube at the left bed edge: it fits, but the default 1-loop skirt (5 mm out) leaves the bed. */
@@ -141,5 +147,57 @@ test.describe('the plate checks hold in the Preview too (T-073)', () => {
     await expect(exportAction).toHaveAttribute('href', `/api/jobs/${jobId}/gcode?download`);
     await expect(saveAction).toBeEnabled();
     expect(await read(app, (s) => s.job?.id)).toBe(jobId);
+  });
+
+  test('a result whose plate fails the checks is greyed out and says it is outdated (Z-06)', async ({ app }) => {
+    await moveTo(app, IN_THE_MIDDLE);
+    await sliceAndWait(app);
+    const jobId = await read(app, (s) => s.job?.id ?? '');
+    await app.evaluate(() => window.webslicer.getState().setView('preview'));
+    await settle(app, 900);
+
+    // a current result: coloured toolpaths (one colour per feature), no banner, no blockers
+    const current = await gcodeLook(app);
+    expect(current, 'the toolpaths are in the scene').not.toBeNull();
+    expect(current!.colours, 'a current result carries the feature colours').toBeGreaterThan(1);
+    expect(current!.opacity).toBe(1);
+    await expect(app.locator('[data-testid="preview-outdated"]')).toHaveCount(0);
+    await expect(app.locator('[data-testid="preview-panel"]')).not.toHaveAttribute('data-outdated', 'true');
+
+    // the plate fails: the result stays, greyed out, with the banner and the reason
+    await app.evaluate(() => window.webslicer.getState().setView('plater'));
+    await settle(app, 500);
+    await moveTo(app, AT_THE_EDGE);
+    await app.evaluate(() => window.webslicer.getState().setView('preview'));
+    await settle(app, 900);
+
+    expect(await read(app, (s) => s.job?.id), 'the result itself is kept').toBe(jobId);
+    await expect(app.locator('[data-testid="preview-panel"]')).toHaveAttribute('data-outdated', 'true');
+    const banner = app.locator('[data-testid="preview-outdated"]');
+    await expect(banner).toBeVisible();
+    await expect(banner).toContainText('This result is outdated – the plate does not pass the checks');
+    await expect(banner.locator('[data-testid="preview-blockers"] li')).toHaveCount(1);
+    await expect(banner.locator('[data-testid="preview-blockers"] li').first()).toHaveText(SKIRT);
+    // the plain "slice again" note would be a different statement – a blocked plate cannot be re-sliced
+    await expect(app.locator('[data-testid="preview-panel"] .warn')).toHaveCount(0);
+
+    const grey = await gcodeLook(app);
+    expect(grey, 'the greyed toolpaths are still drawn').not.toBeNull();
+    expect(grey!.colours, 'the outdated result shows one grey, no layer colours').toBe(1);
+    expect(grey!.opacity, 'the outdated result is faded').toBeLessThan(0.5);
+
+    // the plate passes again: the colours return without a new slice
+    await app.evaluate(() => window.webslicer.getState().setView('plater'));
+    await settle(app, 500);
+    await moveTo(app, IN_THE_MIDDLE);
+    await app.evaluate(() => window.webslicer.getState().setView('preview'));
+    await settle(app, 900);
+
+    expect(await read(app, (s) => s.job?.id), 'still the same result').toBe(jobId);
+    await expect(app.locator('[data-testid="preview-outdated"]')).toHaveCount(0);
+    await expect(app.locator('[data-testid="preview-panel"]')).not.toHaveAttribute('data-outdated', 'true');
+    const back = await gcodeLook(app);
+    expect(back!.colours, 'the feature colours are back').toBeGreaterThan(1);
+    expect(back!.opacity).toBe(1);
   });
 });
