@@ -10,6 +10,32 @@ function numberOrUndefined(value: string): number | undefined {
   return value.trim() === '' || !Number.isFinite(n) || n <= 0 ? undefined : n;
 }
 
+/** The hotend limit a PTFE-lined hotend may take (T-080, P-2); above it the liner decomposes. */
+export const PTFE_MAX_HOTEND = 240;
+/** The hotend limit of an all-metal hotend: the global typo catcher, i.e. no narrower limit (T-080, P-2). */
+export const ALL_METAL_MAX_HOTEND = 450;
+
+/** The answer to "PTFE-lined or all-metal?" as the form stores it; `''` is "not answered yet". */
+type HotendType = '' | 'ptfe' | 'all-metal' | 'custom';
+
+/**
+ * The stored answer of a host: 240 °C is a PTFE hotend, 450 °C an all-metal one, any other number a
+ * custom limit the owner typed. A host without a hotend limit has not answered – it gets the
+ * `send.no_limits` warning until someone does (no migration on load, T-080).
+ */
+function hotendTypeOf(safety: Partial<PhysicalPrinter>['safety']): HotendType {
+  const max = safety?.maxHotend;
+  if (max === undefined) return '';
+  if (max === PTFE_MAX_HOTEND) return 'ptfe';
+  if (max === ALL_METAL_MAX_HOTEND) return 'all-metal';
+  return 'custom';
+}
+
+/** The hotend limit an answer sets: PTFE 240 °C, all-metal the global ceiling. */
+function hotendLimitOf(answer: 'ptfe' | 'all-metal'): number {
+  return answer === 'ptfe' ? PTFE_MAX_HOTEND : ALL_METAL_MAX_HOTEND;
+}
+
 /** The safety block after one edit; an empty block clears the stored limits (`{}` survives JSON, `undefined` would not). */
 function safetyOf(
   edit: Partial<PhysicalPrinter>,
@@ -135,18 +161,40 @@ export function PrinterHosts() {
               Accept self-signed certificate (skip TLS verification)
             </label>
           )}
-          {/* S1-d: the machine's own ceilings – the send gate refuses G-code that goes above them */}
+          {/* S1-d/T-080: the machine's own ceilings – the send gate refuses G-code that goes above them,
+              and the hotend type is the one answer it cannot go without (send.no_limits) */}
           <fieldset className="safety-limits">
             <legend>Safety limits</legend>
             <div className="muted small">
-              Optional. A job whose temperatures go above these is refused at the send gate (overridable with a reason).
+              Required: say which hotend the printer has. A PTFE-lined hotend must not go above 240 °C – the liner decomposes above it –
+              while an all-metal one is only held to the global 450 °C ceiling. A job whose temperatures go above the limits is refused at
+              the send gate (overridable with a reason).
             </div>
+            <label>
+              Hotend type{' '}
+              <select
+                className="hotend-type"
+                value={hotendTypeOf(edit.safety)}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (value === '') setEdit({ ...edit, safety: safetyOf(edit, { maxHotend: undefined }) });
+                  else if (value === 'ptfe' || value === 'all-metal') {
+                    setEdit({ ...edit, safety: safetyOf(edit, { maxHotend: hotendLimitOf(value) }) });
+                  }
+                }}
+              >
+                <option value="">— choose —</option>
+                <option value="ptfe">PTFE-lined hotend (max {PTFE_MAX_HOTEND} °C)</option>
+                <option value="all-metal">All-metal hotend (no narrower limit than 450 °C)</option>
+                {hotendTypeOf(edit.safety) === 'custom' && <option value="custom">Other limit ({edit.safety?.maxHotend} °C)</option>}
+              </select>
+            </label>
             <label>
               Max hotend °C{' '}
               <input
                 type="number"
                 min={0}
-                max={450}
+                max={ALL_METAL_MAX_HOTEND}
                 placeholder="none"
                 value={edit.safety?.maxHotend ?? ''}
                 onChange={(e) => setEdit({ ...edit, safety: safetyOf(edit, { maxHotend: numberOrUndefined(e.target.value) }) })}
@@ -163,14 +211,6 @@ export function PrinterHosts() {
                 onChange={(e) => setEdit({ ...edit, safety: safetyOf(edit, { maxBed: numberOrUndefined(e.target.value) }) })}
               />
             </label>
-            <button
-              type="button"
-              className="small"
-              title="A PTFE-lined hotend must not go above 240 °C"
-              onClick={() => setEdit({ ...edit, safety: safetyOf(edit, { maxHotend: 240 }) })}
-            >
-              PTFE hotend (max 240 °C)
-            </button>
           </fieldset>
           {testing && <div className={`small ${testing.startsWith('✓') ? 'success' : 'error'}`}>{testing}</div>}
           <div className="modal-actions" data-testid="modal-actions">
@@ -178,7 +218,12 @@ export function PrinterHosts() {
             <button onClick={test} disabled={!edit.host}>
               Test connection
             </button>
-            <button className="primary" data-testid="modal-primary" onClick={save} disabled={!edit.host || !edit.name}>
+            <button
+              className="primary"
+              data-testid="modal-primary"
+              onClick={save}
+              disabled={!edit.host || !edit.name || !hotendTypeOf(edit.safety)}
+            >
               Save
             </button>
           </div>
