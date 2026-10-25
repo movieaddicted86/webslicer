@@ -112,7 +112,9 @@ PrusaSlicer feature exists here and which does not is in
   strip scrolls sideways instead. Names appear next to the icons while the whole strip fits with them;
   a disabled tool's tooltip says why it is disabled.
 - **Leaving a tool**: the ✕ in its panel, **Esc**, its own strip button, or a **click on the empty
-  scene**. The empty click runs the same close as Esc, so the cut plane, the brush cursor and the layer
+  scene**. The ✕ sits in the same place in every panel – the head's top right – is a 28 × 28 px
+  button with the tooltip "Close (Esc)" and a visible focus ring, so it is meant to be found rather
+  than guessed. The empty click runs the same close as Esc, so the cut plane, the brush cursor and the layer
   chart disappear with the tool, and it clears the selection, so the context panel returns to the plate
   panel with the presets, the destination and the **Slice** button. A click on an object keeps the tool
   open; an orbit or pan drag is not a click and leaves it open as well. Move, rotate and scale are gizmo
@@ -173,6 +175,12 @@ PrusaSlicer feature exists here and which does not is in
   layer – travel, retractions, seams, tool changes, shells), the **G-code check** (preflight) and the
   **Layer** card (range summary, the two layer sliders with their badges, the layer codes and the move
   slider). The footer card holds **Send to printer** (primary), the export icon and the destination.
+- **An outdated result says so**: a finished result stays on screen when the plate or the settings stop
+  passing the checks, but it is drawn **greyed out** – one grey at low opacity instead of the layer
+  colours – and the Preview opens with "This result is outdated – the plate does not pass the checks"
+  above the list of reasons. Fixing the plate brings the colours back without a new slice; a plain
+  change of settings or objects (plate still fine) keeps the colours and the "Slice again to update"
+  note.
 - **Colour change, pause and custom G-code at a layer**: add them at the top slider position like the
   "+" on PrusaSlicer's vertical slider (M600 / pause with message / any G-code), markers on the slider,
   automatic re-slice, stored in the 3MF project.
