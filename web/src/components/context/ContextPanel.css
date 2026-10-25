@@ -110,10 +110,6 @@
   width: 100%;
 }
 
-.multi-selection {
-  padding: 10px 12px;
-}
-
 /* phone: the stack is a sheet over the lower part of the scene; the footer keeps its row below it */
 @media (max-width: 640px) {
   .context-stack {

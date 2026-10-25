@@ -42,11 +42,43 @@
 
 .library-list li {
   display: grid;
-  grid-template-columns: 24px 1fr 80px 130px auto auto;
+  grid-template-columns: 18px 24px 1fr 80px 130px auto auto;
   align-items: center;
   gap: 8px;
   padding: 4px 8px;
   border-bottom: 1px solid #ffffff0a;
+  cursor: default;
+}
+
+/* the checkbox is quiet until the row is hovered or a selection exists, so the default flow
+   (double-click / Open) does not look like a form */
+.library-list .lib-check {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.library-list li:hover .lib-check,
+.library-list.has-selection .lib-check,
+.library-list .lib-check:focus-visible {
+  opacity: 1;
+}
+
+.library-list li.selected {
+  background: var(--sel);
+}
+
+.library-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.library-actions button.small {
+  padding: 2px 10px;
+  font-size: 12px;
 }
 
 .library-list li:hover {

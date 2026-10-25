@@ -14,6 +14,7 @@ import { SlicePanel } from './SlicePanel';
 import { PreviewFooter } from './PreviewFooter';
 import { PreviewPanel } from '../PreviewPanel';
 import { ToolMode } from './ToolMode';
+import { MultiSelection } from './MultiSelection';
 import './ContextPanel.css';
 
 /**
@@ -32,7 +33,7 @@ import './ContextPanel.css';
  *
  * The preset rows and the quick settings stay in every plater mode – they describe the print, not the
  * selection, and a selected object would otherwise hide the way to change the infill. The object cards
- * and the multi-selection note are what follows the selection.
+ * and the group actions of a multi-selection are what follow the selection.
  *
  * Simple mode keeps the reduced set it had: the plate content only, no object internals (parts,
  * overrides, ranges). Preview mode keeps `PreviewPanel` and has no Slice footer.
@@ -84,8 +85,11 @@ export function ContextPanel() {
           ) : (
             <>
               {mode === 'plate' && <PlateMode />}
+              {/* the group actions of a multi-selection come first: they are what the selection is
+                  about, and below the presets the card would start out scrolled out of view */}
+              {selected.length > 1 && <MultiSelection selected={selected} />}
               <Presets />
-              {mode === 'object' && object ? (
+              {mode === 'object' && object && (
                 <div className="manip">
                   <TransformCard o={object} />
                   <SettingsCard o={object} />
@@ -107,12 +111,6 @@ export function ContextPanel() {
                     <RangePanel o={object} />
                   </PanelCard>
                 </div>
-              ) : (
-                selected.length > 1 && (
-                  <div className="multi-selection muted small" data-testid="multi-selection">
-                    {selected.length} objects selected – merge them from the object list's toolbar, or pick one to edit its transform.
-                  </div>
-                )
               )}
             </>
           )}

@@ -243,6 +243,50 @@ test('select replaces the selection, additive adds to it, and picks the instance
   assert.equal(pickedInstanceId({ ...st(), selectedIds: [a.id] }, st().objects[0]), second);
 });
 
+test('selectByClick runs the shared list rule over the plate order', async () => {
+  await importOne(box(10), 'a.stl');
+  await importOne(box(10), 'b.stl');
+  await importOne(box(10), 'c.stl');
+  const [a, b, c] = st().objects;
+  // a plain click picks one row and sets the anchor
+  st().selectByClick(b.id, { ctrl: false, shift: false });
+  assert.deepEqual(st().selectedIds, [b.id]);
+  assert.equal(st().selectionAnchor, b.id);
+  // Shift ranges from that anchor to the clicked row, both included
+  st().selectByClick(c.id, { ctrl: false, shift: true });
+  assert.deepEqual(st().selectedIds, [b.id, c.id]);
+  assert.equal(st().selectionAnchor, b.id, 'a range keeps the anchor, so the next range extends it');
+  // Ctrl toggles one row off and moves the anchor to it
+  st().selectByClick(b.id, { ctrl: true, shift: false });
+  assert.deepEqual(st().selectedIds, [c.id]);
+  assert.equal(st().selectionAnchor, b.id);
+  // a programmatic selection has no click behind it, so the next Shift starts fresh
+  st().select([a.id]);
+  assert.equal(st().selectionAnchor, null);
+});
+
+test('setObjectsVisible hides a selection in one undo step and only when something changes', async () => {
+  await importOne(box(10), 'a.stl');
+  await importOne(box(10), 'b.stl');
+  const [a, b] = st().objects;
+  const undoBefore = st().undoStack.length;
+  st().setObjectsVisible([a.id, b.id], false);
+  assert.deepEqual(
+    st().objects.map((o) => o.visible),
+    [false, false],
+  );
+  assert.equal(st().undoStack.length, undoBefore + 1, 'one step for the whole selection');
+  assert.equal(st().sliceDirty, true);
+  // hiding an already hidden object records nothing
+  st().setObjectsVisible([a.id], false);
+  assert.equal(st().undoStack.length, undoBefore + 1);
+  st().undo();
+  assert.deepEqual(
+    st().objects.map((o) => o.visible),
+    [true, true],
+  );
+});
+
 test('addInstances copies the selected instance and arranges the copies on the bed', async () => {
   await importOne(box(10));
   const o = st().objects[0];

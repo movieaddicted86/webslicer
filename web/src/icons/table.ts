@@ -3,6 +3,8 @@ import {
   Combine,
   Copy,
   Ellipsis,
+  Eye,
+  EyeOff,
   FlipHorizontal,
   FlipHorizontal2,
   FlipVertical,
@@ -50,6 +52,9 @@ export const ICON_TABLE = {
   addInstance: { source: 'prusa', file: 'rectangle_add' },
   removeInstance: { source: 'lucide', icon: Minus },
   duplicate: { source: 'lucide', icon: Copy },
+  /** the group action that hides a multi-selection, and – when all of it is hidden – shows it again */
+  visible: { source: 'lucide', icon: Eye },
+  hidden: { source: 'lucide', icon: EyeOff },
   delete: { source: 'prusa', file: 'delete_button' },
   deleteAll: { source: 'lucide', icon: SquareX },
   reset: { source: 'prusa', file: 'undo_r' },

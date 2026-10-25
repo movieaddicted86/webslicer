@@ -1,0 +1,7 @@
+/* MultiSelection: the group actions card of a multi-object selection (MultiSelection.tsx). */
+
+.multi-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}

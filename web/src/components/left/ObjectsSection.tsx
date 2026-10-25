@@ -4,6 +4,7 @@ import { navEntry } from '../../nav/navMap';
 import { runNavAction } from '../../nav/actions';
 import { retrySession } from '../../state/session';
 import { requestImport } from '../../importTrigger';
+import { allVisible, mergeRule, visibilityTitle } from '../../selection';
 import { Icon } from '../../icons/Icon';
 import { ToolbarButton } from '../common/ToolbarButton';
 import { ObjectToolbar } from './ObjectToolbar';
@@ -22,19 +23,25 @@ import './ObjectsSection.css';
  *
  * L-4: the actions that act on the plate or the selection as a whole – arrange and its settings, add
  * and remove an instance, delete – live in the tool strip at the top of the scene. The toolbar keeps
- * what is about the list itself: merge, duplicate and delete all. A function has one home.
+ * what is about the list itself: merge, duplicate, hide/show and delete all. A function has one home.
+ *
+ * The selection rules (click, Ctrl/Cmd toggle, Shift range) are the shared ones in `selection.ts` and
+ * live in the store (`selectByClick` keeps the anchor), so the viewer and this list pick the same
+ * objects with one rule. A row only hands its click over.
  */
 export function ObjectsSection() {
   const objects = useStore((s) => s.objects);
   const selectedIds = useStore((s) => s.selectedIds);
+  const selectByClick = useStore((s) => s.selectByClick);
   const duplicate = useStore((s) => s.duplicateObjects);
   const mergeObjects = useStore((s) => s.mergeObjects);
+  const setObjectsVisible = useStore((s) => s.setObjectsVisible);
   const clear = useStore((s) => s.clearObjects);
+  const autosaveDiscard = useStore((s) => s.discardAutosave);
   const autosaveError = useStore((s) => s.autosaveError);
-  const discardAutosave = useStore((s) => s.discardAutosave);
-  // which objects show their instance sub-list (collapsed by default)
+  // which objects show their instance list (collapsed by default)
   const [instancesOpen, setInstancesOpen] = useState<Record<string, boolean>>({});
-  // the row whose name is being edited (double-click on the name or F2 on the selection)
+  // the object whose row is being renamed (double-click or the shared rename request)
   const [renamingId, setRenamingId] = useState<string | null>(null);
 
   const selected = useSelectedObjects();
@@ -47,21 +54,34 @@ export function ObjectsSection() {
     useStore.setState({ renameRequest: undefined });
   }, [renameRequest]);
 
-  // only objects with a single instance can be merged (one world position per object)
-  const mergeSelection = selected.filter((o) => o.instances.length === 1);
-  const canMerge = selected.length > 1 && mergeSelection.length === selected.length;
-  const mergeTitle = canMerge
-    ? 'Merge the selected objects into one (the first keeps its settings and paint)'
-    : selected.length > 1
-      ? 'Only objects with a single instance can be merged'
-      : 'Merge: select two or more objects with a single instance';
+  const merge = mergeRule(selected);
+  const shown = allVisible(selected);
 
   return (
     <section className="objects" data-testid="object-list">
       <ObjectToolbar>
         {/* the plate/selection commands are in the tool strip now; what stays is about the list */}
-        <ToolbarButton title={mergeTitle} icon="merge" onClick={() => void mergeObjects(selectedIds)} disabled={!canMerge} />
-        <ToolbarButton title="Duplicate" icon="duplicate" onClick={() => duplicate(selectedIds)} disabled={!selected.length} />
+        <ToolbarButton
+          title={merge.ok ? 'Merge the selected objects into one (the first keeps its settings and paint)' : merge.reason}
+          icon="merge"
+          testId="object-merge"
+          onClick={() => void mergeObjects(selectedIds)}
+          disabled={!merge.ok}
+        />
+        <ToolbarButton
+          title="Duplicate the selected objects"
+          icon="duplicate"
+          testId="object-duplicate"
+          onClick={() => duplicate(selectedIds)}
+          disabled={!selected.length}
+        />
+        <ToolbarButton
+          title={visibilityTitle(selected)}
+          icon={shown ? 'hidden' : 'visible'}
+          testId="object-visibility"
+          onClick={() => setObjectsVisible(selectedIds, !shown)}
+          disabled={!selected.length}
+        />
         <span className="tool-sep" aria-hidden="true" />
         <ToolbarButton
           title="Delete all"
@@ -80,6 +100,7 @@ export function ObjectsSection() {
             renaming={renamingId === o.id}
             onRename={() => setRenamingId(o.id)}
             onStopRename={() => setRenamingId(null)}
+            onSelect={(mods) => selectByClick(o.id, mods)}
           />
         ))}
         {!objects.length && autosaveError && (
@@ -89,7 +110,7 @@ export function ObjectsSection() {
               <button className="primary" onClick={retrySession}>
                 Retry
               </button>
-              <button onClick={discardAutosave}>Discard</button>
+              <button onClick={autosaveDiscard}>Discard</button>
             </div>
           </li>
         )}

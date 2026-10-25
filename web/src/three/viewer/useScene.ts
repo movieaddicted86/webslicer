@@ -11,6 +11,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
 import { useStore, type PlaterObject } from '../../state/store';
+import { modsOf } from '../../selection';
 import { renderThumbnails as renderSceneThumbnails } from '../thumbnail';
 import { setThumbnailRenderer } from '../../state/thumbnailRenderer';
 import { FOV, orthoHeightOf, setOrthoFrustum } from './camera';
@@ -214,10 +215,8 @@ export function useScene(refsRef: RefObject<SceneRefs | null>, containerRef: Ref
           return;
         }
         const id = obj.userData.id as string;
-        if (e.shiftKey || e.ctrlKey) {
-          if (st.selectedIds.includes(id)) st.select(st.selectedIds.filter((x) => x !== id));
-          else st.select([id], true);
-        } else st.select([id]);
+        // the same rule as the object list: plain picks one, Ctrl/Cmd toggles, Shift ranges from the anchor
+        st.selectByClick(id, modsOf(e));
         const hitInstance = obj.userData.instanceId as string | undefined;
         if (hitInstance) st.selectInstance(id, hitInstance);
       } else if (!onGizmo) {

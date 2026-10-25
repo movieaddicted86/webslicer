@@ -12,11 +12,14 @@ import { decodeMmu, decodePaint } from '../../plater/paintCodec';
 import { uploadMesh } from '../upload';
 import { apply as applyMatrix, bedShapeOf, placementMatrix } from '@webslicer/shared';
 import { IDENTITY_PLACEMENT, makeVolume, mintInstanceId, mintObjectId, mintRangeId, mintVolumeId } from '../../plater/objects';
+import { selectionAfterClick, type ClickMods } from '../../selection';
 import type { NewVolumeInput, PlaterObject, SlicePart } from '../types';
 
 export interface ObjectSlice {
   objects: PlaterObject[];
   selectedIds: string[];
+  /** the object the last plain or Ctrl click landed on – where a Shift click ranges from */
+  selectionAnchor: string | null;
   addObjects: (
     items: Array<{
       name: string;
@@ -39,6 +42,10 @@ export interface ObjectSlice {
   clearObjects: () => void;
   duplicateObjects: (ids: string[]) => Promise<void>;
   select: (ids: string[], additive?: boolean) => void;
+  /** select the way a list click does: plain, Ctrl/Cmd toggle or Shift range from the anchor */
+  selectByClick: (clicked: string, mods: ClickMods) => void;
+  /** show or hide several objects in one undo step (the group action of a multi-selection) */
+  setObjectsVisible: (ids: string[], visible: boolean) => void;
   /** rename an object (empty names are ignored); one undo step */
   renameObject: (id: string, name: string) => void;
 }
@@ -46,6 +53,7 @@ export interface ObjectSlice {
 export const createObjectSlice: SlicePart<ObjectSlice> = (set, get) => ({
   objects: [],
   selectedIds: [],
+  selectionAnchor: null,
   addObjects: async (items, opts = {}) => {
     // a caller that already changed the plater passes its own snapshot, so the undo step spans both
     get().recordHistory(opts.snapshot);
@@ -139,6 +147,7 @@ export const createObjectSlice: SlicePart<ObjectSlice> = (set, get) => ({
     set({
       objects: [],
       selectedIds: [],
+      selectionAnchor: null,
       selectedVolumeId: undefined,
       selectedInstanceId: undefined,
       sliceDirty: true,
@@ -179,9 +188,29 @@ export const createObjectSlice: SlicePart<ObjectSlice> = (set, get) => ({
   select: (ids, additive = false) =>
     set((s) => ({
       selectedIds: additive ? Array.from(new Set([...s.selectedIds, ...ids])) : ids,
+      // a programmatic selection has no click behind it: the next Shift click starts from it fresh
+      selectionAnchor: null,
       selectedVolumeId: undefined,
       selectedInstanceId: undefined,
     })),
+  selectByClick: (clicked, mods) => {
+    const s = get();
+    // the order the user sees: the object list's order, which is the plate's
+    const next = selectionAfterClick(
+      s.objects.map((o) => o.id),
+      s.selectedIds,
+      s.selectionAnchor,
+      clicked,
+      mods,
+    );
+    set({ selectedIds: next.ids, selectionAnchor: next.anchor, selectedVolumeId: undefined, selectedInstanceId: undefined });
+  },
+  setObjectsVisible: (ids, visible) => {
+    const s = get();
+    if (!ids.some((id) => s.objects.some((o) => o.id === id && o.visible !== visible))) return;
+    s.recordHistory();
+    set((st) => ({ objects: st.objects.map((o) => (ids.includes(o.id) ? { ...o, visible } : o)), sliceDirty: true }));
+  },
   renameObject: (id, name) => {
     const o = get().objects.find((x) => x.id === id);
     const next = name.trim();
