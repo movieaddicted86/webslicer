@@ -7,7 +7,7 @@ import { createJob, getJob, readJobLog } from '../jobs.js';
 import { NotFoundError } from '../errors.js';
 import { activeSchema } from '../services/schema.js';
 import { toSliceRequest, touchProject } from '../services/projects.js';
-import { validateConfigLimits, validateSliceRequest } from '../services/slice.js';
+import { validateConfigLimits, validatePlate, validateSliceRequest } from '../services/slice.js';
 import { loadOwnedProject } from './projectAccess.js';
 import { defineTool, type AnyTool } from './toolTypes.js';
 
@@ -36,6 +36,8 @@ export const jobTools: AnyTool[] = [
       // S1-d/N3: a typo in a temperature or the nozzle is refused here like on /api/slice,
       // checked on the merged config the slicer receives
       const configIssues = validateConfigLimits(request, schema);
+      // the plate checks of the browser footer hold here too: a headless slice may not skip them
+      await validatePlate(request);
       const job = await createJob(request, schema, configIssues);
       await touchProject(project);
       return {

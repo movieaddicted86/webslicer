@@ -7,14 +7,22 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { config } from '../config.js';
-import { parseStl, transformMesh, build3mf, type ThreeMfObject, type ThreeMfVolume } from '../slicer/threemf/index.js';
+import { parseStl, transformMesh, build3mf, type Mesh, type ThreeMfObject, type ThreeMfVolume } from '../slicer/threemf/index.js';
 import { parseSliceRequest } from '../validation/slice.js';
 import {
   checkConfigLimits,
   checkRequestConfigLimits,
+  checkFootprints,
   blockingConfigIssues,
+  instanceBounds,
+  meshBounds,
+  plateRulesOf,
   splitVector,
+  type Bounds,
   type ConfigIssue,
+  type InstanceFootprint,
+  type Matrix4,
+  type PlateIssue,
   type Schema,
   type SliceRequest,
 } from '@webslicer/shared';
@@ -95,6 +103,86 @@ async function readModelFile(modelId: string, message: string) {
   } catch {
     throw new Error(message);
   }
+}
+
+/** World bounds of one mesh under a matrix (the shared tuple shape `instanceBounds` takes). */
+function boundsOf(mesh: Mesh): Bounds {
+  return meshBounds(mesh.vertices);
+}
+
+/**
+ * The plate issues of a request (T-034): the same rules the browser lists before it starts a slice,
+ * computed from the stored meshes and the request's own transforms, so no path into the queue can
+ * skip them – the browser footer, the Preview, the re-slice, the project and the MCP routes.
+ *
+ * Footprints are the meshes' bounding boxes through the instance matrices (the way the browser reads
+ * its geometries), extended by the object's `ModelPart` volumes the way the slicer adds them to the
+ * object.
+ */
+export async function plateIssuesOfRequest(req: SliceRequest): Promise<PlateIssue[]> {
+  const meshes = new Map<string, Mesh>();
+  /**
+   * The mesh of a model, or `undefined` when its file is gone. A missing model is an internal
+   * inconsistency the job builder reports on its own (500, as before); the plate check skips the
+   * object instead of turning that answer into a misleading "outside the print volume".
+   */
+  const meshOf = async (modelId: string): Promise<Mesh | undefined> => {
+    let mesh = meshes.get(modelId);
+    if (!mesh) {
+      try {
+        mesh = parseStl(await fs.readFile(path.join(config.modelsDir, `${modelId}.stl`)));
+      } catch {
+        return undefined;
+      }
+      meshes.set(modelId, mesh);
+    }
+    return mesh;
+  };
+
+  const footprints: InstanceFootprint[] = [];
+  for (const o of req.objects) {
+    const mesh = await meshOf(o.modelId);
+    if (!mesh) continue;
+    const objectBox = boundsOf(mesh);
+    for (const v of o.volumes || []) {
+      if (v.type !== 'ModelPart') continue;
+      const vMesh = await meshOf(v.modelId);
+      if (!vMesh) continue;
+      const vBox = instanceBounds(boundsOf(vMesh), v.transform);
+      for (let a = 0; a < 3; a++) {
+        objectBox.min[a] = Math.min(objectBox.min[a], vBox.min[a]);
+        objectBox.max[a] = Math.max(objectBox.max[a], vBox.max[a]);
+      }
+    }
+    // old clients send only `transform`; newer ones list every instance (including the first)
+    const transforms: Matrix4[] = o.instances?.length ? o.instances : [o.transform];
+    transforms.forEach((transform, i) => {
+      const box = instanceBounds(objectBox, transform);
+      footprints.push({
+        objectId: o.modelId,
+        objectName: o.name || 'object',
+        instanceId: `${i}`,
+        minX: box.min[0],
+        minY: box.min[1],
+        maxX: box.max[0],
+        maxY: box.max[1],
+        maxZ: box.max[2],
+      });
+    });
+  }
+  return checkFootprints(footprints, plateRulesOf(req.printer.config, req.print.config));
+}
+
+/**
+ * Refuse a request whose plate fails the checks, with the same reasons the browser shows. A block is
+ * a `ValidationError` (400) whose `details` carry the issues, like `validateConfigLimits`; warnings
+ * (the sequential-printing clearance) do not stop the slice.
+ */
+export async function validatePlate(req: SliceRequest): Promise<PlateIssue[]> {
+  const issues = await plateIssuesOfRequest(req);
+  const blocking = issues.filter((i) => i.severity === 'block');
+  if (blocking.length) throw new ValidationError(blocking[0].message, { issues });
+  return issues;
 }
 
 /** Build the PrusaSlicer 3MF of a request; `projectConfig` becomes the embedded project settings. */

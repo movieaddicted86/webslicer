@@ -27,7 +27,7 @@ const { createApp } = await import('../app.js');
 const { setSchema } = await import('../jobs.js');
 const { setActiveSchema } = await import('../services/schema.js');
 const { setUpdateChecker } = await import('../services/updateCheck.js');
-const { IDENTITY } = await import('@webslicer/shared');
+const { IDENTITY, translate } = await import('@webslicer/shared');
 
 /** Minimal schema: these tests never reach the slicer schema, but the module cache is shared. */
 const SCHEMA = {
@@ -369,6 +369,36 @@ test('POST /api/slice accepts a soft-range value and carries its warning into th
   assert.equal(job.configIssues?.[0].key, 'temperature');
 });
 
+/** A tiny binary STL with `size` mm cube corners at (0, 0, 0) … (size, size, size) – a real model file. */
+function cubeStl(size = 20): Uint8Array {
+  const v = Float32Array.from([0, 0, 0, size, 0, 0, size, size, 0, 0, size, 0, 0, 0, size, size, 0, size, size, size, size, 0, size, size]);
+  const i = Uint32Array.from([
+    0, 2, 1, 0, 1, 3, 1, 2, 3, 2, 0, 3, 4, 6, 5, 4, 5, 7, 5, 6, 7, 6, 4, 7, 0, 4, 5, 0, 5, 1, 1, 5, 6, 1, 6, 2, 2, 6, 7, 2, 7, 3, 3, 7, 4,
+    3, 4, 0,
+  ]);
+  const buf = Buffer.alloc(84 + (i.length / 3) * 50);
+  buf.writeUInt32LE(i.length / 3, 80);
+  let o = 84;
+  for (let t = 0; t < i.length; t += 3) {
+    o += 12; // the facet normal stays zero: `parseStl` recomputes nothing it needs here
+    for (const index of [i[t], i[t + 1], i[t + 2]]) {
+      for (let a = 0; a < 3; a++) {
+        buf.writeFloatLE(v[index * 3 + a], o);
+        o += 4;
+      }
+    }
+    o += 2; // attribute byte count
+  }
+  return new Uint8Array(buf);
+}
+
+/** Upload the cube and answer its model id, so a slice request can name a real stored mesh. */
+async function uploadedCube(size = 20): Promise<string> {
+  const res = await call('POST', '/api/models', cubeStl(size), { 'X-Filename': 'cube.stl' });
+  assert.equal(res.status, 200, res.body);
+  return (res.json as { id: string }).id;
+}
+
 test('POST /api/slice refuses an injected config key with 400 and the key in the message (SEC-2)', async () => {
   for (const key of ['x\npost_process = echo pwned', ' post_process', 'post_process=x', 'post_process\r']) {
     const res = await call('POST', '/api/slice', sliceRequestTop({ print: { name: 'p', config: { [key]: 'echo pwned' } } }));
@@ -382,6 +412,44 @@ test('POST /api/slice refuses an injected config key with 400 and the key in the
   const range = await call('POST', '/api/slice', sliceRequest({ ranges: [{ minZ: 0, maxZ: 1, config: { 'a\nb': 'x' } }] }));
   assert.equal(range.status, 400);
   assert.match(errorOf(range) ?? '', /invalid config key/);
+});
+
+test('POST /api/slice refuses a plate whose skirt runs outside the bed, with the reason (T-034)', async () => {
+  const modelId = await uploadedCube(20);
+  // the cube's centre 6 mm from the left edge: the object fits, the default 1-loop skirt (6 mm out)
+  // reaches past the bed – the same case the browser footer blocks
+  const body = {
+    ...sliceRequest(),
+    objects: [{ modelId, name: 'cube', transform: translate(6, 100, 0) }],
+    printer: { name: 'pr', config: { bed_shape: '0x0,200x0,200x200,0x200', nozzle_diameter: '0.4' } },
+  };
+  const res = await call('POST', '/api/slice', body);
+  assert.equal(res.status, 400, res.body);
+  assert.match(errorOf(res) ?? '', /skirt .* outside the print volume/);
+  const issues = (res.json as { issues?: Array<{ code: string; severity: string }> }).issues;
+  assert.deepEqual(
+    issues?.map((i) => i.code),
+    ['plate.skirt_outside'],
+  );
+  assert.equal(issues?.[0].severity, 'block');
+
+  // the same plate in the middle of the bed slices: the check refuses only what the slicer would fail on
+  const middle = await call('POST', '/api/slice', {
+    ...body,
+    objects: [{ modelId, name: 'cube', transform: translate(100, 100, 0) }],
+  });
+  assert.equal(middle.status, 202, middle.body);
+});
+
+test('POST /api/slice refuses an object that leaves the bed, with the reason (T-034)', async () => {
+  const modelId = await uploadedCube(20);
+  const res = await call('POST', '/api/slice', {
+    ...sliceRequest(),
+    objects: [{ modelId, name: 'cube', transform: translate(-40, 100, 0) }],
+    printer: { name: 'pr', config: { bed_shape: '0x0,200x0,200x200,0x200', nozzle_diameter: '0.4' } },
+  });
+  assert.equal(res.status, 400, res.body);
+  assert.match(errorOf(res) ?? '', /outside the print volume/);
 });
 
 test('PUT /api/presets/:type/:name refuses an injected config key with 400 (SEC-2)', async () => {
