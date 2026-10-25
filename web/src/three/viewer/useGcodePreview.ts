@@ -21,7 +21,18 @@ interface GcodeColoring {
   codes: CustomGcode[];
   /** colour per tool (filament colours) */
   toolColors: string[];
+  /** the plate fails the checks: the result is shown as outdated, one grey and no layer colours (Z-06) */
+  outdated: boolean;
 }
+
+/** The look of a result that must not pass as current: one grey, low opacity, no scheme colours. */
+const OUTDATED_GREY = 0x8e97a6;
+const OUTDATED_OPACITY = 0.35;
+/** The colours the travel, the wipe and the tool marker are drawn in when the result is current. */
+const TRAVEL_COLOR = 0x3b8bd1;
+const TRAVEL_OPACITY = 0.6;
+const WIPE_OPACITY = 0.9;
+const TOOL_MARKER_COLOR = 0xffd24d;
 
 /** Fill the per-vertex colours of the toolpath lines for the given colour mode. */
 function fillGcodeColors(colors: Float32Array, g: ParsedGcode, coloring: GcodeColoring) {
@@ -31,6 +42,12 @@ function fillGcodeColors(colors: Float32Array, g: ParsedGcode, coloring: GcodeCo
     colors[o + 1] = colors[o + 4] = c.g;
     colors[o + 2] = colors[o + 5] = c.b;
   };
+  if (coloring.outdated) {
+    // Z-06: a result whose plate no longer passes the checks keeps its lines but loses every colour
+    const grey = new THREE.Color(OUTDATED_GREY);
+    for (let i = 0; i < g.segmentCount; i++) set(i, grey);
+    return;
+  }
   if (coloring.mode === 'colorprint') {
     // one colour per layer, switched by colour changes
     const layerColor = Array.from(g.layerZ, (z) => new THREE.Color(colorAtZ(z, coloring.baseColor, coloring.codes)));
@@ -60,9 +77,41 @@ function fillGcodeColors(colors: Float32Array, g: ParsedGcode, coloring: GcodeCo
 }
 
 function coloringKey(c: GcodeColoring): string {
-  if (c.mode === 'colorprint') return `colorprint|${c.baseColor}|${c.codes.map((x) => `${x.type}:${x.printZ}:${x.color ?? ''}`).join(',')}`;
-  if (c.mode === 'tool') return `tool|${c.baseColor}|${c.toolColors.join(',')}`;
-  return c.mode;
+  const outdated = c.outdated ? 'outdated|' : '';
+  if (c.mode === 'colorprint')
+    return `${outdated}colorprint|${c.baseColor}|${c.codes.map((x) => `${x.type}:${x.printZ}:${x.color ?? ''}`).join(',')}`;
+  if (c.mode === 'tool') return `${outdated}tool|${c.baseColor}|${c.toolColors.join(',')}`;
+  return `${outdated}${c.mode}`;
+}
+
+/**
+ * The outdated look of the whole preview (Z-06): every line, marker and the tool marker in one grey at
+ * low opacity, so a result whose plate fails the checks cannot be mistaken for a current one. The
+ * materials are transparent from the start, so switching the look costs no shader rebuild.
+ */
+function applyOutdatedLook(refs: SceneRefs, outdated: boolean) {
+  const lines = refs.gcodeLines?.material as THREE.LineBasicMaterial | undefined;
+  if (lines) lines.opacity = outdated ? OUTDATED_OPACITY : 1;
+  const travel = refs.travelLines?.material as THREE.LineBasicMaterial | undefined;
+  if (travel) {
+    travel.color.set(outdated ? OUTDATED_GREY : TRAVEL_COLOR);
+    travel.opacity = outdated ? OUTDATED_OPACITY : TRAVEL_OPACITY;
+  }
+  const wipe = refs.wipeLines?.material as THREE.LineBasicMaterial | undefined;
+  if (wipe) {
+    wipe.color.set(outdated ? OUTDATED_GREY : MARKER_COLORS.wipe);
+    wipe.opacity = outdated ? OUTDATED_OPACITY : WIPE_OPACITY;
+  }
+  for (const [kind, points] of refs.markerPoints ?? []) {
+    const material = points.material as THREE.PointsMaterial;
+    material.color.set(outdated ? OUTDATED_GREY : MARKER_COLORS[kind]);
+    material.opacity = outdated ? OUTDATED_OPACITY : 1;
+  }
+  const cone = refs.toolMarker?.material as THREE.MeshBasicMaterial | undefined;
+  if (cone) {
+    cone.color.set(outdated ? OUTDATED_GREY : TOOL_MARKER_COLOR);
+    cone.opacity = outdated ? OUTDATED_OPACITY : 1;
+  }
 }
 
 function buildGcode(refs: SceneRefs, g: ParsedGcode, coloring: GcodeColoring) {
@@ -79,14 +128,17 @@ function buildGcode(refs: SceneRefs, g: ParsedGcode, coloring: GcodeColoring) {
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.BufferAttribute(g.positions.slice(), 3));
   geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-  const lines = new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ vertexColors: true }));
+  const lines = new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ vertexColors: true, transparent: true }));
   lines.frustumCulled = false;
   refs.gcodeGroup.add(lines);
   refs.gcodeLines = lines;
 
   const tg = new THREE.BufferGeometry();
   tg.setAttribute('position', new THREE.BufferAttribute(g.travelPositions, 3));
-  const travel = new THREE.LineSegments(tg, new THREE.LineBasicMaterial({ color: 0x3b8bd1, transparent: true, opacity: 0.6 }));
+  const travel = new THREE.LineSegments(
+    tg,
+    new THREE.LineBasicMaterial({ color: TRAVEL_COLOR, transparent: true, opacity: TRAVEL_OPACITY }),
+  );
   travel.frustumCulled = false;
   travel.visible = false;
   refs.gcodeGroup.add(travel);
@@ -95,7 +147,10 @@ function buildGcode(refs: SceneRefs, g: ParsedGcode, coloring: GcodeColoring) {
   if (g.wipeCount) {
     const wg = new THREE.BufferGeometry();
     wg.setAttribute('position', new THREE.BufferAttribute(g.wipePositions, 3));
-    const wipe = new THREE.LineSegments(wg, new THREE.LineBasicMaterial({ color: MARKER_COLORS.wipe, transparent: true, opacity: 0.9 }));
+    const wipe = new THREE.LineSegments(
+      wg,
+      new THREE.LineBasicMaterial({ color: MARKER_COLORS.wipe, transparent: true, opacity: WIPE_OPACITY }),
+    );
     wipe.frustumCulled = false;
     wipe.visible = false;
     refs.gcodeGroup.add(wipe);
@@ -126,7 +181,7 @@ function buildGcode(refs: SceneRefs, g: ParsedGcode, coloring: GcodeColoring) {
     const kind = MARKER_KINDS[k];
     const mp = new THREE.Points(
       mg,
-      new THREE.PointsMaterial({ color: new THREE.Color(MARKER_COLORS[kind]), size: 3, sizeAttenuation: false }),
+      new THREE.PointsMaterial({ color: new THREE.Color(MARKER_COLORS[kind]), size: 3, sizeAttenuation: false, transparent: true }),
     );
     mp.frustumCulled = false;
     mp.visible = false;
@@ -138,7 +193,10 @@ function buildGcode(refs: SceneRefs, g: ParsedGcode, coloring: GcodeColoring) {
   }
   refs.markerPoints = points;
 
-  const cone = new THREE.Mesh(new THREE.ConeGeometry(0.6, 1.6, 12), new THREE.MeshBasicMaterial({ color: 0xffd24d }));
+  const cone = new THREE.Mesh(
+    new THREE.ConeGeometry(0.6, 1.6, 12),
+    new THREE.MeshBasicMaterial({ color: TOOL_MARKER_COLOR, transparent: true }),
+  );
   cone.rotation.x = Math.PI / 2; // PrusaSlicer's marker points along +Z
   cone.visible = false;
   cone.renderOrder = 30;
@@ -285,10 +343,25 @@ interface GcodePreviewOptions {
   filamentColour?: string;
   /** per-tool filament colours, joined - the identity of the colouring */
   toolColorKey: string;
+  /** the plate fails the checks while a result is on screen: draw the result greyed out (Z-06) */
+  outdated: boolean;
 }
 
 export function useGcodePreview(refsRef: RefObject<SceneRefs | null>, options: GcodePreviewOptions) {
-  const { gcode, view, range, moveCut, showTravel, markerVis, featureVis, colorMode, customGcodes, filamentColour, toolColorKey } = options;
+  const {
+    gcode,
+    view,
+    range,
+    moveCut,
+    showTravel,
+    markerVis,
+    featureVis,
+    colorMode,
+    customGcodes,
+    filamentColour,
+    toolColorKey,
+    outdated,
+  } = options;
   useEffect(() => {
     const refs = refsRef.current;
     if (!refs) return;
@@ -297,10 +370,11 @@ export function useGcodePreview(refsRef: RefObject<SceneRefs | null>, options: G
       baseColor: normalizeColor(filamentColour),
       codes: customGcodes,
       toolColors: toolColorKey.split(','),
+      outdated,
     };
     if (gcode && refs.gcodeRef !== gcode) buildGcode(refs, gcode, coloring);
     else if (gcode && refs.gcodeLines && refs.colorKey !== coloringKey(coloring)) {
-      // recolour in place (colour mode or colour changes edited)
+      // recolour in place (colour mode, colour changes edited, or the plate started/stopped failing)
       const attr = refs.gcodeLines.geometry.getAttribute('color') as THREE.BufferAttribute;
       fillGcodeColors(attr.array as Float32Array, gcode, coloring);
       attr.needsUpdate = true;
@@ -311,6 +385,7 @@ export function useGcodePreview(refsRef: RefObject<SceneRefs | null>, options: G
       refs.gcodeRef = undefined;
       refs.gcodeLines = undefined;
     }
+    if (gcode) applyOutdatedLook(refs, outdated);
     refs.gcodeGroup.visible = view === 'preview' && !!gcode;
     if (gcode) {
       const topLayer = Math.max(0, Math.min(range[1], gcode.layerCount - 1));
@@ -320,5 +395,5 @@ export function useGcodePreview(refsRef: RefObject<SceneRefs | null>, options: G
     }
     // `refsRef` is a stable ref object owned by the Viewer; its content changes without a re-render
     // eslint-disable-next-line react-hooks/exhaustive-deps -- stable ref, not a dependency
-  }, [gcode, view, range, moveCut, showTravel, markerVis, featureVis, colorMode, customGcodes, filamentColour, toolColorKey]);
+  }, [gcode, view, range, moveCut, showTravel, markerVis, featureVis, colorMode, customGcodes, filamentColour, toolColorKey, outdated]);
 }

@@ -13,6 +13,21 @@
   word-break: break-all;
 }
 
+/* Z-06: the result on screen belongs to a plate that fails the checks. The banner keeps the panel's
+   warning colours but states it as a fact about the result, with the reasons right below it. */
+.outdated-banner {
+  background: color-mix(in srgb, var(--yellow) 16%, var(--card));
+  border: 1px solid color-mix(in srgb, var(--yellow) 36%, var(--line));
+  color: color-mix(in srgb, var(--yellow) 70%, var(--text));
+  padding: 6px 8px;
+  border-radius: 6px;
+  margin-bottom: 8px;
+}
+
+.outdated-banner .slice-blockers {
+  margin-top: 6px;
+}
+
 /* a state section (no result, a running slice, an error) keeps the card padding of the panel body */
 .preview-panel > section {
   padding: 10px 12px;

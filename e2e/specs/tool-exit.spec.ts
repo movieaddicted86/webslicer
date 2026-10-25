@@ -8,6 +8,10 @@
  * ends the tool (with its cleanup) and clears the selection, and that an orbit drag is not such a click.
  *
  * Clicking an object stays what it was: it selects (or paints) and leaves the open tool alone.
+ *
+ * T-075 / Z-03: the ✕ of every panel is a real, recognisable button – at least 28 × 28 px, in the
+ * head's top right, titled "Close (Esc)" and reachable by keyboard. The test pins the hit area and the
+ * tooltip for every panel tool and clicks it once per panel.
  */
 import { CUBE, importFile, press, read, settle } from '../helpers/app';
 import { expect, test } from '../helpers/fixtures';
@@ -61,6 +65,60 @@ test.describe('tool exit and the context panel (T-072)', () => {
       s.select([s.objects[0].id]);
     });
     await settle(app, 700);
+  });
+
+  test('every panel carries a recognisable ✕ top right that closes it (Z-03)', async ({ app }) => {
+    for (const id of PANEL_TOOLS) {
+      await click(app, `[data-testid="tool-${id}"]`, 800);
+      expect(await read(app, (s) => s.activeTool), `${id} is open`).toBe(id);
+
+      const close = app.locator('[data-testid="tool-panel-close"]');
+      await expect(close, `${id} has one close button`).toHaveCount(1);
+      await expect(close, `${id}: its tooltip names the action and Esc`).toHaveAttribute('title', 'Close (Esc)');
+      // Z-03: a real 28 px hit area, and it sits in the head's top right corner
+      const box = await close.boundingBox();
+      expect(box?.width ?? 0, `${id}: the ✕ is at least 28 px wide`).toBeGreaterThanOrEqual(28);
+      expect(box?.height ?? 0, `${id}: the ✕ is at least 28 px tall`).toBeGreaterThanOrEqual(28);
+      const where = await app.evaluate(() => {
+        const head = document.querySelector('[data-testid="tool-panel"] .tool-panel-head') as HTMLElement | null;
+        const button = head?.querySelector('[data-testid="tool-panel-close"]') as HTMLElement | null;
+        if (!head || !button) return null;
+        const h = head.getBoundingClientRect();
+        const b = button.getBoundingClientRect();
+        return { right: h.right - b.right, top: b.top - h.top };
+      });
+      expect(where, `${id}: the ✕ lives in the panel head`).not.toBeNull();
+      expect(where!.right, `${id}: the ✕ is at the head's right edge`).toBeLessThanOrEqual(2);
+      expect(where!.top, `${id}: the ✕ is at the head's top`).toBeLessThanOrEqual(6);
+
+      // keyboard focusable, and a click closes the tool like Esc does (the selection stays)
+      await close.focus();
+      expect(await app.evaluate(() => document.activeElement?.getAttribute('data-testid')), `${id}: focus reaches the ✕`).toBe(
+        'tool-panel-close',
+      );
+      await close.click();
+      await settle(app, 400);
+      expect(await read(app, (s) => ({ tool: s.activeTool ?? null, selected: s.selectedIds.length })), `${id} closed`).toEqual({
+        tool: null,
+        selected: 1,
+      });
+      await expect(app.locator('[data-testid="tool-panel"]'), `${id}: the panel is gone`).toHaveCount(0);
+    }
+
+    // the third paint panel needs several extruders; it is the same frame, so it carries the same ✕
+    await app.evaluate(() => window.webslicer.getState().setOption('printer', 'nozzle_diameter', '0.4,0.4,0.4,0.4,0.4,0.4'));
+    await settle(app, 1800);
+    expect(await read(app, (s) => s.extruderCount())).toBe(6);
+    await click(app, '[data-testid="tool-paintMmu"]', 900);
+    expect(await read(app, (s) => s.activeTool)).toBe('paintMmu');
+    const mmuClose = app.locator('[data-testid="tool-panel-close"]');
+    await expect(mmuClose).toHaveAttribute('title', 'Close (Esc)');
+    const mmuBox = await mmuClose.boundingBox();
+    expect(mmuBox?.width ?? 0).toBeGreaterThanOrEqual(28);
+    expect(mmuBox?.height ?? 0).toBeGreaterThanOrEqual(28);
+    await mmuClose.click();
+    await settle(app, 400);
+    expect(await read(app, (s) => s.activeTool ?? null)).toBeNull();
   });
 
   test('every strip tool leaves the column usable: its own panel, or the default panel with Slice', async ({ app }) => {

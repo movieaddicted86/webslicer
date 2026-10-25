@@ -295,9 +295,12 @@ export interface SceneChildLike {
   children: SceneChildLike[];
   parent: SceneChildLike | null;
   userData: { move?: number[] };
-  material?: { vertexColors?: boolean } | Array<{ vertexColors?: boolean }>;
+  material?: { vertexColors?: boolean; opacity?: number; color?: unknown } | Array<{ vertexColors?: boolean; opacity?: number }>;
   geometry?: {
-    attributes: { position: { count: number; array: ArrayLike<number> } };
+    attributes: {
+      position: { count: number; array: ArrayLike<number> };
+      color?: { count: number; array: ArrayLike<number> };
+    };
     drawRange: { start: number; count: number };
     index?: { count: number } | null;
   };

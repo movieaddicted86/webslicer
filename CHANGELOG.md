@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+- **A tool panel's ✕ is meant to be found, and an outdated Preview says so (T-075, findings Z-03 and
+  Z-06):** Robert could not find the close button of an open tool panel although it was there (Esc
+  worked), and with a blocked plate the Preview kept showing the old sliced model as if it were
+  valid. The ✕ is now a real button in the same place in every panel – the head's top right, 28 × 28
+  px, the tooltip "Close (Esc)", keyboard focusable with a visible focus ring – so no tool has its
+  own variant. When the plate checks or the configuration limits block a slice **and** a result is on
+  screen, the Preview keeps that result but draws the toolpaths as one flat grey at low opacity (no
+  feature or layer colours) and opens with the banner "This result is outdated – the plate does not
+  pass the checks" above the list of reasons; fixing the plate brings the colours back without a new
+  slice. A plain settings or object change with a valid plate keeps the colours and the existing
+  "Slice again to update" note, and the T-073 gates (Slice, Export, Save, Send) are unchanged. No new
+  settings.
+
 ## 1.0.0-rc.5 – 2026-10-25
 
 - **Settings are where people look for them, and no two functions share the cog (T-074):** the full

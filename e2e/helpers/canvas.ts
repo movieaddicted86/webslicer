@@ -362,6 +362,55 @@ export async function gcodeScene(page: Page): Promise<GcodeScene> {
   });
 }
 
+export interface GcodeLook {
+  /** opacity of the toolpath lines: 1 when the result is current, below 1 when it is greyed out */
+  opacity: number;
+  /** how many distinct vertex colours the sampled toolpath segments carry (1 = the one grey of Z-06) */
+  colours: number;
+}
+
+/**
+ * The look of the toolpaths (Z-06): a current result carries a colour per feature, an outdated one a
+ * single grey at low opacity. Read from the material and the colour attribute, so no pixel check.
+ */
+export async function gcodeLook(page: Page): Promise<GcodeLook | null> {
+  return page.evaluate(() => {
+    const scene = window.__wsScene();
+    let group: SceneChildLike | null = null;
+    let best = 0;
+    for (const child of scene.children) {
+      let pts = 0;
+      child.traverse((o) => {
+        if (o.isLineSegments || o.isPoints) pts += o.geometry?.attributes?.position?.count ?? 0;
+      });
+      if (pts > best) {
+        best = pts;
+        group = child;
+      }
+    }
+    let line: SceneChildLike | null = null;
+    group?.traverse((o) => {
+      if (line || !o.isLineSegments) return;
+      const m = Array.isArray(o.material) ? o.material[0] : o.material;
+      if (m?.vertexColors) line = o;
+    });
+    if (!line) return null;
+    const found = line as SceneChildLike;
+    const material = (Array.isArray(found.material) ? found.material[0] : found.material) as { opacity?: number };
+    const colors = (found.geometry as unknown as { attributes: { color?: { count: number; array: ArrayLike<number> } } }).attributes.color;
+    const seen = new Set<string>();
+    if (colors) {
+      // every segment repeats its colour twice (two vertices), so sampling singles is enough
+      const n = Math.min(colors.count, 8000);
+      for (let i = 0; i < n; i += 2) {
+        const o = i * 3;
+        seen.add(`${Math.round(colors.array[o] * 255)},${Math.round(colors.array[o + 1] * 255)},${Math.round(colors.array[o + 2] * 255)}`);
+      }
+    }
+    return { opacity: material.opacity ?? 1, colours: seen.size };
+  });
+}
+
 export interface MarkerProbe {
   drawn: number;
   total: number;
