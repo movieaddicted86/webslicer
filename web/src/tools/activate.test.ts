@@ -5,7 +5,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { activateTool, exitTool, type ToolHost } from './activate';
+import { activateTool, exitTool, unshowableTool, type ToolHost } from './activate';
 import { TOOLS, toolById } from './registry';
 import type { State } from '../state/types';
 
@@ -34,24 +34,41 @@ function host(overrides: Partial<State> = {}) {
 
 test('opening a tool sets activeTool and runs its onEnter', () => {
   const { result, mutable, calls } = host();
+  assert.deepEqual(activateTool(result, 'cut'), { ok: true });
+  assert.equal(mutable.activeTool, 'cut');
+  assert.deepEqual(calls, ['cut:settings']);
+});
+
+test('a transform tool only sets its gizmo mode – it never becomes the open tool', () => {
+  // it has no panel: making it `activeTool` put the context panel into an empty tool mode, which is
+  // exactly the bug the fix closes
+  const { result, mutable, calls } = host();
   assert.deepEqual(activateTool(result, 'move'), { ok: true });
-  assert.equal(mutable.activeTool, 'move');
-  assert.deepEqual(calls, ['transform:translate']);
+  assert.equal(mutable.activeTool, undefined, 'no panel, so nothing to show');
+  assert.deepEqual(calls, ['transform:translate'], 'its onEnter still runs');
 });
 
 test('the open tool toggles off by its own id, without running it again', () => {
   const { result, mutable, calls } = host();
-  activateTool(result, 'rotate');
-  assert.deepEqual(activateTool(result, 'rotate'), { ok: true });
+  activateTool(result, 'paintSeam');
+  assert.deepEqual(activateTool(result, 'paintSeam'), { ok: true });
   assert.equal(mutable.activeTool, undefined);
-  assert.deepEqual(calls, ['transform:rotate'], 'onEnter ran once, a second click only closes');
+  assert.deepEqual(calls, ['paint:seam'], 'onEnter ran once, a second click only closes');
 });
 
 test('opening another tool closes the first one first', () => {
   const { result, mutable } = host();
-  activateTool(result, 'move');
-  activateTool(result, 'scale');
-  assert.equal(mutable.activeTool, 'scale');
+  activateTool(result, 'cut');
+  activateTool(result, 'layerHeight');
+  assert.equal(mutable.activeTool, 'layerHeight');
+});
+
+test('opening a transform tool closes an open panel tool', () => {
+  const { result, mutable, calls } = host();
+  activateTool(result, 'cut');
+  activateTool(result, 'rotate');
+  assert.equal(mutable.activeTool, undefined, 'the panel falls back to object mode');
+  assert.deepEqual(calls, ['cut:settings', 'transform:rotate']);
 });
 
 test('an unavailable tool stays closed and returns the reason the bar shows as tooltip', () => {
@@ -83,6 +100,27 @@ test('closing a closed tool does nothing', () => {
   const { result, calls } = host();
   exitTool(result);
   assert.deepEqual(calls, [], 'no lifecycle of a tool that was not open');
+});
+
+test('a tool whose precondition disappeared is reported as unshowable', () => {
+  const cutOpen = host({ selectedIds: ['a'] }).mutable;
+  assert.equal(unshowableTool(cutOpen), undefined, 'cut with its object is fine');
+  // the selection dropped to two objects (or the object was deleted): cut cannot be shown any more
+  const twoSelected = { ...cutOpen, activeTool: 'cut', selectedIds: ['a', 'b'] } as State;
+  assert.equal(unshowableTool(twoSelected), 'cut');
+  const objectGone = { ...cutOpen, activeTool: 'cut', objects: [], selectedIds: ['a'] } as State;
+  assert.equal(unshowableTool(objectGone), 'cut');
+});
+
+test('a transform tool in activeTool is unshowable – it has no panel', () => {
+  const { mutable } = host();
+  const stale = { ...mutable, activeTool: 'move' } as State;
+  assert.equal(unshowableTool(stale), 'move');
+});
+
+test('no open tool is never unshowable', () => {
+  const { mutable } = host();
+  assert.equal(unshowableTool(mutable), undefined);
 });
 
 test('the transform tools share the one transform mode – only one is shown as active', () => {

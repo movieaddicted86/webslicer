@@ -117,27 +117,31 @@ export function Viewer() {
         )}
         <div>Views: 0-6 · K: perspective/ortho · Z: zoom to selection</div>
       </div>
-      {/* PrusaSlicer's view toolbar: the standard views, the projection and zoom to selection */}
-      <div className="viewer-toolbar">
-        {VIEWS.map((v) => (
-          <button key={v.id} title={`${v.label} view (${v.key})`} onClick={() => requestCamera({ mode: 'view', view: v.id })}>
-            {v.label}
+      {/* PrusaSlicer's view toolbar: the standard views, the projection and zoom to selection.
+          It floats centred in the band between the cards, as the tool strip does, so it never sits
+          under the context panel. */}
+      <div className="viewer-bar-band">
+        <div className="viewer-toolbar">
+          {VIEWS.map((v) => (
+            <button key={v.id} title={`${v.label} view (${v.key})`} onClick={() => requestCamera({ mode: 'view', view: v.id })}>
+              {v.label}
+            </button>
+          ))}
+          <button
+            className={ortho ? 'active' : ''}
+            title={ortho ? 'Orthographic projection (K)' : 'Perspective projection (K)'}
+            onClick={toggleOrtho}
+          >
+            {ortho ? 'Ortho' : 'Persp'}
           </button>
-        ))}
-        <button
-          className={ortho ? 'active' : ''}
-          title={ortho ? 'Orthographic projection (K)' : 'Perspective projection (K)'}
-          onClick={toggleOrtho}
-        >
-          {ortho ? 'Ortho' : 'Persp'}
-        </button>
-        <button title="Zoom to selection (Z)" aria-label="Zoom to selection (Z)" onClick={() => requestCamera({ mode: 'fit' })}>
-          ⌖
+          <button title="Zoom to selection (Z)" aria-label="Zoom to selection (Z)" onClick={() => requestCamera({ mode: 'fit' })}>
+            ⌖
+          </button>
+        </div>
+        <button className="viewer-fit" title="Reset view" aria-label="Reset view" onClick={() => requestCamera({ mode: 'bed' })}>
+          ⌂
         </button>
       </div>
-      <button className="viewer-fit" title="Reset view" aria-label="Reset view" onClick={() => requestCamera({ mode: 'bed' })}>
-        ⌂
-      </button>
     </div>
   );
 }

@@ -63,7 +63,11 @@ rail | scene
 - **scene** – the `.scene-area` with the `DropZone` and the `Viewer`; three.js resizes through its
   `ResizeObserver`, so the canvas follows its container without a second resize path. The scene is the
   **whole** area right of the rail below the bar: the object list and the context panel are cards that
-  float over it, not grid tracks, so folding a card or hiding the panels never resizes the canvas.
+  float over it, not grid tracks, so folding a card or hiding the panels never resizes the canvas. Its
+  own overlays keep to the band the cards leave free: the tool strip at the top, the view bar
+  (`Viewer.css`: `.viewer-bar-band` centred, the reset button on its right edge) below it. A click that
+  hits no object ends the open tool through the same close as ✕/Esc and clears the selection
+  (`viewer/useScene.ts`); a drag beyond a few pixels and a click on the transform gizmo are not clicks.
 - **object list card** – `components/left/LeftColumn.tsx`, absolutely positioned at the scene's top
   left (`--card-gap` off both edges) with the mockup's card look (radius 10, 1 px line, soft shadow,
   slightly translucent, light backdrop blur). Its own header carries the title, the object count and
@@ -87,7 +91,10 @@ rail | scene
   for one selected object, the cards `TransformCard`, `SettingsCard`, `PartsCard` and the range card
   with `RangePanel`. `PanelCard.tsx` is the card frame (a `section` with its `aside` heading, an icon
   and an optional action slot). Simple mode shows the plate content only; the Preview keeps
-  `PreviewPanel`.
+  `PreviewPanel`. Only a tool whose registry entry has a `panel` becomes `activeTool` (`tools/activate.ts`):
+  move, rotate and scale set `transformMode` alone, so the column never switches to an empty tool mode; a
+  tool that stops being showable – its object deleted, the selection dropped to two objects – is closed by
+  the guard in `state/toolGuard.ts`, which leaves the panel in plate or object mode with the footer.
 - **tool strip** – `components/tools/ToolStrip.tsx`, a pill floating over the top of the scene
   between the two cards (`position: absolute` in the scene's rectangle). The pill sits in
   `.tool-strip-band`, the part of the scene the cards leave free, and is centred in it; the band is

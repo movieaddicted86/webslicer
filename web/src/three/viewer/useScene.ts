@@ -139,19 +139,40 @@ export function useScene(refsRef: RefObject<SceneRefs | null>, containerRef: Ref
 
     // picking
     let downPos: [number, number] | null = null;
+    /** the press grabbed a gizmo handle (TransformControls ran its own handler before this one) */
+    let downOnGizmo = false;
     // --- painting (support enforcers/blockers, seam)
     const painting = createPainting(refs);
+    // a closed paint tool leaves nothing behind in the scene: its brush cursor goes with it, whatever
+    // closed it (Esc, the panel's ✕, a click on empty space, another tool)
+    const unwatchTool = useStore.subscribe((s, previous) => {
+      if (s.activeTool !== previous.activeTool) painting.stop();
+    });
+    /**
+     * A click that hit nothing: it ends the open tool the way its ✕/Esc does (so the cleanup runs –
+     * cut plane, brush cursor, layer chart) and clears the selection as the plater always did. A press
+     * a tool consumes itself (a paint stroke on the mesh) never reaches this, and a press on a gizmo
+     * handle does not either – that belongs to the gizmo.
+     */
+    const clickEmptyScene = (e: PointerEvent) => {
+      const st = useStore.getState();
+      st.closeTool();
+      if (!e.shiftKey && !e.ctrlKey) st.select([]);
+    };
     const onPointerDown = (e: PointerEvent) => {
       if (painting.down(e)) return;
       if (e.button !== 0) return;
+      downOnGizmo = transform.dragging;
       downPos = [e.clientX, e.clientY];
     };
     const onPointerUp = (e: PointerEvent) => {
       if (e.button !== 0 || !downPos) return;
       const moved = Math.hypot(e.clientX - downPos[0], e.clientY - downPos[1]);
       downPos = null;
-      if (moved > 4 || refs.dragging) return;
-      if (refs.transform.axis) return; // click on a gizmo handle
+      const onGizmo = downOnGizmo;
+      downOnGizmo = false;
+      // a drag orbits or pans and a gizmo drag moves the object; neither is a click
+      if (moved > 4) return;
       if (useStore.getState().view !== 'plater') return;
       const rect = renderer.domElement.getBoundingClientRect();
       const ndc = new THREE.Vector2(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
@@ -181,7 +202,7 @@ export function useScene(refsRef: RefObject<SceneRefs | null>, containerRef: Ref
             hit.object.userData.kind === 'volume' ? (hit.object.parent!.userData.id as string) : (hit.object.userData.id as string);
           st.select([objectId]);
           st.placeObjectOnFace(objectId, [normal.x, normal.y, normal.z]);
-        } else st.closeTool();
+        } else if (!onGizmo) clickEmptyScene(e);
         return;
       }
       if (hits.length) {
@@ -199,7 +220,10 @@ export function useScene(refsRef: RefObject<SceneRefs | null>, containerRef: Ref
         } else st.select([id]);
         const hitInstance = obj.userData.instanceId as string | undefined;
         if (hitInstance) st.selectInstance(id, hitInstance);
-      } else if (!e.shiftKey && !e.ctrlKey) st.select([]);
+      } else if (!onGizmo) {
+        // a press on a gizmo handle belongs to the gizmo, even when it hit nothing else
+        clickEmptyScene(e);
+      }
     };
     renderer.domElement.addEventListener('pointerdown', onPointerDown);
     renderer.domElement.addEventListener('pointerup', onPointerUp);
@@ -219,6 +243,7 @@ export function useScene(refsRef: RefObject<SceneRefs | null>, containerRef: Ref
     return () => {
       cancelAnimationFrame(raf);
       ro.disconnect();
+      unwatchTool();
       renderer.domElement.removeEventListener('pointerdown', onPointerDown);
       renderer.domElement.removeEventListener('pointerup', onPointerUp);
       renderer.domElement.removeEventListener('pointermove', painting.move);

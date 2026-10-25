@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+- **Leaving a tool, and a context panel that never goes empty:** move, rotate and scale were stored as
+  the open tool although they only drive the gizmo, so the context panel switched to tool mode with
+  nothing to render – no presets, no printer, no **Slice**. They now only set the gizmo mode, their
+  strip button still lights up, and the panel keeps the object's (or the plate's) content and the
+  **Slice** footer. Only a tool with a panel becomes the open tool, and opening one closes the
+  previous one with its cleanup. A **click on the empty scene** now leaves the open tool through the
+  same path as **Esc** or the panel's ✕ – the cut plane, the brush cursor and the layer chart go with
+  it – and clears the selection, so the plate panel and the **Slice** button come back; a click on an
+  object keeps the tool open, and an orbit or pan drag is not a click. A tool whose object or
+  selection goes away (delete, merge, undo, project load) closes by itself instead of leaving an empty
+  column. The scene's view bar (**views**, **Persp/Ortho**, ⌖ and the ⌂ reset) is centred in the band
+  between the two cards like the tool strip and the **Prepare | Preview** switch, wraps on a narrow
+  window instead of running under a card, and keeps its ⌂ at the band's right edge.
 - **The visual pass, part (b): the panel content and the preview mode (layout 3.0, T-070):** the
   context panel now reads like the mockup in all three modes. **Plate mode** keeps a **Printer &
   material** card (printer tile, name, nozzle and bed summary, the loaded filament with its colour dot
