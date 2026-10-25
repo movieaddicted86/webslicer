@@ -151,7 +151,8 @@ export function useScene(refsRef: RefObject<SceneRefs | null>, containerRef: Ref
     /**
      * A click that hit nothing: it ends the open tool the way its ✕/Esc does (so the cleanup runs –
      * cut plane, brush cursor, layer chart) and clears the selection as the plater always did. A press
-     * a tool consumes itself (a paint stroke on the mesh, place on face) never reaches this.
+     * a tool consumes itself (a paint stroke on the mesh) never reaches this, and a press on a gizmo
+     * handle does not either – that belongs to the gizmo.
      */
     const clickEmptyScene = (e: PointerEvent) => {
       const st = useStore.getState();
@@ -168,10 +169,10 @@ export function useScene(refsRef: RefObject<SceneRefs | null>, containerRef: Ref
       if (e.button !== 0 || !downPos) return;
       const moved = Math.hypot(e.clientX - downPos[0], e.clientY - downPos[1]);
       downPos = null;
-      const grabbedGizmo = downOnGizmo;
+      const onGizmo = downOnGizmo;
       downOnGizmo = false;
-      // a drag orbits or pans and a press on a gizmo handle moves the object; neither is a click
-      if (moved > 4 || grabbedGizmo) return;
+      // a drag orbits or pans and a gizmo drag moves the object; neither is a click
+      if (moved > 4) return;
       if (useStore.getState().view !== 'plater') return;
       const rect = renderer.domElement.getBoundingClientRect();
       const ndc = new THREE.Vector2(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
@@ -201,7 +202,7 @@ export function useScene(refsRef: RefObject<SceneRefs | null>, containerRef: Ref
             hit.object.userData.kind === 'volume' ? (hit.object.parent!.userData.id as string) : (hit.object.userData.id as string);
           st.select([objectId]);
           st.placeObjectOnFace(objectId, [normal.x, normal.y, normal.z]);
-        } else clickEmptyScene(e);
+        } else if (!onGizmo) clickEmptyScene(e);
         return;
       }
       if (hits.length) {
@@ -219,7 +220,8 @@ export function useScene(refsRef: RefObject<SceneRefs | null>, containerRef: Ref
         } else st.select([id]);
         const hitInstance = obj.userData.instanceId as string | undefined;
         if (hitInstance) st.selectInstance(id, hitInstance);
-      } else {
+      } else if (!onGizmo) {
+        // a press on a gizmo handle belongs to the gizmo, even when it hit nothing else
         clickEmptyScene(e);
       }
     };
