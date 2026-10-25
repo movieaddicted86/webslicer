@@ -6,6 +6,7 @@ import { api, type BundleRefusal, type InstalledPrinter, type Vendor, type Vendo
 import { FilamentStep } from '../FilamentStep';
 import { FilamentForPrinterStep } from '../FilamentForPrinterStep';
 import type { CustomFilamentTemperatures } from '../../../state/slices/preset';
+import { repositoryUrl, summaryLine, vendorView } from './vendorUpdates';
 import './PrinterSetup.css';
 
 /** The refused bundle's findings, taken from the error the client raised from the 409 body. */
@@ -29,19 +30,24 @@ function successLines(results: VendorUpdateResult[]): string[] {
 }
 
 /**
- * The vendor profile updates: what upstream offers for the installed vendors, one Update button per
- * vendor, Update all, and one-step Revert. With the check switched off the section says so and offers
- * "Install from file" instead, so an air-gapped install can still update.
+ * The vendor profile updates: one summary line (up to date, or how many vendors have one), the time
+ * of the last check and the two actions, then only the rows that matter – the vendors with an update
+ * and the vendors the user has printers from. Every other vendor, and every pre-release upstream
+ * ships, waits behind "Show all vendors". A version that is not newer is never shown as an arrow.
  *
  * The check runs on the server (once a day at most, never here) and installing is always a click.
  * A refused bundle shows the findings that refused it and changes nothing.
  */
 function VendorUpdates({ onChange }: { onChange: () => Promise<void> }) {
   const toast = useStore((s) => s.toast);
+  const installedPrinters = useStore((s) => s.installed);
+  const printers = useStore((s) => s.presets.printer);
+  const printerPresets = useStore((s) => s.presetLists.printer);
   const [list, setList] = useState<VendorUpdateList>();
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState('');
   const [outcome, setOutcome] = useState<Outcome>();
+  const [showAll, setShowAll] = useState(false);
 
   const load = async (refresh: boolean) => {
     setLoading(true);
@@ -99,29 +105,36 @@ function VendorUpdates({ onChange }: { onChange: () => Promise<void> }) {
     }
   };
 
-  const rows = list?.vendors ?? [];
-  const updates = rows.filter((v) => v.update);
+  const relevant = new Set<string>([
+    ...installedPrinters.map((p) => p.vendorId),
+    ...(printers.vendorId ? [printers.vendorId] : []),
+    ...printerPresets.filter((p) => !p.system && p.vendorId).map((p) => p.vendorId as string),
+  ]);
+  const view = vendorView(list?.vendors ?? [], { relevant, showAll });
   const online = !!list?.enabled;
+  const source = repositoryUrl(list?.vendors[0]?.url);
   const updateAll = () =>
     void run(
       'all',
-      updates.map((v) => () => api.installVendorUpdate(v.id)),
+      view.updates.map((v) => () => api.installVendorUpdate(v.id)),
     );
   return (
     <section className="vendor-updates" aria-label="Vendor profile updates">
       <div className="vendor-updates-head">
-        <h3>Updates</h3>
         {online ? (
           <>
+            <span className="vendor-updates-summary" data-testid="vendor-updates-summary">
+              {loading ? 'Checking for vendor profile updates…' : summaryLine(view.updates.length)}
+            </span>
             <span className="muted small">
-              {loading ? 'Checking…' : list?.checkedAt ? `Checked ${new Date(list.checkedAt).toLocaleString()}` : 'Not checked yet'}
+              {list?.checkedAt ? `Checked ${new Date(list.checkedAt).toLocaleString()}` : 'Not checked yet'}
             </span>
             <button className="small" onClick={() => void load(true)} disabled={loading || !!busy}>
               Check for updates
             </button>
-            {updates.length > 0 && (
+            {view.updates.length > 0 && (
               <button className="primary small" onClick={updateAll} disabled={!!busy}>
-                Update all ({updates.length})
+                Update all ({view.updates.length})
               </button>
             )}
           </>
@@ -129,31 +142,23 @@ function VendorUpdates({ onChange }: { onChange: () => Promise<void> }) {
           <span className="muted small">Online updates are disabled</span>
         )}
       </div>
-      {online && (
-        <ul className="vendor-update-list">
-          {rows.map((v) => (
-            <li key={v.id}>
+      {online && view.rows.length > 0 && (
+        <ul className="vendor-update-list" data-testid="vendor-update-list">
+          {view.rows.map((v) => (
+            <li key={v.id} data-status={v.status}>
               <span className="name">{v.name}</span>
-              <span className="muted small versions">
-                {v.installed ?? 'unknown'}
-                {v.available && v.available !== v.installed ? ` → ${v.available}` : ''}
-                {v.url ? (
-                  <>
-                    {' '}
-                    ·{' '}
-                    <a href={v.url} target="_blank" rel="noreferrer">
-                      source
-                    </a>
-                  </>
-                ) : null}
+              <span className="versions">
+                installed {v.installed ?? 'unknown'}
+                {v.status === 'update' && v.available ? ` · update ${v.available}` : ''}
+                {v.status === 'prerelease' && v.available ? ` · ${v.available} (pre-release)` : ''}
+                {v.status === 'incompatible' && v.available ? ` · ${v.available} needs another PrusaSlicer` : ''}
               </span>
-              {v.update ? (
+              {v.status === 'incompatible' && v.reason ? <span className="muted small reason">{v.reason}</span> : null}
+              {v.status === 'update' ? (
                 <button className="small" onClick={() => void run(v.id, [() => api.installVendorUpdate(v.id)])} disabled={!!busy}>
                   {busy === v.id ? 'Updating…' : 'Update'}
                 </button>
-              ) : (
-                v.reason && <span className="muted small">{v.reason}</span>
-              )}
+              ) : null}
               {v.canRevert && (
                 <button
                   className="small"
@@ -168,6 +173,20 @@ function VendorUpdates({ onChange }: { onChange: () => Promise<void> }) {
           ))}
         </ul>
       )}
+      {online && (view.hidden > 0 || showAll) && (
+        <button className="link small vendor-updates-all" onClick={() => setShowAll((s) => !s)} aria-expanded={showAll}>
+          {showAll ? 'Show fewer vendors' : `Show all vendors (${view.hidden} more)`}
+        </button>
+      )}
+      {online && source ? (
+        <div className="muted small">
+          Versions come from{' '}
+          <a href={source} target="_blank" rel="noreferrer">
+            prusa3d/PrusaSlicer-settings
+          </a>
+          .
+        </div>
+      ) : null}
       {!list ? null : !online ? (
         <>
           <div className="muted small">
