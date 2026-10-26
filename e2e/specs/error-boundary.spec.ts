@@ -15,17 +15,20 @@
  * The page is used directly instead of the `app` fixture: that fixture fails a test on any console
  * error, and this test *causes* one on purpose.
  */
-import { CUBE, importFile, openApp, read, sliceAndWait } from '../helpers/app';
+import type { Page } from '@playwright/test';
+import { CUBE, importFile, openApp, sliceAndWait } from '../helpers/app';
 import { expect, test } from '../helpers/fixtures';
 import { byId } from '../helpers/hooks';
 
 /** Poison the job the preview renders: `warnings` is a string, so `.map` throws while rendering. */
-const poisonJob = (app: Parameters<typeof read>[0]) =>
-  app.evaluate(() => {
+const poisonJob = (page: Page) =>
+  page.evaluate(() => {
     const s = window.webslicer.getState();
     const job = s.job;
     if (!job) return;
-    window.webslicer.setState({ job: { ...job, status: 'done', info: { ...job.info, warnings: 'not a list' } }, view: 'preview' });
+    // the store's type says `warnings` is a list; the point of the test is the server answer that is not
+    const broken = { ...job, status: 'done', info: { ...job.info, warnings: 'not a list' } } as unknown as typeof job;
+    window.webslicer.setState({ job: broken, view: 'preview' });
   });
 
 test.describe('a throwing region is contained (P-7)', () => {
