@@ -1,18 +1,13 @@
 /**
- * The tool strip of the visual pass: the floating pill over the scene, between the object list card and
- * the context panel. It is the one place that opens a tool – the registry provides the buttons, their
- * groups, their shortcuts and their disabled reasons – and it also carries the object commands that act
- * on the selection. The Prepare | Preview switch is not here: it is the top bar's, centred in the bar.
+ * The tool strip: the floating pill over the scene, between the object list card and the context
+ * panel. It is the one place that opens a tool – the registry provides buttons, groups, shortcuts and
+ * disabled reasons – and it also carries the object commands that act on the selection.
  *
- * The pill's groups are in PrusaSlicer's order. When they do not fit, the trailing ones move into an
- * overflow menu; `stripLayout` decides that from the width the band offers, so the layout is pure and
- * testable and the strip never wraps. On a narrow screen it scrolls instead: a dropdown over the scene
- * would cover the object the user just tapped.
- *
- * The band is measured, not assumed: the layer spans the scene between the cards (CSS), and the pill is
- * centred in it. Folding a card widens the band and can bring the names back; hiding the panels gives
- * the strip the whole scene. Names appear next to the icons only while the whole strip still fits with
- * them. Every button carries its "Name (Key)" tooltip (and the reason when it is disabled).
+ * The groups are in PrusaSlicer's order; when they do not fit, the trailing ones move into an overflow
+ * menu and `stripLayout` decides that from the width the band offers, so the layout is pure and
+ * testable. On a narrow screen the strip scrolls instead: a dropdown over the scene would cover the
+ * object the user just tapped. The band is measured, not assumed – the pill is centred between the
+ * cards.
  *
  * The strip keeps the `tool-strip` layer and the `tool-bar` hook: it is still the one control that
  * opens the tools. Its buttons keep `tool-<id>`, and each carries `aria-pressed` for the open tool.

@@ -1,27 +1,12 @@
 /**
- * Send-gate rules (S1-b, T-026): may this G-code go to this print host?
+ * The send-gate rules: may this G-code go to this print host?
  *
- * Why this exists: a physical printer is bound to a printer preset (`PhysicalPrinter.presetName`),
- * and the G-code of a job is sliced for the job's printer preset (`JobRecord.presets.printer`) – but
- * nothing compared the two. A file sliced for printer A was uploaded to, and could be started on,
- * printer B, whose start/end G-code, axis limits and nozzle it does not fit.
- *
- * The check is a pure function (job in, printer in, issues out) so the server gate, the send dialog
- * and the tests share one copy. Three outcomes:
- *
- * - **the same preset** (the name, or a system preset's alias) – no issue.
- * - **one preset is derived from the other** (one inherits the other, directly or through a chain) –
- *   `send.preset_derived` (**warn**): a user preset may change the nozzle, the axis limits or the
- *   start/end G-code of its parent, so the user has to confirm it.
- * - **anything else** – `send.preset_mismatch` (**block**). That includes two user presets that only
- *   share an ancestor ("My MK4S A" and "My MK4S B"): being siblings says nothing about nozzle or
- *   limits, and the gate exists for exactly that case. The send is refused unless the user overrides
- *   it with a written reason (the server answers 409 and logs the override in the audit log).
- *
- * `send.no_binding` (**warn**) covers a host without a preset: nothing can be compared.
- *
- * S1-c adds the G-code preflight (forbidden commands, temperatures, homing) to the same list: its
- * issues are `SendIssue`s with a `preflight.*` rule id and join the result of `checkSend`.
+ * A host is bound to a printer preset and a job is sliced for one, so a file sliced for printer A
+ * must not be started on printer B, whose start/end G-code, axis limits and nozzle it does not fit.
+ * The check is pure (job in, printer in, issues out) so server, send dialog and tests share one copy:
+ * the same preset (or an alias) passes; a preset derived from the other warns with
+ * `send.preset_derived`; anything else blocks with `send.preset_mismatch`; a host without a preset
+ * warns with `send.no_binding`. The preflight issues join the same list.
  */
 import type { SendIssue } from '../types/jobs.js';
 

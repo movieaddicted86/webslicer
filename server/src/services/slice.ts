@@ -1,8 +1,9 @@
 /**
  * Slice use cases: turn a `SliceRequest` into a queued job (and, for the export routes, into a 3MF).
  *
- * No Express types – the routes and the MCP tools call in here. The heavy work (reading the models,
- * building the 3MF) sits behind `build3mfForRequest`; the queue itself is `../jobs.js`.
+ * No Express types – routes and MCP tools call in here. The heavy work sits behind
+ * `build3mfForRequest`; the queue itself is `../jobs.js`. The plate and setting checks run here so
+ * every path into a slice passes the same guard.
  */
 import fs from 'node:fs/promises';
 import path from 'node:path';

@@ -1,33 +1,13 @@
 /**
- * The Host / Origin allowlist (SEC-2, S1 – DNS rebinding).
+ * The Host / Origin allowlist against DNS rebinding.
  *
- * The server listens on `0.0.0.0`, so every device in the LAN can reach it by IP; that is the point
- * of the app. A browser on a page from the internet reaches it too: DNS rebinding loads
- * `http://attacker.example/<thing>` (the name resolves to the LAN address) and the script then sends
- * same-origin requests to the whole API – no preflight, no CORS, and the MCP `Origin == Host` check
- * passed because both were the attacker's own rebound name.
- *
- * The guard is the one every local tool with an API uses: a request whose `Host` names an address the
- * server does not answer on is refused. Allowed are
- *
- * - `localhost` and the loopback addresses (any port, IPv4 and IPv6),
- * - any **IP address** – a DNS rebinding attack needs a name the attacker controls, and an IP literal
- *   cannot be one. Without this an install opened by LAN IP (and a Docker port mapping, where the
- *   container sees the host's LAN IP in `Host`, not its own bridge address) would break,
- * - the interface addresses of this machine (an install opened by its own LAN name/IP),
- * - and whatever `ALLOWED_HOSTS` lists (NAS/LXC host names, a reverse-proxy name).
- *
- * A request with an `Origin` header must come from an origin this install trusts. Only browsers send
- * one, and only for a cross-origin or a state-changing request; an MCP client (Claude Desktop, Claude
- * Code, Home Assistant) sends none and passes, exactly as before. An `Origin` has to be **same-origin
- * with the request** (`Origin` host:port equals the `Host` header) **or** name a loopback name, an own
- * interface address, or an `ALLOWED_HOSTS` name (Vite dev server, reverse proxy on another port). The
- * IP-literal rule of `Host` deliberately does **not** apply to `Origin`: a page served from an
- * attacker's public IP (`http://203.0.113.5/`) would otherwise pass and reach the simple-request
- * routes (raw-body `/api/models`, `/api/projects/parse`, body-less POSTs) without a preflight.
- *
- * Pure: address lists in, a verdict out – the rules are unit-tested without a socket, and the same
- * verdict drives `/api` and `/mcp`.
+ * The server listens on `0.0.0.0`, so a browser on an internet page can reach the whole API at the
+ * LAN address through a rebound name – no preflight, no CORS. A request is therefore refused when its
+ * `Host` names an address the server does not answer on: allowed are `localhost` and loopback, any IP
+ * literal (an attacker cannot own one, and installs opened by LAN IP must keep working), the machine's
+ * own interface addresses and whatever `ALLOWED_HOSTS` lists. An `Origin`, sent by browsers only, has
+ * to be same-origin, loopback, an own address or an `ALLOWED_HOSTS` name. Pure: lists in, verdict
+ * out, the same verdict drives `/api` and `/mcp`.
  */
 import os from 'node:os';
 import { isIP } from 'node:net';

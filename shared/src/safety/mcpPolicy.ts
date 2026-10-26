@@ -1,23 +1,13 @@
 /**
- * MCP safety policy (S1-a, T-025): which slicer options an MCP client may set, and how far a value
- * may move away from the value the resolved preset already has.
+ * MCP safety policy: which slicer options an MCP client may set, and how far a value may move away
+ * from the value the resolved preset already has.
  *
- * Why this exists: the MCP channel is driven by a model, and a human who later starts the job does
- * not read the G-code. `set_settings` used to accept every key of every scope – including printer
- * options such as `start_gcode`, `z_offset` or `bed_shape` – and only type-coerced the value, so an
- * AI client could prepare G-code that drives the machine outside its limits.
- *
- * Two rules, both pure (schema in, verdict out), so the server and the tests share one copy:
- *
- * - **Allowlist** – process options (layers, shells, infill, support, skirt/brim, speeds, seam,
- *   ironing, patterns, widths) and material options (temperatures, fan, retraction, extrusion
- *   multiplier, volumetric speed, cooling). Never anything in the printer scope, never free text or
- *   coordinates, never G-code or script text (`start_gcode`, every `*_gcode`), never a multiline
- *   option and never the server-only keys of SEC-1.
- * - **Band** – a bounded step around the resolved preset value: temperatures ±25 °C, speeds
- *   ×0.5–×1.5 (an absolute value absolutely, a percent value as percent), `extrusion_multiplier`
- *   ±0.1, `filament_retract_length` ±1 mm. Per-extruder vectors are compared element by element.
- *   `0` – "off" or "auto" for the slicer – stays allowed where PrusaSlicer means that.
+ * The MCP channel is driven by a model, and a human who later starts the job does not read the
+ * G-code. Two pure rules (schema in, verdict out): an **allowlist** of process and material options –
+ * never the printer scope, free text, coordinates, `*_gcode` or the server-only keys – and a **band**
+ * around the preset value (temperatures ±25 °C, speeds ×0.5–×1.5, extrusion multiplier ±0.1,
+ * retraction length ±1 mm, per extruder element by element), where `0` stays allowed as the slicer's
+ * "off"/"auto".
  */
 import { SERVER_ONLY_KEYS, serverOnlyReason } from '../serverOnly.js';
 import type { OptionType, PresetType, Schema } from '../types/index.js';

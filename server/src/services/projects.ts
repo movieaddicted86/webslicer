@@ -1,14 +1,11 @@
 /**
- * Server-side projects: a plater without a browser (moved here from `plater/project.ts`, R-9).
+ * Server-side projects: a plater without a browser.
  *
- * A project is a small JSON file in `data/projects/<uuid>.json` holding the preset names plus the
- * overrides the caller changed, and the objects with their instance matrices. The meshes live in the
- * model directory like any uploaded model (`saveModel`), so slicing reuses the existing path
- * (`build3mfForRequest` → `createJob`). Projects expire 24 h after their last use; their models are
- * kept alive until then and removed afterwards.
- *
- * Deliberately stored instead of in memory: an MCP client may slice minutes after it built the
- * project, and the server may have restarted in between.
+ * A project is a JSON file in `data/projects/<uuid>.json` – preset names plus overrides, objects with
+ * their instance matrices – while the meshes live in the model directory like any uploaded model, so
+ * slicing reuses `build3mfForRequest` → `createJob`. It is stored rather than kept in memory because
+ * an MCP client may slice minutes later and the server may have restarted. Projects expire 24 h after
+ * their last use.
  */
 import fs from 'node:fs/promises';
 import path from 'node:path';

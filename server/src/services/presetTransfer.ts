@@ -1,17 +1,11 @@
 /**
- * Preset transfer use cases: rename a user preset, export every user preset as a PrusaSlicer config
- * bundle, and import a bundle or a G-code config block.
+ * Preset transfer: rename a user preset, export every user preset as a PrusaSlicer config bundle,
+ * and import a bundle or a G-code config block.
  *
- * Two rules are the whole point of this module:
- * - **An import can never widen what a preset save can do.** Every key and value takes the same
- *   validation as `PUT /api/presets/:type/:name`: the key has to be a well-formed config key (SEC-2),
- *   known to the installed slicer and not server-only (SEC-1), and the value must not carry a lone
- *   carriage return. Refused keys are *dropped and reported* – never written, never executed.
- * - **An import writes user presets only.** A name clash is answered explicitly, a system (vendor)
- *   preset is never overwritten or renamed.
- *
- * Both input formats are re-read on import instead of trusting the preview: the client echoes the
- * bundle text back, and a text that changed since the preview must still obey the rules.
+ * An import must never widen what a preset save can do: every key and value takes the same validation
+ * as `PUT /api/presets/:type/:name`, and refused keys are *dropped and reported* – never written,
+ * never executed. Only user presets are written: a name clash is answered explicitly, a system preset
+ * is never overwritten. The text is re-read on import instead of trusting the preview.
  */
 import fs from 'node:fs';
 import path from 'node:path';

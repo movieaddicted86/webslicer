@@ -77,6 +77,9 @@ web/src/
   abbreviations except established ones (`gcode`, `mmu`, `3mf`).
 - Comments explain _why_; the code explains _what_. Every exported function/type gets a one-line
   JSDoc.
+- A file's header comment states the **why in at most 8 lines** and links the long form in `docs/`
+  instead of repeating it. A comment that names a safety rule, a PrusaSlicer quirk, a reproduction or
+  the reason behind a surprising constant is never shortened away – move it, do not delete it.
 - Errors: throw typed errors in the core (`class ValidationError extends Error`), map them to HTTP
   status codes in exactly one place per layer.
 

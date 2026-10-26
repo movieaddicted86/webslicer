@@ -1,23 +1,12 @@
 /**
- * The send gate (S1-c adds the G-code preflight to S1-b, T-026/T-031): may the finished G-code of a
- * job go to this print host?
+ * The send gate: may the finished G-code of a job go to this print host?
  *
- * The decision itself is the pure `checkSend` of `@webslicer/shared` – the same function the send
- * dialog runs in the browser, so what the dialog shows is what the server enforces. This module adds
- * the two server-only parts: the printer presets with their aliases and inheritance (needed to tell a
- * derived preset from an unrelated one) and the audit entry of an accepted override.
- *
- * S1-c merges the **preflight** into the same list: the issues the scanner found in the finished file
- * (`gcode.forbidden_command`, `gcode.max_temp`, `gcode.no_homing`, …) are `SendIssue`s as well, so a
- * forbidden command blocks, can be overridden with a reason and is audited exactly like a preset
- * mismatch. The stored result is used when it was made with the current rule set; an older record (or
- * one from a job finished before S1-c) is scanned once here and not written back – the file may not
- * even exist any more.
- *
- * A **block** issue refuses the send with a 409 that carries the issues; the client repeats the call
- * with `override: true` and a written reason, which lands in `data/audit.log` – the MCP audit writer,
- * so there is no second log format. A **warn** issue does not stop the send: the dialog asks for a
- * confirmation, the server records the accepted issue in its answer.
+ * The decision is the pure `checkSend` of `@webslicer/shared`, the same function the send dialog runs
+ * in the browser. This module adds the server-only parts – printer presets with their aliases and
+ * inheritance, and the audit entry of an accepted override – and merges the preflight findings into
+ * the same issue list, so a forbidden command blocks and is audited exactly like a preset mismatch.
+ * A **block** refuses with 409 and needs `override: true` plus a written reason; a **warn** only asks
+ * for a confirmation.
  */
 import {
   blockingIssues,

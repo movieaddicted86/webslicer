@@ -1,24 +1,13 @@
 /**
- * The variable layer height profile (T-045): PrusaSlicer's per-object list of (z, layer height) pairs,
- * its adaptive and smoothing algorithms, the manual brush, and the 3MF file that carries it.
+ * The variable layer height profile: PrusaSlicer's per-object list of (z, layer height) pairs, its
+ * adaptive and smoothing algorithms, the manual brush and the 3MF entry that carries it.
  *
- * The algorithms follow PrusaSlicer's `SlicingAdaptive.cpp` (the surface-error variant that is active in
- * 2.8/2.9) and `LayerHeightProfile.cpp`, reduced to what the plater needs:
- *
- * - a profile is a flat array of pairs `[z0, h0, z1, h1, …]`: printing starts at `z0` with height `h0`,
- *   the next layer starts at `z1`, and so on (PrusaSlicer's own in-memory layout);
- * - `z` is the object's own Z axis (the object stands on z = 0, the plater's `ranges` use the same
- *   frame), so a profile survives moving, rotating and scaling the object;
- * - every height stays inside the printer's limits (`min_layer_height` / `max_layer_height`, falling
- *   back to 25 % / 75 % of the nozzle diameter – PrusaSlicer's rule for the "0 = automatic" default).
- *
- * PrusaSlicer stores the profile in `Metadata/Slic3r_PE_layer_heights_profile.txt` of the 3MF, one line
- * per object, `object_id=<1-based id>|<z>;<h>;<z>;<h>;…` with six decimals (verified against the
- * PrusaSlicer 2.8.1 source: `LAYER_HEIGHTS_PROFILE_FILE` in `Format/3mf.cpp` and its reader/exporter).
- *
- * When an object has both a layer height profile and height ranges, the profile wins for the layer
- * height (PrusaSlicer applies the profile to the whole object and derives the layer boundaries from it);
- * the other settings of a range still apply in their Z band.
+ * A profile is a flat array `[z0, h0, z1, h1, …]` (PrusaSlicer's own layout) in the object's Z frame,
+ * so it survives moving, rotating and scaling; every height stays inside the printer's limits
+ * (25 % / 75 % of the nozzle when the option is 0). It is stored in
+ * `Metadata/Slic3r_PE_layer_heights_profile.txt` as `object_id=<1-based id>|<z>;<h>;…` with six
+ * decimals, verified against the PrusaSlicer 2.8.1 source (`Format/3mf.cpp`). Where a profile and
+ * height ranges meet, the profile wins for the layer height.
  */
 /** Lower/upper bound of a layer height in mm. */
 export interface LayerLimits {
