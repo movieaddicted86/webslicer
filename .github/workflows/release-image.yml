@@ -1,0 +1,321 @@
+# Publish the multi-arch image (linux/amd64 + linux/arm64) on a release tag.
+#
+#   • a pushed tag `v1.2.3` (or `v2.0.0-rc.1`) publishes it
+#   • the manual run (`workflow_dispatch`) is the dry run by default: it builds and smoke-tests the
+#     amd64 image and the multi-arch build, and pushes nothing; `publish` has to be ticked for a
+#     re-run that really publishes
+#   • nothing else triggers this workflow – branches and pull requests never publish
+#
+# Where an image goes:
+#   GHCR        ghcr.io/<owner>/webslicer      always (GITHUB_TOKEN, permissions: packages: write)
+#   Docker Hub  <DOCKERHUB_REPOSITORY>:<tag>   only when that variable and both secrets exist
+#
+# Secrets/variables the maintainer sets (docs/installation.md → "Releasing an image"):
+#   DOCKERHUB_USERNAME    secret            Docker Hub account name
+#   DOCKERHUB_TOKEN       secret            an access token of that account (not the password)
+#   DOCKERHUB_REPOSITORY  repository var    e.g. `name/webslicer` – the namespace is not hard-coded
+#
+# Without the Docker Hub variable/secrets the run still passes; it publishes to GHCR only and says
+# so in the log and the job summary.
+name: Release image
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to build, e.g. v1.2.3 (default: the ref that was started)'
+        required: false
+        type: string
+      publish:
+        description: 'Really push to the registries (off = dry run)'
+        type: boolean
+        default: false
+
+# One release at a time per ref; starting the same tag again does not cancel a push under way.
+concurrency:
+  group: release-image-${{ github.ref }}
+  cancel-in-progress: false
+
+# read the repository, write packages – nothing else
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    # two full app builds (the amd64 smoke build, then both architectures under QEMU), each with the
+    # PrusaSlicer stage; the second build reads the cache of the first
+    timeout-minutes: 60
+    steps:
+      # A tag push checks out the tag; a manual run checks out the ref it was started from (branch or
+      # tag). The `tag` input only names the image – it never selects a different commit, so a dry run
+      # on a branch cannot be turned into a build of someone else's code.
+      - uses: actions/checkout@v4
+
+      # Everything the steps below branch on is decided here: the tag (a manual run may name one), the
+      # version, whether the run may publish at all, and the commit to stamp into the image.
+      - name: Work out the version
+        id: version
+        run: |
+          set -euo pipefail
+          tag='${{ inputs.tag }}'
+          if [ -z "$tag" ] && [ '${{ github.ref_type }}' = 'tag' ]; then tag='${{ github.ref_name }}'; fi
+          # metadata-action's semver type needs a valid semver, so a run without a tag gets a
+          # placeholder that cannot collide with a release
+          version='0.0.0-dev'
+          if [ -n "$tag" ]; then
+            case "$tag" in
+              v[0-9]*) version="${tag#v}" ;;
+              *) echo "::error::the tag '$tag' does not look like a release tag (v1.2.3 or v2.0.0-rc.1)"; exit 1 ;;
+            esac
+          fi
+          # Only a pushed `v*` tag publishes on its own. The manual run publishes when `publish` was
+          # ticked – its `tag` input names the image, it is not a licence to push. That is what makes
+          # the dry run a real rehearsal of the same build.
+          if [ '${{ github.event_name }}' = 'push' ] || [ '${{ inputs.publish }}' = 'true' ]; then
+            release=true
+          else
+            release=false
+          fi
+          # `latest` follows every tag while the project is pre-1.0 (a candidate is what a fresh
+          # `docker pull` should get); from 1.0.0 on it stays with the stable tags only, so a
+          # pre-release of the next version never moves an existing installation over.
+          latest=false
+          if [ "$release" = 'true' ] && [ -n "$tag" ]; then
+            case "$version" in
+              0.*) latest=true ;;
+              *-*) latest=false ;;
+              *) latest=true ;;
+            esac
+          fi
+          {
+            echo "tag=$tag"
+            echo "version=$version"
+            echo "release=$release"
+            echo "latest=$latest"
+            echo "commit=$(git rev-parse HEAD)"
+          } >> "$GITHUB_OUTPUT"
+          echo "building $(git rev-parse HEAD) as '$version' (publish: $release, latest: $latest)"
+
+      # Skipped, not failed, while Docker Hub is not configured yet – the workflow has to work before
+      # the owner has an account and a token. The image list of the next step reads this output.
+      - name: Check the Docker Hub configuration
+        id: dockerhub
+        env:
+          REPOSITORY: ${{ vars.DOCKERHUB_REPOSITORY }}
+          USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          if [ -n "$REPOSITORY" ] && [ -n "$USERNAME" ] && [ -n "$TOKEN" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+            echo "Docker Hub: publishing to $REPOSITORY"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Docker Hub skipped::DOCKERHUB_REPOSITORY, DOCKERHUB_USERNAME and DOCKERHUB_TOKEN are not all set – this run publishes to GHCR only."
+          fi
+
+      # One list for both metadata calls. The Docker Hub line stays empty while the configuration is
+      # incomplete, and metadata-action drops empty lines – so the build pushes to GHCR only.
+      - name: Image list and labels
+        run: |
+          {
+            echo 'IMAGES<<EOF'
+            echo 'ghcr.io/${{ github.repository_owner }}/webslicer'
+            if [ '${{ steps.dockerhub.outputs.configured }}' = 'true' ]; then echo '${{ vars.DOCKERHUB_REPOSITORY }}'; fi
+            echo 'EOF'
+            echo 'LABELS<<EOF'
+            echo 'org.opencontainers.image.title=WebSlicer'
+            echo 'org.opencontainers.image.description=PrusaSlicer in the browser: prepare, slice and preview in one web app'
+            echo 'org.opencontainers.image.licenses=AGPL-3.0-only'
+            echo 'org.opencontainers.image.vendor=WebSlicer'
+            echo 'sh.webslicer.engine=PrusaSlicer 2.9.6'
+            echo 'EOF'
+          } >> "$GITHUB_ENV"
+
+      # QEMU runs the arm64 half of the multi-arch build on the amd64 runner. The GHA cache
+      # (`scope=release`) carries the layers from the smoke build into it.
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      # Tags: the exact version without the `v`, `latest` when the version step allows it, and the sha.
+      # `latest` is not set by a pre-release of a later version (v1.0.0-rc.6), so an installation that
+      # follows `latest` is never moved onto a candidate; while the project is pre-1.0 every tag is a
+      # candidate, and `latest` is exactly what a fresh `docker pull` should get.
+      - name: Image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGES }}
+          tags: |
+            type=semver,pattern={{version}},value=${{ steps.version.outputs.version }}
+            type=raw,value=latest,enable=${{ steps.version.outputs.latest == 'true' }}
+            type=sha,prefix=sha-,format=short
+          labels: ${{ env.LABELS }}
+
+      # The workflow token can only read this repository and write packages. Both logins are needed
+      # before the publishing build, but the build itself is what pushes.
+      - name: Log in to GHCR
+        if: ${{ steps.version.outputs.release == 'true' }}
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log in to Docker Hub
+        if: ${{ steps.version.outputs.release == 'true' && steps.dockerhub.outputs.configured == 'true' }}
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # Step 1 of 2: the amd64 image, loaded into the runner's daemon so the smoke tests can start it.
+      # Same Dockerfile as the publishing build, so its layers are a cache hit there.
+      - name: Build the amd64 image for the smoke test
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: webslicer:release-smoke
+          platforms: linux/amd64
+          # a tag build follows main: the update check compares GIT_COMMIT with that branch's head
+          build-args: |
+            GIT_COMMIT=${{ steps.version.outputs.commit }}
+            GIT_BRANCH=main
+          labels: ${{ env.LABELS }}
+          cache-from: type=gha,scope=release
+          cache-to: type=gha,mode=max,scope=release
+
+      # The gate in front of the push: nothing leaves the runner unless the image answers, slices and
+      # carries the licence files and the OCI labels.
+      - name: Smoke test
+        run: |
+          set -euo pipefail
+          work="$(mktemp -d)"
+          mkdir -p "$work/data" "$work/library"
+          chmod 777 "$work/data" "$work/library"
+          docker run -d --name webslicer-smoke -p 8080:8080 \
+            -e WEBSLICER_UPDATE_CHECK=off \
+            -v "$work/data:/data" -v "$work/library:/library" \
+            webslicer:release-smoke
+          trap 'docker logs webslicer-smoke || true; docker rm -f webslicer-smoke || true' EXIT
+          for i in $(seq 1 180); do
+            if curl -fsS http://localhost:8080/api/health >/dev/null 2>&1; then
+              echo "the app answered after ~$((i * 2)) s"; break
+            fi
+            if [ "$(docker inspect -f '{{.State.Running}}' webslicer-smoke 2>/dev/null || echo false)" != 'true' ]; then
+              echo "the container exited:"; docker logs webslicer-smoke; exit 1
+            fi
+            if [ "$i" = 180 ]; then echo "the app did not answer within 360 s:"; docker logs --tail 100 webslicer-smoke; exit 1; fi
+            sleep 2
+          done
+          curl -fsS http://localhost:8080/api/health
+          # the slicer runs in the image …
+          docker exec webslicer-smoke /opt/prusaslicer/AppRun --help | head -n 1
+          # … the licence and the third-party notices travel with it (AGPL compliance) …
+          docker exec webslicer-smoke test -s /usr/share/doc/webslicer/LICENSE
+          docker exec webslicer-smoke test -s /usr/share/doc/webslicer/THIRD_PARTY_NOTICES.md
+          # … the app process runs as node (1000:1000), where the image used to pin USER node – tini
+          # stays root as PID 1, which is what the entrypoint needs to hand the volumes over …
+          docker top webslicer-smoke -o user,pid,args
+          test -z "$(find "$work/data" ! -uid 1000 -print -quit)"
+          test "$(stat -c '%u:%g' "$work/data")" = '1000:1000'
+          # … and the OCI labels are on the image
+          docker image inspect webslicer:release-smoke --format '{{json .Config.Labels}}' > "$work/labels.json"
+          cat "$work/labels.json"
+          for key in title description source licenses version revision; do
+            grep -q "\"org.opencontainers.image.$key\":" "$work/labels.json"
+          done
+
+      # PUID/PGID, the Unraid case: started as root with 99:100, the entrypoint has to hand `/data`
+      # over, and the app has to run and write there.
+      - name: Smoke test with PUID/PGID
+        run: |
+          set -euo pipefail
+          work="$(mktemp -d)"
+          mkdir -p "$work/data" "$work/library"
+          # root-owned on purpose: making them fit 99:100 is exactly what the entrypoint has to do
+          chmod 755 "$work/data" "$work/library"
+          docker run -d --name webslicer-puid -p 8081:8080 \
+            -e PUID=99 -e PGID=100 -e WEBSLICER_UPDATE_CHECK=off \
+            -v "$work/data:/data" -v "$work/library:/library" \
+            webslicer:release-smoke
+          trap 'docker logs webslicer-puid || true; docker rm -f webslicer-puid || true' EXIT
+          for i in $(seq 1 180); do
+            if curl -fsS http://localhost:8081/api/health >/dev/null 2>&1; then
+              echo "the app answered after ~$((i * 2)) s"; break
+            fi
+            if [ "$(docker inspect -f '{{.State.Running}}' webslicer-puid 2>/dev/null || echo false)" != 'true' ]; then
+              echo "the container exited:"; docker logs webslicer-puid; exit 1
+            fi
+            if [ "$i" = 180 ]; then echo "the app did not answer within 360 s:"; docker logs --tail 100 webslicer-puid; exit 1; fi
+            sleep 2
+          done
+          # the entrypoint handed the mounted volume to 99:100 …
+          owner="$(stat -c '%u:%g' "$work/data")"
+          echo "/data belongs to $owner"
+          test "$owner" = '99:100'
+          cat "$work/data/printers.json" 2>/dev/null || ls -la "$work/data"
+          # … and the server wrote its stores there as 99 (root would have written as root)
+          test -n "$(ls -A "$work/data")"
+          test "$(stat -c '%u' "$work/data"/* | sort -u | tr '\n' ' ')" = '99 '
+
+      # The other documented way: `--user 99:100` (no root, no entrypoint work). The entrypoint sees a
+      # non-root start and execs the CMD unchanged.
+      - name: Smoke test with --user
+        run: |
+          set -euo pipefail
+          work="$(mktemp -d)"
+          mkdir -p "$work/data" "$work/library"
+          chmod 777 "$work/data" "$work/library"
+          docker run -d --name webslicer-user -p 8082:8080 --user 99:100 \
+            -e WEBSLICER_UPDATE_CHECK=off \
+            -v "$work/data:/data" -v "$work/library:/library" \
+            webslicer:release-smoke
+          trap 'docker logs webslicer-user || true; docker rm -f webslicer-user || true' EXIT
+          for i in $(seq 1 180); do
+            if curl -fsS http://localhost:8082/api/health >/dev/null 2>&1; then
+              echo "the app answered after ~$((i * 2)) s"; break
+            fi
+            if [ "$(docker inspect -f '{{.State.Running}}' webslicer-user 2>/dev/null || echo false)" != 'true' ]; then
+              echo "the container exited:"; docker logs webslicer-user; exit 1
+            fi
+            if [ "$i" = 180 ]; then echo "the app did not answer within 360 s:"; docker logs --tail 100 webslicer-user; exit 1; fi
+            sleep 2
+          done
+          test -n "$(ls -A "$work/data")"
+          test "$(stat -c '%u' "$work/data"/* | sort -u | tr '\n' ' ')" = '99 '
+
+      # Step 2 of 2: both architectures. Pushed only when the version step saw a tag or the manual run
+      # was allowed to publish; otherwise this is the dry run of the same build.
+      - name: Build and push the multi-arch image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: ${{ steps.version.outputs.release == 'true' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ env.LABELS }}
+          build-args: |
+            GIT_COMMIT=${{ steps.version.outputs.commit }}
+            GIT_BRANCH=main
+          cache-from: type=gha,scope=release
+          cache-to: type=gha,mode=max,scope=release
+          # no provenance attestation: it adds a second manifest some clients (Unraid templates, older
+          # registries) cannot read, and nothing consumes it yet
+          provenance: false
+
+      - name: Summary
+        run: |
+          {
+            echo "### Release image"
+            echo "- version: \`${{ steps.version.outputs.version }}\` (tag: \`${{ steps.version.outputs.tag }}\`)"
+            echo "- published: \`${{ steps.version.outputs.release == 'true' }}\`"
+            echo "- Docker Hub configured: \`${{ steps.dockerhub.outputs.configured }}\`"
+            echo "- tags:"
+            echo '${{ steps.meta.outputs.tags }}' | sed 's/^/  - /'
+          } >> "$GITHUB_STEP_SUMMARY"
