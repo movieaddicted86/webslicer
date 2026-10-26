@@ -43,9 +43,11 @@ the next step ([CHANGELOG](../CHANGELOG.md)).
 | GHCR       | `ghcr.io/movieaddicted86/webslicer`                                                                                                       |
 | Docker Hub | the name the maintainer configured (repository variable `DOCKERHUB_REPOSITORY`, see [Releasing an image](#releasing-an-image-maintainer)) |
 
-**Tags.** `<version>` is the release without the `v` (`1.2.3`), `latest` follows the newest release and
-`sha-<commit>` names the exact build. While the project is pre-1.0, `latest` follows every tag,
-release candidates included; pin an exact version to stay where you are.
+**Tags.** `<version>` is the release without the `v` (`1.2.3`), `sha-<commit>` names the exact build, and
+`latest` follows the newest release: **until the first stable release, `latest` points to the newest
+release candidate**; from `v1.0.0` on it moves only with stable releases, so a release candidate of a
+later version never moves an existing installation. Pin an exact version to stay where you are. The
+dry run prints the decision (`latest: true/false` and why) in its summary.
 
 The Compose file builds from source. To use the published image, replace `build: .` with the image:
 
@@ -184,8 +186,10 @@ git push origin v1.2.3
 The workflow builds the amd64 image, starts it and checks `/api/health`, the slicer binary, the licence
 files, the OCI labels and all three user-id modes (default, `PUID=99 PGID=100` and `--user 99:100`);
 only then does it push. A failing smoke test means nothing is published. Tags: `<version>`, `latest`
-and `sha-<commit>`. The image is amd64 only for now; the arm64 half is built on a native arm64 runner
-in a later step.
+and `sha-<commit>`. `latest` moves with a release candidate only while no stable release tag exists;
+once a stable `v1.x.y` is in the repository, only stable releases move it (the version step prints the
+reason, the dry-run summary repeats it). The image is amd64 only for now; the arm64 half is built on a
+native arm64 runner in a later step.
 
 **Dry run:** _Actions → Release image → Run workflow_ builds and smoke-tests everything, including the
 publishing build, and pushes nothing (`publish` is off by default). The `tag` input only names the image

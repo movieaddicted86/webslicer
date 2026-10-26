@@ -94,14 +94,44 @@ jobs:
             release=false
           fi
           # `latest` follows every tag while the project is pre-1.0 (a candidate is what a fresh
-          # `docker pull` should get); from 1.0.0 on it stays with the stable tags only, so a
-          # pre-release of the next version never moves an existing installation over.
+          # `docker pull` should get). From 1.0.0 on it stays with the stable tags only, so a
+          # pre-release of the next version never moves an existing installation over – but only once
+          # a stable release exists: the README, the docs and the Unraid templates tell people to pull
+          # `:latest`, so until `v1.0.0` is out, `latest` has to point at the newest release candidate.
+          # The decision is made for a dry run too (the push stays gated by `release`), so the summary
+          # can be checked without publishing.
           latest=false
-          if [ "$release" = 'true' ] && [ -n "$tag" ]; then
+          latest_reason='no tag in this run'
+          if [ -n "$tag" ]; then
             case "$version" in
-              0.*) latest=true ;;
-              *-*) latest=false ;;
-              *) latest=true ;;
+              0.*)
+                latest=true
+                latest_reason='pre-1.0 development version: latest follows every tag' ;;
+              *-*)
+                # is there a stable tag (no `-`) yet, other than the one being built? The tag list is
+                # data from the remote – it is filtered, never spliced into the script as code
+                if tags="$(git ls-remote --tags origin 'refs/tags/v*')"; then
+                  # `ls-remote` prints "<sha>\trefs/tags/v1.0.0" (annotated tags also as "…^{}")
+                  stable="$(printf '%s\n' "$tags" \
+                    | sed -e 's#^.*refs/tags/v##' -e 's/\^{}$//' \
+                    | grep -v -e '-' \
+                    | grep -F -v -x -e "${tag#v}" \
+                    | sed -n '1p' || true)"
+                  if [ -n "$stable" ]; then
+                    latest=false
+                    latest_reason="a stable release exists (v$stable): a pre-release never moves latest"
+                  else
+                    latest=true
+                    latest_reason='no stable release yet: latest points at the newest release candidate'
+                  fi
+                else
+                  latest=false
+                  latest_reason='could not list the release tags (git ls-remote failed): latest stays with the stable releases'
+                  echo "::warning title=latest not moved::$latest_reason"
+                fi ;;
+              *)
+                latest=true
+                latest_reason='stable release: latest follows it' ;;
             esac
           fi
           {
@@ -109,9 +139,10 @@ jobs:
             echo "version=$version"
             echo "release=$release"
             echo "latest=$latest"
+            echo "latest_reason=$latest_reason"
             echo "commit=$(git rev-parse HEAD)"
           } >> "$GITHUB_OUTPUT"
-          echo "building $(git rev-parse HEAD) as '$version' (publish: $release, latest: $latest)"
+          echo "building $(git rev-parse HEAD) as '$version' (publish: $release, latest: $latest – $latest_reason)"
 
       # Skipped, not failed, while Docker Hub is not configured yet – the workflow has to work before
       # the owner has an account and a token. The image list of the next step reads this output.
@@ -157,9 +188,9 @@ jobs:
       - uses: docker/setup-buildx-action@v3
 
       # Tags: the exact version without the `v`, `latest` when the version step allows it, and the sha.
-      # `latest` is not set by a pre-release of a later version (v1.0.0-rc.6), so an installation that
-      # follows `latest` is never moved onto a candidate; while the project is pre-1.0 every tag is a
-      # candidate, and `latest` is exactly what a fresh `docker pull` should get.
+      # `latest` follows a pre-release only while no stable release exists (see the version step), so
+      # an installation that follows `latest` is not moved onto a later candidate once 1.0.0 is out –
+      # and gets the newest candidate until then, which is what the docs promise.
       - name: Image metadata
         id: meta
         uses: docker/metadata-action@v5
@@ -331,6 +362,8 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
           TAG: ${{ steps.version.outputs.tag }}
           RELEASE: ${{ steps.version.outputs.release }}
+          LATEST: ${{ steps.version.outputs.latest }}
+          LATEST_REASON: ${{ steps.version.outputs.latest_reason }}
           DOCKERHUB_CONFIGURED: ${{ steps.dockerhub.outputs.configured }}
           IMAGE_TAGS: ${{ steps.meta.outputs.tags }}
         run: |
@@ -338,6 +371,7 @@ jobs:
             echo "### Release image"
             echo "- version: \`$VERSION\` (tag: \`$TAG\`)"
             echo "- published: \`$RELEASE\`"
+            echo "- latest: \`$LATEST\` – $LATEST_REASON"
             echo "- platforms: \`linux/amd64\`"
             echo "- arm64: not yet (native arm64 runner, T-087 round (b))"
             echo "- Docker Hub configured: \`$DOCKERHUB_CONFIGURED\`"
