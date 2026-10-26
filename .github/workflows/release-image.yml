@@ -60,10 +60,18 @@ jobs:
       # version, whether the run may publish at all, and the commit to stamp into the image.
       - name: Work out the version
         id: version
+        # the context values arrive through the environment, never spliced into the script: a tag name
+        # is user input and must not be able to become shell code
+        env:
+          TAG_INPUT: ${{ inputs.tag }}
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+          EVENT_NAME: ${{ github.event_name }}
+          PUBLISH_INPUT: ${{ inputs.publish }}
         run: |
           set -euo pipefail
-          tag='${{ inputs.tag }}'
-          if [ -z "$tag" ] && [ '${{ github.ref_type }}' = 'tag' ]; then tag='${{ github.ref_name }}'; fi
+          tag="$TAG_INPUT"
+          if [ -z "$tag" ] && [ "$REF_TYPE" = 'tag' ]; then tag="$REF_NAME"; fi
           # metadata-action's semver type needs a valid semver, so a run without a tag gets a
           # placeholder that cannot collide with a release
           version='0.0.0-dev'
@@ -76,7 +84,7 @@ jobs:
           # Only a pushed `v*` tag publishes on its own. The manual run publishes when `publish` was
           # ticked – its `tag` input names the image, it is not a licence to push. That is what makes
           # the dry run a real rehearsal of the same build.
-          if [ '${{ github.event_name }}' = 'push' ] || [ '${{ inputs.publish }}' = 'true' ]; then
+          if [ "$EVENT_NAME" = 'push' ] || [ "$PUBLISH_INPUT" = 'true' ]; then
             release=true
           else
             release=false
@@ -121,11 +129,15 @@ jobs:
       # One list for both metadata calls. The Docker Hub line stays empty while the configuration is
       # incomplete, and metadata-action drops empty lines – so the build pushes to GHCR only.
       - name: Image list and labels
+        env:
+          OWNER: ${{ github.repository_owner }}
+          DOCKERHUB_CONFIGURED: ${{ steps.dockerhub.outputs.configured }}
+          DOCKERHUB_REPOSITORY: ${{ vars.DOCKERHUB_REPOSITORY }}
         run: |
           {
             echo 'IMAGES<<EOF'
-            echo 'ghcr.io/${{ github.repository_owner }}/webslicer'
-            if [ '${{ steps.dockerhub.outputs.configured }}' = 'true' ]; then echo '${{ vars.DOCKERHUB_REPOSITORY }}'; fi
+            echo "ghcr.io/$OWNER/webslicer"
+            if [ "$DOCKERHUB_CONFIGURED" = 'true' ]; then echo "$DOCKERHUB_REPOSITORY"; fi
             echo 'EOF'
             echo 'LABELS<<EOF'
             echo 'org.opencontainers.image.title=WebSlicer'
@@ -310,12 +322,18 @@ jobs:
           provenance: false
 
       - name: Summary
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          TAG: ${{ steps.version.outputs.tag }}
+          RELEASE: ${{ steps.version.outputs.release }}
+          DOCKERHUB_CONFIGURED: ${{ steps.dockerhub.outputs.configured }}
+          IMAGE_TAGS: ${{ steps.meta.outputs.tags }}
         run: |
           {
             echo "### Release image"
-            echo "- version: \`${{ steps.version.outputs.version }}\` (tag: \`${{ steps.version.outputs.tag }}\`)"
-            echo "- published: \`${{ steps.version.outputs.release == 'true' }}\`"
-            echo "- Docker Hub configured: \`${{ steps.dockerhub.outputs.configured }}\`"
+            echo "- version: \`$VERSION\` (tag: \`$TAG\`)"
+            echo "- published: \`$RELEASE\`"
+            echo "- Docker Hub configured: \`$DOCKERHUB_CONFIGURED\`"
             echo "- tags:"
-            echo '${{ steps.meta.outputs.tags }}' | sed 's/^/  - /'
+            echo "$IMAGE_TAGS" | sed 's/^/  - /'
           } >> "$GITHUB_STEP_SUMMARY"
