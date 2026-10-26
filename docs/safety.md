@@ -46,9 +46,9 @@ close without a false conflict. Overlap is measured as the penetration depth of 
 `skirt_distance + loops × first-layer width`, and brim/skirt clearances are the measured distance to
 the bed border (PrusaSlicer draws them at a rounded distance). The hull is **conservative for a concave
 part** – a C, a U, an L's notch: its hull covers the opening, so such a part is treated as larger than
-it is. It is never looser than PrusaSlicer's own conflict check, only never tighter than the slicer for
-convex and diagonal shapes. A box still gets exactly the verdicts the bounding box gave, so nothing
-that sliced before is refused now.
+it is. Because the hull always contains the part, the check can never be looser than the slicer's own
+conflict check; for a convex shape it is exactly as tight. A box still gets exactly the verdicts the
+bounding box gave, so nothing that sliced before is refused now.
 
 The same file runs in the browser and in the server, so the two cannot disagree. In the browser the
 store action `slice` asks it before it builds a request – that one seam covers the Prepare footer, the
