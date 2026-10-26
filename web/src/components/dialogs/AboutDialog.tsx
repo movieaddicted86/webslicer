@@ -1,7 +1,7 @@
 import { Modal } from './Modal';
 import { useStore } from '../../state/store';
 import { aboutShortcuts } from '../../three/viewer/shortcuts';
-import { updateAvailable, updateLabel } from '@webslicer/shared';
+import { RISK_NOTICE_SHORT, RISK_NOTICE_URL, updateAvailable, updateLabel } from '@webslicer/shared';
 import './AboutDialog.css';
 
 /** Version, engine info, licence note and the shortcut table the key handler reads as well. */
@@ -44,6 +44,12 @@ export function AboutDialog({ onClose }: { onClose: () => void }) {
       <p className="muted small">
         PrusaSlicer is © Prusa Research, licensed under AGPL-3.0. WebSlicer is an independent project and is not affiliated with Prusa
         Research.
+      </p>
+      <p className="small risk-notice">
+        {RISK_NOTICE_SHORT}{' '}
+        <a href={RISK_NOTICE_URL} target="_blank" rel="noreferrer">
+          Safety checks
+        </a>
       </p>
       <p className="small">
         {/* the one shortcut table the key handler reads as well – the two cannot drift apart */}

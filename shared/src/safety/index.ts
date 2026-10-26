@@ -7,3 +7,4 @@ export * from './mcpPolicy.js';
 export * from './sendCheck.js';
 export * from './gcodePreflight.js';
 export * from './configLimits.js';
+export * from './riskNotice.js';

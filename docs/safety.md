@@ -1,5 +1,10 @@
 # Safety checks before and around slicing
 
+> **Print at your own risk.** WebSlicer slices and sends G-code to real machines. Check the
+> temperatures and the plate yourself before a print starts; the safety checks reduce the risk but
+> cannot remove it. The software comes without warranty (AGPL-3.0) – a print that damages a printer, a
+> part or a room is your own responsibility. Details: [SECURITY.md](../SECURITY.md).
+
 Two checks keep a preset or an agent from producing a file that damages a printer. Both live in
 `shared/` and run in the server and in the UI; the same code decides in the browser and on upload, so
 the two cannot disagree.
@@ -141,6 +146,22 @@ acceptable because it is recorded, so if `data/audit.log` cannot be written the 
 **500** and nothing is uploaded (the server log names the cause, the response is the generic
 `Internal error` of every 5xx). MCP call logging keeps the fail-soft writer – a call has already run
 when it is logged.
+
+## MCP settings policy
+
+An MCP client may only set options that cannot drive the machine outside its limits
+(`shared/src/safety/mcpPolicy.ts`, rules `mcp.*`):
+
+- **Allowlist:** process options (layers, shells, infill, support, skirt/brim, speeds, seam, ironing,
+  patterns, widths) and material options (temperatures, fan, retraction, extrusion multiplier,
+  volumetric speed, cooling). Never the printer scope (`start_gcode`, `z_offset`, `bed_shape`), never
+  free text or coordinates, never G-code or script text, and never the server-only keys below.
+- **Band:** a bounded step around the value the resolved preset already has – temperatures ±25 °C,
+  speeds ×0.5–×1.5, `extrusion_multiplier` ±0.1, `filament_retract_length` ±1 mm, compared per
+  extruder element by element. `0`, the slicer's "off"/"auto", stays allowed.
+
+A refused key rejects the whole call (nothing is applied half-way), the tool error names every issue,
+and `webslicer.check_settings` answers the same check as a dry run. Refusals land in `data/audit.log`.
 
 ## Server-side command execution
 

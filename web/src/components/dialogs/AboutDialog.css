@@ -7,3 +7,9 @@ table.kv td {
 table.kv td:first-child {
   color: var(--muted);
 }
+
+/* the risk notice keeps its place above the shortcut table, which must stay the last paragraph */
+p.risk-notice {
+  border-left: 3px solid var(--yellow);
+  padding-left: 8px;
+}
