@@ -18,6 +18,8 @@ export const BRIDGE = path.join(SAMPLE_DIR, 'bridge_table.stl');
 export const PYRAMID = path.join(SAMPLE_DIR, 'stepped_pyramid.stl');
 /** T-045: a 30 mm sphere – variable layer height, thin at the poles and thick at the equator. */
 export const SPHERE = path.join(SAMPLE_DIR, 'sphere_30mm.stl');
+/** T-078: an L bracket (40 × 40 mm, 15 mm arms) – two of them interlock with the old box check. */
+export const L_BRACKET = path.join(SAMPLE_DIR, 'l_bracket.stl');
 /** T-009: a 20 mm STEP cube the library seeds and the server converts with the CLI. */
 export const STEP_CUBE = path.join(SAMPLE_DIR, 'calibration_cube_20mm.step');
 /** A text file that is not valid STEP – the error path of the import (AC-2). */

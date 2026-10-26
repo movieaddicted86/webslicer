@@ -5,4 +5,5 @@
  */
 export * from './packing.js';
 export * from './layerProfile.js';
+export * from './hull.js';
 export * from './plateCheck.js';

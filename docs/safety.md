@@ -38,6 +38,18 @@ footprints of two objects may not overlap, and sequential printing keeps its ext
 `plate.outside`, `plate.too_tall`, `plate.skirt_outside`, `plate.brim_outside` and `plate.overlap`
 block; `plate.clearance` warns.
 
+An object's outline is the **convex hull of its XY projection** (`shared/src/plater/hull.ts`), not its
+axis-aligned bounding box: every vertex of the mesh and of its `ModelPart` volumes, each placed by its
+own world matrix. So a bar turned 45° fits near a corner, and two diagonal or interlocking parts sit
+close without a false conflict. Overlap is measured as the penetration depth of the two convex polygons
+(SAT minimum translation), the skirt is the convex hull of all objects at
+`skirt_distance + loops × first-layer width`, and brim/skirt clearances are the measured distance to
+the bed border (PrusaSlicer draws them at a rounded distance). The hull is **conservative for a concave
+part** – a C, a U, an L's notch: its hull covers the opening, so such a part is treated as larger than
+it is. Because the hull always contains the part, the check can never be looser than the slicer's own
+conflict check; for a convex shape it is exactly as tight. A box still gets exactly the verdicts the
+bounding box gave, so nothing that sliced before is refused now.
+
 The same file runs in the browser and in the server, so the two cannot disagree. In the browser the
 store action `slice` asks it before it builds a request – that one seam covers the Prepare footer, the
 Preview's own button, the automatic re-slice after a colour change and any scripted caller – and the

@@ -8,8 +8,8 @@ import { useEffect } from 'react';
 import type { RefObject } from 'react';
 import * as THREE from 'three';
 import { bedShapeOf, type LayerLimits } from '@webslicer/shared';
-import { boxOutside } from '../../plater/plateCheck';
-import { instanceBounds, selectedInstance, type PlaterObject, type PlaterVolume } from '../../state/store';
+import { instanceOutside } from '../../plater/plateCheck';
+import { selectedInstance, type PlaterObject, type PlaterVolume } from '../../state/store';
 import { paintToColors, type PaintKind } from '../paint';
 import { layerHeightColors } from '../heightColors';
 import type { ParsedGcode } from '../../gcode/types';
@@ -153,9 +153,9 @@ export function usePlaterObjects(refsRef: RefObject<SceneRefs | null>, options: 
       for (const [iid, inode] of node.instances) {
         const inst = o.instances.find((i) => i.id === iid);
         if (!inst) continue;
-        // outside-bed highlight is per instance (each copy can sit off the bed on its own); the bed
-        // is its real polygon since T-034, so the notch of an L-shaped bed counts as outside
-        const outside = boxOutside(instanceBounds(o, inst), bed.points, maxHeight);
+        // outside-bed highlight is per instance (each copy can sit off the bed on its own); it
+        // measures the instance's real hull against the bed polygon, like the plate check does
+        const outside = instanceOutside(o, inst, bed.points, maxHeight);
         const mat = inode.mesh.material as THREE.MeshStandardMaterial;
         inode.mesh.userData.extruder = o.extruder;
         const instSelected = selected && selInst.id === iid;
