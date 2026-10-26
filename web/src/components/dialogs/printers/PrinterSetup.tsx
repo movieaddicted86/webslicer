@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { checkConfigValues, type ConfigIssue } from '@webslicer/shared';
+import { checkConfigValues, type ConfigIssue, type PrinterSafetyProfile } from '@webslicer/shared';
 
 import { useStore } from '../../../state/store';
 import { api, type BundleRefusal, type InstalledPrinter, type Vendor, type VendorUpdateList, type VendorUpdateResult } from '../../../api';
 import { FilamentStep } from '../FilamentStep';
 import { FilamentForPrinterStep } from '../FilamentForPrinterStep';
+import { SafetyStep } from './SafetyStep';
+import { RiskNoticeCard } from './RiskNoticeCard';
 import type { CustomFilamentTemperatures } from '../../../state/slices/preset';
 import { repositoryUrl, summaryLine, vendorView } from './vendorUpdates';
 import './PrinterSetup.css';
@@ -279,19 +281,31 @@ export function PrinterSetup({ tab, onClose }: { tab: PrinterSetupTab; onClose: 
   const refreshVendors = useStore((s) => s.refreshVendors);
   const selectPreset = useStore((s) => s.selectPreset);
   const toast = useStore((s) => s.toast);
+  // T-085: the safety answer of a preset and the one-time risk notice
+  const printerSafety = useStore((s) => s.printerSafety);
+  const savePrinterSafety = useStore((s) => s.savePrinterSafety);
+  const riskNotice = useStore((s) => s.riskNotice);
+  const acknowledgeRiskNotice = useStore((s) => s.acknowledgeRiskNotice);
+  const dismissRiskNotice = useStore((s) => s.dismissRiskNotice);
+  const noticeDone = useStore((s) => s.noticeDone);
   const [vendorId, setVendorId] = useState(vendors[0]?.id || '');
   const [filter, setFilter] = useState('');
   const [sel, setSel] = useState<InstalledPrinter[]>(installed);
   const [custom, setCustom] = useState({ name: 'My Printer', x: 220, y: 220, z: 250, nozzle: 0.4, flavor: 'marlin2' });
-  const [step, setStep] = useState<1 | 2>(1);
+  const [step, setStep] = useState<1 | 2 | 3>(1);
   const [temperatures, setTemperatures] = useState<CustomFilamentTemperatures>(DEFAULT_TEMPERATURES);
   // until the user names the filament itself, it follows the printer name
   const [ownFilamentName, setOwnFilamentName] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  // the notice card, until it is acknowledged: it is the first thing the wizard shows (AC-4)
+  const [acknowledging, setAcknowledging] = useState(false);
+  const noticeDue = !!riskNotice && !riskNotice.acknowledged && !noticeDone;
   // entering the custom printer starts at its first step, whatever a previous visit left
   const previousTab = useRef(tab);
   useEffect(() => {
     if (tab === 'custom' && previousTab.current !== 'custom') setStep(1);
+    // the safety step belongs to the tab that started it: another tab shows its own body (T-085)
+    if (previousTab.current !== tab) setVendorSafety(undefined);
     previousTab.current = tab;
   }, [tab]);
   const vendor: Vendor | undefined = vendors.find((v) => v.id === vendorId);
@@ -306,32 +320,47 @@ export function PrinterSetup({ tab, onClose }: { tab: PrinterSetupTab; onClose: 
   const models = (vendor?.models || []).filter((m) => !filter || m.name.toLowerCase().includes(filter.toLowerCase()));
   const families = [...new Set(models.map((m) => m.family || 'Other'))];
 
-  // the printer step's own limits: the nozzle is the only bounded value it sets
+  /**
+   * The printer step's own limits: the nozzle is the only bounded value it sets.
+   */
   const printerIssues = checkConfigValues('printer', { nozzle_diameter: String(custom.nozzle) }).filter((i) => i.severity === 'block');
   const nameProblem = printerNameProblem(custom.name);
   const nextBlocked = !!nameProblem || printerIssues.length > 0;
   const filamentName = ownFilamentName ?? filamentNameFor(custom.name);
+  // T-085: the safety answer of the custom printer, collected in step 2 and stored with the presets
+  const [customSafety, setCustomSafety] = useState<PrinterSafetyProfile | undefined>(undefined);
+  const [vendorSafety, setVendorSafety] = useState<string | undefined>(undefined);
 
+  /**
+   * Apply the ticked vendor printers. The safety question of the preset that got selected follows as
+   * a second step (T-085); a preset that is already answered – or that a host already answered for –
+   * closes the dialog straight away, as before.
+   */
   const save = async () => {
     try {
       await installPrinters(sel);
       const added = sel.find(
         (i) => !installed.some((x) => x.vendorId === i.vendorId && x.modelId === i.modelId && x.variant === i.variant),
       );
+      let presetName: string | undefined;
       if (added) {
         const lists = useStore.getState().presetLists.printer;
         const p = lists.find(
           (x) => x.vendorId === added.vendorId && x.printerModel === added.modelId && x.printerVariant === added.variant,
         );
-        if (p) await selectPreset('printer', p.name);
+        if (p) {
+          presetName = p.name;
+          await selectPreset('printer', p.name);
+        }
       }
-      onClose();
+      if (presetName && !printerSafety[presetName]) setVendorSafety(presetName);
+      else onClose();
     } catch (e) {
       toast('error', (e as Error).message);
     }
   };
 
-  /** The second step: the printer preset and its filament, then both are selected. */
+  /** The last step of the custom printer: the printer preset, its filament and its safety answer. */
   const saveCustom = async () => {
     setSaving(true);
     try {
@@ -345,6 +374,7 @@ export function PrinterSetup({ tab, onClose }: { tab: PrinterSetupTab; onClose: 
         filamentName,
         temperatures,
       });
+      if (customSafety) await savePrinterSafety(custom.name.trim(), customSafety);
       onClose();
     } catch (e) {
       toast('error', (e as Error).message);
@@ -352,9 +382,34 @@ export function PrinterSetup({ tab, onClose }: { tab: PrinterSetupTab; onClose: 
     }
   };
 
+  // the one-time notice is a dialog of its own, so this dialog never carries two action rows
+  const notice = noticeDue ? (
+    <RiskNoticeCard
+      version={riskNotice?.version}
+      acknowledging={acknowledging}
+      onAcknowledge={() => {
+        setAcknowledging(true);
+        void acknowledgeRiskNotice().finally(() => setAcknowledging(false));
+      }}
+      onLater={dismissRiskNotice}
+    />
+  ) : null;
+
   return (
     <>
-      {tab === 'vendor' && (
+      {notice}
+      {vendorSafety && (
+        <SafetyStep
+          printerName={vendorSafety}
+          initial={printerSafety[vendorSafety]}
+          stepLabel="Safety"
+          onSave={(profile) => {
+            void savePrinterSafety(vendorSafety, profile).finally(onClose);
+          }}
+          onSkip={onClose}
+        />
+      )}
+      {!vendorSafety && tab === 'vendor' && (
         <>
           <VendorUpdates onChange={refreshVendors} />
           <div className="add-printer">
@@ -414,7 +469,7 @@ export function PrinterSetup({ tab, onClose }: { tab: PrinterSetupTab; onClose: 
         </>
       )}
       {tab === 'filaments' && <FilamentStep onSave={onClose} onCancel={onClose} />}
-      {tab === 'custom' && step === 1 && (
+      {tab === 'custom' && !vendorSafety && step === 1 && (
         <div className="custom-printer">
           <label htmlFor="custom-printer-name">
             Name{' '}
@@ -485,7 +540,7 @@ export function PrinterSetup({ tab, onClose }: { tab: PrinterSetupTab; onClose: 
             and retraction are adjusted afterwards in Printer Settings.
           </p>
           <div className="modal-actions" data-testid="modal-actions">
-            <span className="muted small">Step 1 of 2 – Printer</span>
+            <span className="muted small">Step 1 of 3 – Printer</span>
             <button className="primary" data-testid="modal-primary" disabled={nextBlocked} onClick={() => setStep(2)}>
               Next
             </button>
@@ -493,13 +548,31 @@ export function PrinterSetup({ tab, onClose }: { tab: PrinterSetupTab; onClose: 
         </div>
       )}
       {tab === 'custom' && step === 2 && (
+        <SafetyStep
+          printerName={custom.name.trim()}
+          initial={customSafety}
+          stepLabel="Step 2 of 3 – Safety"
+          onBack={() => setStep(1)}
+          onSave={(profile) => {
+            setCustomSafety(profile);
+            setStep(3);
+          }}
+          onSkip={() => {
+            // "Ask me later": nothing is stored, the Slice footer keeps its warning (AC-1)
+            setCustomSafety(undefined);
+            setStep(3);
+          }}
+        />
+      )}
+      {tab === 'custom' && step === 3 && (
         <FilamentForPrinterStep
           filamentName={filamentName}
           onFilamentName={setOwnFilamentName}
           values={temperatures}
           onValues={setTemperatures}
           saving={saving}
-          onBack={() => setStep(1)}
+          stepLabel="Step 3 of 3 – Filament"
+          onBack={() => setStep(2)}
           onSave={() => void saveCustom()}
         />
       )}

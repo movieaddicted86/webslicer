@@ -49,9 +49,11 @@ interface Props {
   saving: boolean;
   onBack: () => void;
   onSave: () => void;
+  /** the step counter of the footer; the custom printer numbers its steps (T-085 added the safety one) */
+  stepLabel?: string;
 }
 
-export function FilamentForPrinterStep({ filamentName, onFilamentName, values, onValues, saving, onBack, onSave }: Props) {
+export function FilamentForPrinterStep({ filamentName, onFilamentName, values, onValues, saving, onBack, onSave, stepLabel }: Props) {
   const exists = useStore((s) => s.presetLists.filament.some((p) => p.name === filamentName));
   const issues = useMemo(() => checkConfigValues('filament', configOf(values)), [values]);
   const blocked = issues.some((i) => i.severity === 'block');
@@ -112,7 +114,7 @@ export function FilamentForPrinterStep({ filamentName, onFilamentName, values, o
         </div>
       )}
       <div className="modal-actions" data-testid="modal-actions">
-        <span className="muted small">Step 2 of 2 – Filament</span>
+        <span className="muted small">{stepLabel ?? 'Step 2 of 2 – Filament'}</span>
         <button onClick={onBack}>Back</button>
         <button className="primary" data-testid="modal-primary" onClick={onSave} disabled={saving || blocked || !filamentName.trim()}>
           Save

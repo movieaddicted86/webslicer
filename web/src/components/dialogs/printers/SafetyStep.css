@@ -1,0 +1,27 @@
+/* SafetyStep: the Safety step of the printer wizard (T-085). */
+
+.safety-step {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.safety-step h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.safety-step label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.safety-step select,
+.safety-step input {
+  max-width: 340px;
+}
+
+.safety-step a {
+  color: var(--blue);
+}

@@ -8,6 +8,7 @@ import { RenamePresetDialog } from './RenamePresetDialog';
 import { PresetImportDialog } from './PresetImportDialog';
 import { ObjectSettingsDialog } from './ObjectSettingsDialog';
 import { AboutDialog } from './AboutDialog';
+import { RiskNoticeDialog } from './RiskNoticeDialog';
 import { UnsavedChangesDialog } from './UnsavedChangesDialog';
 import type { PresetType } from '../../api';
 
@@ -37,6 +38,9 @@ export function Dialogs() {
       return <ObjectSettingsDialog onClose={close} {...(payload as { objectId: string; volumeId?: string; rangeId?: string })} />;
     case 'about':
       return <AboutDialog onClose={close} />;
+    // T-085: the one-time risk notice before the first slice, when the wizard was skipped
+    case 'riskNotice':
+      return <RiskNoticeDialog onClose={close} />;
     case 'library':
       return <LibraryDialog onClose={close} mode={(payload as LibraryMode) || 'open'} />;
     case 'unsavedChanges':

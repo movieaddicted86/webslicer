@@ -1,0 +1,21 @@
+/* RiskNoticeCard: the one-time "print at your own risk" card (T-085). */
+
+.risk-card {
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--yellow);
+  border-radius: 6px;
+  background: var(--bg2);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.risk-card h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.risk-card a {
+  color: var(--blue);
+}

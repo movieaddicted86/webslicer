@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
 import { useStore } from '../../../state/store';
-import { api, type PhysicalPrinter } from '../../../api';
+import { api, type PhysicalPrinter, type PrinterSafetyProfile } from '../../../api';
 import './PrinterHosts.css';
 
 /** A limit field as a number: an empty or broken input means "not set". */
@@ -36,6 +36,17 @@ function hotendLimitOf(answer: 'ptfe' | 'all-metal'): number {
   return answer === 'ptfe' ? PTFE_MAX_HOTEND : ALL_METAL_MAX_HOTEND;
 }
 
+/**
+ * The same answer as a **preset profile** (T-085): the host form writes through to the preset when it
+ * is bound to one, so the answer protects slicing and export too, not only the send path.
+ */
+function profileOfSafety(safety: NonNullable<PhysicalPrinter['safety']>): PrinterSafetyProfile | undefined {
+  const maxHotend = safety.maxHotend;
+  if (maxHotend === undefined) return undefined;
+  const hotendType = maxHotend === PTFE_MAX_HOTEND ? 'ptfe' : maxHotend === ALL_METAL_MAX_HOTEND ? 'all-metal' : 'other';
+  return { hotendType, maxHotend, ...(safety.maxBed !== undefined && { maxBed: safety.maxBed }) };
+}
+
 /** The safety block after one edit; an empty block clears the stored limits (`{}` survives JSON, `undefined` would not). */
 function safetyOf(
   edit: Partial<PhysicalPrinter>,
@@ -55,15 +66,41 @@ export function PrinterHosts() {
   const toast = useStore((s) => s.toast);
   // the preset a host is bound to is what the send gate compares the G-code against (S1-b)
   const printerPresets = useStore((s) => s.presetLists.printer);
+  // T-085: the answer of every preset – the form pre-fills from it and writes back into it
+  const record = useStore((s) => s.printerSafety);
+  const savePrinterSafety = useStore((s) => s.savePrinterSafety);
   const empty: Partial<PhysicalPrinter> = { name: '', type: 'prusalink', host: '', apiKey: '' };
   const [edit, setEdit] = useState<Partial<PhysicalPrinter> | null>(printers.length ? null : empty);
   const [testing, setTesting] = useState<string>('');
+
+  /** Start a new host with the answer of the preset it is bound to (T-085, AC-3). */
+  const startNew = (presetName?: string) => {
+    const profile = presetName ? record[presetName] : undefined;
+    setEdit({
+      ...empty,
+      presetName,
+      ...(profile && { safety: { maxHotend: profile.maxHotend, ...(profile.maxBed !== undefined && { maxBed: profile.maxBed }) } }),
+    });
+  };
+
+  /** Bind the form to another preset: the answer of that preset becomes the form's limits. */
+  const choosePreset = (presetName: string | undefined) => {
+    if (!edit) return;
+    const profile = presetName ? record[presetName] : undefined;
+    const safety = profile
+      ? { maxHotend: profile.maxHotend, ...(profile.maxBed !== undefined && { maxBed: profile.maxBed }) }
+      : edit.safety;
+    setEdit({ ...edit, presetName, safety });
+  };
 
   const save = async () => {
     if (!edit) return;
     try {
       if (edit.id) await api.updatePrinter(edit.id, edit);
       else await api.addPrinter(edit);
+      // the answer of a bound host is the preset's answer too – same question, same protection for slicing
+      const profile = edit.presetName ? profileOfSafety(edit.safety ?? {}) : undefined;
+      if (edit.presetName && profile) await savePrinterSafety(edit.presetName, profile);
       await refresh();
       setEdit(null);
     } catch (e) {
@@ -109,7 +146,7 @@ export function PrinterHosts() {
             {!printers.length && <li className="muted">No printers configured.</li>}
           </ul>
           <div className="modal-actions" data-testid="modal-actions">
-            <button className="primary" data-testid="modal-primary" onClick={() => setEdit(empty)}>
+            <button className="primary" data-testid="modal-primary" onClick={() => startNew()}>
               Add printer
             </button>
           </div>
@@ -146,7 +183,7 @@ export function PrinterHosts() {
           </label>
           <label>
             Printer preset{' '}
-            <select value={edit.presetName || ''} onChange={(e) => setEdit({ ...edit, presetName: e.target.value || undefined })}>
+            <select value={edit.presetName || ''} onChange={(e) => choosePreset(e.target.value || undefined)}>
               <option value="">— not linked —</option>
               {printerPresets.map((p) => (
                 <option key={p.name} value={p.name}>
