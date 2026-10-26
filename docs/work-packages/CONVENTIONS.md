@@ -162,6 +162,14 @@ A work package (and each phase of it) is done only when all of this holds:
 6. Docs updated: `CHANGELOG.md` (Unreleased), `TODO.md` checkbox, `docs/Feature-Comparison.md`
    row, a new UAT case in `docs/UAT.md` for user-visible features, README only if setup changes.
 
+### A changelog entry is three lines at most
+
+`CHANGELOG.md` states what the user gets, in **one to three lines per change**, with the task id in
+brackets and grouped under _Added / Changed / Fixed / Security_. The reasoning – measured numbers, the
+reproduction, the exact rule set, deviations – belongs in `docs/` or the task report and is linked, not
+copied. The long-form entries of the older releases are kept verbatim in
+`docs/archive/CHANGELOG-details-rc3-rc5.md`. A reviewer rejects an entry that needs a fourth line.
+
 ### The main README stays short
 
 `README.md` is the shop window, not the manual (Robert, 2026-10-24): **at most ~150 lines**, in this order – what WebSlicer is (two sentences), one hero screenshot, the feature
