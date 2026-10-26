@@ -7,6 +7,8 @@ rc.3 to rc.5 and of the `Unreleased` of that time are kept verbatim in
 
 ## Unreleased
 
+## 1.0.0-rc.6 – 2026-10-26
+
 ### Added
 
 - **A published image for plain Docker and NAS systems (T-068):** a release tag (`v*`) builds the

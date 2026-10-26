@@ -1,6 +1,6 @@
 {
   "name": "@webslicer/shared",
-  "version": "1.0.0-rc.5",
+  "version": "1.0.0-rc.6",
   "private": true,
   "type": "module",
   "description": "Pure, dependency-free TypeScript shared by the WebSlicer web app and the server",
