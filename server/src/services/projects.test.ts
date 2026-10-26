@@ -32,7 +32,7 @@ const {
 const { writeBinaryStl } = await import('../slicer/threemf/index.js');
 const { saveModel } = await import('../services/models.js');
 const { setActiveSchema } = await import('../services/schema.js');
-const { IDENTITY, instanceBounds } = await import('@webslicer/shared');
+const { IDENTITY, arrangeMarginsOf, instanceBounds, plateRulesOf } = await import('@webslicer/shared');
 
 const DEFAULT_PRINTER = '- default FFF -';
 const DEFAULT_PRINT = '- default FFF -';
@@ -51,6 +51,44 @@ const CUBE = {
     3, 4, 0,
   ]),
 };
+
+/** The L bracket sample's prism (40 × 40 × 10 mm, a quarter cut away), centred in X/Y. */
+const L_BRACKET = (() => {
+  const outline: Array<[number, number]> = [
+    [0, 0],
+    [40, 0],
+    [40, 15],
+    [15, 40],
+    [0, 40],
+  ];
+  const vertices: number[] = [];
+  const at = (x: number, y: number, z: number) => vertices.push(x - 20, y - 20, z);
+  for (let i = 0; i < outline.length; i++) {
+    const [ax, ay] = outline[i];
+    const [bx, by] = outline[(i + 1) % outline.length];
+    at(ax, ay, 0);
+    at(bx, by, 0);
+    at(bx, by, 10);
+    at(ax, ay, 0);
+    at(bx, by, 10);
+    at(ax, ay, 10);
+  }
+  for (const z of [0, 10]) {
+    for (const [x0, y0, x1, y1] of [
+      [0, 0, 15, 40],
+      [15, 0, 40, 15],
+    ]) {
+      at(x0, y0, z);
+      at(x1, y0, z);
+      at(x1, y1, z);
+      at(x0, y0, z);
+      at(x1, y1, z);
+      at(x0, y1, z);
+    }
+  }
+  // every three vertices are one triangle, so the index list is just their order
+  return { vertices: Float32Array.from(vertices), indices: Uint32Array.from({ length: vertices.length / 3 }, (_, i) => i) };
+})();
 
 /** A library file with a cube, and the folder tree around it. */
 function libraryFile(name: string, mesh = CUBE): string {
@@ -206,11 +244,13 @@ test('arrange takes spacing and corner alignment (T-043)', async () => {
   await arrange(project, schema, { spacing: 20, alignment: 'corner' });
   const placed = project.objects[0].instances;
   const xs = placed.map((m) => m[12]).sort((a, b) => a - b);
-  // two 20 mm cubes with 20 mm between them, from the bed corner: centres at 20 and 60
-  assert.ok(Math.abs(xs[0] - 20) < 1e-9, `corner x = ${xs[0]}`);
+  // the block starts in the corner but keeps the skirt/brim room off the bed border (T-084); the
+  // default print preset has one 6 mm skirt loop of 0.4 mm
+  const reserve = arrangeMarginsOf(plateRulesOf(project.printer.config, project.print.config)).edgeReserve;
+  assert.ok(Math.abs(xs[0] - (reserve + 10)) < 1e-9, `corner x = ${xs[0]}`);
   assert.ok(Math.abs(xs[1] - xs[0] - 40) < 1e-9, `20 mm gap: ${xs[0]} -> ${xs[1]}`);
   assert.ok(
-    placed.every((m) => Math.abs(m[13] - 20) < 1e-9),
+    placed.every((m) => Math.abs(m[13] - (reserve + 10)) < 1e-9),
     'corner y',
   );
 });
@@ -242,6 +282,27 @@ test('arrange turns the instances when rotations are on (T-043)', async () => {
   const once = arranged.instances.map((m) => [...m]);
   await arrange(project, schema, { rotations: true, spacing: 0 });
   assert.deepEqual(project.objects[0].instances, once);
+});
+
+test('arrange nests two L brackets and a cube on their outlines (T-084)', async () => {
+  // the same fixture the browser suite arranges (`web/src/plater/arrangement.test.ts`): the L
+  // bracket sample's prism (40 × 40 × 10, a quarter cut away) and a 20 mm cube
+  const project = await newProject({ printer: { name: DEFAULT_PRINTER, config: { bed_shape: '0x0,250x0,250x210,0x210' } } });
+  await addModelFromLibrary(project, libraryFile('l-bracket.stl', L_BRACKET), 2);
+  await addModelFromLibrary(project, libraryFile('cube20-ac2.stl'), 1);
+  await arrange(project, schema);
+  // the footprints nest into each other's cut corner instead of a row of 40 mm boxes; both entry
+  // points pin the same centres, which is what keeps the layouts identical
+  const centres = project.objects.flatMap((o) =>
+    o.instances.map((m) => [Math.round(m[12] * 10) / 10, Math.round(m[13] * 10) / 10] as [number, number]),
+  );
+  assert.deepEqual(centres, [
+    [89, 105],
+    [135, 105],
+    [171, 95],
+  ]);
+  // the layout really is nested: the cube sits below the brackets' row, not beside it
+  assert.ok(centres[2][1] < centres[0][1] - 5, 'the cube filled the free corner');
 });
 
 test('arrange reports objects that do not fit on the bed', async () => {
