@@ -7,6 +7,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { checkFootprints, plateRulesOf, pointInPolygon, rectInsidePolygon, type InstanceFootprint, type PlateRules } from './plateCheck.js';
+import { boxHull, convexHull2D, type Hull } from './hull.js';
 
 const RECT = [
   [0, 0],
@@ -149,6 +150,87 @@ test('blocking issues come first and carry the affected object ids', () => {
   assert.equal(issues[0].severity, 'block');
   assert.equal(issues[issues.length - 1].severity, 'warn');
   assert.deepEqual(issues.find((i) => i.code === 'plate.skirt_outside')?.objectIds, ['a', 'b']);
+});
+
+// --- the real outline (the instance's hull) instead of its bounding box
+
+/** A footprint carrying a hull, with the hull's own bounding box beside it. */
+function hfp(hull: Hull, objectId = 'obj-1', maxZ = 10): InstanceFootprint {
+  const xs = hull.map((p) => p[0]);
+  const ys = hull.map((p) => p[1]);
+  return {
+    objectId,
+    objectName: objectId,
+    instanceId: `inst-${objectId}`,
+    minX: Math.min(...xs),
+    minY: Math.min(...ys),
+    maxX: Math.max(...xs),
+    maxY: Math.max(...ys),
+    maxZ,
+    hull,
+  };
+}
+
+/** A `w` × `h` bar turned 45° around (cx, cy). */
+function bar45(w: number, h: number, cx: number, cy: number): Hull {
+  const a = Math.PI / 4;
+  return convexHull2D(
+    [
+      [-w / 2, -h / 2],
+      [w / 2, -h / 2],
+      [w / 2, h / 2],
+      [-w / 2, h / 2],
+    ].map(([x, y]) => [cx + x * Math.cos(a) - y * Math.sin(a), cy + x * Math.sin(a) + y * Math.cos(a)]),
+  );
+}
+
+test('a hull footprint of a box gives the verdicts the bounding box gave', () => {
+  const box = (x: number, y: number) => hfp(boxHull(x, y, x + 20, y + 20));
+  assert.deepEqual(codes(checkFootprints([box(0, 0)], rules())), []);
+  assert.deepEqual(codes(checkFootprints([box(-0.5, 100)], rules())), ['plate.outside']);
+  assert.deepEqual(codes(checkFootprints([box(2, 100)], rules({ brimWidth: 5 }))), ['plate.brim_outside']);
+  assert.deepEqual(codes(checkFootprints([box(6, 100)], rules({ brimWidth: 5 }))), []);
+  assert.deepEqual(codes(checkFootprints([box(1, 100)], rules({ skirts: 1, skirtDistance: 2 }))), ['plate.skirt_outside']);
+  assert.deepEqual(codes(checkFootprints([box(3, 100)], rules({ skirts: 1, skirtDistance: 2 }))), []);
+  assert.deepEqual(codes(checkFootprints([box(10, 10), { ...box(29, 10), objectId: 'b', objectName: 'b' }], rules())), ['plate.overlap']);
+});
+
+test('a footprint without a hull keeps working off its bounding box', () => {
+  assert.deepEqual(codes(checkFootprints([fp(-0.5, 100)], rules())), ['plate.outside']);
+  assert.deepEqual(codes(checkFootprints([{ ...fp(-0.5, 100), hull: [] }, fp(200, 150, 'b')], rules())), ['plate.outside']);
+});
+
+test('two diagonal bars that only overlap in their bounding boxes are not blocked', () => {
+  const a = hfp(bar45(40, 8, 50, 50), 'a');
+  // the second bar 10 mm from the first, across their width: an 8 mm bar leaves a 2 mm gap
+  const t = 10 / Math.SQRT2;
+  const b = hfp(bar45(40, 8, 50 - t, 50 + t), 'b');
+  assert.ok(Math.min(a.maxX, b.maxX) - Math.max(a.minX, b.minX) > 20, 'the boxes overlap in x');
+  assert.ok(Math.min(a.maxY, b.maxY) - Math.max(a.minY, b.minY) > 20, 'the boxes overlap in y');
+  assert.deepEqual(codes(checkFootprints([a, b], rules())), []);
+  // the same pair in sequential printing is still measured as 2 mm apart
+  const tight = checkFootprints([a, b], rules({ completeObjects: true, clearanceRadius: 10 }));
+  assert.deepEqual(codes(tight), ['plate.clearance']);
+  assert.match(tight[0].message, /2\.0 mm apart/);
+});
+
+test('a true overlap of two diagonal bars is still blocked', () => {
+  const a = hfp(bar45(40, 8, 50, 50), 'a');
+  // 6 mm from the first: two 4 mm half widths give a 2 mm penetration
+  const t = 6 / Math.SQRT2;
+  const b = hfp(bar45(40, 8, 50 - t, 50 + t), 'b');
+  const issues = checkFootprints([a, b], rules());
+  assert.deepEqual(codes(issues), ['plate.overlap']);
+  assert.deepEqual(issues[0].objectIds, ['a', 'b']);
+});
+
+test('the hull follows the part under the L bed where the box would block it', () => {
+  // a 20 mm square turned 45° under the diagonal edge of the L bed; its box crosses the edge
+  const centre: [number, number] = [60, 120 + 0.8 * 60 - 10 * Math.SQRT2];
+  const turned = hfp(bar45(20, 20, centre[0], centre[1]));
+  const r = rules({ bed: { min: [0, 0], max: [200, 200], points: L_BED } });
+  assert.deepEqual(codes(checkFootprints([turned], r)), []);
+  assert.deepEqual(codes(checkFootprints([fp(turned.minX, turned.minY)], r)), ['plate.outside'], 'the box of the same part does not fit');
 });
 
 test('plateRulesOf reads the widths and switches of the presets', () => {

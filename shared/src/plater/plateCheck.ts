@@ -1,15 +1,19 @@
 /**
  * Plate checks before slicing: what PrusaSlicer refuses or warns about, computed from plain
- * axis-aligned footprints so both the browser (before a long slice) and the server (every path that
- * queues a job) can run the same rules.
+ * footprints (the instance's convex hull on the bed, or its box) so both the browser (before a long
+ * slice) and the server (every path that queues a job) can run the same rules.
  *
  * The rules were measured against PrusaSlicer 2.9.6 (see `.ai/reports/T-034.md`):
- * - an object whose bounding box leaves the bed polygon or exceeds the print height is refused
+ * - an object whose outline leaves the bed polygon or exceeds the print height is refused
  *   ("All objects are outside of the print volume.", no output file);
  * - two instances whose toolpaths collide (their footprints overlap by more than about
  *   2 × the first-layer extrusion width) are refused ("gcode path conflict found between …");
  * - a skirt/brim that runs past the print area is only blocked by PrusaSlicer's GUI, not by the
  *   2.9 CLI – the task asks WebSlicer to follow the GUI here, so those issues block.
+ *
+ * The outline is the convex hull of the instance's bed projection (T-078), so two diagonal or
+ * interlocking parts no longer collide just because their boxes do. For a concave part the hull is
+ * larger than the part, which keeps the check conservative; it is never looser than the slicer.
  *
  * The geometry is plain numbers so the rules can be unit tested without a renderer. Reading the
  * footprints of a plater (the browser's objects, the server's stored meshes) is the caller's part.
@@ -17,8 +21,12 @@
 import type { Config } from '../types/index.js';
 import { toBool, splitVector } from '../values.js';
 import { bedShapeOf, type BedShape } from './packing.js';
+import { boxHull, hullGap, hullInsidePolygon, hullPenetration, pointInPolygon, unionHull, type Hull } from './hull.js';
 
-/** An instance's axis-aligned footprint in printer coordinates. */
+/**
+ * An instance's footprint on the bed. `hull` is the real outline (the convex hull of the instance's
+ * XY projection); the bounding box stays for the cheap reject and for callers that only have a box.
+ */
 export interface InstanceFootprint {
   objectId: string;
   objectName: string;
@@ -29,6 +37,8 @@ export interface InstanceFootprint {
   maxY: number;
   /** top of the instance (mm above the bed) */
   maxZ: number;
+  /** convex hull of the instance on the bed, counter-clockwise; absent = the bounding box */
+  hull?: Hull;
 }
 
 /** The print/printer settings the checks read, already parsed. */
@@ -67,23 +77,8 @@ const EPS = 1e-6;
  */
 const CONFLICT_FACTOR = 1.9;
 
-/** Ray casting: true when (x, y) lies inside the polygon or on its boundary. */
-export function pointInPolygon(x: number, y: number, poly: Array<[number, number]>): boolean {
-  let inside = false;
-  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-    const [xi, yi] = poly[i];
-    const [xj, yj] = poly[j];
-    if (onSegment(x, y, xi, yi, xj, yj)) return true;
-    if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
-  }
-  return inside;
-}
-
-function onSegment(px: number, py: number, ax: number, ay: number, bx: number, by: number): boolean {
-  const cross = (bx - ax) * (py - ay) - (by - ay) * (px - ax);
-  if (Math.abs(cross) > EPS) return false;
-  return px >= Math.min(ax, bx) - EPS && px <= Math.max(ax, bx) + EPS && py >= Math.min(ay, by) - EPS && py <= Math.max(ay, by) + EPS;
-}
+/** Ray casting: true when (x, y) lies inside the polygon or on its boundary (hull.ts holds it). */
+export { pointInPolygon };
 
 /** Liang–Barsky: does the segment enter the rectangle (corners inclusive)? */
 function segmentCrossesRect(ax: number, ay: number, bx: number, by: number, x0: number, y0: number, x1: number, y1: number): boolean {
@@ -112,7 +107,8 @@ function segmentCrossesRect(ax: number, ay: number, bx: number, by: number, x0: 
 
 /**
  * True when the rectangle lies inside the bed polygon – a real polygon test, not the polygon's
- * bounding box, so the notch of an L-shaped bed counts as outside.
+ * bounding box, so the notch of an L-shaped bed counts as outside. The rectangle is checked as the
+ * box hull it is; `hullInsidePolygon` does the same for any outline.
  */
 export function rectInsidePolygon(minX: number, minY: number, maxX: number, maxY: number, poly: Array<[number, number]>): boolean {
   if (maxX - minX <= EPS || maxY - minY <= EPS) return false;
@@ -163,14 +159,25 @@ export function plateRulesOf(printerCfg: Config, printCfg: Config): PlateRules {
 
 const nameOf = (f: InstanceFootprint) => `"${f.objectName}"`;
 
+/** The instance's real outline: its hull when it has one, else its bounding box. */
+export function hullOf(f: InstanceFootprint): Hull {
+  return f.hull && f.hull.length ? f.hull : boxHull(f.minX, f.minY, f.maxX, f.maxY);
+}
+
+/** The convex hull of all instances' outlines – the outline the skirt follows. `null` when empty. */
+export function combinedFootprint(footprints: InstanceFootprint[]): Hull | null {
+  if (!footprints.length) return null;
+  return unionHull(footprints.map(hullOf));
+}
+
 /** Every issue of one plate, blocking ones first. Pure: no three.js, no store. */
 export function checkFootprints(footprints: InstanceFootprint[], rules: PlateRules): PlateIssue[] {
   const issues: PlateIssue[] = [];
   const ids = (fps: InstanceFootprint[]) => [...new Set(fps.map((f) => f.objectId))];
 
-  // --- off the bed / above the print height
+  // --- off the bed / above the print height: the real outline, not its bounding box
   for (const f of footprints) {
-    if (!rectInsidePolygon(f.minX, f.minY, f.maxX, f.maxY, rules.bed.points)) {
+    if (!hullInsidePolygon(hullOf(f), rules.bed.points)) {
       issues.push({
         code: 'plate.outside',
         severity: 'block',
@@ -190,16 +197,7 @@ export function checkFootprints(footprints: InstanceFootprint[], rules: PlateRul
 
   // --- brim: every instance grown by its own brim
   if (rules.brimWidth > 0) {
-    const outside = footprints.filter(
-      (f) =>
-        !rectInsidePolygon(
-          f.minX - rules.brimWidth,
-          f.minY - rules.brimWidth,
-          f.maxX + rules.brimWidth,
-          f.maxY + rules.brimWidth,
-          rules.bed.points,
-        ),
-    );
+    const outside = footprints.filter((f) => !hullInsidePolygon(hullOf(f), rules.bed.points, rules.brimWidth));
     if (outside.length) {
       issues.push({
         code: 'plate.brim_outside',
@@ -210,14 +208,11 @@ export function checkFootprints(footprints: InstanceFootprint[], rules: PlateRul
     }
   }
 
-  // --- skirt: the union of all footprints, grown by the distance plus the loop widths (v1: bbox)
+  // --- skirt: PrusaSlicer draws it as the convex hull of the objects at that distance
   if (rules.skirts > 0 && footprints.length) {
     const grow = rules.skirtDistance + rules.skirts * rules.firstLayerWidth;
-    const minX = Math.min(...footprints.map((f) => f.minX)) - grow;
-    const minY = Math.min(...footprints.map((f) => f.minY)) - grow;
-    const maxX = Math.max(...footprints.map((f) => f.maxX)) + grow;
-    const maxY = Math.max(...footprints.map((f) => f.maxY)) + grow;
-    if (!rectInsidePolygon(minX, minY, maxX, maxY, rules.bed.points)) {
+    const skirt = combinedFootprint(footprints);
+    if (!skirt || !hullInsidePolygon(skirt, rules.bed.points, grow)) {
       issues.push({
         code: 'plate.skirt_outside',
         severity: 'block',
@@ -233,10 +228,9 @@ export function checkFootprints(footprints: InstanceFootprint[], rules: PlateRul
     for (let j = i + 1; j < footprints.length; j++) {
       const a = footprints[i];
       const b = footprints[j];
-      const penX = Math.min(a.maxX, b.maxX) - Math.max(a.minX, b.minX);
-      const penY = Math.min(a.maxY, b.maxY) - Math.max(a.minY, b.minY);
-      if (penX <= 0 || penY <= 0) continue;
-      const depth = Math.min(penX, penY);
+      // the boxes are the cheap reject; the penetration itself comes from the outlines (SAT)
+      if (Math.min(a.maxX, b.maxX) - Math.max(a.minX, b.minX) <= 0 || Math.min(a.maxY, b.maxY) - Math.max(a.minY, b.minY) <= 0) continue;
+      const depth = hullPenetration(hullOf(a), hullOf(b));
       if (depth > limit) {
         issues.push({
           code: 'plate.overlap',
@@ -255,9 +249,11 @@ export function checkFootprints(footprints: InstanceFootprint[], rules: PlateRul
         const a = footprints[i];
         const b = footprints[j];
         if (a.objectId === b.objectId) continue;
+        // the box gap is an upper bound of the outline gap: it can only skip a real warning
         const gapX = Math.max(a.minX - b.maxX, b.minX - a.maxX, 0);
         const gapY = Math.max(a.minY - b.maxY, b.minY - a.maxY, 0);
-        const gap = Math.hypot(gapX, gapY);
+        if (Math.hypot(gapX, gapY) >= rules.clearanceRadius) continue;
+        const gap = hullGap(hullOf(a), hullOf(b));
         if (gap < rules.clearanceRadius) {
           issues.push({
             code: 'plate.clearance',
@@ -273,11 +269,10 @@ export function checkFootprints(footprints: InstanceFootprint[], rules: PlateRul
   return issues.sort((a, b) => (a.severity === b.severity ? 0 : a.severity === 'block' ? -1 : 1));
 }
 
-/** True when an instance's bounding box (world coordinates) leaves the bed polygon or is too tall. */
-export function boxOutside(
-  box: { min: { x: number; y: number; z: number }; max: { x: number; y: number; z: number } },
-  bedPoints: Array<[number, number]>,
-  maxHeight: number,
-): boolean {
-  return !rectInsidePolygon(box.min.x, box.min.y, box.max.x, box.max.y, bedPoints) || box.max.z > maxHeight + EPS;
+/**
+ * True when a hull (world coordinates) leaves the bed polygon or its top exceeds the print height –
+ * the "outside" half of the plate check for callers that hold a footprint, e.g. a row's badge.
+ */
+export function hullOutsideBed(hull: Hull, top: number, bedPoints: Array<[number, number]>, maxHeight: number): boolean {
+  return !hullInsidePolygon(hull, bedPoints) || top > maxHeight + EPS;
 }
