@@ -10,6 +10,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { checkConfigLimits, type Config, type ConfigIssue } from '@webslicer/shared';
 import { configKeyOf, fieldIssueOf, issueTargetOf, limitIssuesOf, type LimitPresets } from './configIssues.js';
+import { presetSafetyWarnings } from './printerSafety.js';
 
 const PRINTER: Config = { printer_technology: 'FFF', nozzle_diameter: '0.4' };
 const PRINT: Config = { layer_height: '0.2' };
@@ -117,4 +118,30 @@ test('the memo key changes with the configs and the extruder count only', () => 
   // the extruder count only matters while there are more slots to send
   const two = { ...a, filaments: [a.filaments[0], { filament_type: 'ABS', temperature: '250' }] };
   assert.notEqual(configKeyOf(two, 1), configKeyOf(two, 2));
+});
+
+// ---------------------------------------------------------------------------
+// T-085: the printer preset's own answer
+// ---------------------------------------------------------------------------
+
+test('a preset safety answer adds its blocking limit and is part of the memo key', () => {
+  const presets = presetsOf({ filament_type: 'PETG', temperature: '260' });
+  const ptfe = { presetName: 'MK3S+', limits: { maxHotend: 240 }, label: 'PTFE-lined hotend' };
+  const issues = limitIssuesOf(presets, 1, ptfe);
+  assert.equal(issues.length, 1);
+  assert.equal(issues[0].rule, 'config.hotend_limit');
+  assert.equal(issues[0].severity, 'block');
+  assert.match(issues[0].message, /limit of this printer \(PTFE-lined hotend\)/);
+  // without the answer there is nothing above the global ceiling
+  assert.deepEqual(limitIssuesOf(presets, 1), []);
+  // all-metal (450) does not narrow 260
+  assert.deepEqual(limitIssuesOf(presets, 1, { presetName: 'MK3S+', limits: { maxHotend: 450 } }), []);
+  assert.notEqual(configKeyOf(presets, 1, ptfe), configKeyOf(presets, 1));
+});
+
+test('the warning of an unanswered preset is a warning: it never blocks and has no field', () => {
+  const missing = presetSafetyWarnings({ presetName: 'MK4', hostAnswered: false });
+  assert.equal(missing.length, 1);
+  assert.equal(missing[0].severity, 'warn');
+  assert.equal(missing[0].rule, 'config.no_printer_safety');
 });

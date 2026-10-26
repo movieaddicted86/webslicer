@@ -5,9 +5,15 @@
  * The Prepare footer, the Preview and the store action `slice` all read this list, so no path that
  * starts a slice can miss a gate. The store computes it synchronously (the truth), the panels show the
  * same guard – with the limit checks debounced like the field hints (`useSliceGuard`).
+ *
+ * T-085 adds the printer preset's answer: its limits are blocking (in `limits`), and a preset nobody
+ * answered for carries the `config.no_printer_safety` **warning** in the same list, so the footer shows
+ * it without blocking. The slice action leaves that warning out of the job – the server only carries
+ * blocking issues there.
  */
 import { plateIssues, type PlateIssue } from '../plater/plateCheck';
-import { issueTargetOf, limitIssuesOf, type IssueTarget } from '../safety/configIssues';
+import { issueTargetOf, limitIssuesOf, type IssueTarget, type PresetSafetyKey } from '../safety/configIssues';
+import { presetSafetyState, presetSafetyWarnings, profileLabel } from '../safety/printerSafety';
 import type { ConfigIssue } from '@webslicer/shared';
 import type { State } from './types';
 
@@ -44,18 +50,27 @@ export interface SliceGuardInput {
   objects: State['objects'];
   presets: State['presets'];
   extruderCount: () => number;
+  /** T-085: every preset's answer and the hosts that may have answered for one of them */
+  printerSafety?: State['printerSafety'];
+  physicalPrinters?: State['physicalPrinters'];
 }
 
 /** The guard of the current plater, computed now (the store runs this before it builds a request). */
 export function currentSliceGuard(input: SliceGuardInput): SliceGuard {
   const plate = plateIssues(input.objects, input.presets.printer.current, input.presets.print.current);
-  const limits = limitIssuesOf(
-    {
-      print: input.presets.print.current,
-      printer: input.presets.printer.current,
-      filaments: input.presets.filament.map((f) => f.current),
-    },
-    input.extruderCount(),
-  );
+  const answer = presetSafetyState(input.printerSafety, input.physicalPrinters ?? [], input.presets.printer.name);
+  const safety: PresetSafetyKey = { presetName: answer.presetName, limits: answer.limits, label: profileLabel(answer.profile) };
+  const limits = [
+    ...limitIssuesOf(
+      {
+        print: input.presets.print.current,
+        printer: input.presets.printer.current,
+        filaments: input.presets.filament.map((f) => f.current),
+      },
+      input.extruderCount(),
+      safety,
+    ),
+    ...presetSafetyWarnings(answer),
+  ];
   return sliceGuardOf(plate, limits);
 }
