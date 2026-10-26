@@ -12,7 +12,8 @@
 import { api, type CutPart, type CutResult } from '../../api';
 import { loadStoredModel } from '../../plater/meshOps';
 import { geometrySize, triangleCount } from '../../plater/meshInfo';
-import { placementMatrix } from '@webslicer/shared';
+import { bedShapeOf, placementMatrix } from '@webslicer/shared';
+import { arrangePlan, packOptionsOf, withPlacements } from '../../plater/arrangement';
 import { mintInstanceId, mintObjectId, selectedInstance } from '../../plater/objects';
 import { cutPlaneWorld, defaultCutSettings, type CutSettings } from '../../plater/cut';
 import type { PlaterObject, SlicePart } from '../types';
@@ -128,20 +129,41 @@ export const createCutSlice: SlicePart<CutSlice> = (set, get) => ({
     }
     // the cut instance goes: the object itself when it was its last copy, otherwise just the copy
     const restInstances = o.instances.filter((i) => i.id !== inst.id);
-    set((st) => ({
-      objects: [
-        ...st.objects.flatMap((x) => (x.id === o.id ? (restInstances.length ? [{ ...x, instances: restInstances }] : []) : [x])),
-        ...created,
-      ],
+    let objects = [
+      ...get().objects.flatMap((x) => (x.id === o.id ? (restInstances.length ? [{ ...x, instances: restInstances }] : []) : [x])),
+      ...created,
+    ];
+    // keep both: the halves share the source's footprint, so they would overlap (and block the
+    // slice). Place them apart with the plater's arrange settings – only the halves move, every
+    // other object stays where it is. When they do not fit, the placement stays as it was and the
+    // plate check names the overlap instead.
+    let placed = false;
+    if (parts.length === 2) {
+      const post = get();
+      const moving = new Set(created.map((c) => `${c.id}:${c.instances[0].id}`));
+      const updates = arrangePlan(
+        objects,
+        bedShapeOf(post.presets.printer.current),
+        packOptionsOf(post.presets, post.arrangeSettings),
+        moving,
+      );
+      if (updates) {
+        objects = withPlacements(objects, updates);
+        placed = true;
+      }
+    }
+    set({
+      objects,
       selectedIds: created.map((c) => c.id),
       selectedInstanceId: undefined,
       selectedVolumeId: undefined,
       activeTool: undefined,
       cutBusy: false,
       sliceDirty: true,
-    }));
+    });
     const dropped = [o.paint ? 'paint' : '', o.ranges.length ? 'height ranges' : ''].filter(Boolean);
     if (dropped.length) s.toast('info', `Cut: ${dropped.join(' and ')} were dropped`);
+    if (parts.length === 2 && !placed) s.toast('info', 'Cut: the two parts do not fit side by side – arrange them before slicing');
     s.toast('info', parts.length === 2 ? 'Cut into two parts' : 'Cut: one part kept');
   },
 });

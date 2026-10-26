@@ -116,6 +116,11 @@ PrusaSlicer feature exists here and which does not is in
 - **Split to objects / parts**, **merge objects**, **object info** (volume, manifold check) and
   **rename**.
 - **Cut tool**: cut plane with height and tilt, keep upper/lower/both parts, via the PrusaSlicer CLI.
+  With **keep both** the two halves are placed apart right after the cut, using the arrange settings
+  (spacing, rotations, alignment) and moving only the halves – other objects stay where they are, so
+  the plate check passes and **Slice now** is enabled without pressing Arrange. If the halves do not
+  fit side by side, they keep the source's placement, the plate overlap check names the reason and a
+  toast says to arrange them. Cut and placement are one undo step.
 - **Tool strip** floating over the top of the scene, centred between the two cards: one button per
   registry tool (move, rotate, scale, place on face, arrange and its settings, cut, paint
   supports/seam/extruder, variable layer height) plus delete and add/remove instance. The open tool's

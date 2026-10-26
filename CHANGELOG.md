@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- **Cutting with "keep both" places the two halves apart (T-079):** the halves of a cut share the
+  source's footprint, so the plate check blocked slicing until the user pressed Arrange (T-073 made
+  that block visible again). After a successful cut with **Both parts** the app now arranges the two
+  new objects itself with the plater's arrange settings – the clearance, the 90° rotations and the
+  alignment from the Arrange gear – and moves nothing else: every other object and every other
+  instance stays exactly where it was, and the halves stay selected. **Slice now** is enabled right
+  away; on a bed too small for both halves they keep the source's placement, the plate overlap check
+  names the reason and an info toast says to arrange them, so nothing fails silently. **Keep upper** /
+  **keep lower** are unchanged, and the cut plus its placement stay **one undo step** (Ctrl+Z brings
+  the uncut object back). No new setting, no API change; `cut.spec.ts` asserts disjoint footprints and
+  slices without a manual arrange, `web/src/state/cut.test.ts` covers the placement, the untouched
+  neighbour and the no-fit case, and `docs/features.md` / `docs/UAT.md` (UAT-35) describe it.
 - **One selection that behaves the same in the object list, the scene and the Library (T-077, findings
   F-03b and F-03c):** a click in the object list selected one object with Shift behaving like Ctrl, so a
   range could not be picked at all, and the Library knew only one file at a time – loading or deleting
