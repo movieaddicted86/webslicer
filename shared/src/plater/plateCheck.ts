@@ -1,14 +1,12 @@
 /**
  * Plate checks before slicing: what PrusaSlicer refuses or warns about, from plain footprints (the
- * instance's convex hull on the bed, or its box), so the browser and every server path queue jobs with
- * the same rules.
+ * instance's convex hull on the bed, or its box), so the browser and every server path agree.
  *
- * Measured against PrusaSlicer 2.9.6: an object that leaves the bed polygon or exceeds the print
- * height is refused, and two instances whose toolpaths collide (overlap by more than about 2 × the
- * first-layer extrusion width) are refused. A skirt or brim past the print area is blocked by the GUI
- * only, but blocks here too. The hull makes the check conservative for a concave part and never looser
- * than the slicer. Plain numbers, so it is unit-tested without a renderer; reading the footprints is
- * the caller's part.
+ * Measured against PrusaSlicer 2.9.6: an object off the bed polygon or above the print height is
+ * refused, as are two instances whose toolpaths collide (overlap by more than about 2 × the first-layer
+ * extrusion width); a skirt or brim past the print area blocks only in the GUI, but blocks here too.
+ * The hull makes the check conservative for a concave part and never looser than the slicer. Plain
+ * numbers, so it is unit-tested without a renderer; reading the footprints is the caller's part.
  */
 import type { Config } from '../types/index.js';
 import { toBool, splitVector } from '../values.js';

@@ -1,16 +1,12 @@
 /**
- * The tool strip: the floating pill over the scene, between the object list card and the context
- * panel. It is the one place that opens a tool – the registry provides buttons, groups, shortcuts and
- * disabled reasons – and it also carries the object commands that act on the selection.
+ * The tool strip: the floating pill over the scene, the one place that opens a tool (the registry
+ * provides buttons, groups, shortcuts and disabled reasons) and the object commands of the selection.
  *
  * The groups are in PrusaSlicer's order; when they do not fit, the trailing ones move into an overflow
- * menu and `stripLayout` decides that from the width the band offers, so the layout is pure and
- * testable. On a narrow screen the strip scrolls instead: a dropdown over the scene would cover the
- * object the user just tapped. The band is measured, not assumed – the pill is centred between the
- * cards.
- *
- * The strip keeps the `tool-strip` layer and the `tool-bar` hook: it is still the one control that
- * opens the tools. Its buttons keep `tool-<id>`, and each carries `aria-pressed` for the open tool.
+ * menu that `stripLayout` derives from the band's width, so the layout is pure and testable. A narrow
+ * screen scrolls the pill instead – a dropdown over the scene would cover the object the user just
+ * tapped. The band is measured, not assumed: the pill is centred between the cards. The `tool-strip`
+ * layer, the `tool-bar` hook and `tool-<id>` with `aria-pressed` stay.
  */
 import { useEffect, useRef, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';

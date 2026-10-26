@@ -3,11 +3,10 @@
  * adaptive and smoothing algorithms, the manual brush and the 3MF entry that carries it.
  *
  * A profile is a flat array `[z0, h0, z1, h1, …]` (PrusaSlicer's own layout) in the object's Z frame,
- * so it survives moving, rotating and scaling; every height stays inside the printer's limits
- * (25 % / 75 % of the nozzle when the option is 0). It is stored in
- * `Metadata/Slic3r_PE_layer_heights_profile.txt` as `object_id=<1-based id>|<z>;<h>;…` with six
- * decimals, verified against the PrusaSlicer 2.8.1 source (`Format/3mf.cpp`). Where a profile and
- * height ranges meet, the profile wins for the layer height.
+ * so it survives moving, rotating and scaling; every height stays inside the printer's limits (25 % /
+ * 75 % of the nozzle when the option is 0). It is stored in `Metadata/Slic3r_PE_layer_heights_profile.txt`
+ * as `object_id=<1-based id>|<z>;<h>;…` with six decimals, verified against PrusaSlicer 2.8.1
+ * (`Format/3mf.cpp`). Where a profile and height ranges meet, the profile wins for the layer height.
  */
 /** Lower/upper bound of a layer height in mm. */
 export interface LayerLimits {

@@ -2,12 +2,11 @@
  * MCP safety policy: which slicer options an MCP client may set, and how far a value may move away
  * from the value the resolved preset already has.
  *
- * The MCP channel is driven by a model, and a human who later starts the job does not read the
- * G-code. Two pure rules (schema in, verdict out): an **allowlist** of process and material options –
- * never the printer scope, free text, coordinates, `*_gcode` or the server-only keys – and a **band**
- * around the preset value (temperatures ±25 °C, speeds ×0.5–×1.5, extrusion multiplier ±0.1,
- * retraction length ±1 mm, per extruder element by element), where `0` stays allowed as the slicer's
- * "off"/"auto".
+ * The MCP channel is driven by a model, and a human who later starts the job does not read the G-code.
+ * Two pure rules (schema in, verdict out): an **allowlist** of process and material options – never
+ * the printer scope, free text, coordinates, `*_gcode` or server-only keys – and a **band** around the
+ * preset value (temperatures ±25 °C, speeds ×0.5–×1.5, extrusion multiplier ±0.1, retraction length
+ * ±1 mm, per extruder element by element), where `0` stays allowed as the slicer's "off"/"auto".
  */
 import { SERVER_ONLY_KEYS, serverOnlyReason } from '../serverOnly.js';
 import type { OptionType, PresetType, Schema } from '../types/index.js';

@@ -7,6 +7,7 @@
  */
 export const RISK_NOTICE_URL = 'https://github.com/movieaddicted86/webslicer/blob/main/docs/safety.md';
 
+/** The first sentence block of the three documents, verbatim, so the dialog and the docs read the same. */
 export const RISK_NOTICE_SHORT =
-  'Print at your own risk: WebSlicer slices and sends G-code to real machines, so check the temperatures and the plate ' +
-  'yourself – the safety checks reduce the risk but cannot remove it.';
+  'Print at your own risk. WebSlicer slices and sends G-code to real machines. Check the temperatures and the plate ' +
+  'yourself before a print starts; the safety checks reduce the risk but cannot remove it.';

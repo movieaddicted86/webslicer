@@ -1,13 +1,12 @@
 /**
  * The Host / Origin allowlist against DNS rebinding.
  *
- * The server listens on `0.0.0.0`, so a browser on an internet page can reach the whole API at the
- * LAN address through a rebound name – no preflight, no CORS. A request is therefore refused when its
- * `Host` names an address the server does not answer on: allowed are `localhost` and loopback, any IP
- * literal (an attacker cannot own one, and installs opened by LAN IP must keep working), the machine's
- * own interface addresses and whatever `ALLOWED_HOSTS` lists. An `Origin`, sent by browsers only, has
- * to be same-origin, loopback, an own address or an `ALLOWED_HOSTS` name. Pure: lists in, verdict
- * out, the same verdict drives `/api` and `/mcp`.
+ * The server listens on `0.0.0.0`, so an internet page can reach the whole API at the LAN address
+ * through a rebound name. A request is refused when its `Host` names an address the server does not
+ * answer on: `localhost`/loopback, any IP literal (installs opened by LAN IP must keep working), the
+ * machine's own addresses and `ALLOWED_HOSTS` pass. An `Origin`, sent by browsers only, has to be
+ * same-origin, loopback, an own address or an `ALLOWED_HOSTS` name. Pure: lists in, verdict out, and
+ * the same verdict drives `/api` and `/mcp`.
  */
 import os from 'node:os';
 import { isIP } from 'node:net';

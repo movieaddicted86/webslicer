@@ -1,10 +1,8 @@
 /**
- * Vendor bundle updates: check the profile repository, install a newer bundle, revert, and install a
- * bundle from a file for air-gapped installs.
+ * Vendor bundle updates: check the repository, install a newer bundle, revert, or install one from a file.
  *
- * - **Fixed sources only.** Host, repository, branch and every file name are built here, never taken
- *   from a response as a path; redirects are refused, requests time out after 10 s and bodies are
- *   capped at 5 MB.
+ * - **Fixed sources only.** Host, repository, branch and file names are built here, never taken from
+ *   a response as a path; redirects are refused, requests time out after 10 s, bodies cap at 5 MB.
  * - **Validate before install.** The bundle must name this vendor, carry a newer `config_version` and
  *   pass the limit sweep plus the preflight over its G-code; a block refuses the whole bundle.
  * - **Nothing changes without a click**, and the highest `config_version` per vendor wins, so the
