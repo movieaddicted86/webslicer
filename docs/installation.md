@@ -23,6 +23,88 @@ docker run -d --name webslicer -p 8080:8080 -v webslicer-data:/data -v /path/to/
 folder or NAS share (default in Compose: `./library`). The library is seeded with the bundled sample
 models on first start while it is empty.
 
+### Run the published image
+
+A release tag (`v*`) builds the image for **linux/amd64 and linux/arm64** and publishes it, so from the
+first release on there is nothing to build:
+
+```bash
+docker run -d --name webslicer -p 8080:8080 \
+  -v webslicer-data:/data -v /path/to/models:/library \
+  ghcr.io/movieaddicted86/webslicer:latest
+```
+
+| Registry   | Image                                                                                                                                     |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| GHCR       | `ghcr.io/movieaddicted86/webslicer`                                                                                                       |
+| Docker Hub | the name the maintainer configured (repository variable `DOCKERHUB_REPOSITORY`, see [Releasing an image](#releasing-an-image-maintainer)) |
+
+**Tags.** `<version>` is the release without the `v` (`1.2.3`), `latest` follows the newest release and
+`sha-<commit>` names the exact build. While the project is pre-1.0, `latest` follows every tag,
+release candidates included; pin an exact version to stay where you are.
+
+The Compose file builds from source. To use the published image, replace `build: .` with the image:
+
+```yaml
+services:
+  webslicer:
+    image: ghcr.io/movieaddicted86/webslicer:latest
+    ports:
+      - '8080:8080'
+    volumes:
+      - webslicer-data:/data
+      - ./library:/library
+volumes:
+  webslicer-data:
+```
+
+**Updating:** `docker compose pull && docker compose up -d` (or `docker pull …` and a new `docker run`)
+replaces the container; the `/data` volume keeps settings, printers and jobs, so nothing is lost. An
+auto-updater such as Watchtower works with the same tags.
+
+Without a published release yet, build the image as shown above; the release procedure is at
+[Releasing an image](#releasing-an-image-maintainer).
+
+### User and group ids (PUID/PGID)
+
+The app never runs as root. Without configuration it starts as `node` (1000:1000), as before. NAS
+systems manage their files by user and group id, so the container takes the ids to run as:
+
+```bash
+docker run -d --name webslicer -p 8080:8080 \
+  -e PUID=99 -e PGID=100 \
+  -v webslicer-data:/data -v /path/to/models:/library \
+  ghcr.io/movieaddicted86/webslicer:latest
+```
+
+The entrypoint runs as root once, creates a matching user/group entry, hands the mounts over and then
+starts the app as `99:100` (`docker top webslicer` shows it). **Set both ids** – a missing one falls
+back to 1000, so `PUID=99` alone is not 99:100. `/data` is handed over recursively; `/library` only as
+a directory, because a library on a NAS share can be huge – it has to be writable for the chosen ids
+anyway (e.g. `chown 99:100 /mnt/user/models`), and the log warns when it is not.
+
+The alternative, without root at all: `--user 99:100` starts the app directly as those ids; the mounts
+must fit them (the entrypoint does nothing then).
+
+#### Unraid
+
+Add the container by hand (Docker → _Add Container_):
+
+| Field      | Value                                                                       |
+| ---------- | --------------------------------------------------------------------------- |
+| Repository | `ghcr.io/movieaddicted86/webslicer:latest`                                  |
+| Network    | bridge                                                                      |
+| Port       | `8080` → container `8080`                                                   |
+| Path       | `/mnt/user/appdata/webslicer` → `/data` (read/write)                        |
+| Path       | your model share, e.g. `/mnt/user/models` → `/library` (read/write)         |
+| Variable   | `PUID=99`                                                                   |
+| Variable   | `PGID=100`                                                                  |
+| Variable   | `WEBSLICER_UPDATE_CHECK=on` (or `off`, see [Update notice](#update-notice)) |
+
+Optional variables (port, limits, `MCP_TOKEN`, `ALLOWED_HOSTS`) are in
+[configuration.md](configuration.md). The app is then reachable at `http://<tower>:8080`; the first start
+opens the _Printers_ dialog. An Unraid Community Applications template is not available yet.
+
 On first start the _Printers_ dialog opens: pick vendor and printer model/nozzle (or create a _Custom
 printer_). Then drag a model into the 3D view and click **Slice now**.
 
@@ -64,6 +146,49 @@ pinned in `Dockerfile` and `proxmox/install.sh`; a mismatch aborts the build/ins
 archive is extracted. For a custom AppImage pass `PRUSASLICER_SHA256` (build arg for Docker, env
 variable for the installer, persisted in `/etc/webslicer/installer.env`). Without it, a custom URL or
 another version is downloaded unverified and the log says so.
+
+**Licence.** The image contains PrusaSlicer (AGPL-3.0) as the engine; its source is at
+<https://github.com/prusa3d/PrusaSlicer>, built as the tag `version_<PRUSASLICER_VERSION>`. WebSlicer
+itself is AGPL-3.0-only. Both licence texts ship inside the image under
+`/usr/share/doc/webslicer/` (`LICENSE`, `THIRD_PARTY_NOTICES.md`), and the labels of a release image
+(`org.opencontainers.image.*`) name the sources, the version, the commit and the engine.
+
+### Releasing an image (maintainer)
+
+The workflow `.github/workflows/release-image.yml` publishes the image. It runs only on a pushed tag
+`v*` and by manual start, never on a branch or a pull request.
+
+**Once, in the repository settings:**
+
+| Name                   | Type                | Value                                              |
+| ---------------------- | ------------------- | -------------------------------------------------- |
+| `DOCKERHUB_USERNAME`   | secret              | Docker Hub account name                            |
+| `DOCKERHUB_TOKEN`      | secret              | an access token of that account (not the password) |
+| `DOCKERHUB_REPOSITORY` | repository variable | `name/webslicer` – the namespace is not hard-coded |
+
+GHCR needs no setting: the workflow pushes `ghcr.io/<owner>/webslicer` with its `GITHUB_TOKEN`
+(`packages: write`). Without the three Docker Hub values the run still succeeds and publishes to GHCR
+only, with a notice in the log and the job summary – so the workflow works before Docker Hub exists.
+
+**Release:** bump the version (`npm run version:sync`), commit, then push a tag:
+
+```bash
+git tag v1.2.3
+git push origin v1.2.3
+```
+
+The workflow builds the amd64 image, starts it and checks `/api/health`, the slicer binary, the licence
+files, the OCI labels and both user-id modes (default and `PUID=99 PGID=100`); only then does it build
+both architectures and push them. A failing smoke test means nothing is published. Tags: `<version>`,
+`latest` and `sha-<commit>`.
+
+**Dry run:** _Actions → Release image → Run workflow_ builds and smoke-tests everything, including the
+multi-arch build, and pushes nothing (`publish` is off by default). The `tag` input only names the image
+in that run; it does not build a different commit. Tick `publish` only to re-run a release that failed
+after the push, and only from the tagged commit.
+
+A tag can be re-run from _Actions_ → the run → _Re-run all jobs_; the workflow never deletes or
+overwrites another version's tags.
 
 ## Update notice
 

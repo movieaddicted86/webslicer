@@ -74,7 +74,8 @@ Priority by frequency of use in everyday printing and PrusaSlicer parity.
 - [ ] D-4 Settings dialog redesign (category rail, toggles, star column, compare/save footer) – after D-1 and D-9
 - [ ] D-10 Project tabs; D-11 multiple beds with their own printer preset (data-model note first); D-14 profile filter by filament type + fuzzy global search
 - [ ] 3.0 engine: stay on 2.9.x; re-assess at 3.0 beta with third-party profiles and a documented CLI (optional one-day CLI spike)
-- [ ] Unraid: U-1 publish multi-arch image to GHCR on `v*` tags + `PUID`/`PGID`; U-2 Community Applications XML template + doc (needs an Unraid tester)
+- [x] Unraid: U-1 publish multi-arch image to GHCR on `v*` tags + `PUID`/`PGID` (T-068; Docker Hub once
+      its secrets and repository variable are set); U-2 Community Applications XML template + doc (needs an Unraid tester)
 
 ## P4 – later or not planned
 

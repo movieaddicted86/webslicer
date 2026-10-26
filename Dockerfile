@@ -92,6 +92,8 @@ FROM ${NODE_IMAGE}
 # an ARG of an earlier stage is not visible here; both are passed as ENV below (T-058)
 ARG GIT_COMMIT
 ARG GIT_BRANCH
+# for the licence line of the release labels below
+ARG PRUSASLICER_VERSION
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update \
  && apt-get install -y --no-install-recommends ca-certificates curl tini \
@@ -127,11 +129,33 @@ ENV GIT_COMMIT=${GIT_COMMIT} \
 RUN /opt/prusaslicer/AppRun --help | head -n 1 \
  && mkdir -p /data /library && chown -R node:node /data /library /app
 
+# The runtime entrypoint maps the ids the container should run as (PUID/PGID for NAS systems, `node`
+# by default) and drops to them, so the image does not end with `USER node` any more. `--chmod` sets
+# the executable bit itself: a Windows checkout cannot carry it.
+COPY --chmod=755 docker/entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+
 ENV LIBRARY_DIR=/library
-USER node
 VOLUME ["/data", "/library"]
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s \
   CMD curl -fsS http://localhost:8080/api/health || exit 1
-ENTRYPOINT ["/usr/bin/tini", "--"]
+# tini stays PID 1 (signal handling, reaping); the entrypoint then starts the CMD as the mapped user
+ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/docker-entrypoint.sh"]
 CMD ["node", "server/dist/index.js"]
+
+# ---------------------------------------------------------------------------
+# OCI labels (AC-4). The release workflow overrides them with the values of the
+# tag it publishes (`docker/metadata-action`); these describe a local build, so
+# the version is only known there as `dev`. `revision`/`branch` come from the
+# build stamp of the update check.
+# ---------------------------------------------------------------------------
+LABEL org.opencontainers.image.title="WebSlicer" \
+      org.opencontainers.image.description="PrusaSlicer in the browser: prepare, slice and preview in one web app" \
+      org.opencontainers.image.source="https://github.com/movieaddicted86/webslicer" \
+      org.opencontainers.image.url="https://github.com/movieaddicted86/webslicer" \
+      org.opencontainers.image.documentation="https://github.com/movieaddicted86/webslicer/blob/main/docs/installation.md" \
+      org.opencontainers.image.licenses="AGPL-3.0-only" \
+      org.opencontainers.image.version="dev" \
+      org.opencontainers.image.revision="${GIT_COMMIT}" \
+      org.opencontainers.image.vendor="WebSlicer" \
+      sh.webslicer.engine="PrusaSlicer ${PRUSASLICER_VERSION}"

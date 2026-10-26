@@ -9,6 +9,11 @@ rc.3 to rc.5 and of the `Unreleased` of that time are kept verbatim in
 
 ### Added
 
+- **A published image for plain Docker and NAS systems (T-068):** a release tag (`v*`) builds
+  linux/amd64 and linux/arm64 and pushes them to GHCR (and Docker Hub when the maintainer configured it)
+  only after a smoke test; `PUID`/`PGID` run the container with the ids a NAS uses (Unraid 99:100), the
+  default stays 1000:1000, and the licence and third-party notices ship inside the image.
+
 - **Error boundary, per-token MCP quotas, audit rotation (T-081):** a component that throws shows a
   "Reload view" card instead of a blank page; a token may hold two queued jobs and 30 slices per hour;
   `data/audit.log` rotates at 10 MB and keeps five files.
