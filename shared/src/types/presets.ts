@@ -180,6 +180,31 @@ export interface PrinterSafety {
   maxBed?: number;
 }
 
+/** The hotend question of the printer wizard (T-085): what the hotend is lined with. */
+export type HotendType = 'ptfe' | 'all-metal' | 'other';
+
+/** Every hotend answer, in the order the form offers them. */
+export const HOTEND_TYPES: HotendType[] = ['ptfe', 'all-metal', 'other'];
+
+/**
+ * The safety profile of one **printer preset** (T-085), stored server-side and keyed by the preset's
+ * name. It is what protects a user who exports G-code and never binds a print host: the slice check
+ * blocks a temperature above `maxHotend`/`maxBed` before a job is queued.
+ *
+ * `maxHotend` is always resolved – 240 °C for a PTFE-lined hotend, 450 °C for an all-metal one, the
+ * typed number (150–450) for `other` – so the checks never have to know the answer's meaning.
+ */
+export interface PrinterSafetyProfile {
+  hotendType: HotendType;
+  /** highest hotend temperature in °C */
+  maxHotend: number;
+  /** highest bed temperature in °C, when the wizard was told one */
+  maxBed?: number;
+}
+
+/** Every stored printer-safety profile, keyed by printer preset name (T-085). */
+export type PrinterSafetyRecord = Record<string, PrinterSafetyProfile>;
+
 export interface PhysicalPrinter {
   id: string;
   name: string;

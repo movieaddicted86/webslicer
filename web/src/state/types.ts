@@ -151,6 +151,7 @@ export interface CoreState {
     | 'importPresets'
     | 'about'
     | 'library'
+    | 'riskNotice'
     | 'unsavedChanges';
   dialogPayload?: unknown;
   /** preset switch waiting for the user's answer in the "Unsaved Changes" dialog */

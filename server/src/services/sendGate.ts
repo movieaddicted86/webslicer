@@ -11,11 +11,13 @@
 import {
   blockingIssues,
   checkSend,
+  combinedSafety,
   maxTemperaturesOf,
   notScannedIssue,
   preflightSendIssues,
   printerLimitIssues,
   printerLimitsMissingIssue,
+  profileOf,
   storedPreflightIssues,
   usablePreflight,
   configIssuesBeyond,
@@ -32,6 +34,7 @@ import { readJobRequest } from '../jobs/persistence.js';
 import { appendAuditStrict } from './audit.js';
 import { ConflictError, HttpError } from '../errors.js';
 import { uploadToPrinter } from './printers.js';
+import { printerSafetyRecord } from './printerSafety.js';
 
 /**
  * The printer presets as the check reads them: bundled system presets carry their alias, user presets
@@ -54,9 +57,10 @@ export function sendIssues(job: JobRecord, printer: PhysicalPrinter, presets: re
  * The stored result is used when it was made with the current rule set *and* carries the temperature
  * maxima (N3); otherwise the output is scanned now. The scan always passes the target printer's
  * ceilings, so `gcode.max_temp` fires at the machine's limit. On top of that, the **maximum hotend
- * and bed temperature of the file** is compared with the printer's `safety` profile
- * (`send.printer_limit`) – the stored scan only knows the global catchers, so `M104 S300` in a
- * custom start G-code is invisible to it but blocks a 260 °C machine here.
+ * and bed temperature of the file** is compared with the printer's combined safety profile
+ * (`send.printer_limit`) – the host's own limits and its preset's T-085 profile, whichever is
+ * stricter. The stored scan only knows the global catchers, so `M104 S300` in a custom start G-code
+ * is invisible to it but blocks a 260 °C machine here.
  *
  * The **config findings** (`info.preflight.config`, T-080/P-1) join both paths: they are the only
  * preflight a binary output has, since its body is never read. `storedPreflightIssues` drops a config
@@ -67,11 +71,12 @@ export async function preflightIssues(
   gcodePath: string,
   printer: PhysicalPrinter,
   machineLimits: Readonly<Record<string, string>> = {},
+  safety: PhysicalPrinter['safety'] = printer.safety,
 ): Promise<SendIssue[]> {
-  const limits = { hotendLimit: printer.safety?.maxHotend, bedLimit: printer.safety?.maxBed };
+  const limits = { hotendLimit: safety?.maxHotend, bedLimit: safety?.maxBed };
   const stored = usablePreflight(job.info?.preflight);
   if (stored) {
-    return [...storedPreflightIssues(stored), ...printerLimitIssues(stored.maxTemperatures, printer.safety)];
+    return [...storedPreflightIssues(stored), ...printerLimitIssues(stored.maxTemperatures, safety)];
   }
   const configIssues = configPreflightIssues(job.info?.preflight);
   if (isBinaryGcode(job.outputName)) {
@@ -79,19 +84,24 @@ export async function preflightIssues(
   }
   const result = await scanGcodeFile(gcodePath, machineLimits, limits);
   const file = preflightSendIssues(result) as PreflightIssue[];
-  return [...file, ...configIssuesBeyond(job.info?.preflight, file), ...printerLimitIssues(result.maxTemperatures, printer.safety)];
+  return [...file, ...configIssuesBeyond(job.info?.preflight, file), ...printerLimitIssues(result.maxTemperatures, safety)];
 }
 
 /**
- * The `send.printer_limit` issues of a job for one host (S1-d): the temperatures the job asks for
- * against the safety profile of the physical printer.
+ * The `send.printer_limit` issues of a job for one host (S1-d, T-085): the temperatures the job asks
+ * for against the **combined** safety profile – the host's own limits and its preset's answer,
+ * whichever is stricter.
  *
  * The record carries them since S1-d; a job from before has none, and its stored request – still in the
  * job directory – is read instead. An unreadable or missing request means there is nothing to compare,
  * not a reason to refuse the send.
  */
-export async function printerLimitSendIssues(job: JobRecord, printer: PhysicalPrinter): Promise<SendIssue[]> {
-  if (!printer.safety) return [];
+export async function printerLimitSendIssues(
+  job: JobRecord,
+  printer: PhysicalPrinter,
+  safety: PhysicalPrinter['safety'] = printer.safety,
+): Promise<SendIssue[]> {
+  if (!safety) return [];
   // a job from before S1-d has no stored temperatures; its request is still on disk
   const temperatures =
     job.temperatures ??
@@ -99,7 +109,7 @@ export async function printerLimitSendIssues(job: JobRecord, printer: PhysicalPr
       .then(maxTemperaturesOf)
       .catch(() => undefined));
   if (!temperatures) return [];
-  return printerLimitIssues(temperatures, printer.safety);
+  return printerLimitIssues(temperatures, safety);
 }
 
 /**
@@ -163,14 +173,18 @@ export async function sendJobOutput({ job, printer, gcodePath, filename, startPr
   // `M104`/`M140` lines (and their maxima, whether the result was stored or scanned)
   const schema = await activeSchema();
   const jobPreset = resolvePreset(schema, 'printer', job.presets.printer);
+  // T-085: the preset's own answer joins the host's limits, the stricter one wins on both sides. Only a
+  // host that names a preset has one – an unbound host keeps the T-080 behaviour it had.
+  const profile = profileOf(await printerSafetyRecord(), printer.presetName);
+  const safety = combinedSafety(printer.safety, profile);
   // S1-c: the file's own issues join the preset issues – a block from either side needs the override.
   // T-080/P-2: a host without a safety profile also only gets a warning – it may be all-metal, but the
-  // owner should say so in the printer setup.
+  // owner should say so in the printer setup. T-085: the preset's answer silences that same question.
   const issues = [
     ...sendIssues(job, printer),
-    ...printerLimitsMissingIssue(printer),
-    ...(await printerLimitSendIssues(job, printer)),
-    ...(await preflightIssues(job, gcodePath, printer, machineLimitsOf(jobPreset?.config ?? {}))),
+    ...(safety ? [] : printerLimitsMissingIssue(printer)),
+    ...(await printerLimitSendIssues(job, printer, safety)),
+    ...(await preflightIssues(job, gcodePath, printer, machineLimitsOf(jobPreset?.config ?? {}), safety)),
   ];
   const blocking = blockingIssues(issues);
   if (blocking.length && !override) {

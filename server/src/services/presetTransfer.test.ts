@@ -24,6 +24,7 @@ const { exportBundle, filterImportedConfig, freePresetName, importBundle, previe
   await import('./presetTransfer.js');
 const { listUserPresets, saveUserPreset, userPresetExists } = await import('../slicer/presets.js');
 const { listPrinters, upsertPrinter } = await import('./printers.js');
+const { printerSafetyRecord, setPrinterSafety } = await import('./printerSafety.js');
 const { loadProject, saveProject } = await import('./projects.js');
 const { ConflictError, ValidationError } = await import('../errors.js');
 
@@ -277,6 +278,26 @@ test('rename updates the preset a print host is bound to', async () => {
   const result = await renameUserPreset('printer', 'My MK4S', 'MK4S at home');
   assert.equal(result.printers, 1);
   assert.equal((await listPrinters())[0].presetName, 'MK4S at home');
+});
+
+test('rename carries the printer-safety answer to the new preset name (T-085)', async () => {
+  emptyStore();
+  saveUserPreset('printer', 'My MK4S', { nozzle_diameter: '0.4' });
+  await setPrinterSafety('My MK4S', { hotendType: 'ptfe', maxHotend: 240 });
+  await renameUserPreset('printer', 'My MK4S', 'MK4S at home');
+  const record = await printerSafetyRecord();
+  assert.deepEqual(record['MK4S at home'], { hotendType: 'ptfe', maxHotend: 240 });
+  assert.equal(record['My MK4S'], undefined, 'the old key does not keep a stale answer');
+});
+
+test('a failed rename leaves the printer-safety answer where it was', async () => {
+  emptyStore();
+  saveUserPreset('printer', 'Mine', { nozzle_diameter: '0.4' });
+  await setPrinterSafety('Mine', { hotendType: 'all-metal', maxHotend: 450 });
+  // the target name is a system preset: the rename is refused after the safety step would have run
+  await assert.rejects(renameUserPreset('printer', 'Mine', SYSTEM_PRINTER), (e: unknown) => e instanceof ConflictError);
+  const record = await printerSafetyRecord();
+  assert.deepEqual(record.Mine, { hotendType: 'all-metal', maxHotend: 450 });
 });
 
 test('rename updates the preset names of a stored project', async () => {

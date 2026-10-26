@@ -11,6 +11,7 @@ import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import { useStore } from './store';
 import { api } from '../api';
+import { currentSliceGuard } from './sliceGuard';
 import type { JobEvent, JobRecord, PresetType } from '../api';
 
 const realSlice = api.slice;
@@ -137,4 +138,43 @@ test('a warning does not stop the slice: the plate passes and the request goes o
   assert.equal(sliceCalls, 1, 'the warning did not block the slice');
   assert.deepEqual(errors(), []);
   assert.ok(emit, 'the store subscribed to the job events');
+});
+
+// ---------------------------------------------------------------------------
+// T-085: the printer preset's answer gates the slice too (export-only users)
+// ---------------------------------------------------------------------------
+
+test('a PTFE preset blocks a 260 °C slice; the message names the limit and the preset answer', async () => {
+  useStore.setState({
+    presets: presets({}, { temperature: '260', filament_type: 'PETG' }) as never,
+    printerSafety: { pr: { hotendType: 'ptfe', maxHotend: 240 } },
+    physicalPrinters: [],
+  });
+
+  await useStore.getState().slice();
+
+  assert.equal(sliceCalls, 0, 'no request reached the server');
+  assert.equal(errors().length, 1);
+  assert.match(errors()[0], /260 °C is above the 240 °C limit of this printer \(PTFE-lined hotend\)/);
+});
+
+test('the same 260 °C passes as all-metal; a preset nobody answered only warns', async () => {
+  useStore.setState({
+    presets: presets({}, { temperature: '260', filament_type: 'PETG' }) as never,
+    printerSafety: { pr: { hotendType: 'all-metal', maxHotend: 450 } },
+    physicalPrinters: [],
+  });
+  await useStore.getState().slice();
+  assert.equal(sliceCalls, 1, 'all-metal does not narrow the global ceiling');
+  assert.deepEqual(errors(), []);
+
+  sliceCalls = 0;
+  useStore.setState({ printerSafety: {}, job: undefined });
+  await useStore.getState().slice();
+  assert.equal(sliceCalls, 1, 'the missing answer is a warning, not a block');
+  const guard = currentSliceGuard(useStore.getState());
+  assert.deepEqual(
+    guard.limits.map((i) => [i.rule, i.severity]),
+    [['config.no_printer_safety', 'warn']],
+  );
 });

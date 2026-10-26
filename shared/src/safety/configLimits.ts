@@ -48,6 +48,7 @@ export const CONFIG_LIMIT_SEVERITY: Readonly<Record<string, SendIssueSeverity>> 
   'config.filament_bed_temperature': 'warn',
   'send.printer_limit': 'block',
   'send.no_limits': 'warn',
+  'config.no_printer_safety': 'warn',
 };
 
 /** A hotend/bed window a material is usually printed in, and where the numbers come from. */
@@ -365,6 +366,71 @@ export function checkRequestConfigLimits(
       rangeIssues('config.nozzle_diameter', 'nozzle_diameter', request.merged.nozzle_diameter, GLOBAL_LIMITS.nozzleDiameter, nozzleMessage),
     );
     add(layerHeightIssues(request.merged.layer_height, request.merged.nozzle_diameter ?? nozzle));
+  }
+  return out;
+}
+
+/**
+ * The **printer's own** temperature limits applied to the sliced temperatures (T-085).
+ *
+ * A preset's safety profile (`maxHotend`/`maxBed`, from the wizard) is a narrower ceiling than the
+ * global typo catchers: a PTFE-lined hotend at 260 °C is a broken hotend, not a typo. The issues use
+ * the same rules as the global checks (`config.hotend_limit`, `config.bed_limit`) so the field link,
+ * the badge and the slice gate work unchanged, and a value the global check already reported is not
+ * reported twice.
+ *
+ * `existing` is what the global checks found; `label` describes the answer for the message
+ * ("PTFE-lined hotend", "custom hotend limit").
+ */
+export function presetLimitIssues(
+  request: ConfigLimitRequest & { merged?: Readonly<Config> },
+  safety: PrinterSafety | undefined,
+  options: { existing?: readonly ConfigIssue[]; label?: string } = {},
+): ConfigIssue[] {
+  if (!safety) return [];
+  const label = options.label ? ` (${options.label})` : '';
+  // only a **blocking** finding of the same field/value makes this one redundant: a soft-range warning
+  // (260 °C is merely unusual for PETG) must not hide the printer's own hard limit underneath it
+  const reported = new Set((options.existing ?? []).filter((i) => i.severity === 'block').map((i) => `${i.key}|${i.value}`));
+  const out: ConfigIssue[] = [];
+  const seen = new Set<string>();
+  const check = (rule: string, key: string, raw: string | undefined, max: number | undefined, what: string, tail: string): void => {
+    if (max === undefined) return;
+    const items = elementsOf(raw);
+    for (const { index, text, element } of items) {
+      if (element.kind !== 'number' || element.value === 0) continue;
+      if (element.value <= max) continue;
+      const name = keyLabel(key, index, items.length);
+      const value = text.trim();
+      const id = `${name}|${value}`;
+      if (reported.has(id) || seen.has(id)) continue;
+      seen.add(id);
+      out.push(
+        issue(
+          rule,
+          name,
+          value,
+          `${name} = ${num(element.value)} °C is above the ${max} °C limit of this printer${label} – the ${what}${tail}.`,
+          `${max} °C (this printer)`,
+        ),
+      );
+    }
+  };
+  // every section a request can carry a temperature in, with the key prefix the field link needs
+  const filaments = request.filaments?.length ? request.filaments : [{ config: {} }];
+  const sections: Array<{ config: Readonly<Config>; prefix: string; bed: boolean }> = filaments.map((f, i) => ({
+    config: f.config ?? {},
+    prefix: filaments.length > 1 ? `filament[${i}].` : '',
+    bed: true,
+  }));
+  sections.push({ config: request.printer?.config ?? {}, prefix: '', bed: true });
+  sections.push({ config: request.print?.config ?? {}, prefix: '', bed: true });
+  if (request.merged) sections.push({ config: request.merged, prefix: '', bed: true });
+  for (const { config, prefix, bed } of sections) {
+    for (const key of HOTEND_KEYS)
+      check('config.hotend_limit', `${prefix}${key}`, config[key], safety.maxHotend, 'hotend', ' would be damaged');
+    if (bed)
+      for (const key of BED_KEYS) check('config.bed_limit', `${prefix}${key}`, config[key], safety.maxBed, 'bed', ' cannot reach it');
   }
   return out;
 }

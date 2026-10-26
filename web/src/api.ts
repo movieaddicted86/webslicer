@@ -21,8 +21,11 @@ import type {
   PresetRenameResult,
   PresetSummary,
   PresetType,
+  PrinterSafetyProfile,
+  PrinterSafetyRecord,
   ProjectObject,
   ResolvedPreset,
+  RiskNoticeStatus,
   Schema,
   ServerInfo,
   SendIssue,
@@ -207,6 +210,17 @@ export const api = {
   updatePrinter: (id: string, p: Partial<PhysicalPrinter>) =>
     fetch(`/api/printers/${id}`, jsonInit('PUT', p)).then((r) => handle<PhysicalPrinter>(r)),
   deletePrinter: (id: string) => fetch(`/api/printers/${id}`, { method: 'DELETE' }).then((r) => handle<{ ok: boolean }>(r)),
+  /** T-085: the safety answer of every printer preset, keyed by preset name. */
+  printerSafety: () => fetch('/api/printer-safety').then((r) => handle<PrinterSafetyRecord>(r)),
+  setPrinterSafety: (preset: string, profile: PrinterSafetyProfile) =>
+    fetch(`/api/printer-safety/${encodeURIComponent(preset)}`, jsonInit('PUT', profile)).then((r) => handle<PrinterSafetyRecord>(r)),
+  /** "Ask me later": nothing is stored, the Slice footer keeps warning. */
+  clearPrinterSafety: (preset: string) =>
+    fetch(`/api/printer-safety/${encodeURIComponent(preset)}`, { method: 'DELETE' }).then((r) => handle<PrinterSafetyRecord>(r)),
+  /** T-085: has the one-time risk notice been acknowledged for this major version? */
+  riskNotice: () => fetch('/api/risk-notice').then((r) => handle<RiskNoticeStatus>(r)),
+  acknowledgeRiskNotice: () => fetch('/api/risk-notice/ack', { method: 'POST' }).then((r) => handle<RiskNoticeStatus>(r)),
+  forgetRiskNotice: () => fetch('/api/risk-notice/ack', { method: 'DELETE' }).then((r) => handle<RiskNoticeStatus>(r)),
   testPrinter: (p: Partial<PhysicalPrinter>) =>
     fetch('/api/printers/test', jsonInit('POST', p)).then((r) => handle<{ ok: boolean; message: string }>(r)),
   testPrinterById: (id: string) =>

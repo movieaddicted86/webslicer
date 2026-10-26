@@ -3,7 +3,17 @@
  * modal dialog – and `init`, which loads the server metadata every other slice works from.
  */
 import type { StateCreator } from 'zustand';
-import { api, type InstalledPrinter, type Mode, type PhysicalPrinter, type UpdateStatus, type Vendor } from '../../api';
+import {
+  api,
+  type InstalledPrinter,
+  type Mode,
+  type PhysicalPrinter,
+  type PrinterSafetyProfile,
+  type PrinterSafetyRecord,
+  type RiskNoticeStatus,
+  type UpdateStatus,
+  type Vendor,
+} from '../../api';
 import { loadSelection, saveSelection } from './preset';
 import { MODE_RANK } from '../../values';
 import type { State, Toast, View } from '../types';
@@ -17,6 +27,20 @@ export interface UiSlice {
   vendors: Vendor[];
   installed: InstalledPrinter[];
   physicalPrinters: PhysicalPrinter[];
+  /** T-085: the hotend/bed answer of every printer preset, keyed by preset name */
+  printerSafety: PrinterSafetyRecord;
+  /** T-085: whether the one-time risk notice was acknowledged for this major version */
+  riskNotice?: RiskNoticeStatus;
+  /** T-085: the notice was answered ("Not now") in this session, so nothing asks again until a reload */
+  noticeDone: boolean;
+  /** hide the risk notice for this session (the wizard's and the first slice's card share the flag) */
+  dismissRiskNotice: () => void;
+  /** store (or with `undefined` clear) the safety answer of a printer preset; updates the record */
+  savePrinterSafety: (presetName: string, profile: PrinterSafetyProfile | undefined) => Promise<void>;
+  /** reload every preset's answer (a preset rename or delete changes the record) */
+  refreshPrinterSafety: () => Promise<void>;
+  /** acknowledge the risk notice; the server keeps it (per major version) */
+  acknowledgeRiskNotice: () => Promise<void>;
   mode: Mode;
   view: View;
   showIncompatible: boolean;
@@ -68,6 +92,9 @@ export const createUiSlice: StateCreator<State, [], [], UiSlice> = (set, get) =>
   vendors: [],
   installed: [],
   physicalPrinters: [],
+  printerSafety: {},
+  riskNotice: undefined,
+  noticeDone: false,
   mode: 'advanced',
   view: 'plater',
   showIncompatible: false,
@@ -123,6 +150,18 @@ export const createUiSlice: StateCreator<State, [], [], UiSlice> = (set, get) =>
     // an installed bundle changes the models, so the dialog's list has to follow it
     set({ vendors: await api.vendors() });
   },
+  savePrinterSafety: async (presetName, profile) => {
+    const record = profile ? await api.setPrinterSafety(presetName, profile) : await api.clearPrinterSafety(presetName);
+    set({ printerSafety: record });
+  },
+  refreshPrinterSafety: async () => {
+    // a server from before T-085 has no record; the answer is then simply "not answered"
+    set({ printerSafety: await api.printerSafety().catch(() => ({})) });
+  },
+  acknowledgeRiskNotice: async () => {
+    set({ riskNotice: await api.acknowledgeRiskNotice(), noticeDone: true });
+  },
+  dismissRiskNotice: () => set({ noticeDone: true }),
   init: async () => {
     try {
       const [info, schema, vendors, installed, physicalPrinters, filaments] = await Promise.all([
@@ -135,6 +174,12 @@ export const createUiSlice: StateCreator<State, [], [], UiSlice> = (set, get) =>
       ]);
       const sel = loadSelection();
       set({ info, schema, vendors, installed, physicalPrinters, mode: sel.mode || 'advanced', visibleFilaments: filaments.names });
+      // T-085: the safety answers and the notice state – both are server state, both are quiet extras
+      void get().refreshPrinterSafety();
+      void api
+        .riskNotice()
+        .then((riskNotice) => set({ riskNotice }))
+        .catch(() => set({ riskNotice: { acknowledged: true } }));
       // T-058: a quiet extra request – never awaited, so a slow GitHub never delays the app
       void get().refreshUpdateStatus();
       // restore selection

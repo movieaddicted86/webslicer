@@ -98,6 +98,12 @@ export const createJobSlice: StateCreator<State, [], [], JobSlice> = (set, get) 
         get().toast('error', guard.blocking[0].message);
         return;
       }
+      // T-085: the one-time risk notice comes before the first slice – but only when the wizard was
+      // skipped ("Not now" sets `noticeDone`, so a user who saw the card is not asked twice)
+      if (s.riskNotice && !s.riskNotice.acknowledged && !s.noticeDone) {
+        s.openDialog('riskNotice');
+        return;
+      }
       const pending = s.objects.filter((o) => (!o.modelId && !o.uploadError) || o.volumes.some((v) => !v.modelId && !v.uploadError));
       if (pending.length) {
         // B9: this used to re-enter itself every second, forever, if an upload never finished. It now

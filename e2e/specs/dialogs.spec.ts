@@ -136,7 +136,7 @@ test.describe('dialogs: the per-object, per-volume and per-range settings (S6)',
 });
 
 test.describe('dialogs: the app dialogs (S11)', () => {
-  test('the Printers dialog lists vendors, families and models, and its custom tab starts a two-step wizard', async ({ app }) => {
+  test('the Printers dialog lists vendors, families and models, and its custom tab starts a three-step wizard', async ({ app }) => {
     await openDialog(app, 'printers', { tab: 'vendor' });
     const printers = await app.evaluate(() => ({
       title: document.querySelector('[data-testid="modal-title"]')?.textContent,
@@ -177,7 +177,7 @@ test.describe('dialogs: the app dialogs (S11)', () => {
     ]);
     expect(custom.flavors).toHaveLength(11);
     expect(custom.action).toBe('Next');
-    expect(custom.step).toContain('Step 1 of 2');
+    expect(custom.step).toContain('Step 1 of 3');
     // the form starts on a default name; an empty name cannot go on to the filament step
     expect(custom.name).toBe('My Printer');
     expect(custom.disabled).toBe(false);

@@ -1,0 +1,6 @@
+{
+  "Original Prusa i3 MK3S & MK3S+": {
+    "hotendType": "all-metal",
+    "maxHotend": 450
+  }
+}

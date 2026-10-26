@@ -112,10 +112,22 @@ test.describe('configuration wizard', () => {
       step: document.querySelector('.custom-printer [data-testid="modal-actions"] .muted')?.textContent,
       action: document.querySelector('.custom-printer [data-testid="modal-actions"] button')?.textContent,
     }));
-    expect(first.step).toContain('Step 1 of 2');
+    expect(first.step).toContain('Step 1 of 3');
     expect(first.action).toBe('Next');
 
     await click(app, '.custom-printer [data-testid="modal-actions"] button:text-is("Next")', 600);
+    // T-085: the safety question sits between the printer and its filament
+    const safety = await app.evaluate(() => ({
+      step: document.querySelector('.safety-step [data-testid="modal-actions"] .muted')?.textContent,
+      actions: Array.from(document.querySelectorAll('.safety-step [data-testid="modal-actions"] button')).map((b) => b.textContent),
+      save: (document.querySelector('.safety-step [data-testid="modal-primary"]') as HTMLButtonElement | null)?.disabled,
+    }));
+    expect(safety.step).toContain('Step 2 of 3 – Safety');
+    expect(safety.actions).toEqual(['Back', 'Ask me later', 'Save']);
+    expect(safety.save).toBe(true);
+
+    await app.locator('#safety-hotend-type').selectOption('ptfe');
+    await click(app, '.safety-step [data-testid="modal-primary"]', 600);
     const second = await app.evaluate(() => {
       const value = (id: string) => (document.querySelector(id) as HTMLInputElement | null)?.value;
       return {
@@ -133,7 +145,7 @@ test.describe('configuration wizard', () => {
         ),
       };
     });
-    expect(second.step).toContain('Step 2 of 2');
+    expect(second.step).toContain('Step 3 of 3');
     expect(second.filamentName).toBe(filamentName);
     // the defaults the wizard documents: both layers alike, PLA on a heated bed, 1.75 mm
     expect(second.temperatures).toEqual(['215', '215', '60', '60', '1.75']);
@@ -181,6 +193,8 @@ test.describe('configuration wizard', () => {
     await openDialog(app, 'printers', { tab: 'vendor' });
     await click(app, '.subtabs button:has-text("Custom printer")', 600);
     await click(app, '.custom-printer [data-testid="modal-actions"] button:text-is("Next")', 600);
+    // T-085: step 2 is the safety question – "Ask me later" stores nothing and moves on
+    await click(app, '.safety-step [data-testid="safety-skip"]', 600);
 
     await fill(app, '#custom-filament-temperature', '2150', 600);
     const blocked = await app.evaluate(() => ({

@@ -13,6 +13,7 @@ import { modelsRouter } from './models.js';
 import { exportsRouter } from './exports.js';
 import { jobsRouter } from './jobs.js';
 import { printersRouter } from './printers.js';
+import { printerSafetyRouter } from './printerSafety.js';
 import { autosaveRouter } from './autosave.js';
 import { libraryRouter } from './library.js';
 import { projectsRouter } from './projects.js';
@@ -34,6 +35,7 @@ export function apiRouter(): express.Router {
   r.use(exportsRouter());
   r.use(jobsRouter());
   r.use(printersRouter());
+  r.use(printerSafetyRouter());
   r.use('/library', libraryRouter());
   r.use('/projects', projectsRouter());
   r.use(autosaveRouter());

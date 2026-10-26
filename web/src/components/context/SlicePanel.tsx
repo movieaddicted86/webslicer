@@ -26,6 +26,8 @@ export function SlicePanel() {
   const sliceDirty = useStore((s) => s.sliceDirty);
   const setView = useStore((s) => s.setView);
   const focusSetting = useStore((s) => s.focusSetting);
+  const openDialog = useStore((s) => s.openDialog);
+  const printerName = useStore((s) => s.presets.printer.name);
   const guard = useSliceGuard();
 
   const issues = guard.plate;
@@ -51,12 +53,17 @@ export function SlicePanel() {
       {limitIssues.length > 0 && (
         <ul className={`plate-issues limits ${blockingLimits.length ? 'blocking' : ''}`} aria-label="Setting problems">
           {limitIssues.map((i, n) => {
-            const target = issueTargetOf(i);
+            // T-085: the missing-answer warning has no settings field – its link opens the printer
+            // setup at the Safety step instead, which is where the question is asked
+            const open = () => {
+              if (i.rule === 'config.no_printer_safety') openDialog('printers', { safety: printerName });
+              else focusSetting(issueTargetOf(i));
+            };
             // the badge keeps a warning visible while it does not block; a block is red and blocks
             const label = i.severity === 'block' ? 'Blocks the slice' : 'Warning';
             return (
               <li key={`${i.rule}:${i.key}:${n}`} className={i.severity === 'block' ? 'warn' : 'muted small'} title={i.message}>
-                <button type="button" className="link" onClick={() => focusSetting(target)}>
+                <button type="button" className="link" onClick={open}>
                   <span className={`badge-limit ${i.severity}`}>{label}</span> {i.message} <span className="muted small">({i.limit})</span>
                 </button>
               </li>

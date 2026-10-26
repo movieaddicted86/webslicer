@@ -19,6 +19,7 @@ import {
   visibleFilaments,
 } from '../services/presets.js';
 import { exportBundle, importBundle, previewBundle, renameUserPreset } from '../services/presetTransfer.js';
+import { forgetPrinterSafety } from '../services/printerSafety.js';
 import { previewGcodeImport } from '../services/gcodeImport.js';
 import { isPresetType, type FilamentCatalogEntry, type PresetType, type PresetSummary, type ResolvedPreset } from '@webslicer/shared';
 import {
@@ -152,11 +153,14 @@ export function presetsRouter(): express.Router {
     sendJson<PresetRenameResult>(res, await renameUserPreset(t, req.params.name, parsed.data.name));
   });
 
-  r.delete('/presets/:type/:name', (req, res) => {
+  r.delete('/presets/:type/:name', async (req, res) => {
     const t = presetType(req, res);
     if (!t) return;
     if (!hasUserPreset(t, req.params.name)) return res.status(404).json({ error: 'user preset not found' });
     removeUserPreset(t, req.params.name);
+    // T-085: a deleted printer preset takes its safety answer with it – a later preset of the same
+    // name is a different machine and must answer again (no stale profile, no silent protection)
+    if (t === 'printer') await forgetPrinterSafety(req.params.name);
     sendJson(res, { ok: true });
   });
 

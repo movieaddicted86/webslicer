@@ -19,6 +19,7 @@ import { SERVER_ONLY_KEYS, serverOnlyReason } from './serverOnly.js';
 import { listUserPresets, saveUserPreset, userPresetExists } from '../slicer/presets.js';
 import { parsePresetBundle, serializePresetBundle, type BundlePreset, type ParsedPresetBundle } from '../slicer/presetBundle.js';
 import { listPrinters, upsertPrinter } from './printers.js';
+import { printerSafetyRecord, renamePrinterSafety, setPrinterSafetyRecord } from './printerSafety.js';
 import { listProjects, loadProject, saveProject, withProjectLock, type Project } from './projects.js';
 import type { IniSection } from '../slicer/ini.js';
 import type { Schema } from '@webslicer/shared';
@@ -268,6 +269,10 @@ export async function renameUserPreset(type: PresetType, from: string, to: strin
   const presetTexts = inherited.map((p) => ({ file: presetFile(type, p.name), text: fs.readFileSync(presetFile(type, p.name), 'utf8') }));
   const printerList = printers.length ? await listPrinters() : undefined;
   const projectCopies = projects.map((p) => structuredClone(p));
+  // T-085: the printer-safety answer hangs off the preset name, so it follows a rename like the hosts do
+  const safetyRecord = type === 'printer' ? await printerSafetyRecord() : undefined;
+  const safetyHeld = type === 'printer' && !!safetyRecord && source in safetyRecord;
+  const safetyBackup = safetyHeld ? safetyRecord : undefined;
 
   try {
     writeTextSync(newFile, oldText); // temp + rename in the store helper
@@ -277,6 +282,7 @@ export async function renameUserPreset(type: PresetType, from: string, to: strin
       saveUserPreset(type, p.name, cfg, name);
     }
     for (const p of printers) await updatePrinterPreset(p.id, name);
+    if (safetyHeld) await renamePrinterSafety(source, name);
     for (const project of projects) {
       // under the project's lock, on the file as it is now: a concurrent MCP change must not be
       // written away by this rename
@@ -303,6 +309,8 @@ export async function renameUserPreset(type: PresetType, from: string, to: strin
       writeTextSync(oldFile, oldText);
       for (const s of presetTexts) writeTextSync(s.file, s.text);
       if (printerList) await restorePrinterList(printerList);
+      // the profile of the old name goes back where it was (a renamed record would be lost otherwise)
+      if (safetyBackup) await setPrinterSafetyRecord(safetyBackup);
       for (const project of projectCopies) await saveProject(project);
     } catch (rollbackError) {
       console.error('[webslicer] rollback of a preset rename failed:', (rollbackError as Error).message);

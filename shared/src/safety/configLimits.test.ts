@@ -14,6 +14,7 @@ import {
   maxTemperaturesOf,
   printerLimitIssues,
   printerLimitsMissingIssue,
+  presetLimitIssues,
   softRangeOf,
 } from './configLimits.js';
 
@@ -366,4 +367,75 @@ test('a host without a safety profile warns, one with a profile does not', () =>
   assert.equal(printerLimitsMissingIssue({ name: 'a', safety: {} }).length, 1);
   // and a missing host has no message to warn about
   assert.deepEqual(printerLimitsMissingIssue(undefined), []);
+});
+
+// ---------------------------------------------------------------------------
+// T-085: the preset's own limits at slice time (export-only users)
+// ---------------------------------------------------------------------------
+
+test('a PTFE preset blocks a 260 °C filament; 240 °C and less pass; no profile changes nothing', () => {
+  const request = { filaments: [{ config: { temperature: '260', first_layer_temperature: '260' } }] };
+  const issues = presetLimitIssues(request, { maxHotend: 240 }, { label: 'PTFE-lined hotend' });
+  // both keys are above the limit, and both are named
+  assert.deepEqual(keyOf(issues), ['temperature', 'first_layer_temperature']);
+  assert.equal(issues[0].rule, 'config.hotend_limit');
+  assert.equal(issues[0].severity, 'block');
+  assert.match(issues[0].message, /260 °C is above the 240 °C limit of this printer \(PTFE-lined hotend\)/);
+  assert.equal(issues[0].limit, '240 °C (this printer)');
+
+  assert.deepEqual(presetLimitIssues({ filaments: [{ config: { temperature: '240' } }] }, { maxHotend: 240 }), []);
+  assert.deepEqual(presetLimitIssues(request, { maxHotend: 450 }), [], 'all-metal lets 260 through');
+  assert.deepEqual(presetLimitIssues(request, undefined), [], 'no answer means no narrower limit');
+});
+
+test('the preset bed limit uses the bed rule, and 0 still means "off"', () => {
+  const request = { filaments: [{ config: { bed_temperature: '110', first_layer_bed_temperature: '0' } }] };
+  const issues = presetLimitIssues(request, { maxBed: 100 });
+  assert.equal(issues.length, 1);
+  assert.equal(issues[0].rule, 'config.bed_limit');
+  assert.equal(issues[0].key, 'bed_temperature');
+  assert.match(issues[0].message, /above the 100 °C limit of this printer/);
+  // a profile without a bed limit leaves the bed alone
+  assert.deepEqual(presetLimitIssues(request, { maxHotend: 240 }), []);
+});
+
+test('a finding the global catcher already reported is not repeated; the printer and print sections count too', () => {
+  const request = { filaments: [{ config: { temperature: '2000' } }] };
+  const existing = checkRequestConfigLimits(request);
+  assert.deepEqual(rulesOf(existing), ['config.hotend_limit']);
+  // the same key/value is the same finding – one message, not two
+  assert.deepEqual(presetLimitIssues(request, { maxHotend: 240 }, { existing }), []);
+
+  const printer = presetLimitIssues({ printer: { config: { temperature: '300' } } }, { maxHotend: 240 });
+  assert.equal(printer.length, 1);
+  assert.equal(printer[0].key, 'temperature');
+  const print = presetLimitIssues({ print: { config: { bed_temperature: '120' } } }, { maxBed: 100 });
+  assert.deepEqual(keyOf(print), ['bed_temperature']);
+});
+
+test('with several filaments each issue names its slot, so the field link lands on the right one', () => {
+  const request = {
+    filaments: [{ config: { temperature: '200' } }, { config: { temperature: '260' } }],
+  };
+  const issues = presetLimitIssues(request, { maxHotend: 240 });
+  assert.equal(issues.length, 1);
+  assert.equal(issues[0].key, 'filament[1].temperature');
+  assert.match(issues[0].message, /filament\[1\]\.temperature/);
+});
+
+test('a soft-range warning does not hide the printer’s own block on the same field (T-085)', () => {
+  // 260 °C PLA: only a warning globally (unusual for PLA), and above the printer's PTFE limit
+  const request = { filaments: [{ config: { filament_type: 'PLA', temperature: '260' } }] };
+  const existing = checkRequestConfigLimits(request);
+  assert.deepEqual(
+    existing.map((i) => [i.rule, i.severity]),
+    [['config.filament_temperature', 'warn']],
+    'the global check warns – it does not block',
+  );
+  const issues = presetLimitIssues(request, { maxHotend: 240 }, { existing });
+  assert.equal(issues.length, 1, 'the printer limit is reported although the same field already warns');
+  assert.equal(issues[0].rule, 'config.hotend_limit');
+  assert.equal(issues[0].severity, 'block');
+  // the combined list the routes and the panel use blocks the slice
+  assert.equal(blockingConfigIssues([...existing, ...issues]).length, 1);
 });

@@ -8,7 +8,7 @@
  * hands the issues back with the field they belong to. The server stays the authority – a request it
  * refuses is still refused, whatever this module predicted.
  */
-import { checkConfigLimits, type Config, type ConfigIssue } from '@webslicer/shared';
+import { checkConfigLimits, presetLimitIssues, type Config, type ConfigIssue, type PrinterSafety } from '@webslicer/shared';
 
 /** The current configs of the presets, as the plater holds them. */
 export interface LimitPresets {
@@ -37,11 +37,20 @@ function slotsOf(presets: LimitPresets, extruderCount: number): number {
 
 /**
  * A stable key for one preset combination. Two renders with the same configs compute the issues once;
- * the key is also the debounce guard of `useLimitIssues`.
+ * the key is also the debounce guard of `useLimitIssues`. The printer-safety answer is part of it, so a
+ * profile stored while the editors are open re-runs the check.
  */
-export function configKeyOf(presets: LimitPresets, extruderCount: number): string {
+export function configKeyOf(presets: LimitPresets, extruderCount: number, safety?: PresetSafetyKey): string {
   const n = slotsOf(presets, extruderCount);
-  return JSON.stringify([presets.printer, presets.print, presets.filaments.slice(0, n)]);
+  return JSON.stringify([presets.printer, presets.print, presets.filaments.slice(0, n), safety ?? null]);
+}
+
+/** The part of the printer-safety answer a limit result depends on. */
+export interface PresetSafetyKey {
+  presetName: string;
+  limits?: PrinterSafety;
+  /** how the message names the answer ("PTFE-lined hotend") */
+  label?: string;
 }
 
 /** How many computed results are kept; enough for the last few configs of one editing session. */
@@ -51,19 +60,22 @@ const CACHE_SIZE = 8;
 const cache = new Map<string, ConfigIssue[]>();
 
 /**
- * The limit issues of the current presets: exactly the call the slice routes make
- * (`checkConfigLimits` over print/printer/filaments), memoised per config combination.
+ * The limit issues of the current presets: the call the slice routes make (`checkConfigLimits` over
+ * print/printer/filaments) plus the printer preset's own ceilings (`presetLimitIssues`, T-085),
+ * memoised per config/safety combination.
  */
-export function limitIssuesOf(presets: LimitPresets, extruderCount: number): ConfigIssue[] {
-  const key = configKeyOf(presets, extruderCount);
+export function limitIssuesOf(presets: LimitPresets, extruderCount: number, safety?: PresetSafetyKey): ConfigIssue[] {
+  const key = configKeyOf(presets, extruderCount, safety);
   const cached = cache.get(key);
   if (cached) return cached;
   const n = slotsOf(presets, extruderCount);
-  const issues = checkConfigLimits({
+  const request = {
     print: { config: presets.print },
     printer: { config: presets.printer },
     filaments: presets.filaments.slice(0, n).map((config) => ({ config })),
-  });
+  };
+  const issues = checkConfigLimits(request);
+  issues.push(...presetLimitIssues(request, safety?.limits, { existing: issues, label: safety?.label }));
   cache.set(key, issues);
   if (cache.size > CACHE_SIZE) {
     const oldest = cache.keys().next().value;

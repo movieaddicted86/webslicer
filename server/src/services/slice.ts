@@ -18,6 +18,9 @@ import {
   hullOfFlat,
   instanceBounds,
   meshBounds,
+  presetLimitIssues,
+  presetSafetyOf,
+  profileOf,
   transformHull,
   unionHull,
   multiply,
@@ -28,12 +31,22 @@ import {
   type InstanceFootprint,
   type Matrix4,
   type PlateIssue,
+  type PrinterSafetyProfile,
   type Schema,
   type SliceRequest,
 } from '@webslicer/shared';
 import { ValidationError } from '../errors.js';
 import { mergeConfigs } from './configMerge.js';
+import { printerSafetyRecord } from './printerSafety.js';
 import type { IniSection } from '../slicer/ini.js';
+
+/** How the message names the answer a profile came from ("PTFE-lined hotend", "custom hotend limit"). */
+function profileLabel(profile: PrinterSafetyProfile | undefined): string | undefined {
+  if (!profile) return undefined;
+  if (profile.hotendType === 'ptfe') return 'PTFE-lined hotend';
+  if (profile.hotendType === 'all-metal') return 'all-metal hotend';
+  return 'custom hotend limit';
+}
 
 /**
  * Validate a slice request in place and answer it as the `SliceRequest` it now is. The rules live in
@@ -65,7 +78,8 @@ export function validateSliceRequest(raw: unknown): SliceRequest {
 export { checkConfigLimits };
 
 /**
- * Refuse a request whose settings break a global typo catcher (S1-d, extended in q6-preflight/N3).
+ * Refuse a request whose settings break a global typo catcher (S1-d, extended in q6-preflight/N3) or a
+ * **printer preset's own safety profile** (T-085).
  *
  * The checked view is the **merged** config the slicer really receives (`mergeConfigs`) plus the
  * preset sections and the per-object/per-range overrides – a `temperature = 999` that only arrives
@@ -75,18 +89,27 @@ export { checkConfigLimits };
  * list the check produced – the shape the send gate already uses for its 409. Warnings do not stop the
  * slice; they are handed back with the job (and shown in the preview's warning list).
  *
+ * The preset profile comes from `printer_safety.json`, keyed by `body.printer.name` (T-085). It blocks
+ * a temperature above what the machine may take, which is what protects a user who exports G-code and
+ * never binds a print host. A preset without an answer only adds a warning – and that one is the
+ * browser's to show, so a job is never filled with it.
+ *
  * Separate from `validateSliceRequest` on purpose: that one keeps its contract (`Error`, 400, 500 on
  * the routes that never mapped it), while this rule is new and belongs to every route that queues a job.
  */
-export function validateConfigLimits(body: SliceRequest, schema?: Schema): ConfigIssue[] {
+export async function validateConfigLimits(body: SliceRequest, schema?: Schema): Promise<ConfigIssue[]> {
   const merged = schema ? mergeConfigs(schema, body) : undefined;
-  const issues = checkRequestConfigLimits({
+  const view = {
     print: body.print,
     printer: body.printer,
     filaments: body.filaments,
     objects: body.objects,
     merged,
-  });
+  };
+  const issues = checkRequestConfigLimits(view);
+  const profile = profileOf(await printerSafetyRecord(), body.printer?.name);
+  const safety = presetSafetyOf({ profile });
+  issues.push(...presetLimitIssues(view, safety, { existing: issues, label: profileLabel(profile) }));
   const blocking = blockingConfigIssues(issues);
   if (blocking.length) {
     throw new ValidationError(blocking[0].message, { issues });

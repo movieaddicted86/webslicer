@@ -455,7 +455,7 @@ export async function sliceProject(
   if (overrides.outputName !== undefined) request.outputName = overrides.outputName;
   // no thumbnails here: rendering them needs a browser (concept §3.5, rasterizer comes in phase 3)
   validateSliceRequest(request);
-  const configIssues = validateConfigLimits(request, schema);
+  const configIssues = await validateConfigLimits(request, schema);
   await validatePlate(request);
   const job = await createJob(request, schema, configIssues);
   await touchProject(project);

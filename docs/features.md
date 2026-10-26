@@ -178,13 +178,19 @@ PrusaSlicer feature exists here and which does not is in
   plates with a 400.
 - **Printer setup wizard** (**Add / remove printers…** in the printer dropdown opens the Printers dialog
   on _Vendor profiles_; the rail's **Printers** opens the same dialog on _My printers_): vendor profiles
-  to install, a **Filaments** step and a **Custom printer** in two steps. The filament step
+  to install, a **Safety** step, a **Filaments** step and a **Custom printer** in three steps. The
+  Safety step asks the two questions that protect the machine – **hotend type** (PTFE-lined → 240 °C,
+  all-metal → 450 °C, other → a number) and an optional **max bed temperature** – and stores the answer
+  per printer preset, so slicing and exporting are checked against it whether or not a print host
+  exists; **Ask me later** stores nothing and leaves a warning in the Slice footer (see
+  [safety.md](safety.md)). The first run also shows the **"print at your own risk"** card once, with an
+  **I understand** checkbox and a server-side acknowledgement per major version. The filament step
   lists the system filaments of the installed vendors grouped by vendor and material – filter by text,
   tick with _All_ / _None_ / _Only this type_ per group, and **Apply** stores the choice, so the
   filament selector only offers those presets from then on (user presets, the defaults and the active
   filament always stay). Nothing ticked means "show all", and the **Show all filaments** checkbox under
   the preset rows lifts the filter for a session. A custom printer asks for bed size, height, nozzle and
-  firmware, then for its filament (name, first-layer/other-layer hotend and bed temperatures, diameter;
+  firmware, then the safety question, then for its filament (name, first-layer/other-layer hotend and bed temperatures, diameter;
   215/215 °C, 60/60 °C and 1.75 mm by default). Saving stores the printer preset and a user filament
   preset `<printer> – <filament>`, and selects both. Values face the same configuration limits as the
   settings editor: a blocked value turns red, disables **Save** and is refused by the server as well.

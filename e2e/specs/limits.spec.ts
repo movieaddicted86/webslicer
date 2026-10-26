@@ -30,6 +30,9 @@ async function openTemperature(app: Parameters<typeof fill>[0], value: string): 
 
 test.describe('limits: configuration limits in the editor (S1-e)', () => {
   test.beforeEach(async ({ app }) => {
+    // T-085: the fixture data answers the hotend question for the fixture printer (all-metal, 450 °C)
+    // and the global setup re-applies it, so the footer lists the settings issues alone – an unanswered
+    // printer would add its own warning to every count below.
     await importFile(app, CUBE);
     // a PLA filament, so a value inside the global window can still leave the material's soft range
     await app.evaluate(() => window.webslicer.getState().setOption('filament', 'filament_type', 'PLA'));
