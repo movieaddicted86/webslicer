@@ -14,6 +14,9 @@ rc.3 to rc.5 and of the `Unreleased` of that time are kept verbatim in
   `data/audit.log` rotates at 10 MB and keeps five files.
 - **A short Vendor profiles tab (T-076):** it opens with one summary line, lists only vendors with an
   update or in use behind **Show all vendors**, and never draws an arrow towards an older version.
+- **The printer wizard asks about the hotend (T-085):** a Safety step stores the machine's own
+  temperature limit per printer preset and blocks a slice above it (PTFE 240 °C) – so exporting without
+  a print host is protected too; a one-time "print at your own risk" card comes before the first slice.
 
 ### Changed
 

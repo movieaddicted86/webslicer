@@ -23,6 +23,7 @@ The settings that produce a file are checked before the slicer runs
 | `config.layer_height`             | block    | not a number, ≤ 0, or more than 2× the nozzle diameter               |
 | `config.filament_temperature`     | warn     | a hotend temperature outside the usual window of the `filament_type` |
 | `config.filament_bed_temperature` | warn     | the same for the bed temperature                                     |
+| `config.no_printer_safety`        | warn     | the active printer preset has no answer to the hotend question       |
 
 `0` means "off" in PrusaSlicer and is allowed wherever it is meaningful; `nil` elements of a
 per-extruder vector and missing keys are skipped. The soft windows come from the material's own
@@ -34,6 +35,48 @@ print and 482 SLA material presets in 2.9.6) and reports no finding.
 
 The UI shows the same findings at the field (S1-e): a blocked value disables **Slice** with the
 reason, a warning is listed in the slice panel.
+
+### The machine's own limits (T-085)
+
+The global limits above describe what any printer may be asked to do; a **single machine** is often
+narrower – a PTFE-lined hotend decomposes above 240 °C, whatever the material would like. So the
+printer wizard asks for the machine's own ceiling and stores it **per printer preset**
+(`printerSafety` in the data directory, keyed by the preset name):
+
+| answer            | `maxHotend`           | `maxBed`                    |
+| ----------------- | --------------------- | --------------------------- |
+| PTFE-lined hotend | 240 °C                | optional, default none      |
+| All-metal hotend  | 450 °C (no narrowing) | optional, default none      |
+| Other             | a typed 150–450 °C    | optional 0–150 °C (`0` off) |
+
+The record is enforced **at slice time**, not only when sending: `presetLimitIssues` runs beside
+`checkRequestConfigLimits` in the server's `validateConfigLimits` (the slice route, the project slice
+and the MCP tool) and in the browser's `useLimitIssues`, so an export-only user who never adds a
+print host is protected as well. It reports `config.hotend_limit` / `config.bed_limit` – the same
+rules, field links and message style as a value outside the global window, worded with the preset's
+label ("… is above the 240 °C limit of this printer (PTFE-lined hotend)"). It never widens anything:
+the limits only narrow the global window.
+
+A preset without an answer is **not** blocked – it may well be all-metal, and an install that worked
+before must keep working. The Slice footer then shows `config.no_printer_safety` (warn, "No hotend
+type set for this printer – temperatures are only checked against the global 450 °C ceiling") with a
+link that opens the printer setup at the safety question. Skipping the step with **Ask me later**
+stores nothing, so the warning stays.
+
+A **print host** bound to the same preset keeps its own `safety` from T-080. When both exist the
+stricter limit wins (`combinedSafety`, the smaller number per kind) — the send gate can never be
+looser than the host form and the slice can never be looser than the wizard. Renaming a preset carries
+its record; deleting it drops the record, because a later preset of the same name is a different
+machine and answers again.
+
+### The one-time risk notice
+
+The first run asks the question with a short card (`RISK_NOTICE_SHORT`, the same sentence as the
+top of this page): the **"I understand"** checkbox enables **Continue**, **Not now** closes it for the
+session without storing anything. The acknowledgement is stored **server-side** with the app version
+that gave it, so it survives a reload and reaches other browsers; it is shown again only after a major
+version change. It appears once — in the wizard, or before the first slice when the wizard was
+skipped — and never nags afterwards.
 
 ## Plate checks
 
