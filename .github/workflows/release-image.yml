@@ -1,10 +1,14 @@
-# Publish the multi-arch image (linux/amd64 + linux/arm64) on a release tag.
+# Publish the image (linux/amd64) on a release tag.
 #
 #   • a pushed tag `v1.2.3` (or `v2.0.0-rc.1`) publishes it
 #   • the manual run (`workflow_dispatch`) is the dry run by default: it builds and smoke-tests the
-#     amd64 image and the multi-arch build, and pushes nothing; `publish` has to be ticked for a
-#     re-run that really publishes
+#     image, and pushes nothing; `publish` has to be ticked for a re-run that really publishes
 #   • nothing else triggers this workflow – branches and pull requests never publish
+#
+# The image is amd64 only for now. arm64 is built under QEMU on the amd64 runner, and there the
+# PrusaSlicer AppImage dies with `Exec format error` right after the checksum passes – the emulation,
+# not the image. A native arm64 runner (`ubuntu-24.04-arm`) is the next step (T-087 round (b));
+# until then arm64 users build locally with `docker compose build`.
 #
 # Where an image goes:
 #   GHCR        ghcr.io/<owner>/webslicer      always (GITHUB_TOKEN, permissions: packages: write)
@@ -47,7 +51,7 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
-    # two full app builds (the amd64 smoke build, then both architectures under QEMU), each with the
+    # two full app builds (the loaded smoke build, then the publishing build), each with the
     # PrusaSlicer stage; the second build reads the cache of the first
     timeout-minutes: 60
     steps:
@@ -148,9 +152,8 @@ jobs:
             echo 'EOF'
           } >> "$GITHUB_ENV"
 
-      # QEMU runs the arm64 half of the multi-arch build on the amd64 runner. The GHA cache
-      # (`scope=release`) carries the layers from the smoke build into it.
-      - uses: docker/setup-qemu-action@v3
+      # No QEMU: the image is amd64 only, built on the runner's own architecture. The GHA cache
+      # (`scope=release`) carries the layers from the smoke build into the publishing build.
       - uses: docker/setup-buildx-action@v3
 
       # Tags: the exact version without the `v`, `latest` when the version step allows it, and the sha.
@@ -303,13 +306,14 @@ jobs:
           test -n "$(ls -A "$work/data")"
           test "$(stat -c '%u' "$work/data"/* | sort -u | tr '\n' ' ')" = '99 '
 
-      # Step 2 of 2: both architectures. Pushed only when the version step saw a tag or the manual run
-      # was allowed to publish; otherwise this is the dry run of the same build.
-      - name: Build and push the multi-arch image
+      # Step 2 of 2: the publishable image, same architecture as the smoke build. Pushed only when the
+      # version step saw a tag or the manual run was allowed to publish; otherwise this is the dry run
+      # of the same build.
+      - name: Build and push the image
         uses: docker/build-push-action@v6
         with:
           context: .
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           push: ${{ steps.version.outputs.release == 'true' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ env.LABELS }}
@@ -334,6 +338,8 @@ jobs:
             echo "### Release image"
             echo "- version: \`$VERSION\` (tag: \`$TAG\`)"
             echo "- published: \`$RELEASE\`"
+            echo "- platforms: \`linux/amd64\`"
+            echo "- arm64: not yet (native arm64 runner, T-087 round (b))"
             echo "- Docker Hub configured: \`$DOCKERHUB_CONFIGURED\`"
             echo "- tags:"
             echo "$IMAGE_TAGS" | sed 's/^/  - /'

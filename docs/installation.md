@@ -25,14 +25,18 @@ models on first start while it is empty.
 
 ### Run the published image
 
-A release tag (`v*`) builds the image for **linux/amd64 and linux/arm64** and publishes it, so from the
-first release on there is nothing to build:
+A release tag (`v*`) builds the image for **linux/amd64** and publishes it, so from the first release
+on there is nothing to build:
 
 ```bash
 docker run -d --name webslicer -p 8080:8080 \
   -v webslicer-data:/data -v /path/to/models:/library \
   ghcr.io/movieaddicted86/webslicer:latest
 ```
+
+**arm64 is not published yet.** On arm64 hardware (a Raspberry Pi, an arm64 NAS) build the image
+yourself with `docker compose build` – the Dockerfile already handles arm64. A native arm64 release is
+the next step ([CHANGELOG](../CHANGELOG.md)).
 
 | Registry   | Image                                                                                                                                     |
 | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
@@ -178,12 +182,13 @@ git push origin v1.2.3
 ```
 
 The workflow builds the amd64 image, starts it and checks `/api/health`, the slicer binary, the licence
-files, the OCI labels and both user-id modes (default and `PUID=99 PGID=100`); only then does it build
-both architectures and push them. A failing smoke test means nothing is published. Tags: `<version>`,
-`latest` and `sha-<commit>`.
+files, the OCI labels and all three user-id modes (default, `PUID=99 PGID=100` and `--user 99:100`);
+only then does it push. A failing smoke test means nothing is published. Tags: `<version>`, `latest`
+and `sha-<commit>`. The image is amd64 only for now; the arm64 half is built on a native arm64 runner
+in a later step.
 
 **Dry run:** _Actions → Release image → Run workflow_ builds and smoke-tests everything, including the
-multi-arch build, and pushes nothing (`publish` is off by default). The `tag` input only names the image
+publishing build, and pushes nothing (`publish` is off by default). The `tag` input only names the image
 in that run; it does not build a different commit. Tick `publish` only to re-run a release that failed
 after the push, and only from the tagged commit.
 
