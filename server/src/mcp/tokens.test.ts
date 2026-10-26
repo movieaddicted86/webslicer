@@ -148,7 +148,7 @@ test('authenticate accepts only the right token and records its use', () => {
 
 test('the audit log records a call without secrets', async () => {
   fs.rmSync(config.auditLog, { force: true });
-  assert.deepEqual((await readAudit()), []);
+  assert.deepEqual(await readAudit(), []);
 
   appendAudit({
     time: 'now',

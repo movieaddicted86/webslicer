@@ -21,8 +21,10 @@ if (!root) throw new Error('index.html has no #root element');
 createRoot(root, {
   // P-7: a throw that escapes the tree (no boundary caught it) goes to the same log/toast path as the
   // region boundaries, so it is visible to the user and named in the console with its stack.
-  onUncaughtError: (error, info) => reportUiError(error, `uncaught${info.componentStack ? ` (${info.componentStack.split('\n')[1]?.trim()})` : ''}`),
-  onCaughtError: (error, info) => reportUiError(error, `caught${info.componentStack ? ` (${info.componentStack.split('\n')[1]?.trim()})` : ''}`),
+  onUncaughtError: (error, info) =>
+    reportUiError(error, `uncaught${info.componentStack ? ` (${info.componentStack.split('\n')[1]?.trim()})` : ''}`),
+  onCaughtError: (error, info) =>
+    reportUiError(error, `caught${info.componentStack ? ` (${info.componentStack.split('\n')[1]?.trim()})` : ''}`),
 }).render(
   <React.StrictMode>
     <App />
