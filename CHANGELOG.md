@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+- **The plate check measures each object's real outline (T-078, round a):** every rule – off the bed,
+  brim, skirt, toolpath conflict and the sequential-printing clearance – read the axis-aligned bounding
+  box, so a bar turned 45° near a corner, an arc such as a cable holder or two interlocking parts were
+  refused although PrusaSlicer slices them (since T-073 that block was final). The outlines are now the
+  **convex hull of each instance's XY projection** (`shared/src/plater/hull.ts`), built from the same
+  vertices in the browser and on the server: overlap is the SAT penetration depth of the two polygons,
+  the skirt is the hull of all objects grown by its distance, and the brim/skirt room is the measured
+  distance to the bed border. A box gives exactly the verdicts it gave before, and a concave part is
+  still treated as its hull – conservative, never looser than the slicer. The arrange (round b) is
+  unchanged and follows in its own round. New: a `l_bracket.stl` sample, `e2e/specs/plate-gate.spec.ts`
+  covers two interlocking L parts, `server/src/routes/http.test.ts` an L pair that overlaps by boxes
+  only, and `docs/safety.md` / `docs/features.md` (UAT-53) explain the hull.
+
 - **The rc.5 review's housekeeping (T-081, findings P-6 / P-7 / P-8 / P-10):** three rough edges
   from the release review. **MCP quotas:** a token may have two slicing jobs queued or running and may
   start 30 slices within a rolling hour (`MCP_MAX_CONCURRENT_JOBS`, `MCP_MAX_SLICES_PER_HOUR`); the
