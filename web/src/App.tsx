@@ -4,6 +4,8 @@ import { startSession } from './state/session';
 import { AppShell } from './components/AppShell';
 import { Toasts } from './components/Toasts';
 import { Dialogs } from './components/dialogs/Dialogs';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
+import { reportUiError } from './errorReport';
 
 export function App() {
   const init = useStore((s) => s.init);
@@ -30,7 +32,7 @@ export function App() {
       <div className="splash">
         <h1>WebSlicer</h1>
         <p className="error">Could not connect to the server: {fatal}</p>
-        <button onClick={() => location.reload()}>Retry</button>
+        <button onClick={() => window.location.reload()}>Retry</button>
       </div>
     );
   }
@@ -45,7 +47,10 @@ export function App() {
   return (
     <>
       <AppShell />
-      <Dialogs />
+      {/* P-7: a broken dialog must not take the plater with it – the card sits where the dialog was */}
+      <ErrorBoundary region="Dialogs" placement="overlay" onError={(e) => reportUiError(e, 'Dialogs')}>
+        <Dialogs />
+      </ErrorBoundary>
       <Toasts />
     </>
   );
