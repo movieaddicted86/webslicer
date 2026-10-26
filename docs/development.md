@@ -207,7 +207,12 @@ Slice footer and the first slice would stop at the notice card, which is not wha
 footer issues (or slice) are about. The global setup re-applies both before a run – a leftover answer of
 another preset is dropped. `safety.spec.ts` owns the unanswered case with a preset of its own (deleting
 the fixture printer's answer would take the warning out of the footer of every other spec of its shard,
-lock or no lock).
+lock or no lock). The risk notice is server-wide too, so the spec's notice test does not delete the
+acknowledgement: it gives **its own page** the unacknowledged state with `page.route` (and reads the
+real server through `page.request`), so every other spec of the shard keeps slicing while it runs.
+A test that reloads the app calls `blockSessionRestore` (`e2e/helpers/app.ts`) first – the restore is
+asynchronous and its import would otherwise land on top of the plater the test built (two objects at
+the bed centre, a blocked plate, a Slice button that never enables).
 
 - Specs select the app's structure by its **hooks**, not by its class names: `data-testid`
   attributes named by role (`tool-panel`, `object-row`, `modal`, …) that stay valid when the layout
