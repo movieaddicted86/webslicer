@@ -63,7 +63,8 @@ docker compose up -d
 Once the first release is published, no build is needed either:
 `docker run -d -p 8080:8080 -v webslicer-data:/data -v /path/to/models:/library ghcr.io/movieaddicted86/webslicer:latest`
 – on a NAS with `-e PUID=99 -e PGID=100`
-([details](docs/installation.md#run-the-published-image)).
+([details](docs/installation.md#run-the-published-image)). The published image is **amd64 only** for
+now; on arm64 build it locally with `docker compose build`.
 
 Proxmox VE (LXC), on the host as root:
 
