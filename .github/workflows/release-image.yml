@@ -226,8 +226,9 @@ jobs:
             sleep 2
           done
           curl -fsS http://localhost:8080/api/health
-          # the slicer runs in the image …
-          docker exec webslicer-smoke /opt/prusaslicer/AppRun --help | head -n 1
+          # the slicer runs in the image … (`sed -n '1p'`, not `head -n 1`: `head` closes the pipe
+          # after the first line, `docker exec` dies of SIGPIPE (exit 141) and `pipefail` fails the step)
+          docker exec webslicer-smoke /opt/prusaslicer/AppRun --help | sed -n '1p'
           # … the licence and the third-party notices travel with it (AGPL compliance) …
           docker exec webslicer-smoke test -s /usr/share/doc/webslicer/LICENSE
           docker exec webslicer-smoke test -s /usr/share/doc/webslicer/THIRD_PARTY_NOTICES.md
