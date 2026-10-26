@@ -40,7 +40,7 @@ export const jobTools: AnyTool[] = [
       validateSliceRequest(request);
       // S1-d/N3: a typo in a temperature or the nozzle is refused here like on /api/slice,
       // checked on the merged config the slicer receives
-      const configIssues = validateConfigLimits(request, schema);
+      const configIssues = await validateConfigLimits(request, schema);
       // the plate checks of the browser footer hold here too: a headless slice may not skip them
       await validatePlate(request);
       const job = await createJob(request, schema, configIssues);

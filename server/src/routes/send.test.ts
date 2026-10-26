@@ -692,3 +692,50 @@ test('a stored result without the temperature maxima is re-scanned (N3)', async 
     ['gcode.max_temp', 'send.printer_limit'],
   );
 });
+
+// ---------------------------------------------------------------------------
+// T-085: the preset's own answer and the host's, whichever is stricter
+// ---------------------------------------------------------------------------
+
+test('a PTFE preset blocks a send even to a host with no limits of its own', async () => {
+  fs.rmSync(config.auditLog, { force: true });
+  await call('PUT', `/api/printer-safety/${encodeURIComponent(JOB_PRESET)}`, { hotendType: 'ptfe', maxHotend: 240 });
+  const id = await addPrinter('Bare host', JOB_PRESET, null);
+  const before = uploads.length;
+  const res = await send(id, {}, JOB_HOT_ID);
+  assert.equal(res.status, 409, JSON.stringify(res.json));
+  const issues = (res.json as { issues: Array<{ rule: string; message: string }> }).issues;
+  assert.deepEqual(
+    issues.map((i) => i.rule),
+    ['send.printer_limit'],
+    'the preset answer answers the question, so no send.no_limits warning either',
+  );
+  assert.match(issues[0].message, /limited to 240 °C/);
+  assert.equal(uploads.length, before, 'the upload never happens');
+});
+
+test('the stricter of the host and the preset wins, in both directions', async () => {
+  // the preset says 240, the host says 300: the job at 250 °C is still too hot
+  await call('PUT', `/api/printer-safety/${encodeURIComponent(JOB_PRESET)}`, { hotendType: 'ptfe', maxHotend: 240 });
+  const looseHost = await addPrinter('Preset wins', JOB_PRESET, { maxHotend: 300 });
+  let res = await send(looseHost, {}, JOB_HOT_ID);
+  assert.equal(res.status, 409, `preset 240 vs host 300: ${JSON.stringify(res.json)}`);
+  assert.match((res.json as { error: string }).error, /limited to 240 °C/);
+
+  // the preset says 300, the host says 240: the host is the stricter one
+  await call('PUT', `/api/printer-safety/${encodeURIComponent(JOB_PRESET)}`, { hotendType: 'other', maxHotend: 300 });
+  const strictHost = await addPrinter('Host wins', JOB_PRESET, { maxHotend: 240 });
+  res = await send(strictHost, {}, JOB_HOT_ID);
+  assert.equal(res.status, 409, `preset 300 vs host 240: ${JSON.stringify(res.json)}`);
+  assert.match((res.json as { error: string }).error, /limited to 240 °C/);
+});
+
+test('a preset answer alone is enough for the export path to be protected, and a loose one lets the job through', async () => {
+  await call('PUT', `/api/printer-safety/${encodeURIComponent(JOB_PRESET)}`, { hotendType: 'all-metal' });
+  const id = await addPrinter('All-metal by preset', JOB_PRESET, { maxHotend: 300 });
+  const res = await send(id, {}, JOB_HOT_ID);
+  assert.equal(res.status, 200, JSON.stringify(res.json));
+  assert.deepEqual((res.json as { issues: unknown[] }).issues, []);
+  // cleanup, so the tests after this one see the file they expect
+  await call('DELETE', `/api/printer-safety/${encodeURIComponent(JOB_PRESET)}`);
+});

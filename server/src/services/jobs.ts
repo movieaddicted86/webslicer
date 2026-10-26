@@ -23,7 +23,7 @@ export async function submitSliceRequest(raw: unknown): Promise<JobRecord> {
     throw new ValidationError((e as Error).message);
   }
   const schema = await activeSchema();
-  const configIssues = validateConfigLimits(body, schema);
+  const configIssues = await validateConfigLimits(body, schema);
   await validatePlate(body);
   return createJob(body, schema, configIssues);
 }
