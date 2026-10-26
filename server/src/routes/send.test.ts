@@ -253,7 +253,7 @@ test('a matching printer preset uploads without issues and without an audit entr
   assert.deepEqual(body.issues, []);
   assert.equal(uploads.length, before + 1, 'the mock host received the upload');
   assert.equal(uploads[uploads.length - 1].path, '/server/files/upload');
-  assert.deepEqual(readAudit(), [], 'a send that needed no override is not audited');
+  assert.deepEqual(await readAudit(), [], 'a send that needed no override is not audited');
 });
 
 test('a mismatched printer preset is refused with 409 and the issues, and nothing is uploaded', async () => {
@@ -269,7 +269,7 @@ test('a mismatched printer preset is refused with 409 and the issues, and nothin
   assert.equal(body.issues[0].severity, 'block');
   assert.match(body.issues[0].message, /Garage MINI/);
   assert.equal(uploads.length, before, 'a blocked send never reaches the printer');
-  assert.deepEqual(readAudit(), []);
+  assert.deepEqual(await readAudit(), []);
 });
 
 test('an override without a reason is a 400 and still does not upload', async () => {
@@ -298,7 +298,7 @@ test('an override with a reason uploads and writes the audit entry', async () =>
   );
   assert.equal(uploads.length, before + 1);
 
-  const entries = readAudit();
+  const entries = await readAudit();
   assert.equal(entries.length, 1);
   assert.equal(entries[0].tool, 'send_to_printer');
   assert.equal(entries[0].ok, true);
@@ -330,7 +330,7 @@ test('a host without a printer preset warns but uploads, and is not audited as a
   assert.equal(body.issues[0].rule, 'send.no_binding');
   assert.equal(body.issues[0].severity, 'warn');
   assert.equal(uploads.length, before + 1);
-  assert.deepEqual(readAudit(), []);
+  assert.deepEqual(await readAudit(), []);
 });
 
 test('a user printer preset derived from the job preset warns but uploads', async () => {
@@ -350,7 +350,7 @@ test('a user printer preset derived from the job preset warns but uploads', asyn
     'a derived preset is a warning, not a match and not a block',
   );
   assert.equal(uploads.length, before + 1);
-  assert.deepEqual(readAudit(), [], 'a warning is not an override');
+  assert.deepEqual(await readAudit(), [], 'a warning is not an override');
 });
 
 test('two user presets that only share an ancestor are a 409, not a match', async () => {
@@ -394,7 +394,7 @@ test('a forbidden command in the output is a 409 that names the rule, the line a
   // the preset issue is absent – the host matches the job's preset
   assert.equal(body.issues.length, 1);
   assert.equal(uploads.length, before, 'a preflight block never reaches the printer');
-  assert.deepEqual(readAudit(), []);
+  assert.deepEqual(await readAudit(), []);
 });
 
 test('a preflight block is overridable with a reason, which is audited with the issue', async () => {
@@ -410,7 +410,7 @@ test('a preflight block is overridable with a reason, which is audited with the 
     ['gcode.forbidden_command'],
   );
   assert.equal(uploads.length, before + 1);
-  const entries = readAudit();
+  const entries = await readAudit();
   assert.equal(entries.length, 1);
   const params = entries[0].params as { issues: Array<{ rule: string }>; reason: string };
   assert.deepEqual(
@@ -468,7 +468,7 @@ test('binary G-code with a forbidden command in its config is blocked by the con
   const overridden = await send(id, { override: true, reason: 'the EEPROM save is intended' }, JOB_BINARY_CONFIG_ID);
   assert.equal(overridden.status, 200, JSON.stringify(overridden.json));
   assert.equal(uploads.length, before + 1);
-  const params = readAudit()[0]?.params as { issues: Array<{ rule: string }> } | undefined;
+  const params = (await readAudit())[0]?.params as { issues: Array<{ rule: string }> } | undefined;
   assert.deepEqual(
     params?.issues.map((i) => i.rule),
     ['gcode.forbidden_command'],
@@ -523,7 +523,7 @@ test('an override whose audit entry cannot be written is a 500 and uploads nothi
   const ok = await send(id, { override: true, reason: 'same nozzle, checked by hand' });
   assert.equal(ok.status, 200, JSON.stringify(ok.json));
   assert.equal(uploads.length, before + 1);
-  assert.equal(readAudit().length, 1);
+  assert.equal((await readAudit()).length, 1);
 });
 
 /**
@@ -578,7 +578,7 @@ test('a job hotter than the target printer is a 409 send.printer_limit, and noth
   );
   assert.match(body.issues[0].message, /limited to 240 °C/);
   assert.equal(uploads.length, before, 'a limit block never reaches the printer');
-  assert.deepEqual(readAudit(), []);
+  assert.deepEqual(await readAudit(), []);
 });
 
 test('a printer with a high enough limit lets the same job through', async () => {
@@ -613,7 +613,7 @@ test('a limit block is overridable with a reason, which is audited', async () =>
     ['send.printer_limit'],
   );
   assert.equal(uploads.length, before + 1);
-  const entries = readAudit();
+  const entries = await readAudit();
   assert.equal(entries.length, 1);
   const params = entries[0].params as { issues: Array<{ rule: string }>; reason: string };
   assert.deepEqual(

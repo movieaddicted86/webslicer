@@ -15,6 +15,8 @@ import { PreviewFooter } from './PreviewFooter';
 import { PreviewPanel } from '../PreviewPanel';
 import { ToolMode } from './ToolMode';
 import { MultiSelection } from './MultiSelection';
+import { ErrorBoundary } from '../common/ErrorBoundary';
+import { reportUiError } from '../../errorReport';
 import './ContextPanel.css';
 
 /**
@@ -81,7 +83,11 @@ export function ContextPanel() {
         ) : null}
         <div className="context-body">
           {mode === 'preview' ? (
-            <PreviewPanel />
+            // P-7: the preview card reads the job, the G-code and the toolpaths – a throw there is
+            // recovered in the card, the plate panel and the footer keep their place
+            <ErrorBoundary region="Preview" onError={(e) => reportUiError(e, 'Preview')}>
+              <PreviewPanel />
+            </ErrorBoundary>
           ) : (
             <>
               {mode === 'plate' && <PlateMode />}

@@ -4,10 +4,11 @@
  */
 import { z } from 'zod';
 import { createJob, getJob, readJobLog } from '../jobs.js';
-import { NotFoundError } from '../errors.js';
+import { NotFoundError, QuotaError } from '../errors.js';
 import { activeSchema } from '../services/schema.js';
 import { toSliceRequest, touchProject } from '../services/projects.js';
 import { validateConfigLimits, validatePlate, validateSliceRequest } from '../services/slice.js';
+import { quotaRefusal, recordMcpSlice } from './quotas.js';
 import { loadOwnedProject } from './projectAccess.js';
 import { defineTool, type AnyTool } from './toolTypes.js';
 
@@ -29,6 +30,10 @@ export const jobTools: AnyTool[] = [
     readOnly: false,
     input: z.object({ project_id: z.string() }),
     handler: async (args, ctx) => {
+      // P-6: the per-token quotas come first – a refused slice is a tool error with its reason, and
+      // the transport writes it to the audit log like every other refused call
+      const refusal = quotaRefusal(ctx.tokenId);
+      if (refusal) throw new QuotaError(refusal);
       const project = await loadOwnedProject(args.project_id, ctx.owner);
       const schema = await activeSchema();
       const request = toSliceRequest(project, schema);
@@ -39,6 +44,7 @@ export const jobTools: AnyTool[] = [
       // the plate checks of the browser footer hold here too: a headless slice may not skip them
       await validatePlate(request);
       const job = await createJob(request, schema, configIssues);
+      recordMcpSlice(ctx.tokenId, job.id);
       await touchProject(project);
       return {
         job_id: job.id,

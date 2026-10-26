@@ -146,9 +146,9 @@ test('authenticate accepts only the right token and records its use', () => {
   assert.equal(authenticateHeader(undefined), undefined);
 });
 
-test('the audit log records a call without secrets', () => {
+test('the audit log records a call without secrets', async () => {
   fs.rmSync(config.auditLog, { force: true });
-  assert.deepEqual(readAudit(), []);
+  assert.deepEqual(await readAudit(), []);
 
   appendAudit({
     time: 'now',
@@ -169,7 +169,7 @@ test('the audit log records a call without secrets', () => {
     error: 'not found',
     durationMs: 1,
   });
-  const entries = readAudit();
+  const entries = await readAudit();
   assert.equal(entries.length, 2);
   assert.equal(entries[0].tool, 'webslicer.slice');
   assert.equal(entries[1].ok, false);
@@ -194,7 +194,7 @@ test('audit parameters drop secret looking keys and cut long values', () => {
   assert.deepEqual(sanitizeParams([1, 2, 3]), [1, 2, 3]);
 });
 
-test('the fail-soft writer swallows a write error, the strict one throws (T-080, P-3)', () => {
+test('the fail-soft writer swallows a write error, the strict one throws (T-080, P-3)', async () => {
   const entry = { time: 'now', token: '', owner: '', tool: 'send_to_printer', ok: true, durationMs: 1 };
   // a directory where the log file should be: every append fails
   fs.rmSync(config.auditLog, { force: true });
@@ -211,7 +211,7 @@ test('the fail-soft writer swallows a write error, the strict one throws (T-080,
   appendAudit({ ...entry, tool: 'webslicer.slice' });
   appendAuditStrict(entry);
   assert.deepEqual(
-    readAudit().map((e) => e.tool),
+    (await readAudit()).map((e) => e.tool),
     ['webslicer.slice', 'send_to_printer'],
   );
 });

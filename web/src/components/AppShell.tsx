@@ -5,6 +5,8 @@ import { LeftColumn } from './left/LeftColumn';
 import { SettingsView } from './SettingsView';
 import { Viewer } from '../three/Viewer';
 import { DropZone } from './DropZone';
+import { ErrorBoundary } from './common/ErrorBoundary';
+import { reportUiError } from '../errorReport';
 import type { CSSProperties } from 'react';
 import { useStore } from '../state/store';
 import './AppShell.css';
@@ -40,7 +42,12 @@ export function AppShell() {
       ) : (
         <div className="scene-area">
           <DropZone>
-            <Viewer />
+            {/* P-7: a throw in the WebGL setup or the plater objects shows the recovery card in the
+                scene and leaves the toolbar, the cards and the dialogs working. `display: contents`
+                keeps the drop zone the direct parent of the viewer's box. */}
+            <ErrorBoundary region="Viewer" placement="scene" onError={(e) => reportUiError(e, 'Viewer')}>
+              <Viewer />
+            </ErrorBoundary>
           </DropZone>
           <LeftColumn />
           <ContextPanel />

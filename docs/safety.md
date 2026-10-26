@@ -64,11 +64,8 @@ machine) and stores what it finds on the job. The rules of v1:
 | `gcode.motor_current`     | warn     | `M906`/`M907` – PrusaSlicer's own presets set the extruder current in start/end G-code                                                                                                       |
 | `gcode.not_scanned`       | warn     | binary `.bgcode`, which v1 does not read                                                                                                                                                     |
 
-Comments (`;…`, `(…)`), lowercase, `N`/checksum line numbers and all three Marlin line ends (`
-`,
-`
-`, `
-`) are understood, and `M 500` (a blank after the letter) is the command `M500`; a finding
+Comments (`;…`, `(…)`), lowercase, `N`/checksum line numbers and all three Marlin line ends
+(`\n`, `\r`, `\r\n`) are understood, and `M 500` (a blank after the letter) is the command `M500`; a finding
 names its line and shows the line itself. The result also records the highest hotend and bed
 temperature the file asks for, so the send gate can compare it with the target printer's profile. The send gate merges the findings with the preset issues of S1-b: a
 block refuses the upload with 409 until it is overridden with a reason (audited), a warning is shown

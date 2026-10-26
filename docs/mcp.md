@@ -90,6 +90,43 @@ No space around the `:` inside `args` – Claude Desktop on Windows does not quo
 `set_settings` takes `scope: "print"`, `"printer"`, `"filament"` or `"filament[<index>]"` for the
 other extruders.
 
+## Quotas
+
+`MAX_JOBS` protects the CPU, but nothing protected the queue a person shares with an agent: one
+token could queue slices without end and the browser's own slice waited behind them. Every token is
+therefore limited on its own:
+
+| Limit                   | Default | Variable                  |
+| ----------------------- | ------- | ------------------------- |
+| jobs queued or running  | 2       | `MCP_MAX_CONCURRENT_JOBS` |
+| slices started per hour | 30      | `MCP_MAX_SLICES_PER_HOUR` |
+
+The counters are **per token**, never per owner, and they are held in memory – a restart forgets
+them, like the authentication limiter. The hourly limit is a rolling window, so the 31st slice an
+hour after the first works again. A refused call is an **MCP tool error** whose message names the
+limit ("This token already has 2 slicing jobs queued or running (limit 2)…"), and it is written to
+the audit log like any other call, so a human can see who was refused and why.
+
+An MCP slice still counts against the global `MAX_JOBS`, so the quotas never raise the server's
+load; they only keep one agent from filling the queue ahead of everybody else. The browser is not
+subject to them.
+
+## Audit log
+
+Every MCP call and every accepted send override appends one JSON line to `data/audit.log`. The file
+rotates by size instead of growing forever:
+
+- `AUDIT_LOG_MAX_BYTES` (default 10 MB) – an append that would take the current file past this limit
+  first rotates it.
+- `AUDIT_LOG_KEEP_FILES` (default 5) – how many older generations are kept as `audit.log.1` …
+  `audit.log.5`; the next one is deleted, so the log uses at most `(keep + 1) × max` bytes.
+- The append that rotates the file (`audit.log` → `audit.log.1`) also runs for the send override's
+  strict write, and a strict write that cannot be recorded still fails the request (see
+  [SECURITY.md](../SECURITY.md)).
+
+Reading the log for the UI reads a bounded tail of the current file (the newest entries) with async
+fs, so a 10 MB log never blocks the server.
+
 ## Testing the endpoint by hand
 
 ```bash

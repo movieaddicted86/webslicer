@@ -43,6 +43,13 @@ export class ConflictError extends HttpError {
   }
 }
 
+/** A per-token quota is exhausted; the reason says which one and when to retry (P-6). */
+export class QuotaError extends HttpError {
+  constructor(message: string) {
+    super(429, message);
+  }
+}
+
 /** The HTTP status of a thrown value, if it carries one. */
 export function statusOf(error: unknown): number | undefined {
   return error instanceof HttpError ? error.status : undefined;

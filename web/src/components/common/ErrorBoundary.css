@@ -1,0 +1,53 @@
+/* ErrorBoundary: the small recovery card of one region (ErrorBoundary.tsx). Tokens only. */
+
+/* the boundary is an invisible wrapper: the region keeps its own layout and position */
+.error-region {
+  display: contents;
+}
+
+.error-fallback {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 12px;
+  padding: 14px 16px;
+  max-width: 360px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--danger, #d9534f);
+  border-radius: var(--radius, 10px);
+  box-shadow: var(--shadow, 0 8px 24px rgb(0 0 0 / 35%));
+  color: var(--text);
+}
+
+.error-fallback strong {
+  font-size: 13px;
+}
+
+.error-fallback .muted {
+  word-break: break-word;
+}
+
+/* the scene: the card takes the scene's own rectangle and centres itself there */
+.error-fallback.scene {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  max-width: none;
+  align-items: center;
+  justify-content: center;
+  border-left: none;
+  border-radius: 0;
+  background: inherit;
+}
+
+/* a dialog region: floating over the app like the dialog it replaces */
+.error-fallback.overlay {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  margin: 0;
+  z-index: 40;
+}
