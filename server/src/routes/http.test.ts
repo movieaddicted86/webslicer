@@ -27,7 +27,7 @@ const { createApp } = await import('../app.js');
 const { setSchema } = await import('../jobs.js');
 const { setActiveSchema } = await import('../services/schema.js');
 const { setUpdateChecker } = await import('../services/updateCheck.js');
-const { IDENTITY, translate } = await import('@webslicer/shared');
+const { IDENTITY, placementMatrix, translate } = await import('@webslicer/shared');
 
 /** Minimal schema: these tests never reach the slicer schema, but the module cache is shared. */
 const SCHEMA = {
@@ -376,6 +376,37 @@ function cubeStl(size = 20): Uint8Array {
     0, 2, 1, 0, 1, 3, 1, 2, 3, 2, 0, 3, 4, 6, 5, 4, 5, 7, 5, 6, 7, 6, 4, 7, 0, 4, 5, 0, 5, 1, 1, 5, 6, 1, 6, 2, 2, 6, 7, 2, 7, 3, 3, 7, 4,
     3, 4, 0,
   ]);
+  return stl(v, i);
+}
+
+/**
+ * An L-shaped binary STL: a 40 × 40 mm square with a 25 × 25 mm notch cut at the top right, 10 mm
+ * tall. Its bounding box is the full 40 mm square; its outline (and hull) is the L, whose diagonal
+ * edge is what two such parts can be placed against.
+ */
+function lStl(): Uint8Array {
+  const outline = [
+    [0, 0],
+    [40, 0],
+    [40, 15],
+    [15, 15],
+    [15, 40],
+    [0, 40],
+  ];
+  const v: number[] = [];
+  for (const z of [0, 10]) for (const [x, y] of outline) v.push(x, y, z);
+  // both caps as four triangles around the notch corner, then one quad per outline edge
+  const cap = [0, 1, 3, 1, 2, 3, 0, 3, 5, 3, 4, 5];
+  const i: number[] = [...cap, ...cap.map((t) => t + 6)];
+  for (let e = 0; e < outline.length; e++) {
+    const n = (e + 1) % outline.length;
+    i.push(e, n, n + 6, e, n + 6, e + 6);
+  }
+  return stl(Float32Array.from(v), Uint32Array.from(i));
+}
+
+/** A binary STL of the triangles between `v` (flat xyz) and `i` (triangle indices). */
+function stl(v: Float32Array, i: Uint32Array): Uint8Array {
   const buf = Buffer.alloc(84 + (i.length / 3) * 50);
   buf.writeUInt32LE(i.length / 3, 80);
   let o = 84;
@@ -392,11 +423,15 @@ function cubeStl(size = 20): Uint8Array {
   return new Uint8Array(buf);
 }
 
-/** Upload the cube and answer its model id, so a slice request can name a real stored mesh. */
-async function uploadedCube(size = 20): Promise<string> {
-  const res = await call('POST', '/api/models', cubeStl(size), { 'X-Filename': 'cube.stl' });
+/** Upload an STL and answer its model id, so a slice request can name a real stored mesh. */
+async function uploaded(mesh: Uint8Array, name: string): Promise<string> {
+  const res = await call('POST', '/api/models', mesh, { 'X-Filename': name });
   assert.equal(res.status, 200, res.body);
   return (res.json as { id: string }).id;
+}
+
+async function uploadedCube(size = 20): Promise<string> {
+  return uploaded(cubeStl(size), 'cube.stl');
 }
 
 test('POST /api/slice refuses an injected config key with 400 and the key in the message (SEC-2)', async () => {
@@ -450,6 +485,39 @@ test('POST /api/slice refuses an object that leaves the bed, with the reason (T-
   });
   assert.equal(res.status, 400, res.body);
   assert.match(errorOf(res) ?? '', /outside the print volume/);
+});
+
+test('POST /api/slice judges two L parts by their outline, not by their bounding boxes (T-078)', async () => {
+  // two identical L meshes (40 × 40 square, 25 × 25 notch, 15 mm arms), the second turned 180°, its
+  // diagonal edge set against the first one: the 40 mm boxes overlap by 23 mm per axis, the outlines
+  // still leave 2.8 mm along the diagonal
+  const [leftId, rightId] = [await uploaded(lStl(), 'l-left.stl'), await uploaded(lStl(), 'l-right.stl')];
+  const bed = { bed_shape: '0x0,200x0,200x200,0x200', nozzle_diameter: '0.4' };
+  const plate = (x: number, y: number) => ({
+    ...sliceRequest(),
+    objects: [
+      { modelId: leftId, name: 'L left', transform: translate(40, 40, 0) },
+      {
+        modelId: rightId,
+        name: 'L right',
+        transform: placementMatrix({ position: [x, y, 0], rotation: [0, 0, Math.PI], scale: [1, 1, 1] }),
+      },
+    ],
+    printer: { name: 'pr', config: bed },
+  });
+
+  const accepted = await call('POST', '/api/slice', plate(97, 97));
+  assert.equal(accepted.status, 202, accepted.body);
+
+  // 3 mm closer: the diagonal edges cut 1.4 mm into each other, past the 0.76 mm conflict limit
+  const refused = await call('POST', '/api/slice', plate(94, 94));
+  assert.equal(refused.status, 400, refused.body);
+  assert.match(errorOf(refused) ?? '', /G-code path conflict/);
+  const issues = (refused.json as { issues?: Array<{ code: string }> }).issues;
+  assert.deepEqual(
+    issues?.map((i) => i.code),
+    ['plate.overlap'],
+  );
 });
 
 test('PUT /api/presets/:type/:name refuses an injected config key with 400 (SEC-2)', async () => {

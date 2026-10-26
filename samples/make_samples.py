@@ -99,4 +99,26 @@ def sphere(cx, cy, cz, r, stacks=48, slices=96):
 # 5) sphere, 30 mm – variable layer height (T-045): thin layers at the poles, thick at the equator
 write_stl(os.path.join(HERE, 'sphere_30mm.stl'), sphere(0, 0, 15, 15))
 
+
+def l_bracket(a=40, arm=15, h=10):
+    """An L: a 40 mm square with a 25 mm square notch, 15 mm arms – two of them interlock."""
+    outline = [(0, 0), (a, 0), (a, arm), (arm, arm), (arm, a), (0, a)]
+    tris = []
+    # both caps as four triangles around the notch corner, then one quad per outline edge
+    cap = [(0, 1, 3), (1, 2, 3), (0, 3, 5), (3, 4, 5)]
+    for z in (0, h):
+        tris += [((outline[a1][0], outline[a1][1], z), (outline[b1][0], outline[b1][1], z), (outline[c1][0], outline[c1][1], z)) for a1, b1, c1 in cap]
+    for e in range(len(outline)):
+        n = (e + 1) % len(outline)
+        x0, y0 = outline[e]
+        x1, y1 = outline[n]
+        tris.append(((x0, y0, 0), (x1, y1, 0), (x1, y1, h)))
+        tris.append(((x0, y0, 0), (x1, y1, h), (x0, y0, h)))
+    return tris
+
+
+# 6) L bracket, 40 × 40 × 10 mm (T-078): two of them interlock with a gap, which the old bounding-box
+#    plate check refused
+write_stl(os.path.join(HERE, 'l_bracket.stl'), l_bracket())
+
 print('samples written to', HERE)

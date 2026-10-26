@@ -15,7 +15,7 @@
  * above the blocker list, so the old result cannot read as the print that would come out. Fixing the
  * plate brings the colours back without a new slice.
  */
-import { CUBE, importFile, read, settle, sliceAndWait, waitNewJob, waitSliceDone } from '../helpers/app';
+import { CUBE, L_BRACKET, importFile, read, settle, sliceAndWait, waitNewJob, waitSliceDone } from '../helpers/app';
 import { gcodeLook } from '../helpers/canvas';
 import { expect, test } from '../helpers/fixtures';
 
@@ -199,5 +199,60 @@ test.describe('the plate checks hold in the Preview too (T-073)', () => {
     const back = await gcodeLook(app);
     expect(back!.colours, 'the feature colours are back').toBeGreaterThan(1);
     expect(back!.opacity).toBe(1);
+  });
+});
+
+/** Put the first instance of an object at `position`, turned `rotationZ` radians about Z. */
+async function place(
+  app: Parameters<typeof importFile>[0],
+  objectId: string,
+  position: [number, number, number],
+  rotationZ = 0,
+): Promise<void> {
+  await app.evaluate(
+    ({ id, position, rotationZ }) => {
+      const s = window.webslicer.getState();
+      const o = s.objects.find((x) => x.id === id);
+      if (o) s.updateInstance(o.id, o.instances[0].id, { position, rotation: [0, 0, rotationZ] });
+    },
+    { id: objectId, position, rotationZ },
+  );
+  await settle(app, 800);
+}
+
+test.describe('the plate check measures the real outline (T-078)', () => {
+  test('two L parts that interlock with a gap are not blocked, a true overlap still is', async ({ app }) => {
+    // two L brackets: a 40 × 40 mm square with a 25 × 25 mm notch cut at the top right
+    await importFile(app, L_BRACKET);
+    await importFile(app, L_BRACKET, { clear: false });
+    await skirtPresets(app);
+    const [first, second] = await read(app, (s) => s.objects.map((o) => o.id));
+    expect(first).toBeTruthy();
+    expect(second).toBeTruthy();
+
+    // the second L turned 180°, its notch facing the first one: the 40 mm boxes overlap by 7 mm,
+    // the outlines leave 2.1 mm along the diagonal
+    await place(app, first!, [100, 105, 0]);
+    await place(app, second!, [100, 138, 0], Math.PI);
+    const boxesOverlap = await read(app, (s) => {
+      const [a, b] = s.objects;
+      const dy = Math.abs(a.instances[0].position[1] - b.instances[0].position[1]);
+      return a.size[1] - dy;
+    });
+    expect(boxesOverlap, 'the bounding boxes overlap where the outlines do not').toBeGreaterThan(0);
+    await expect(app.locator('[data-testid="slice-button"]')).toBeEnabled();
+    await expect(app.locator('[data-testid="slice-panel"] .plate-issues li')).toHaveCount(0);
+
+    // 8 mm closer: the diagonal edges cut into each other, past the toolpath-conflict limit
+    await place(app, second!, [100, 130, 0], Math.PI);
+    const slice = app.locator('[data-testid="slice-button"]');
+    await expect(slice).toBeDisabled();
+    await expect(slice).toHaveAttribute('title', /G-code path conflict/);
+    await expect(app.locator('[data-testid="slice-panel"] .plate-issues li')).toHaveCount(1);
+
+    // apart again: the plate passes without another change
+    await place(app, second!, [100, 138, 0], Math.PI);
+    await expect(slice).toBeEnabled();
+    await expect(app.locator('[data-testid="slice-panel"] .plate-issues li')).toHaveCount(0);
   });
 });
