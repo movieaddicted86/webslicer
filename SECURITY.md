@@ -7,10 +7,10 @@ handles uploaded models, preset files and G-code, so a bug can matter beyond the
 
 Security fixes go into the latest release and into `main`. Older pre-releases are not patched.
 
-| Version                            | Supported                          |
-| ---------------------------------- | ---------------------------------- |
-| 1.0.x (current, e.g. `1.0.0-rc.2`) | yes                                |
-| < 1.0 (pre-release snapshots)      | no – upgrade to the latest release |
+| Version                       | Supported                          |
+| ----------------------------- | ---------------------------------- |
+| 1.0.x (current)               | yes                                |
+| < 1.0 (pre-release snapshots) | no – upgrade to the latest release |
 
 The version you are running is shown in the UI (`/api/info`, `version`); it comes from the root
 `package.json` of the checkout or image you built (see `npm run version:check`).

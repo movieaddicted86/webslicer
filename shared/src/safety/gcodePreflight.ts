@@ -7,7 +7,8 @@
  * any sane value. Nothing looked at the produced file before the send dialog; this scanner does.
  *
  * The rule set of Q-005, deliberately small and free of position tracking (purge lines, delta beds and
- * relative moves would make bounds checks noisy – PrusaSlicer already checks the object bounds):
+ * relative moves would make bounds checks noisy – the object bounds are `plateCheck.ts`'s job, and
+ * every slice path runs it):
  *
  * | rule                     | severity | finding                                                        |
  * | ------------------------ | -------- | -------------------------------------------------------------- |

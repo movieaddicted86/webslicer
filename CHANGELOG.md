@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+- **The rc.5 review's housekeeping (T-081, findings P-6 / P-7 / P-8 / P-10):** three rough edges
+  from the release review. **MCP quotas:** a token may have two slicing jobs queued or running and may
+  start 30 slices within a rolling hour (`MCP_MAX_CONCURRENT_JOBS`, `MCP_MAX_SLICES_PER_HOUR`); the
+  refusal is an MCP tool error naming the limit, it is audited, and it applies per token – the
+  browser's own slice never waits behind an agent's burst, while the global `MAX_JOBS` stays.
+  **Error boundary:** a component that throws in the viewer, the preview panel or the dialogs now
+  shows a small "Something went wrong – Reload view" card in that region with a retry button that
+  remounts it, instead of a blank page; uncaught errors also reach the toast and the console through
+  the root's error hooks. **Audit log rotation:** `data/audit.log` rotates at 10 MB and keeps five
+  generations (`AUDIT_LOG_MAX_BYTES`, `AUDIT_LOG_KEEP_FILES`), and the UI reads a bounded tail with
+  async fs instead of loading the whole file – the strict write of the send override still rotates
+  and still fails the request when it cannot record. **Docs:** the line-end list in
+  [docs/safety.md](docs/safety.md) shows `\n`, `\r` and `\r\n` instead of real line breaks,
+  [SECURITY.md](SECURITY.md) names the current `1.0.x` line, and the G-code preflight header points
+  at `plateCheck.ts` for the object bounds. New tests: `server/src/mcp/quotas.test.ts`,
+  `server/src/services/audit.test.ts` and `e2e/specs/error-boundary.spec.ts`.
+
 - **Cutting with "keep both" places the two halves apart (T-079):** the halves of a cut share the
   source's footprint, so the plate check blocked slicing until the user pressed Arrange (T-073 made
   that block visible again). After a successful cut with **Both parts** the app now arranges the two
