@@ -170,7 +170,12 @@ test.describe('navigation: one home per function', () => {
     await app.evaluate(() => window.webslicer.getState().setView('plater'));
     await app.waitForTimeout(400);
     await byId(app, 'menu').click();
+    // The trigger moves the focus into the panel in a `requestAnimationFrame`, so the first press in
+    // a burst can still be handled by the trigger while the panel does not exist yet. Wait for that
+    // move before walking on: otherwise all three presses land on the trigger and the walk never
+    // starts. The presses after it are synchronous (the panel's own key handler).
     await app.keyboard.press('ArrowDown');
+    await expect(app.getByRole('menu', { name: 'Main menu' }).getByRole('menuitem').first()).toBeFocused();
     await app.keyboard.press('ArrowDown');
     await app.keyboard.press('ArrowDown');
     await expect(byId(app, 'menu-settings')).toBeFocused();
