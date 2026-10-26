@@ -1,21 +1,12 @@
 /**
- * "A new version is available" (T-058): does the GitHub repository of WebSlicer know more than this
- * build?
+ * "A new version is available": does the GitHub repository know more than this build?
  *
- * The check runs **on the server** (`GET /api/update-status` is the only thing the browser sees), so a
- * self-hosted install whose browser has no internet access still learns about a new version – and the
- * browser never talks to GitHub. Both places are cached: the last observation in memory and in the
- * data dir, so a restart shows the last known answer before the first check runs.
- *
- * The rules, from the task:
- * - an **update** is a tracked branch whose head differs from the commit this build was made from, or a
- *   release tag newer than the running version;
- * - a build that does not know its commit (`unknown`) only gets the tag-based notice;
- * - every failure (offline, rate limit, timeout, a malformed answer) is silent: the last observation is
- *   kept, the log gets one debug line, nothing else notices;
- * - `WEBSLICER_UPDATE_CHECK=off` disables all outbound calls – the request is not made at all.
- *
- * Nothing here updates anything: no download, no restart, no "update now".
+ * The check runs **on the server** (`GET /api/update-status` is all the browser sees), so a
+ * self-hosted install without internet in the browser still learns about a new version and the
+ * browser never talks to GitHub. The answer is cached in memory and in the data dir, so a restart
+ * shows the last known answer. An update is a newer head of the tracked branch or a newer release
+ * tag; a build without a commit only gets the tag notice; every failure is silent and keeps the last
+ * observation. `WEBSLICER_UPDATE_CHECK=off` makes no request at all. Nothing here updates anything.
  */
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';

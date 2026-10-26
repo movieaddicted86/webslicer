@@ -1,23 +1,12 @@
 /**
- * Vendor bundle updates: check the profile repository, install a newer bundle, revert, and install a
- * bundle from a file for air-gapped installs.
+ * Vendor bundle updates: check the repository, install a newer bundle, revert, or install one from a file.
  *
- * - **Fixed sources only.** Host `raw.githubusercontent.com`, repository `prusa3d/PrusaSlicer-settings`,
- *   branch `master`, path `live/<VendorId>/…`. The vendor id must be one of the vendors this install
- *   already has; every file name is built here (`<version>.ini`, assets from an allowlist pattern),
- *   never taken from a response as a path. Redirects are refused, each request times out after 10 s
- *   and every body is capped (bundle 5 MB, asset 5 MB).
- * - **Validate before install.** The download is parsed in a temporary directory inside the data dir.
- *   The bundle has to name this vendor, carry a newer `config_version`, and pass the limit sweep of
- *   the bundled profiles plus the preflight scanner over its start/layer/end G-code. A block-level
- *   finding refuses the whole bundle; nothing is written. G-code rules the vendor's bundle in use
- *   already trips are reported, not treated as new (see `bundleFindings`).
- * - **Nothing changes without a click.** The check may run once per 24 h and only when
- *   `WEBSLICER_UPDATE_CHECK` is not `off`; installing is always the user's action.
- * - **Newer wins.** The bundle is renamed into `<dataDir>/vendor/<VendorId>.ini` (the previous file
- *   stays as `.prev`), then `loadBundles(true)` makes it the one in use. `loadBundles` picks the
- *   highest `config_version` per vendor id, so the image's copy remains the fallback, and a revert is
- *   one rename back.
+ * - **Fixed sources only.** Host, repository, branch and file names are built here, never taken from
+ *   a response as a path; redirects are refused, requests time out after 10 s, bodies cap at 5 MB.
+ * - **Validate before install.** The bundle must name this vendor, carry a newer `config_version` and
+ *   pass the limit sweep plus the preflight over its G-code; a block refuses the whole bundle.
+ * - **Nothing changes without a click**, and the highest `config_version` per vendor wins, so the
+ *   image's copy stays the fallback and a revert is one rename back.
  */
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';

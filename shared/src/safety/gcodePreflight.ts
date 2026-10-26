@@ -1,45 +1,12 @@
 /**
- * G-code preflight v1 (S1-c, T-031): what does a finished print file do before it is sent?
+ * G-code preflight: does a finished print file do anything dangerous before it is sent?
  *
- * Custom start/end/layer G-code and firmware commands go 1:1 into the output – that is the point of a
- * custom G-code – but a preset or an MCP-written setting can therefore ship commands that rewrite the
- * printer's EEPROM, disable the endstops, change steps/mm or currents, flash firmware, or heat beyond
- * any sane value. Nothing looked at the produced file before the send dialog; this scanner does.
- *
- * The rule set of Q-005, deliberately small and free of position tracking (purge lines, delta beds and
- * relative moves would make bounds checks noisy – the object bounds are `plateCheck.ts`'s job, and
- * every slice path runs it):
- *
- * | rule                     | severity | finding                                                        |
- * | ------------------------ | -------- | -------------------------------------------------------------- |
- * | `gcode.forbidden_command`| block    | `M500 M502 M211 S0 M92 M997 M851 M121`, `M302` without a limit, `SAVE_CONFIG` |
- * | `gcode.motor_current`    | warn     | `M906`/`M907` – see below                                       |
- * | `gcode.max_temp`         | block    | `M104`/`M109` above 450 °C, `M140`/`M190` above 150 °C, chamber above 100 °C, and the targets of `M303`, `M141`/`M191`, `G10`/`M568`, `SET_HEATER_TEMPERATURE` |
- * | `gcode.no_homing`        | block    | a move with X/Y/Z before the first `G28`                         |
- * | `gcode.macro_before_move`| warn     | the same, but a printer macro (e.g. `PRINT_START`) came first    |
- * | `gcode.firmware_limit`   | warn     | `M201 M203 M204 M205` above the printer preset's `machine_max_*` |
- * | `gcode.not_scanned`      | warn     | the output is binary G-code, which v1 does not read              |
- *
- * **`M906`/`M907` are a warning, not a block** (deviation from the task, see the T-031 report):
- * PrusaSlicer's own printer presets set the extruder current in their start and end G-code – the stock
- * MK3S preset writes `M907 E430` in `start_gcode` and `M907 E538` in `end_gcode`, so a block would
- * refuse every file the slicer produces for that printer. Prusa's own comment there ("Excessive value
- * can damage the printer") is the reason the command is reported at all: it shows in the dialog with
- * its line, and starting a print right away needs a confirmation.
- *
- * The temperature ceilings and the machine limits are inputs, not constants: S1-d passes the
- * per-printer limits in. The scan is a stateful chunked scanner (files are tens of MB – never a
- * whole-file string), and the result is stored on the job with `PREFLIGHT_VERSION`, so a later rule
- * set can re-run it.
- *
- * The issues have the shape of a `SendIssue` plus the line number and the offending line, so the send
- * gate can merge them with its preset issues without a second format.
- *
- * The scanner splits on **every** line end Marlin treats as one: `\r\n`, a lone `\r` and `\n`
- * (q6-preflight, N2). Splitting on `\n` alone let a lone `\r` hide a command – `G28\rM500` was one
- * line for the scanner and two commands for the printer. PrusaSlicer 2.9.6 turns the `\r` of a preset
- * value into a real line break itself (reproduced in the T-049 report), but the scanner must not rely
- * on that. A command word may also carry blanks after its letter (`M 500`, accepted by Marlin).
+ * Custom G-code goes 1:1 into the output, so a preset or an agent-written setting can ship commands
+ * that rewrite the EEPROM, disable the endstops or overheat – nothing looked at the produced file
+ * before this. The scan is chunked (files are tens of MB) and its result is stored on the job with
+ * `PREFLIGHT_VERSION`. `M906`/`M907` only *warn*: PrusaSlicer's own presets write `M907 E430` in
+ * their start G-code, so a block would refuse every file for an MK3S. Rule table, the three Marlin
+ * line ends and the reasons: `docs/safety.md`.
  */
 import { unescapeStringCstyle } from '../values.js';
 import type { ConfigPreflightScan, MaxTemperatures, PreflightIssue, PreflightResult, SendIssue, SendIssueSeverity } from '../types/jobs.js';

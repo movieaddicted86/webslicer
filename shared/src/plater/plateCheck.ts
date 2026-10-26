@@ -1,22 +1,12 @@
 /**
- * Plate checks before slicing: what PrusaSlicer refuses or warns about, computed from plain
- * footprints (the instance's convex hull on the bed, or its box) so both the browser (before a long
- * slice) and the server (every path that queues a job) can run the same rules.
+ * Plate checks before slicing: what PrusaSlicer refuses or warns about, from plain footprints (the
+ * instance's convex hull on the bed, or its box), so the browser and every server path agree.
  *
- * The rules were measured against PrusaSlicer 2.9.6 (see `.ai/reports/T-034.md`):
- * - an object whose outline leaves the bed polygon or exceeds the print height is refused
- *   ("All objects are outside of the print volume.", no output file);
- * - two instances whose toolpaths collide (their footprints overlap by more than about
- *   2 × the first-layer extrusion width) are refused ("gcode path conflict found between …");
- * - a skirt/brim that runs past the print area is only blocked by PrusaSlicer's GUI, not by the
- *   2.9 CLI – the task asks WebSlicer to follow the GUI here, so those issues block.
- *
- * The outline is the convex hull of the instance's bed projection (T-078), so two diagonal or
- * interlocking parts no longer collide just because their boxes do. For a concave part the hull is
- * larger than the part, which keeps the check conservative; it is never looser than the slicer.
- *
- * The geometry is plain numbers so the rules can be unit tested without a renderer. Reading the
- * footprints of a plater (the browser's objects, the server's stored meshes) is the caller's part.
+ * Measured against PrusaSlicer 2.9.6: an object off the bed polygon or above the print height is
+ * refused, as are two instances whose toolpaths collide (overlap by more than about 2 × the first-layer
+ * extrusion width); a skirt or brim past the print area blocks only in the GUI, but blocks here too.
+ * The hull makes the check conservative for a concave part and never looser than the slicer. Plain
+ * numbers, so it is unit-tested without a renderer; reading the footprints is the caller's part.
  */
 import type { Config } from '../types/index.js';
 import { toBool, splitVector } from '../values.js';

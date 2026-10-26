@@ -6,6 +6,12 @@ any browser – on a PC, a tablet or the workshop laptop.
 
 ![WebSlicer: load a model, slice, preview, send to the printer in 13 seconds](docs/images/hero.gif)
 
+> **Print at your own risk.** WebSlicer slices and sends G-code to real machines. Check the
+> temperatures and the plate yourself before a print starts; the safety checks reduce the risk but
+> cannot remove it. The software comes without warranty (AGPL-3.0) – a print that damages a printer, a
+> part or a room is your own responsibility. Details: [docs/safety.md](docs/safety.md),
+> [SECURITY.md](SECURITY.md).
+
 ![Stack](https://img.shields.io/badge/engine-PrusaSlicer%202.9.x-orange) ![Node](https://img.shields.io/badge/node-%E2%89%A522-green) ![License](https://img.shields.io/badge/license-AGPL--3.0-blue)
 
 ## Features
@@ -43,8 +49,7 @@ The layout in detail is in [docs/development.md](docs/development.md).
 
 Feature-by-feature comparison with PrusaSlicer: [docs/Feature-Comparison.md](docs/Feature-Comparison.md).
 Not included yet (see [TODO.md](TODO.md)): text/SVG embossing, a measurement tool, a G-code viewer for
-files from the library. The slicing result is otherwise identical to PrusaSlicer because the same engine
-is used.
+library files; otherwise the slicing result equals PrusaSlicer because the same engine is used.
 
 ## Quick start
 
@@ -124,10 +129,9 @@ The file library can be a shared folder or a NAS mount: models, projects and fin
 - [docs/development.md](docs/development.md) – repo layout, commands, tests and CI
 - [docs/safety.md](docs/safety.md) – configuration limits and G-code preflight
 - [docs/Feature-Comparison.md](docs/Feature-Comparison.md) – PrusaSlicer ↔ WebSlicer feature inventory
-- [docs/MCP-Concept.md](docs/MCP-Concept.md) – the concept behind the agent endpoint
-- [docs/UAT.md](docs/UAT.md) – acceptance test plan
+- [docs/MCP-Concept.md](docs/MCP-Concept.md) and [docs/UAT.md](docs/UAT.md) – agent endpoint concept, acceptance test plan
 - [CHANGELOG.md](CHANGELOG.md) – versions, [TODO.md](TODO.md) – roadmap
-- [docs/archive/](docs/archive/) – finished reports and work packages, kept for traceability
+- [docs/archive/](docs/archive/) – finished reports, work packages and long-form changelog entries, kept for traceability
 
 The screenshots above are generated: `npm run docs:screenshots` drives the Docker image with Playwright
 and refreshes `docs/images/`; the animation at the top comes from `npm run docs:gif`.

@@ -1,40 +1,12 @@
 /**
- * Configuration limits (S1-d, T-032): what a value in a slice request may be before it is dangerous.
+ * Configuration limits: what a value in a slice request may be before it is dangerous.
  *
- * S1-c reads the *finished G-code*; this module reads the *settings* that produce it, while a job is
- * still just a request. Nothing else bounded them: a typo (`temperature = 2150`, `bed_temperature =
- * 1100`) sliced happily and was only caught later – and only if the file was sent – by the wide
- * G-code catchers. Two levels, as decided in Q-005:
- *
- * - **Global typo catchers (block).** Wide enough that no legitimate machine trips them, narrow enough
- *   that a mistyped value cannot reach the slicer: hotend temperatures are `0` (off) or 150–450 °C,
- *   bed 0–150 °C, chamber 0–100 °C, nozzle 0.1–2.0 mm, layer height > 0 and at most twice the nozzle
- *   (see `LAYER_HEIGHT_NOZZLE_FACTOR`). `0` is what PrusaSlicer means by "off" and is allowed
- *   everywhere it is meaningful.
- * - **Soft ranges by `filament_type` (warn).** "PLA at 265 °C is unusual", "abs at bed 50 °C is
- *   unusual" – the printed material changes, not the machine, so a value outside the usual window is
- *   worth a confirmation but no block. The numbers come from PrusaSlicer 2.9.6's own system filament
- *   profiles (`resources/profiles/*.ini`): the observed range per type, rounded outwards. Source ranges:
- *
- *   | type          | hotend (2.9.6) | bed (2.9.6) |
- *   | ------------- | -------------- | ----------- |
- *   | PLA (PLA-CF)  | 175–250        | 30–80       |
- *   | PETG          | 210–285        | 60–110      |
- *   | ABS           | 230–270        | 70–110      |
- *   | ASA           | 220–275        | 55–110      |
- *   | TPU / FLEX    | 195–260        | 30–100      |
- *   | PA / NYLON    | 235–300        | 40–130      |
- *   | PC            | 255–290        | 95–120      |
- *
- * Each window below is that range, rounded outwards to a 5 °C step – a shipped preset is inside its
- * window by construction, and only a value clearly off the material's working window warns. The vendor
- * sweep (`server/scripts/limits-sweep.ts`) reports the resulting numbers; the task's example ("PLA at
- * 265 °C is unusual") still warns.
- *
- * Every check is pure and works on the raw config strings of a request, so the REST routes, the MCP
- * tools, the send gate and the vendor sweep share one implementation. Per-extruder vectors are checked
- * element-wise (`temperature = 215,2150` reports the second one); `nil` elements (nullable vectors)
- * and missing keys are skipped.
+ * A typo (`temperature = 2150`) used to slice happily. Two levels: **global typo catchers** that
+ * block (hotend 0 or 150–450 °C, bed 0–150, chamber 0–100, nozzle 0.1–2.0 mm, layer height at most
+ * twice the nozzle; `0` means "off"), and **soft ranges per `filament_type`** that only warn, taken
+ * from the 2.9.6 system filament profiles and rounded outwards to 5 °C. Every check is pure and works
+ * on the raw config strings, so REST, MCP, the send gate and the vendor sweep share one
+ * implementation. Windows and measured ranges: `docs/safety.md`.
  */
 import type { Config } from '../types/common.js';
 import type { ConfigIssue, MaxTemperatures, SendIssue, SendIssueSeverity } from '../types/jobs.js';

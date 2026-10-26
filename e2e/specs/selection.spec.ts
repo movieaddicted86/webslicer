@@ -117,9 +117,16 @@ test.describe('the Library selects several files', () => {
 
   test('a checkbox, a Ctrl click and Shift select several files, and Clear empties it', async ({ app }) => {
     await openDialog(app, 'library', 'open');
+    // The samples folder grows with every new sample (T-078 added l_bracket.stl), so the count comes
+    // from the listing instead of a literal; four is what the range below needs (rows 0, 1 and 3).
+    const sampleFiles = await app.evaluate(async () => {
+      const listing = (await (await fetch('/api/library?path=samples')).json()) as { entries: Array<{ dir?: boolean }> };
+      return listing.entries.filter((e) => !e.dir).length;
+    });
+    expect(sampleFiles).toBeGreaterThanOrEqual(4);
     // the samples folder holds enough files for a range: open it first
     await byId(app, 'library-row').filter({ hasText: 'samples' }).first().locator('.name').click();
-    await expect(fileRows(app)).toHaveCount(6);
+    await expect(fileRows(app)).toHaveCount(sampleFiles);
 
     await fileRows(app).nth(0).locator('[data-testid="library-check"]').check();
     await expect(byId(app, 'library-selection')).toContainText('1 selected');

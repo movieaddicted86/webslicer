@@ -3,6 +3,13 @@
 WebSlicer is a self-hosted tool: it runs on your machine or network and talks to your printers. It
 handles uploaded models, preset files and G-code, so a bug can matter beyond the browser tab.
 
+## Printing at your own risk
+
+**Print at your own risk.** WebSlicer slices and sends G-code to real machines. Check the temperatures
+and the plate yourself before a print starts; the safety checks reduce the risk but cannot remove it.
+The software comes without warranty (AGPL-3.0) – a print that damages a printer, a part or a room is
+your own responsibility. Details: [docs/safety.md](docs/safety.md).
+
 ## Supported versions
 
 Security fixes go into the latest release and into `main`. Older pre-releases are not patched.
