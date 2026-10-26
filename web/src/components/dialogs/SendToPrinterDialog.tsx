@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react';
 import {
   checkSend,
+  combinedSafety,
   printerLimitIssues,
   printerLimitsMissingIssue,
+  profileOf,
   sendMatch,
   storedPreflightIssues,
   type PresetLink,
@@ -89,19 +91,23 @@ export function SendToPrinterDialog({ onClose }: { onClose: () => void }) {
   const [busy, setBusy] = useState(false);
 
   const printer = printers.find((p) => p.id === printerId);
+  const record = useStore((s) => s.printerSafety);
+  // T-085: the same combined profile the gate uses – the host's own limits and its preset's answer,
+  // whichever is stricter – so the dialog never shows less (or more) than the server enforces
+  const safety = useMemo(() => combinedSafety(printer?.safety, profileOf(record, printer?.presetName)), [printer, record]);
   const issues: SendIssue[] = useMemo(() => {
     if (!printer || !job) return [];
     // S1-c/S1-d: the preflight issues of the finished file and the target's own safety limits join the
     // preset issues – the server merges the same lists, so the dialog shows what the gate will enforce.
     // T-080: the preflight list carries the config findings as well, and a host without a safety
-    // profile warns that it is only checked against the global ceiling.
+    // profile (and without a preset answer) warns that it is only checked against the global ceiling.
     return [
       ...checkSend({ presets: { printer: jobPreset } }, printer, { presets: links }),
-      ...printerLimitIssues(job.temperatures, printer.safety),
-      ...printerLimitsMissingIssue(printer),
+      ...(safety ? [] : printerLimitsMissingIssue(printer)),
+      ...printerLimitIssues(job.temperatures, safety),
       ...storedPreflightIssues(job.info?.preflight),
     ];
-  }, [printer, job, jobPreset, links]);
+  }, [printer, job, jobPreset, links, safety]);
 
   const blocking = issues.filter((i) => i.severity === 'block');
   const warnings = issues.filter((i) => i.severity === 'warn');

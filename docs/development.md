@@ -200,6 +200,15 @@ deletes jobs and writes presets, printers and autosave files, so it must only ev
 before it writes anything. A hand-started server for the suite therefore needs that data dir (or the
 marker copied into it); never point it at your working install.
 
+The fixture dir also carries the **safety state a user who answered the wizard would have**:
+`printer_safety.json` (the fixture printer as all-metal, 450 °C) and an acknowledged
+`risk_notice.json`. Without them every default plate would show the "no hotend type set" warning in the
+Slice footer and the first slice would stop at the notice card, which is not what the specs that count
+footer issues (or slice) are about. The global setup re-applies both before a run – a leftover answer of
+another preset is dropped. `safety.spec.ts` owns the unanswered case with a preset of its own (deleting
+the fixture printer's answer would take the warning out of the footer of every other spec of its shard,
+lock or no lock).
+
 - Specs select the app's structure by its **hooks**, not by its class names: `data-testid`
   attributes named by role (`tool-panel`, `object-row`, `modal`, …) that stay valid when the layout
   moves an element. Use `byId(page, 'tool-panel')` from `e2e/helpers/hooks.ts`, or the attribute

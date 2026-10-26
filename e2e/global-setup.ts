@@ -6,10 +6,25 @@
  * The suite therefore refuses a target without the positive fixture marker, and no default target
  * exists: `npm run e2e` needs `E2E_BASE_URL` (set by `npm run e2e:docker` and by CI).
  */
+import fs from 'node:fs';
+import path from 'node:path';
 import type { FullConfig } from '@playwright/test';
+import type { PrinterSafetyRecord } from '@webslicer/shared';
 
 /** The printer preset every spec starts from – installed by `e2e/fixtures/data`. */
 export const E2E_PRINTER = 'Original Prusa i3 MK3S & MK3S+';
+
+/** The fixture data's own safety answer file (T-085), inside the data dir the app is started with. */
+const FIXTURE_SAFETY_FILE = path.resolve('e2e/fixtures/data/printer_safety.json');
+
+/**
+ * The safety answer of the fixture printer, as `e2e/fixtures/data/printer_safety.json` stores it
+ * (T-085): an all-metal hotend, i.e. no narrower limit than the global ceiling. A user who answered the
+ * wizard step has one, so the default plate carries no `config.no_printer_safety` warning and the specs
+ * that count footer issues see only their own. The **unanswered** case is `safety.spec.ts`'s (it answers
+ * a preset of its own and never touches the fixture printer's record).
+ */
+export const FIXTURE_SAFETY = (JSON.parse(fs.readFileSync(FIXTURE_SAFETY_FILE, 'utf8')) as PrinterSafetyRecord)[E2E_PRINTER];
 
 /**
  * A user **SLA print** preset that only `e2e/fixtures/data/presets/sla_print/` carries. Its presence
@@ -85,12 +100,19 @@ export default async function globalSetup(config: FullConfig): Promise<void> {
   const jobs = (await (await fetch(`${baseURL}/api/jobs`)).json()) as Array<{ id: string }>;
   for (const j of jobs) await fetch(`${baseURL}/api/jobs/${j.id}`, { method: 'DELETE' });
 
-  // T-085 state from an earlier run: a preset answer would narrow a spec that expects no limits, and
-  // the risk notice has to be out of the way – it is the one card that holds the first slice, and
-  // every spec slices. The safety spec resets both for its own tests and puts them back.
+  // T-085 state from an earlier run: an answer for another preset would narrow a spec that expects no
+  // limits, and the risk notice has to be out of the way – it is the one card that holds the first
+  // slice, and every spec slices. The fixture printer's own answer is part of the fixture data
+  // (`printer_safety.json`, an all-metal 450 °C, as a user who answered the wizard would have), so it
+  // is put back rather than deleted; the missing-answer case is `safety.spec.ts`'s own business.
   const safety = (await (await fetch(`${baseURL}/api/printer-safety`)).json()) as Record<string, unknown>;
   for (const preset of Object.keys(safety)) {
-    await fetch(`${baseURL}/api/printer-safety/${encodeURIComponent(preset)}`, { method: 'DELETE' });
+    if (preset !== E2E_PRINTER) await fetch(`${baseURL}/api/printer-safety/${encodeURIComponent(preset)}`, { method: 'DELETE' });
   }
+  await fetch(`${baseURL}/api/printer-safety/${encodeURIComponent(E2E_PRINTER)}`, {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(FIXTURE_SAFETY),
+  });
   await fetch(`${baseURL}/api/risk-notice/ack`, { method: 'POST' });
 }

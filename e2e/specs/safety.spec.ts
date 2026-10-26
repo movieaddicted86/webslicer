@@ -3,17 +3,41 @@
  * limit it sets for slicing, and the one-time risk notice.
  *
  * The spec writes **server state** (a safety record, the risk notice, presets of its own), so it takes
- * the `server-state` lock and puts the fixture back at the end: the limit record of the fixture printer
- * is cleared, so the other specs slice against the global ceilings as before.
+ * the `server-state` lock and puts the fixture back at the end: the fixture printer keeps the answer
+ * `e2e/fixtures/data/printer_safety.json` seeds (all-metal, 450 °C), and the risk notice stays
+ * acknowledged. The **unanswered** case of AC-2 is this spec's own business – it answers for a preset
+ * of its own rather than deleting the fixture printer's answer, so the unlocked specs of the shard
+ * that render the same footer (`plate-gate`, `nesting`) never see a warning that is not theirs.
  */
 import { CUBE, importFile, read, rest, settle, sliceAndWait } from '../helpers/app';
 import { expect, test } from '../helpers/fixtures';
-import { E2E_PRINTER } from '../global-setup';
+import { E2E_PRINTER, FIXTURE_SAFETY } from '../global-setup';
+import { addPreset, removePreset } from '../helpers/mock-host';
 import { click, dialogKind, fill, openDialog } from '../helpers/dom';
 
-/** The fixture printer's safety record, cleared again at the end of the spec. */
-async function clearSafety(app: Parameters<typeof read>[0]): Promise<void> {
-  await rest(app, 'DELETE', `/api/printer-safety/${encodeURIComponent(E2E_PRINTER)}`);
+/** A preset of the spec's own, inheriting the fixture printer – the answers are written for it. */
+const OWN_PRESET = 'E2E safety preset';
+
+/** The safety record of one preset, written or deleted, and the store's copy brought up to date. */
+async function setSafety(app: Parameters<typeof read>[0], preset: string, profile: Record<string, unknown> | null): Promise<void> {
+  await rest(app, profile ? 'PUT' : 'DELETE', `/api/printer-safety/${encodeURIComponent(preset)}`, profile ?? undefined);
+  await app.evaluate(() => window.webslicer.getState().refreshPrinterSafety());
+  await app.waitForTimeout(500);
+}
+
+/** Make the spec's own preset the plater's printer, so the footer has no answer for it. */
+async function ownPreset(app: Parameters<typeof read>[0]): Promise<void> {
+  await addPreset(app, OWN_PRESET, E2E_PRINTER);
+  await app.evaluate(async (name) => {
+    const s = window.webslicer.getState();
+    if (s.presets.printer.name !== name) await s.selectPreset('printer', name);
+  }, OWN_PRESET);
+  await setSafety(app, OWN_PRESET, null);
+}
+
+/** Put the fixture data's own answer back (all-metal, 450 °C), so no other spec sees a warning. */
+async function restoreSafety(app: Parameters<typeof read>[0]): Promise<void> {
+  await rest(app, 'PUT', `/api/printer-safety/${encodeURIComponent(E2E_PRINTER)}`, FIXTURE_SAFETY);
   await app.evaluate(() => window.webslicer.getState().refreshPrinterSafety());
   await app.waitForTimeout(500);
 }
@@ -25,7 +49,18 @@ test.describe('safety: the printer wizard step, its limit and the risk notice', 
   });
 
   test.afterEach(async ({ app }) => {
-    await clearSafety(app);
+    await restoreSafety(app);
+    // the spec's own preset goes away again – deleting it drops its answer too, by design
+    await app.evaluate(
+      async ([own, fixture]) => {
+        const s = window.webslicer.getState();
+        if (s.presets.printer.name === own) await s.selectPreset('printer', fixture);
+      },
+      [OWN_PRESET, E2E_PRINTER] as const,
+    );
+    await removePreset(app, OWN_PRESET);
+    // the notice is the one card that holds the first slice; the fixture keeps it acknowledged
+    await rest(app, 'POST', '/api/risk-notice/ack');
   });
 
   test(
@@ -33,7 +68,8 @@ test.describe('safety: the printer wizard step, its limit and the risk notice', 
     { lock: 'server-state' },
     async ({ app }) => {
       const sliceButton = app.locator('[data-testid="slice-button"]');
-      // no answer yet: a warning in the footer, and the slice still runs
+      // no answer for this preset: a warning in the footer, and the slice still runs
+      await ownPreset(app);
       await expect(app.locator('[data-testid="slice-panel"] .plate-issues.limits li')).toContainText('No hotend type set for this printer');
       await expect(sliceButton).toBeEnabled();
 
@@ -47,7 +83,7 @@ test.describe('safety: the printer wizard step, its limit and the risk notice', 
         save: (document.querySelector('[data-testid="safety-step"] [data-testid="modal-primary"]') as HTMLButtonElement | null)?.disabled,
         skip: document.querySelector('[data-testid="safety-skip"]')?.textContent,
       }));
-      expect(step.title).toContain(E2E_PRINTER);
+      expect(step.title).toContain(OWN_PRESET);
       expect(step.hotend).toBe('');
       expect(step.save).toBe(true);
       expect(step.skip).toBe('Ask me later');
@@ -58,7 +94,7 @@ test.describe('safety: the printer wizard step, its limit and the risk notice', 
 
       // the answer is on the server, keyed by the preset name, and the warning is gone
       const record = await rest<Record<string, { hotendType: string; maxHotend: number }>>(app, 'GET', '/api/printer-safety');
-      expect(record.json[E2E_PRINTER]).toEqual({ hotendType: 'ptfe', maxHotend: 240 });
+      expect(record.json[OWN_PRESET]).toEqual({ hotendType: 'ptfe', maxHotend: 240 });
       await expect(app.locator('[data-testid="slice-panel"] .plate-issues.limits li')).toHaveCount(0);
 
       // 260 °C is fine for PETG but above the PTFE liner: the field reddens and the slice is blocked
@@ -107,9 +143,9 @@ test.describe('safety: the printer wizard step, its limit and the risk notice', 
   );
 
   test('the server refuses the same hot request on its own (AC-2)', { lock: 'server-state' }, async ({ app }) => {
-    await rest(app, 'PUT', `/api/printer-safety/${encodeURIComponent(E2E_PRINTER)}`, { hotendType: 'ptfe' });
-    await app.evaluate(() => window.webslicer.getState().refreshPrinterSafety());
-    await app.waitForTimeout(500);
+    // the spec's own preset, answered PTFE: the fixture printer's answer is never touched
+    await ownPreset(app);
+    await setSafety(app, OWN_PRESET, { hotendType: 'ptfe' });
     // the slice route is the seam the UI cannot talk around: it answers 400 with the issue list
     const res = await app.evaluate(async () => {
       const s = window.webslicer.getState();
@@ -180,15 +216,10 @@ test.describe('safety: the printer wizard step, its limit and the risk notice', 
     'reopening the safety question shows the stored answer, and "Ask me later" keeps it (AC-1)',
     { lock: 'server-state' },
     async ({ app }) => {
-      // a stored "other" answer: reopening pre-fills type, number and bed limit
-      await rest(app, 'PUT', `/api/printer-safety/${encodeURIComponent(E2E_PRINTER)}`, {
-        hotendType: 'other',
-        maxHotend: 300,
-        maxBed: 100,
-      });
-      await app.evaluate(() => window.webslicer.getState().refreshPrinterSafety());
-      await app.waitForTimeout(500);
-      await openDialog(app, 'printers', { safety: E2E_PRINTER });
+      // a stored "other" answer on a preset of the spec's own: reopening pre-fills type, number, bed
+      await addPreset(app, OWN_PRESET, E2E_PRINTER);
+      await setSafety(app, OWN_PRESET, { hotendType: 'other', maxHotend: 300, maxBed: 100 });
+      await openDialog(app, 'printers', { safety: OWN_PRESET });
       await expect(app.locator('#safety-hotend-type')).toHaveValue('other');
       await expect(app.locator('#safety-hotend-limit')).toHaveValue('300');
       await expect(app.locator('#safety-max-bed')).toHaveValue('100');
@@ -197,7 +228,7 @@ test.describe('safety: the printer wizard step, its limit and the risk notice', 
       await click(app, '[data-testid="safety-skip"]', 600);
       expect(await dialogKind(app)).toBeUndefined();
       const record = await rest<Record<string, unknown>>(app, 'GET', '/api/printer-safety');
-      expect(record.json[E2E_PRINTER]).toEqual({ hotendType: 'other', maxHotend: 300, maxBed: 100 });
+      expect(record.json[OWN_PRESET]).toEqual({ hotendType: 'other', maxHotend: 300, maxBed: 100 });
     },
   );
 

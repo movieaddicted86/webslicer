@@ -8,9 +8,8 @@
  * - AC-2: a value outside the material's soft range only warns (yellow field, badge in the sidebar)
  *   and the slice still runs – with the server's warning carried on the job, as before.
  */
-import { CUBE, importFile, read, rest, settle, sliceAndWait } from '../helpers/app';
+import { CUBE, importFile, read, settle, sliceAndWait } from '../helpers/app';
 import { expect, test } from '../helpers/fixtures';
-import { E2E_PRINTER } from '../global-setup';
 import { fill } from '../helpers/dom';
 
 /** Open the filament settings of the first extruder in Expert mode, with `temperature` in view. */
@@ -31,10 +30,9 @@ async function openTemperature(app: Parameters<typeof fill>[0], value: string): 
 
 test.describe('limits: configuration limits in the editor (S1-e)', () => {
   test.beforeEach(async ({ app }) => {
-    // T-085: an answered printer, so the footer lists the settings issues alone – an unanswered one
-    // would add its own warning to every count below. All-metal keeps the global ceilings in charge.
-    await rest(app, 'PUT', `/api/printer-safety/${encodeURIComponent(E2E_PRINTER)}`, { hotendType: 'all-metal' });
-    await app.evaluate(() => window.webslicer.getState().refreshPrinterSafety());
+    // T-085: the fixture data answers the hotend question for the fixture printer (all-metal, 450 °C)
+    // and the global setup re-applies it, so the footer lists the settings issues alone – an unanswered
+    // printer would add its own warning to every count below.
     await importFile(app, CUBE);
     // a PLA filament, so a value inside the global window can still leave the material's soft range
     await app.evaluate(() => window.webslicer.getState().setOption('filament', 'filament_type', 'PLA'));

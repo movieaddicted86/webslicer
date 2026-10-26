@@ -57,6 +57,8 @@ test.describe('send: the send gate and the upload (S1-b, T-026)', () => {
   });
 
   let created: TestPrinter[] = [];
+  /** user presets a single test creates for itself; removed after the hosts pointing at them are gone */
+  let extraPresets: string[] = [];
 
   /*
    * T-057: the printer list and the mock's upload log are **server state** – two workers on the same
@@ -70,8 +72,10 @@ test.describe('send: the send gate and the upload (S1-b, T-026)', () => {
 
   test.afterEach(async ({ app }) => {
     await removePrinters(app, created);
+    for (const name of extraPresets) await removePreset(app, name);
     await removePreset(app, DERIVED_PRESET);
     created = [];
+    extraPresets = [];
     clearUploads();
   });
 
@@ -428,17 +432,30 @@ test.describe('send: the send gate and the upload (S1-b, T-026)', () => {
 
   test('a host without a safety profile warns in the dialog and on the server, and still uploads (T-080)', async ({ app }) => {
     await prepare(app, ['exact']);
+    // T-085: a preset's own answer silences the warning for its hosts, so the "nobody answered" case
+    // needs a preset of its own – the fixture printer is answered in `e2e/fixtures/data` and other
+    // specs of the shard slice with it, so its record must not be touched here
+    const unansweredPreset = 'E2E unanswered preset';
+    await addPreset(app, unansweredPreset, E2E_PRINTER);
+    // removed after the hosts are gone (afterEach), so no host is left pointing at a deleted preset
+    extraPresets.push(unansweredPreset);
     // the printer setup asks for the hotend type; a host that has not answered carries no profile
-    const unanswered = await addPrinter(app, { name: 'Unanswered host', presetName: E2E_PRINTER, safety: null });
+    const unanswered = await addPrinter(app, { name: 'Unanswered host', presetName: unansweredPreset, safety: null });
     created.push(unanswered);
     expect(unanswered.safety).toBeUndefined();
-    await app.evaluate(async () => window.webslicer.getState().refreshPhysicalPrinters());
+    await app.evaluate(async () => {
+      const s = window.webslicer.getState();
+      await s.refreshPresetLists();
+      await s.refreshPhysicalPrinters();
+    });
     await sendDialog(app);
     await app.locator('[data-testid="modal"] .form select').selectOption(unanswered.id);
     await settle(app, 300);
-    // a warning, not a block: the machine may well be all-metal, but the owner has not said so
-    const warning = app.locator('[data-testid="modal"] .warn').first();
-    await expect(warning).toContainText('has no safety limits');
+    // a warning, not a block: the machine may well be all-metal, but the owner has not said so.
+    // Its own preset is derived from the job's, so the derived-preset warning is listed as well –
+    // the no-limits one is found by its text, not by being the first of the list
+    const warning = app.locator('[data-testid="modal"] .warn').filter({ hasText: 'has no safety limits' });
+    await expect(warning).toHaveCount(1);
     await expect(warning).toContainText('PTFE-lined (240 °C) or all-metal');
     await expect(uploadButton(app), 'a warning does not block the upload').toBeEnabled();
 
@@ -458,7 +475,7 @@ test.describe('send: the send gate and the upload (S1-b, T-026)', () => {
       name: 'Unanswered host',
       type: 'moonraker',
       host: mockHost(),
-      presetName: E2E_PRINTER,
+      presetName: unansweredPreset,
       safety: { maxHotend: 450 },
     });
     await app.evaluate(async () => window.webslicer.getState().refreshPhysicalPrinters());
