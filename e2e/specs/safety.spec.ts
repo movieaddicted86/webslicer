@@ -2,18 +2,27 @@
  * The safety questions of T-085 in the browser: the Safety step of the printer wizard, the blocking
  * limit it sets for slicing, and the one-time risk notice.
  *
- * The spec writes **server state** (a safety record, the risk notice, presets of its own), so it takes
- * the `server-state` lock and puts the fixture back at the end: the fixture printer keeps the answer
+ * The spec writes **server state** (a safety record, presets of its own), so it takes the
+ * `server-state` lock and puts the fixture back at the end: the fixture printer keeps the answer
  * `e2e/fixtures/data/printer_safety.json` seeds (all-metal, 450 °C), and the risk notice stays
  * acknowledged. The **unanswered** case of AC-2 is this spec's own business – it answers for a preset
  * of its own rather than deleting the fixture printer's answer, so the unlocked specs of the shard
  * that render the same footer (`plate-gate`, `nesting`) never see a warning that is not theirs.
+ *
+ * The risk notice is **server-wide**, so the notice test does not delete the shared acknowledgement
+ * (T-089): while it was gone, every other spec of the shard that sliced hit the card and stopped
+ * before its slice. The test instead gives *its own page* the unacknowledged state with a route (the
+ * card, the checkbox gate and the acknowledge call are the app's own code), and reads the real server
+ * through `page.request` – the acknowledgement still has to land in the store, which the changed
+ * `acknowledgedAt` proves.
  */
-import { CUBE, importFile, read, rest, settle, sliceAndWait } from '../helpers/app';
+import { CUBE, blockSessionRestore, importFile, read, rest, settle, sliceAndWait } from '../helpers/app';
 import { expect, test } from '../helpers/fixtures';
 import { E2E_PRINTER, FIXTURE_SAFETY } from '../global-setup';
 import { addPreset, removePreset } from '../helpers/mock-host';
 import { click, dialogKind, fill, openDialog } from '../helpers/dom';
+import type { Page } from '@playwright/test';
+import type { RiskNoticeStatus } from '@webslicer/shared';
 
 /** A preset of the spec's own, inheriting the fixture printer – the answers are written for it. */
 const OWN_PRESET = 'E2E safety preset';
@@ -42,6 +51,42 @@ async function restoreSafety(app: Parameters<typeof read>[0]): Promise<void> {
   await app.waitForTimeout(500);
 }
 
+/**
+ * The server-wide extras this test has to control, **for its own page only** (T-089):
+ *
+ * - `GET /api/risk-notice` answers from here, so the notice shows while the fixture's acknowledgement
+ *   (which every other spec of the shard relies on) is never taken away – with it deleted, the card
+ *   held every other spec's first slice for the length of this test.
+ * - the previous session of this browser is never restored: its import is asynchronous and would land
+ *   *on top of* the cube this test imported – two cubes at the bed centre, a footprint conflict, and a
+ *   Slice button that stays disabled while the click counts down its 7 minutes.
+ *
+ * Every other request – the acknowledgement above all – still goes to the server as it always did.
+ */
+async function quietPage(app: Page, acknowledged: boolean): Promise<{ set: (value: boolean) => void; acks: () => number }> {
+  await blockSessionRestore(app);
+  let state = acknowledged;
+  let acks = 0;
+  await app.route('**/api/risk-notice', async (route) => {
+    if (route.request().method() !== 'GET') return route.continue();
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ acknowledged: state } satisfies RiskNoticeStatus),
+    });
+  });
+  // the acknowledgement the app sends is counted, so "Not now" can prove it stored nothing
+  app.on('request', (r) => {
+    if (r.method() === 'POST' && new URL(r.url()).pathname === '/api/risk-notice/ack') acks++;
+  });
+  return { set: (value) => (state = value), acks: () => acks };
+}
+
+/** The real server's answer, past the page's own route (`page.request` does not see it). */
+async function serverNotice(app: Page): Promise<RiskNoticeStatus> {
+  return (await (await app.request.get('/api/risk-notice')).json()) as RiskNoticeStatus;
+}
+
 test.describe('safety: the printer wizard step, its limit and the risk notice', () => {
   test.beforeEach(async ({ app }) => {
     await importFile(app, CUBE);
@@ -59,8 +104,6 @@ test.describe('safety: the printer wizard step, its limit and the risk notice', 
       [OWN_PRESET, E2E_PRINTER] as const,
     );
     await removePreset(app, OWN_PRESET);
-    // the notice is the one card that holds the first slice; the fixture keeps it acknowledged
-    await rest(app, 'POST', '/api/risk-notice/ack');
   });
 
   test(
@@ -236,6 +279,10 @@ test.describe('safety: the printer wizard step, its limit and the risk notice', 
     'the risk notice is a one-time card, gated by the checkbox and stored server-side (AC-4)',
     { lock: 'server-state' },
     async ({ app }) => {
+      // the notice exactly as a browser without an acknowledgement sees it – for this page only, so
+      // the other specs of the shard keep slicing while this test runs (T-089)
+      const notice = await quietPage(app, false);
+      const before = await serverNotice(app);
       // a fresh reload lands on the plater whatever tab an earlier test left the browser on
       const reloadToPlater = async () => {
         await app.reload();
@@ -247,8 +294,6 @@ test.describe('safety: the printer wizard step, its limit and the risk notice', 
         });
         await app.waitForTimeout(1200);
       };
-      // reset, then the first slice asks: the notice was never acknowledged
-      await rest(app, 'DELETE', '/api/risk-notice/ack');
       await reloadToPlater();
       await importFile(app, CUBE);
       await settle(app, 600);
@@ -262,6 +307,7 @@ test.describe('safety: the printer wizard step, its limit and the risk notice', 
       await expect(app.locator('[data-testid="risk-notice-continue"]')).toBeDisabled();
       // nothing reached the server while the card waits for the click
       expect(await read(app, (s) => s.job)).toBeUndefined();
+      expect(notice.acks()).toBe(0);
 
       await app.locator('[data-testid="risk-notice-understood"]').check();
       await app.waitForTimeout(300);
@@ -269,27 +315,38 @@ test.describe('safety: the printer wizard step, its limit and the risk notice', 
       await app.locator('[data-testid="risk-notice-continue"]').click();
       await app.waitForTimeout(800);
 
-      // the acknowledgement is on the server, so another browser sees it
-      const stored = await rest<{ acknowledged: boolean }>(app, 'GET', '/api/risk-notice');
-      expect(stored.json.acknowledged).toBe(true);
+      // the acknowledgement is on the server, so another browser sees it – a *new* acknowledgement,
+      // not the fixture's (the fixture keeps one, and nothing may take it away)
+      const stored = await serverNotice(app);
+      expect(stored.acknowledged).toBe(true);
+      expect(stored.acknowledgedAt).not.toBe(before.acknowledgedAt);
       // …and the slice now runs to completion
       await sliceAndWait(app);
       expect((await read(app, (s) => s.job))?.status).toBe('done');
 
-      // "Not now" keeps it away for the session without storing anything
-      await rest(app, 'DELETE', '/api/risk-notice/ack');
+      // "Not now" keeps it away for the session without storing anything: the page's own state is
+      // unacknowledged again, and the server never heard of a second acknowledgement. The reload
+      // starts empty (this page's session restore is off), so the cube comes in again – the card is
+      // about the slice, not about what the plater holds.
+      notice.set(false);
+      const acksBefore = notice.acks();
       await reloadToPlater();
+      await importFile(app, CUBE);
+      await settle(app, 600);
       await app.locator('[data-testid="slice-button"]').click();
       await app.waitForTimeout(800);
       expect(await dialogKind(app)).toBe('riskNotice');
       await app.locator('[data-testid="risk-notice-later"]').click();
       await app.waitForTimeout(500);
       expect(await dialogKind(app)).toBeUndefined();
-      expect((await rest<{ acknowledged: boolean }>(app, 'GET', '/api/risk-notice')).json.acknowledged).toBe(false);
+      expect(notice.acks()).toBe(acksBefore);
+      expect((await serverNotice(app)).acknowledgedAt).toBe(stored.acknowledgedAt);
       // the session remembers the answer, so the next slice does not ask again
       await app.locator('[data-testid="slice-button"]').click();
       await app.waitForTimeout(800);
       expect(await dialogKind(app)).toBeUndefined();
+      // the fixture's acknowledgement is still the one the other specs rely on
+      expect((await serverNotice(app)).acknowledged).toBe(true);
     },
   );
 });
