@@ -182,3 +182,30 @@ export async function settle(page: Page, ms = 700): Promise<void> {
     .catch(() => undefined);
   await page.waitForTimeout(ms);
 }
+
+/**
+ * Load the app for a test that reloads it, **without** the previous session coming back (T-089).
+ *
+ * The automatic restore (T-035) is asynchronous: on an idle machine it has usually finished by the
+ * time a reload settles, on a loaded CI runner its blob request can still be open when the test goes
+ * on. It then imports the old plater *on top of* what the test already put there – two cubes at the
+ * bed centre, a footprint conflict, a Slice button that stays disabled while a click waits out its
+ * 7-minute timeout (`safety.spec.ts:235`). The route answers the restore's two requests as "nothing to
+ * restore", so the outcome no longer depends on the machine; nothing is written, so the browser's own
+ * autosave (and every other spec) is left alone. `page.route` dies with the page, which is what a test
+ * that wants its session back afterwards needs.
+ */
+export async function blockSessionRestore(page: Page): Promise<void> {
+  await page.route('**/api/autosave/**', async (route) => {
+    const request = route.request();
+    if (request.method() !== 'GET') return route.continue();
+    if (new URL(request.url()).searchParams.has('info')) {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ savedAt: new Date().toISOString(), size: 0 }),
+      });
+    }
+    return route.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ error: 'no autosave' }) });
+  });
+}
