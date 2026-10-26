@@ -60,6 +60,11 @@ docker compose up -d
 # → http://localhost:8080
 ```
 
+Once the first release is published, no build is needed either:
+`docker run -d -p 8080:8080 -v webslicer-data:/data -v /path/to/models:/library ghcr.io/movieaddicted86/webslicer:latest`
+– on a NAS with `-e PUID=99 -e PGID=100`
+([details](docs/installation.md#run-the-published-image)).
+
 Proxmox VE (LXC), on the host as root:
 
 ```bash
