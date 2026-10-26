@@ -10,16 +10,21 @@ import { config } from '../config.js';
 import { parseStl, transformMesh, build3mf, type Mesh, type ThreeMfObject, type ThreeMfVolume } from '../slicer/threemf/index.js';
 import { parseSliceRequest } from '../validation/slice.js';
 import {
-  checkConfigLimits,
-  checkRequestConfigLimits,
-  checkFootprints,
   blockingConfigIssues,
+  checkConfigLimits,
+  checkFootprints,
+  checkRequestConfigLimits,
+  hullBox,
+  hullOfFlat,
   instanceBounds,
   meshBounds,
+  transformHull,
+  unionHull,
+  multiply,
   plateRulesOf,
   splitVector,
-  type Bounds,
   type ConfigIssue,
+  type Hull,
   type InstanceFootprint,
   type Matrix4,
   type PlateIssue,
@@ -105,19 +110,14 @@ async function readModelFile(modelId: string, message: string) {
   }
 }
 
-/** World bounds of one mesh under a matrix (the shared tuple shape `instanceBounds` takes). */
-function boundsOf(mesh: Mesh): Bounds {
-  return meshBounds(mesh.vertices);
-}
-
 /**
  * The plate issues of a request (T-034): the same rules the browser lists before it starts a slice,
  * computed from the stored meshes and the request's own transforms, so no path into the queue can
  * skip them – the browser footer, the Preview, the re-slice, the project and the MCP routes.
  *
- * Footprints are the meshes' bounding boxes through the instance matrices (the way the browser reads
- * its geometries), extended by the object's `ModelPart` volumes the way the slicer adds them to the
- * object.
+ * Footprints are the convex hulls of the meshes' bed projections through the instance matrices (the
+ * way the browser reads its geometries), extended by the object's `ModelPart` volumes the way the
+ * slicer adds them to the object. A bounding box only sees the outline's box; the hull sees the part.
  */
 export async function plateIssuesOfRequest(req: SliceRequest): Promise<PlateIssue[]> {
   const meshes = new Map<string, Mesh>();
@@ -143,30 +143,42 @@ export async function plateIssuesOfRequest(req: SliceRequest): Promise<PlateIssu
   for (const o of req.objects) {
     const mesh = await meshOf(o.modelId);
     if (!mesh) continue;
-    const objectBox = boundsOf(mesh);
+    // the object's box (mesh plus its parts) is what the top comes from – the browser reads it the
+    // same way; the outline itself comes from the hulls below
+    const objectBox = meshBounds(mesh.vertices);
+    const meshHull = hullOfFlat(mesh.vertices);
+    const volumes: Array<{ hull: Hull; matrix: Matrix4 }> = [];
     for (const v of o.volumes || []) {
       if (v.type !== 'ModelPart') continue;
       const vMesh = await meshOf(v.modelId);
       if (!vMesh) continue;
-      const vBox = instanceBounds(boundsOf(vMesh), v.transform);
+      const vBox = instanceBounds(meshBounds(vMesh.vertices), v.transform);
       for (let a = 0; a < 3; a++) {
         objectBox.min[a] = Math.min(objectBox.min[a], vBox.min[a]);
         objectBox.max[a] = Math.max(objectBox.max[a], vBox.max[a]);
       }
+      volumes.push({ hull: hullOfFlat(vMesh.vertices), matrix: v.transform });
     }
     // old clients send only `transform`; newer ones list every instance (including the first)
     const transforms: Matrix4[] = o.instances?.length ? o.instances : [o.transform];
     transforms.forEach((transform, i) => {
-      const box = instanceBounds(objectBox, transform);
+      // hulls, not boxes: the mesh and every part under the instance matrix, the way the browser
+      // reads its geometries – both sides feed the same hull code
+      const hull = unionHull([
+        transformHull(meshHull, transform),
+        ...volumes.map((v) => transformHull(v.hull, multiply(transform, v.matrix))),
+      ]);
+      const box = hullBox(hull);
       footprints.push({
         objectId: o.modelId,
         objectName: o.name || 'object',
         instanceId: `${i}`,
-        minX: box.min[0],
-        minY: box.min[1],
-        maxX: box.max[0],
-        maxY: box.max[1],
-        maxZ: box.max[2],
+        minX: box.minX,
+        minY: box.minY,
+        maxX: box.maxX,
+        maxY: box.maxY,
+        maxZ: instanceBounds(objectBox, transform).max[2],
+        hull,
       });
     });
   }
