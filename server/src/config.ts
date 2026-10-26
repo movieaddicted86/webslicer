@@ -82,6 +82,13 @@ export const config = {
   maxCliProcesses: envIntegerAtLeast('MAX_CLI_PROCESSES', 1, envIntegerAtLeast('MAX_JOBS', 1, Math.min(2, os.cpus().length))),
   maxUploadBytes: envIntegerAtLeast('MAX_UPLOAD_BYTES', 1, 500 * 1024 * 1024),
   jobRetention: envIntegerAtLeast('JOB_RETENTION', 0, 50),
+  /** P-6: jobs one MCP token may have queued or running at once (the global `MAX_JOBS` stays) */
+  mcpMaxConcurrentJobs: envIntegerAtLeast('MCP_MAX_CONCURRENT_JOBS', 1, 2),
+  /** P-6: slices one MCP token may start within a rolling hour */
+  mcpSlicesPerHour: envIntegerAtLeast('MCP_MAX_SLICES_PER_HOUR', 1, 30),
+  /** P-8: the audit log rotates at this size and keeps this many older files */
+  auditMaxBytes: envIntegerAtLeast('AUDIT_LOG_MAX_BYTES', 1, 10 * 1024 * 1024),
+  auditKeepFiles: envIntegerAtLeast('AUDIT_LOG_KEEP_FILES', 1, 5),
 };
 
 export function ensureDirs() {
