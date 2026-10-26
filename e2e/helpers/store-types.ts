@@ -195,6 +195,13 @@ export interface E2EState {
   customGcodes: E2ECustomGcode[];
   dialog?: string;
   dialogPayload?: unknown;
+  /** T-085: every printer preset's safety answer, keyed by preset name */
+  printerSafety?: Record<string, { hotendType: string; maxHotend: number; maxBed?: number }>;
+  refreshPrinterSafety: () => Promise<void>;
+  savePrinterSafety: (presetName: string, profile: { hotendType: string; maxHotend: number; maxBed?: number } | undefined) => Promise<void>;
+  /** T-085: the one-time risk notice and the session's "Not now" */
+  riskNotice?: { acknowledged: boolean; version?: string; acknowledgedAt?: string };
+  noticeDone?: boolean;
   pendingSwitch?: unknown;
   autosaveState: string;
   /** the messages the app currently shows (T-009 reads the STEP conversion's progress and error) */

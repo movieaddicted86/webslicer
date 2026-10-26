@@ -84,4 +84,13 @@ export default async function globalSetup(config: FullConfig): Promise<void> {
   // jobs of an earlier run would sit in the job list the specs read
   const jobs = (await (await fetch(`${baseURL}/api/jobs`)).json()) as Array<{ id: string }>;
   for (const j of jobs) await fetch(`${baseURL}/api/jobs/${j.id}`, { method: 'DELETE' });
+
+  // T-085 state from an earlier run: a preset answer would narrow a spec that expects no limits, and
+  // the risk notice has to be out of the way – it is the one card that holds the first slice, and
+  // every spec slices. The safety spec resets both for its own tests and puts them back.
+  const safety = (await (await fetch(`${baseURL}/api/printer-safety`)).json()) as Record<string, unknown>;
+  for (const preset of Object.keys(safety)) {
+    await fetch(`${baseURL}/api/printer-safety/${encodeURIComponent(preset)}`, { method: 'DELETE' });
+  }
+  await fetch(`${baseURL}/api/risk-notice/ack`, { method: 'POST' });
 }
