@@ -17,6 +17,9 @@ rc.3 to rc.5 and of the `Unreleased` of that time are kept verbatim in
 
 ### Changed
 
+- **Arranging nests the real outline (T-084):** the plater packs each instance's convex hull, keeps the
+  skirt's or the brim's room at the bed edge, and can turn a part by quarter turns, so an L, an arc or
+  two interlocking brackets sit closer and the arranged plate passes the plate check.
 - **Plate checks on the real footprint (T-078):** off-bed, brim, skirt, overlap and the
   sequential-printing clearance measure each instance's convex hull, so rotated and interlocking parts
   slice – the same code in browser and server ([docs/safety.md](docs/safety.md)).

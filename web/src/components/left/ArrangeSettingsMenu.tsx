@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../../state/store';
-import { arrangementSpacing } from '@webslicer/shared';
 import { MAX_ARRANGE_SPACING } from '../../plater/arrangeSettings';
+import { bedAndSpacing } from '../../plater/arrangement';
 import { NumericField } from '../common/NumericField';
 import { ToolbarButton } from '../common/ToolbarButton';
 import './ArrangeSettingsMenu.css';
@@ -37,7 +37,8 @@ export function ArrangeSettingsMenu({ testId }: { testId?: string } = {}) {
     };
   }, [open]);
 
-  const defaultSpacing = arrangementSpacing(printCfg);
+  const printerCfg = useStore((s) => s.presets.printer.current);
+  const { spacing: defaultSpacing } = bedAndSpacing({ print: { current: printCfg }, printer: { current: printerCfg } });
   return (
     <div className="arrange-menu" ref={ref}>
       <ToolbarButton

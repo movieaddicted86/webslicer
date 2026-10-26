@@ -404,8 +404,9 @@ test('the arrange settings are remembered per browser', () => {
 });
 
 test('the rotations setting turns long bars so that they fit (AC-2)', async () => {
-  // five bars of 120 × 40 mm: one per row without turning (5 * 46 = 230 > 210), one row turned
-  for (let i = 0; i < 5; i++) await st().addObjects([{ name: `bar${i}.stl`, geometry: new THREE.BoxGeometry(120, 40, 40).toNonIndexed() }]);
+  // five bars of 150 × 40 mm: unturned a row is 5 * 46 = 230 mm high, more than the 210 mm bed,
+  // and one per row is 5 * 46 mm wide; turned they share one row across the 250 mm width
+  for (let i = 0; i < 5; i++) await st().addObjects([{ name: `bar${i}.stl`, geometry: new THREE.BoxGeometry(150, 40, 40).toNonIndexed() }]);
   assert.equal(st().arrange(), false, 'the plain layout does not fit');
   assert.equal(st().toasts[st().toasts.length - 1].text, 'Not all objects fit on the bed');
   st().setArrangeSettings({ rotations: true });
@@ -413,9 +414,9 @@ test('the rotations setting turns long bars so that they fit (AC-2)', async () =
   for (const o of st().objects) {
     const inst = o.instances[0];
     assert.ok(Math.abs(Math.abs(inst.rotation[2]) - Math.PI / 2) < 1e-9, `${o.name} is turned: ${inst.rotation}`);
-    // the turned footprint is 40 mm across x and 120 mm across y, so the centre stays well inside
+    // the turned footprint is 40 mm across x and 150 mm across y, so the centre stays well inside
     assert.ok(inst.position[0] >= 20 - 1e-9 && inst.position[0] <= 230 + 1e-9, `x in bed: ${inst.position[0]}`);
-    assert.ok(inst.position[1] >= 60 - 1e-9 && inst.position[1] <= 150 + 1e-9, `y in bed: ${inst.position[1]}`);
+    assert.ok(inst.position[1] >= 75 - 1e-9 && inst.position[1] <= 135 + 1e-9, `y in bed: ${inst.position[1]}`);
   }
 });
 

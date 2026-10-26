@@ -6,7 +6,15 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { checkFootprints, plateRulesOf, pointInPolygon, rectInsidePolygon, type InstanceFootprint, type PlateRules } from './plateCheck.js';
+import {
+  arrangeMarginsOf,
+  checkFootprints,
+  plateRulesOf,
+  pointInPolygon,
+  rectInsidePolygon,
+  type InstanceFootprint,
+  type PlateRules,
+} from './plateCheck.js';
 import { boxHull, convexHull2D, type Hull } from './hull.js';
 
 const RECT = [
@@ -279,4 +287,24 @@ test('plateRulesOf reads the widths and switches of the presets', () => {
     { first_layer_extrusion_width: '200%', first_layer_height: '0.2' },
   );
   assert.equal(pct.firstLayerWidth, 0.4);
+});
+
+test('arrangeMarginsOf keeps the skirt or brim room and adds the brim to the spacing (T-084)', () => {
+  // no skirt, no brim: PrusaSlicer's 6 mm and no reserve
+  assert.deepEqual(arrangeMarginsOf(rules({ skirts: 0 })), { spacing: 6, edgeReserve: 0 });
+  // one 6 mm skirt loop of 0.4 mm: the reserve the check measures, the spacing stays 6 mm
+  assert.deepEqual(arrangeMarginsOf(rules({ skirts: 1, skirtDistance: 6, firstLayerWidth: 0.4 })), {
+    spacing: 6,
+    edgeReserve: 6.4,
+  });
+  // a brim is measured around every instance, so it joins the spacing as well
+  assert.deepEqual(arrangeMarginsOf(rules({ skirts: 0, brimWidth: 5 })), { spacing: 11, edgeReserve: 5 });
+  // sequential printing keeps the extruder clearance radius, the wider of the two wins the reserve
+  assert.deepEqual(
+    arrangeMarginsOf(rules({ skirts: 2, skirtDistance: 5, firstLayerWidth: 0.4, completeObjects: true, clearanceRadius: 20 })),
+    {
+      spacing: 20,
+      edgeReserve: 5.8,
+    },
+  );
 });

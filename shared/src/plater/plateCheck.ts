@@ -147,6 +147,18 @@ export function plateRulesOf(printerCfg: Config, printCfg: Config): PlateRules {
   };
 }
 
+/**
+ * The clearance and the bed-edge reserve an arrangement keeps so its result passes these rules
+ * (T-084): PrusaSlicer's 6 mm spacing (the extruder clearance radius for sequential printing) plus a
+ * brim's width, and – around the whole plate – the room the skirt or brim needs. Both numbers come
+ * from the same rules the check uses, so an arranged plate never fails it.
+ */
+export function arrangeMarginsOf(rules: PlateRules): { spacing: number; edgeReserve: number } {
+  const base = rules.completeObjects && rules.clearanceRadius > 0 ? rules.clearanceRadius : 6;
+  const skirt = rules.skirts > 0 ? rules.skirtDistance + rules.skirts * rules.firstLayerWidth : 0;
+  return { spacing: base + rules.brimWidth, edgeReserve: Math.max(skirt, rules.brimWidth) };
+}
+
 const nameOf = (f: InstanceFootprint) => `"${f.objectName}"`;
 
 /** The instance's real outline: its hull when it has one, else its bounding box. */

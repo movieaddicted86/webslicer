@@ -23,23 +23,29 @@ import { copiesSchema, type ProjectPresetRef } from '../validation/projects.js';
 import { createJob } from '../jobs.js';
 import { validateConfigLimits, validatePlate, validateSliceRequest } from './slice.js';
 import {
-  arrangementSpacing,
+  arrangeItems,
   bedShapeOf,
+  arrangeMarginsOf,
+  hullOfFlat,
   instanceBounds,
   meshBounds,
   multiply,
   normalize,
-  packShelf,
+  plateRulesOf,
   translate,
+  transformHull,
   type Bounds,
   type CustomGcode,
+  type Hull,
   type JobRecord,
   type Matrix4,
   type PackAlignment,
   type PresetType,
   type Schema,
   type SliceRequest,
+  type Turn,
 } from '@webslicer/shared';
+import { parseStl } from '../slicer/threemf/index.js';
 
 /** The arrange knobs a headless caller has – the same ones as the browser's Arrange settings (T-043). */
 export interface ArrangeOptions {
@@ -310,11 +316,11 @@ export async function addModelToProject(project: Project, libraryPath: string, c
 }
 
 /**
- * Arrange every instance with the shared shelf packing (`@webslicer/shared`, the algorithm the
- * browser uses as well):
- * footprints, largest first, then each instance is moved so its centre lands on the packed centre
- * and its minimum Z on the bed. `options` carry the same spacing/rotations/alignment the browser's
- * Arrange settings offer (T-043); the defaults reproduce the old layout.
+ * Arrange every instance on the bed with the outline nesting (`@webslicer/shared`, the algorithm the
+ * browser uses as well): the instances' real hulls, largest first, kept `spacing` apart and
+ * `edgeReserve` off the bed border (the skirt or brim room), then each instance is moved so its
+ * footprint centre lands on the packed centre and its minimum Z on the bed. `options` carry the same
+ * spacing/rotations/alignment the browser's Arrange settings offer (T-043).
  */
 export async function arrange(project: Project, schema: Schema, options: ArrangeOptions = {}): Promise<Project> {
   return withProjectLock(project.id, async () => {
@@ -331,22 +337,37 @@ export async function arrangeLockedProject(project: Project, schema: Schema, opt
   if (!project.objects.length) throw new ValidationError('Project has no objects');
   const cfg = resolvedConfigs(project, schema);
   const bed = bedShapeOf(cfg.printer.config);
-  const spacing = options.spacing ?? arrangementSpacing(cfg.print.config);
+  const margins = arrangeMarginsOf(plateRulesOf(cfg.printer.config, cfg.print.config));
+  const spacing = options.spacing ?? margins.spacing;
   const items = project.objects.flatMap((o) =>
-    o.instances.map((m, i) => ({ o, index: i, key: `${o.id}:${i}`, box: instanceBounds(o.bounds, m) })),
+    o.instances.map((m, i) => ({ o, index: i, key: `${o.id}:${i}`, box: instanceBounds(o.bounds, m), matrix: m })),
   );
-  const packed = packShelf(
-    items.map((it) => ({ id: it.key, width: it.box.max[0] - it.box.min[0], height: it.box.max[1] - it.box.min[1] })),
+  // the outlines come from the stored meshes, the same vertex arrays the plate check reads
+  const hulls = new Map<string, Hull>();
+  for (const o of project.objects) hulls.set(o.modelId, await modelHull(o.modelId, hulls));
+  const packed = arrangeItems(
+    items.map((it) => ({
+      id: it.key,
+      width: it.box.max[0] - it.box.min[0],
+      height: it.box.max[1] - it.box.min[1],
+      hull: transformHull(hulls.get(it.o.modelId) ?? [], it.matrix),
+    })),
     bed,
-    { spacing, rotations: options.rotations, alignment: options.alignment },
+    {
+      spacing,
+      rotations: options.rotations,
+      alignment: options.alignment,
+      edgeReserve: margins.edgeReserve,
+      bedPolygon: bed.points,
+    },
   );
   if (!packed) throw new ValidationError('Not all objects fit on the bed');
   const byKey = new Map(items.map((it) => [it.key, it]));
   for (const p of packed) {
     const it = byKey.get(p.id);
     if (!it) continue;
-    // a turned item is rotated around its own footprint centre first, then placed as usual
-    const m = p.rotated ? quarterTurn(it.o.bounds, it.o.instances[it.index]) : it.o.instances[it.index];
+    // a turned item is rotated around its own footprint centre, then placed where the packer put it
+    const m = p.turn ? quarterTurn(p.turn, it.o.bounds, it.o.instances[it.index]) : it.o.instances[it.index];
     const box = instanceBounds(it.o.bounds, m);
     const dx = p.x - (box.min[0] + box.max[0]) / 2;
     const dy = p.y - (box.min[1] + box.max[1]) / 2;
@@ -356,12 +377,28 @@ export async function arrangeLockedProject(project: Project, schema: Schema, opt
   return saveTouched(project);
 }
 
-/** Turn an instance by 90° around Z through its footprint centre, so it stays where it is. */
-function quarterTurn(bounds: Bounds, m: Matrix4): Matrix4 {
+/** The mesh hull of a stored model, cached for the duration of one arrange; empty if it is gone. */
+async function modelHull(modelId: string, cache: Map<string, Hull>): Promise<Hull> {
+  const cached = cache.get(modelId);
+  if (cached) return cached;
+  let hull: Hull = [];
+  try {
+    hull = hullOfFlat(parseStl(await fs.readFile(path.join(config.modelsDir, `${modelId}.stl`))).vertices);
+  } catch {
+    /* a missing model is reported by the slice path; the arrange leaves it without an outline */
+  }
+  cache.set(modelId, hull);
+  return hull;
+}
+
+/** Turn an instance by `turn` quarter turns around Z through its footprint centre, so it stays put. */
+function quarterTurn(turn: Turn, bounds: Bounds, m: Matrix4): Matrix4 {
   const box = instanceBounds(bounds, m);
   const cx = (box.min[0] + box.max[0]) / 2;
   const cy = (box.min[1] + box.max[1]) / 2;
-  return multiply(translate(cx, cy, 0), multiply(QUARTER_TURN, multiply(translate(-cx, -cy, 0), m)));
+  let quarter = QUARTER_TURN;
+  for (let i = 1; i < turn; i++) quarter = multiply(quarter, QUARTER_TURN);
+  return multiply(translate(cx, cy, 0), multiply(quarter, multiply(translate(cx * -1, cy * -1, 0), m)));
 }
 
 // ---------------------------------------------------------------------------

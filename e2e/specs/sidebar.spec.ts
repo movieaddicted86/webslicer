@@ -478,14 +478,19 @@ test.describe('context panel: quick settings and the mode switch', () => {
     // 20 mm cubes with 20 mm between them
     expect(Math.abs(wide[0] - wide[1])).toBeCloseTo(40, 5);
 
-    // corner alignment puts the block into the bed corner instead of the middle
+    // corner alignment puts the block into the bed corner instead of the middle; the block still
+    // keeps the skirt's room off the border (the print profile's skirt distance plus its loop width),
+    // so it starts a few millimetres in – the point here is corner instead of centre, not that number
     await click(app, '[data-testid="tool-arrangeSettings"]');
     await app.locator('.arrange-popover select').selectOption('corner');
     await click(app, '[data-testid="tool-arrange"]');
     await settle(app, 500);
     const placed = await read(app, (s) => s.objects.flatMap((o) => o.instances.map((i) => i.position)));
-    expect(Math.min(...placed.map((p) => p[0]))).toBeCloseTo(20, 5);
-    expect(Math.min(...placed.map((p) => p[1]))).toBeCloseTo(20, 5);
+    const corner = 10; // half of the 20 mm cube
+    for (const p of [Math.min(...placed.map((i) => i[0])), Math.min(...placed.map((i) => i[1]))]) {
+      expect(p - corner, 'off the border, but in the corner').toBeGreaterThan(0);
+      expect(p - corner, 'much nearer the border than the centred 105 mm').toBeLessThan(20);
+    }
 
     // an emptied field goes back to the print profile's spacing
     await click(app, '[data-testid="tool-arrangeSettings"]');
