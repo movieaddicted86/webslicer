@@ -63,6 +63,13 @@ slice and the MCP `webslicer.slice` tool compute the issues from the stored mesh
 transforms and answer 400 `{ error, issues }` for a block. A result whose plate no longer passes the
 checks can be read in the Preview but not exported, saved or sent until it does.
 
+**Arrange keeps the same room** (`shared/src/plater/packing.ts`): the nesting packs the same hulls with
+the clearance the check uses, and it keeps the skirt's or the brim's space free at the bed edge
+(`arrangeMarginsOf` takes both from `plateRulesOf`). An arranged plate therefore passes the plate
+check without a manual nudge – the test suite asserts that for a skirt, a brim and sequential
+printing. The arrange never trades clearance for tightness: parts only move into gaps their outlines
+leave, never under the clearance the rules ask for.
+
 ## G-code preflight
 
 Custom start/end/layer G-code goes 1:1 into the output – that is the point of a custom G-code – so a

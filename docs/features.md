@@ -102,6 +102,16 @@ PrusaSlicer feature exists here and which does not is in
   server), multiple objects, move / rotate / scale (gizmo + numeric input), **place on face** (key F),
   arrange, duplicate, build-volume check, extruder assignment, **per-object settings** (overrides like
   in PrusaSlicer).
+- **Arrange on the real outline**: the plater nests each instance's convex hull on the bed instead of
+  its bounding box, so an L, an arc or a diagonal part uses the free space around it and two
+  interlocking parts sit closer than their rectangles ever allowed. The default clearance is 6 mm
+  (the extruder clearance radius with sequential printing), a set brim width is added to it, and the
+  skirt or brim gets its own room at the bed edge – so an arranged plate passes the plate check and
+  **Slice now** is enabled. The gear next to **Arrange** keeps the spacing, **Enable rotations**
+  (quarter turns, tried only when they pack tighter) and the centre/corner alignment; Shift+A nests
+  only the selection around the objects that stay put. The identical function runs in the headless
+  arrange, so both give the same plate. When the nesting cannot place everything, the old shelf layout
+  stands in, so an arrange never puts fewer objects on the bed than before.
 - **Support, seam and MMU painting**: paint enforcers and blockers or the extruder directly onto the
   model (keys L / P, adjustable brush radius, undo), stored like PrusaSlicer as per-triangle attributes
   in the 3MF.
