@@ -85,20 +85,34 @@ test.describe('cut', () => {
     expect(lines).toHaveLength(2);
     for (const line of lines) expect(line, line).not.toMatch(/Not manifold/);
 
-    // T-073: with `placeOnCut: false` both halves keep the cube's footprint, so their footprints
-    // overlap by their full 20 mm and the plate check refuses the slice (the guard the Preview used
-    // to bypass). A user arranges the halves before slicing; the spec does the same.
-    await app.evaluate(() => window.webslicer.getState().slice());
-    await settle(app, 500);
-    const errors = await read(app, (s) => s.toasts.filter((t) => t.kind === 'error').map((t) => t.text));
-    expect(
-      errors.some((t) => /G-code path conflict .* overlap/.test(t)),
-      errors.join(' | '),
-    ).toBe(true);
-    expect(await read(app, (s) => s.job?.id)).toBe(before.job?.id);
+    // T-073/T-079: `placeOnCut: false` keeps every half on the cube's own footprint, so the app
+    // places the two halves apart itself (the plater's arrange settings) and no manual arrange is
+    // needed. Their world footprints must be disjoint …
+    const boxes = await read(app, (s) =>
+      s.objects.map((o) => {
+        const g = o.geometry as unknown as {
+          computeBoundingBox: () => void;
+          boundingBox: { min: { x: number; y: number }; max: { x: number; y: number } };
+        };
+        g.computeBoundingBox();
+        const p = o.instances[0].position;
+        return {
+          x0: p[0] + g.boundingBox.min.x,
+          x1: p[0] + g.boundingBox.max.x,
+          y0: p[1] + g.boundingBox.min.y,
+          y1: p[1] + g.boundingBox.max.y,
+        };
+      }),
+    );
+    const [a, b] = boxes;
+    const overlapX = Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0);
+    const overlapY = Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0);
+    expect(overlapX <= 0 || overlapY <= 0, `footprints overlap: ${JSON.stringify(boxes)}`).toBe(true);
 
-    await app.evaluate(() => window.webslicer.getState().arrange());
-    await settle(app, 800);
+    // … the plate check agrees, so "Slice now" works without any user action
+    await expect(app.locator('[data-testid="slice-panel"] .plate-issues li')).toHaveCount(0);
+    await expect(app.locator('[data-testid="slice-button"]')).toBeEnabled();
+
     await sliceAndWait(app, before.job?.id);
     const cut = await filament(app);
     expect(Math.abs(cut - original) / original, `uncut ${original} mm, cut ${cut} mm`).toBeLessThan(0.02);

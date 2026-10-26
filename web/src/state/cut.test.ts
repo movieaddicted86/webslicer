@@ -9,7 +9,7 @@
 import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
-import { useStore } from './store';
+import { instanceBounds, useStore } from './store';
 import type { PlaterObject } from './types';
 
 /** The cut requests the fake server received, and a gate the test opens when they may answer. */
@@ -17,13 +17,51 @@ const cutCalls: Array<Record<string, unknown>> = [];
 let gate: Promise<void> = Promise.resolve();
 let release: () => void = () => undefined;
 
-/** A one-triangle binary STL, as `POST /api/cut` leaves the parts in the model directory. */
-function binaryStl(): ArrayBuffer {
-  const buf = new ArrayBuffer(84 + 50);
+/** Corners of a box standing on its own bed (X/Y centred, bottom at z = 0). */
+function boxCorners(width: number, depth: number, height: number): Array<[number, number, number]> {
+  const hx = width / 2;
+  const hy = depth / 2;
+  return [
+    [-hx, -hy, 0],
+    [hx, -hy, 0],
+    [hx, hy, 0],
+    [-hx, hy, 0],
+    [-hx, -hy, height],
+    [hx, -hy, height],
+    [hx, hy, height],
+    [-hx, hy, height],
+  ];
+}
+
+/** The twelve triangles of a box over its eight corners. */
+const BOX_FACES = [
+  [0, 2, 1],
+  [0, 3, 2],
+  [4, 5, 6],
+  [4, 6, 7],
+  [0, 1, 5],
+  [0, 5, 4],
+  [1, 2, 6],
+  [1, 6, 5],
+  [2, 3, 7],
+  [2, 7, 6],
+  [3, 0, 4],
+  [3, 4, 7],
+];
+
+/** A binary STL of a box, as `POST /api/cut` leaves the parts in the model directory. */
+function boxStl(width: number, depth: number, height: number): ArrayBuffer {
+  const corners = boxCorners(width, depth, height);
+  const buf = new ArrayBuffer(84 + 50 * BOX_FACES.length);
   const view = new DataView(buf);
-  view.setUint32(80, 1, true);
-  const at = 84;
-  for (let i = 0; i < 3; i++) view.setFloat32(at + 12 * i, i * 10, true);
+  view.setUint32(80, BOX_FACES.length, true);
+  BOX_FACES.forEach((face, n) => {
+    const at = 84 + 50 * n;
+    face.forEach((idx, k) => {
+      const p = corners[idx];
+      for (let a = 0; a < 3; a++) view.setFloat32(at + 12 * k + 4 * a, p[a], true);
+    });
+  });
   return buf;
 }
 
@@ -32,13 +70,15 @@ async function fakeFetch(input: RequestInfo | URL): Promise<Response> {
   if (pathname === '/api/cut') {
     return new Response(
       JSON.stringify({
-        upper: { modelId: 'upper', name: 'upper', position: [0, 0, 5] },
+        upper: { modelId: 'upper', name: 'upper', position: [0, 0, 10] },
         lower: { modelId: 'lower', name: 'lower', position: [0, 0, 0] },
       }),
       { status: 200, headers: { 'Content-Type': 'application/json' } },
     );
   }
-  if (pathname.startsWith('/api/models/')) return new Response(binaryStl(), { status: 200 });
+  // the halves of the 20 mm cube: an upper block standing on z = 10 and a lower one on the bed
+  if (pathname === '/api/models/upper') return new Response(boxStl(20, 20, 10), { status: 200 });
+  if (pathname === '/api/models/lower') return new Response(boxStl(20, 20, 10), { status: 200 });
   throw new Error(`unexpected request: ${pathname}`);
 }
 
@@ -128,4 +168,74 @@ test('N5: one undo after a successful cut restores the uncut object', async () =
   assert.equal(st().objects.length, 1, 'one undo brings the uncut object back');
   assert.equal(st().objects[0].id, 'obj-1');
   assert.equal(st().objects[0].instances[0].position[0], 0);
+});
+
+/** The world footprint of an object's first instance, read from its geometry and placement. */
+function footprint(o: PlaterObject): { minX: number; maxX: number; minY: number; maxY: number } {
+  const box = instanceBounds(o, o.instances[0]);
+  return { minX: box.min.x, maxX: box.max.x, minY: box.min.y, maxY: box.max.y };
+}
+
+test('keep both: the two halves are placed apart and the other objects stay put', async () => {
+  // a second object on the bed: the cut may not move it
+  const other: PlaterObject = {
+    ...cubeObject(),
+    id: 'obj-2',
+    name: 'other.stl',
+    instances: [{ id: 'inst-2', position: [80, 40, 0], rotation: [0, 0, 0], scale: [1, 1, 1] }],
+  };
+  useStore.setState({ objects: [cubeObject(), other] });
+
+  const cutting = st().cutSelection();
+  release();
+  await cutting;
+
+  const [a, b] = st().objects.filter((o) => o.id !== 'obj-2');
+  assert.ok(a && b, 'both halves are on the plater');
+  const fa = footprint(a);
+  const fb = footprint(b);
+  // the arrangement spacing of the default print profile is 6 mm: the halves have to be clear of
+  // each other in at least one axis, so they cannot trigger the plate overlap check
+  const clear =
+    fa.maxX <= fb.minX - 6 + 1e-6 || fb.maxX <= fa.minX - 6 + 1e-6 || fa.maxY <= fb.minY - 6 + 1e-6 || fb.maxY <= fa.minY - 6 + 1e-6;
+  assert.ok(clear, `the halves overlap: ${JSON.stringify([fa, fb])}`);
+  // the other object has not moved
+  const kept = st().objects.find((o) => o.id === 'obj-2');
+  assert.deepEqual(kept?.instances[0].position, [80, 40, 0]);
+  // every instance is on the bed
+  for (const o of [a, b]) {
+    const f = footprint(o);
+    assert.ok(f.minX >= -1e-6 && f.maxX <= 200 + 1e-6 && f.minY >= -1e-6 && f.maxY <= 200 + 1e-6, `on the bed: ${JSON.stringify(f)}`);
+  }
+  assert.deepEqual(
+    st().toasts.map((t) => t.text),
+    ['Cut into two parts'],
+  );
+});
+
+test('keep both: one undo takes the cut and its placement back in one step', async () => {
+  const cutting = st().cutSelection();
+  release();
+  await cutting;
+  assert.equal(st().objects.length, 2);
+  st().undo();
+  assert.equal(st().objects.length, 1);
+  assert.deepEqual(st().objects[0].instances[0].position, [0, 0, 0], 'the uncut object is where it was');
+});
+
+test('keep both: when the halves do not fit, the placement stays and the user is told', async () => {
+  // a bed of 1 mm: no arrangement can place two 20 mm halves on it – the cut still happens
+  useStore.setState({ presets: { ...st().presets, printer: { ...st().presets.printer, current: { bed_shape: '0x0,1x0,1x1,0x1' } } } });
+  const cutting = st().cutSelection();
+  release();
+  await cutting;
+
+  assert.equal(st().objects.length, 2, 'the cut itself is not undone');
+  for (const o of st().objects) assert.ok(o.name.includes('(upper)') || o.name.includes('(lower)'));
+  assert.ok(
+    st().toasts.some((t) => t.text === 'Cut: the two parts do not fit side by side – arrange them before slicing'),
+    st()
+      .toasts.map((t) => t.text)
+      .join(' | '),
+  );
 });
