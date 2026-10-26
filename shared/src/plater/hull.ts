@@ -176,37 +176,212 @@ export function hullInsidePolygon(hull: Hull, bed: ReadonlyArray<Point2>, margin
   return hullClearanceToPolygon(hull, bed) >= margin - TOUCH;
 }
 
-/** Overlap of two convex polygons: the depth of the smallest push that separates them (SAT). */
+/**
+ * Overlap of two convex polygons: the depth of the smallest push that separates them (SAT).
+ *
+ * Written without allocations, because the arrange scan calls it once per candidate position.
+ */
 export function hullPenetration(a: Hull, b: Hull): number {
   if (a.length < 3 || b.length < 3) return 0;
-  let depth = Infinity;
-  for (const poly of [a, b]) {
+  const slack = closestSlack(a, b);
+  return slack > 0 ? slack : 0;
+}
+
+/**
+ * The smallest overlap of the two outlines over all their separating axes: positive is the depth of
+ * their penetration, negative is how far the best axis proves them apart.
+ *
+ * Index loops and no allocations on purpose: the arrange scan runs this thousands of times per
+ * item, and `for...of` over the point tuples with destructuring was the top entry in the profile.
+ */
+function closestSlack(a: Hull, b: Hull): number {
+  let slack = Infinity;
+  for (let pass = 0; pass < 2; pass++) {
+    const poly = pass === 0 ? a : b;
     for (let i = 0; i < poly.length; i++) {
       const p = poly[i];
       const q = poly[(i + 1) % poly.length];
-      const len = Math.hypot(q[0] - p[0], q[1] - p[1]);
+      const dx = q[0] - p[0];
+      const dy = q[1] - p[1];
+      const len = Math.sqrt(dx * dx + dy * dy);
       if (len < EPS) continue;
-      const nx = (q[1] - p[1]) / len;
-      const ny = -(q[0] - p[0]) / len;
-      const pa = project(a, nx, ny);
-      const pb = project(b, nx, ny);
-      const overlap = Math.min(pa.max, pb.max) - Math.max(pa.min, pb.min);
-      if (overlap <= 0) return 0;
-      if (overlap < depth) depth = overlap;
+      const nx = dy / len;
+      const ny = -dx / len;
+      let aMin = Infinity;
+      let aMax = -Infinity;
+      for (let k = 0; k < a.length; k++) {
+        const v = a[k][0] * nx + a[k][1] * ny;
+        if (v < aMin) aMin = v;
+        if (v > aMax) aMax = v;
+      }
+      let bMin = Infinity;
+      let bMax = -Infinity;
+      for (let k = 0; k < b.length; k++) {
+        const v = b[k][0] * nx + b[k][1] * ny;
+        if (v < bMin) bMin = v;
+        if (v > bMax) bMax = v;
+      }
+      const overlap = (aMax < bMax ? aMax : bMax) - (aMin > bMin ? aMin : bMin);
+      if (overlap < slack) slack = overlap;
     }
   }
-  return depth === Infinity ? 0 : depth;
+  return slack === Infinity ? 0 : slack;
 }
 
-function project(poly: Hull, nx: number, ny: number): { min: number; max: number } {
-  let min = Infinity;
-  let max = -Infinity;
-  for (const [x, y] of poly) {
-    const v = x * nx + y * ny;
-    if (v < min) min = v;
-    if (v > max) max = v;
+/**
+ * Whether two outlines stay at least `gap` apart and do not overlap. One separating-axis pass
+ * answers most of it: a positive slack is an overlap, and a slack of at least `gap` on any axis
+ * proves the distance. Only the pairs that no axis settles reach the edge-pair distance, and that
+ * stops at the first pair that is too close. `hullPenetration` + `hullGap` would answer the same
+ * but runs the axis pass twice and every edge pair every time, which the arrange scan cannot pay.
+ */
+export function hullKeepsGap(a: Hull, b: Hull, gap: number): boolean {
+  if (a.length < 3 || b.length < 3) return true;
+  // an axis that proves the gap ends the test right there: most candidates are far apart, so the
+  // first or second edge axis settles them and the rest are never projected
+  const limit = TOUCH - gap;
+  let slack = -Infinity;
+  for (let pass = 0; pass < 2; pass++) {
+    const poly = pass === 0 ? a : b;
+    for (let i = 0; i < poly.length; i++) {
+      const p = poly[i];
+      const q = poly[(i + 1) % poly.length];
+      const dx = q[0] - p[0];
+      const dy = q[1] - p[1];
+      const len = Math.sqrt(dx * dx + dy * dy);
+      if (len < EPS) continue;
+      const overlap = overlapOn(a, b, dy / len, -dx / len);
+      if (overlap <= limit) return true;
+      if (overlap > slack) slack = overlap;
+    }
   }
-  return { min, max };
+  // every axis overlaps: the outlines cut into each other
+  if (slack > 0) return false;
+  for (let i = 0; i < a.length; i++) {
+    const p = a[i];
+    const q = a[(i + 1) % a.length];
+    for (let j = 0; j < b.length; j++) {
+      const r = b[j];
+      const s = b[(j + 1) % b.length];
+      if (properlyCross(p, q, r, s)) return false;
+      if (pointSegment(p, r, s) < limit || pointSegment(q, r, s) < limit) return false;
+      if (pointSegment(r, p, q) < limit || pointSegment(s, p, q) < limit) return false;
+    }
+  }
+  return true;
+}
+
+/** The overlap of two outlines' extents along a unit axis, as a signed slack. */
+function overlapOn(a: Hull, b: Hull, nx: number, ny: number): number {
+  let aMin = Infinity;
+  let aMax = -Infinity;
+  for (let k = 0; k < a.length; k++) {
+    const v = a[k][0] * nx + a[k][1] * ny;
+    if (v < aMin) aMin = v;
+    if (v > aMax) aMax = v;
+  }
+  let bMin = Infinity;
+  let bMax = -Infinity;
+  for (let k = 0; k < b.length; k++) {
+    const v = b[k][0] * nx + b[k][1] * ny;
+    if (v < bMin) bMin = v;
+    if (v > bMax) bMax = v;
+  }
+  return (aMax < bMax ? aMax : bMax) - (aMin > bMin ? aMin : bMin);
+}
+
+/**
+ * Two outlines' separating axes with both extents along them – everything the axis test of
+ * `hullKeepsGap` needs. The axes come from the edges of both outlines and do not change when one of
+ * them moves; only its extents shift, by one dot product per axis. A scan that tries one outline at
+ * many positions against the same obstacles pays for the projections once per pair instead of once
+ * per position.
+ */
+export interface OutlinePair {
+  /** the unit axes, `[nx, ny]` each */
+  axes: Float64Array;
+  /** the first outline's `[min, max]` per axis, in its own frame */
+  first: Float64Array;
+  /** the second outline's `[min, max]` per axis */
+  second: Float64Array;
+}
+
+/** The axes of two outlines and their extents along them – see `OutlinePair`. */
+export function outlinePair(first: Hull, second: Hull): OutlinePair {
+  const axes: number[] = [];
+  for (const poly of [first, second]) {
+    for (let i = 0; i < poly.length; i++) {
+      const p = poly[i];
+      const q = poly[(i + 1) % poly.length];
+      const dx = q[0] - p[0];
+      const dy = q[1] - p[1];
+      const len = Math.sqrt(dx * dx + dy * dy);
+      // a repeated axis cannot change the verdict; it just costs one more projection
+      if (len >= EPS) axes.push(dy / len, -dx / len);
+    }
+  }
+  const list = axes.length ? Float64Array.from(axes) : new Float64Array([1, 0]);
+  return { axes: list, first: extentsOf(first, list), second: extentsOf(second, list) };
+}
+
+function extentsOf(poly: Hull, axes: Float64Array): Float64Array {
+  const out = new Float64Array(axes.length);
+  for (let a = 0; a < axes.length; a += 2) {
+    const nx = axes[a];
+    const ny = axes[a + 1];
+    let min = Infinity;
+    let max = -Infinity;
+    for (let k = 0; k < poly.length; k++) {
+      const v = poly[k][0] * nx + poly[k][1] * ny;
+      if (v < min) min = v;
+      if (v > max) max = v;
+    }
+    out[a] = min;
+    out[a + 1] = max;
+  }
+  return out;
+}
+
+/**
+ * The axis verdict of a pair whose first outline is translated by (dx, dy): `true` when an axis
+ * proves the two are at least `gap` apart, `false` when every axis overlaps (they cut into each
+ * other), `undefined` when the outlines are in the touching band and only the edge distances can
+ * decide – the caller then falls back to `hullKeepsGap` on the placed outlines.
+ */
+export function pairGapVerdict(pair: OutlinePair, dx: number, dy: number, gap: number): boolean | undefined {
+  const limit = TOUCH - gap;
+  let deepest = Infinity;
+  for (let a = 0; a < pair.axes.length; a += 2) {
+    const shift = dx * pair.axes[a] + dy * pair.axes[a + 1];
+    const min = pair.first[a] + shift;
+    const max = pair.first[a + 1] + shift;
+    const overlap = (max < pair.second[a + 1] ? max : pair.second[a + 1]) - (min > pair.second[a] ? min : pair.second[a]);
+    if (overlap <= limit) return true;
+    if (overlap < deepest) deepest = overlap;
+  }
+  return deepest > 0 ? false : undefined;
+}
+
+/**
+ * Whether two outlines whose separating axes did not decide (see `pairGapVerdict`) stay `gap`
+ * apart: the edge-pair distances, stopping at the first pair that is too close. Skips the axis pass
+ * the caller has already run.
+ */
+export function edgesKeepGap(a: Hull, b: Hull, gap: number): boolean {
+  if (a.length < 3 || b.length < 3) return true;
+  const limit = gap - TOUCH;
+  for (let i = 0; i < a.length; i++) {
+    const p = a[i];
+    const q = a[(i + 1) % a.length];
+    for (let j = 0; j < b.length; j++) {
+      const r = b[j];
+      const s = b[(j + 1) % b.length];
+      if (properlyCross(p, q, r, s)) return false;
+      if (pointSegment(p, r, s) < limit || pointSegment(q, r, s) < limit) return false;
+      if (pointSegment(r, p, q) < limit || pointSegment(s, p, q) < limit) return false;
+    }
+  }
+  return true;
 }
 
 /** Shortest distance between two hulls; 0 when they touch or overlap. */
@@ -235,7 +410,7 @@ function pointSegment(p: Point2, a: Point2, b: Point2): number {
   const dx = b[0] - a[0];
   const dy = b[1] - a[1];
   const len2 = dx * dx + dy * dy;
-  if (len2 < EPS) return Math.hypot(p[0] - a[0], p[1] - a[1]);
+  if (len2 < EPS) return Math.sqrt((p[0] - a[0]) ** 2 + (p[1] - a[1]) ** 2);
   const t = Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / len2));
-  return Math.hypot(p[0] - (a[0] + t * dx), p[1] - (a[1] + t * dy));
+  return Math.sqrt((p[0] - (a[0] + t * dx)) ** 2 + (p[1] - (a[1] + t * dy)) ** 2);
 }
