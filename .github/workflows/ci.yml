@@ -20,8 +20,8 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -61,7 +61,7 @@ jobs:
     outputs:
       code: ${{ steps.diff.outputs.code }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - id: diff
@@ -85,10 +85,10 @@ jobs:
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: docker/setup-buildx-action@v3
       - name: Build the app image into the build cache
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           push: false
@@ -133,8 +133,8 @@ jobs:
       # quoted on purpose: unquoted `a:b:c:d` is a sexagesimal integer to YAML 1.1 parsers
       PWTEST_SHARD_WEIGHTS: '33:23:32:29'
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -142,7 +142,7 @@ jobs:
       - name: Load the image built by `build`
         # cache-from only: the build job owns the scope, and a cached layer set is restored without
         # running the PrusaSlicer stage again
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           load: true
@@ -223,7 +223,7 @@ jobs:
         run: |
           docker logs e2e --tail 200 || true
           docker logs mock-host --tail 100 || true
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: failure()
         with:
           # one report per shard: the four jobs run on different runners, so the file sets cannot
