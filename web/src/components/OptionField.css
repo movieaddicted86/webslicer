@@ -144,3 +144,40 @@
   gap: 6px 10px;
   align-items: center;
 }
+
+/* phone: a 300 px label column would push every field off the screen, so the label goes above its
+   control and the control takes the full width (16 px type: iOS otherwise zooms into the field) */
+@media (max-width: 640px) {
+  .option {
+    grid-template-columns: 1fr;
+    gap: 2px;
+    padding: 8px 0;
+  }
+
+  .option > label {
+    padding-top: 0;
+  }
+
+  .option .control input[type='number'],
+  .option .control input.short,
+  .option .control input[type='text'],
+  .option .control select,
+  .option .control textarea {
+    width: 100%;
+    min-width: 0;
+    flex: 1 1 100%;
+    font-size: 16px;
+  }
+
+  .option .control {
+    gap: 8px;
+  }
+
+  .vector {
+    gap: 6px;
+  }
+
+  .bed-grid {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+}

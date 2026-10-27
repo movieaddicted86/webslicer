@@ -83,42 +83,83 @@
   }
 }
 
-/* phone: the rail becomes a bottom tab bar – same items, plain styling (the mobile track re-skins it) */
+/* phone: the rail becomes a bottom tab bar – four tabs (Slicing, Library, Printers, More) with their
+   names, ≥ 48 px high, and the safe-area inset of a phone that has a gesture bar. `More` holds the
+   remaining places (Preferences, About) as a menu above the bar. */
 @media (max-width: 640px) {
   .rail {
     flex-direction: row;
-    align-items: center;
+    align-items: stretch;
     width: 100%;
-    padding: 4px 6px;
+    padding: 0 4px env(safe-area-inset-bottom, 0px);
     border-right: none;
     border-top: 1px solid var(--edge);
+    background: var(--rail);
   }
 
-  .rail-group {
-    flex-direction: row;
-    gap: 2px;
-  }
-
-  .rail-group:first-child {
-    flex: 1;
-    justify-content: space-around;
-  }
-
-  .rail-bottom {
-    flex-direction: row;
-    gap: 2px;
+  /* the four tabs share the bar equally: the groups stop being boxes and their buttons become the
+     bar's own flex items (95 px each on a 390 px phone) */
+  .rail-group,
+  .rail-group.rail-bottom,
+  .rail-group.rail-more {
+    display: contents;
   }
 
   .rail-item {
-    flex: 1;
+    flex: 1 1 0;
     width: auto;
-    height: auto;
+    min-width: 44px;
+    height: 52px;
+    gap: 2px;
+    justify-content: center;
     padding: 4px 2px;
+    border-radius: 8px;
   }
 
   /* the bottom bar has the width for the names again */
   .rail-label {
     display: block;
-    font-size: 9px;
+    font-size: 10px;
+  }
+
+  /* the names of the more-menu, whole (the tab bar's labels are ellipsised to their tab) */
+  .rail-more-menu {
+    position: fixed;
+    right: 8px;
+    bottom: calc(var(--tab-bar-h) + 8px);
+    z-index: 40;
+    min-width: 190px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 6px;
+    background: var(--card-2);
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    box-shadow: var(--shadow);
+  }
+
+  .rail-more-menu button {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    justify-content: flex-start;
+    height: 44px;
+    padding: 0 10px;
+    background: transparent;
+    border-color: transparent;
+    border-radius: 8px;
+    text-align: left;
+  }
+
+  .rail-more-menu button:hover:not(:disabled) {
+    background: var(--field-h);
+  }
+}
+
+/* a coarse pointer: the hit areas of the bar and the more menu are 48 px, the visible size stays */
+@media (pointer: coarse) {
+  .rail-item {
+    min-height: 48px;
   }
 }

@@ -254,3 +254,66 @@
   margin: 2px 0 0;
   font-size: 12px;
 }
+
+/* phone: the side-by-side vendor/model columns and the 160 px label columns have no room, so the
+   lists stack (the vendor list scrolls in its own short box) and a label sits above its field */
+@media (max-width: 640px) {
+  .add-printer {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    height: 62dvh;
+  }
+
+  .add-printer .vendor-list ul {
+    max-height: 30dvh;
+  }
+
+  .vendor-list li {
+    min-height: 44px;
+    align-items: center;
+  }
+
+  .filament-step {
+    height: 62dvh;
+  }
+
+  .filament-step-body {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .filament-step-body .vendor-list ul {
+    max-height: 26dvh;
+  }
+
+  .custom-printer label,
+  .custom-printer .option {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+    align-items: start;
+  }
+
+  .custom-printer input,
+  .custom-printer select,
+  .filament-step-head input,
+  .vendor-list input {
+    width: 100%;
+    min-width: 0;
+    font-size: 16px;
+  }
+
+  /* a checkbox a finger can hit: the box grows, the label stays the size it is */
+  .variants label,
+  .filament-entries label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 44px;
+  }
+
+  .variants input[type='checkbox'],
+  .filament-entries input[type='checkbox'] {
+    width: 20px;
+    height: 20px;
+  }
+}

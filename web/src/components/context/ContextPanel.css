@@ -110,17 +110,96 @@
   width: 100%;
 }
 
-/* phone: the stack is a sheet over the lower part of the scene; the footer keeps its row below it */
+/* phone: the stack is a sheet over the lower part of the scene; the footer keeps its row below it.
+   The sheet has three positions (the layout slice's `sheetState`), and `peek` is the one that keeps
+   the Slice button reachable: the card folds away and only the footer's row stays. The handle above
+   the card is the sheet's own chrome; the card body scrolls inside the room the footer leaves. */
 @media (max-width: 640px) {
   .context-stack {
     top: auto;
     left: var(--card-gap);
     right: var(--card-gap);
     width: auto;
-    max-height: 72vh;
+    max-height: calc(100% - var(--bar-h) - var(--tab-bar-h) - var(--card-gap));
+    /* the stack is bottom-anchored: the footer keeps its place at the bottom of the scene */
+    justify-content: flex-end;
+    pointer-events: none;
+    z-index: 5;
   }
 
   .context-panel {
+    flex: none;
     max-height: 46vh;
   }
+
+  /* peek: the card is gone, the footer shows the Slice button and its warning line alone */
+  .context-stack.sheet-peek .context-panel {
+    display: none;
+  }
+
+  /* half: the card takes the upper part, the footer always keeps its own height */
+  .context-stack.sheet-half .context-panel {
+    height: 34vh;
+  }
+
+  /* full: the card takes everything the scene, the bar and the tab bar leave */
+  .context-stack.sheet-full .context-panel {
+    flex: 1;
+    max-height: none;
+  }
+
+  /* the footer stays the primary target in every position: it never shrinks and never scrolls */
+  .context-stack > .context-footer {
+    flex: none;
+  }
+
+  /* a long footer in peek (a running job, a block notice) may grow past the screen: it scrolls
+     inside the sheet instead of pushing the Slice button off it */
+  .context-stack.sheet-peek > .context-footer {
+    max-height: calc(100% - var(--card-gap));
+    overflow-y: auto;
+  }
+
+  /* the layer slider is the preview's main control on a phone: its card comes first, so the default
+     half sheet shows it without scrolling and the scene keeps its room above; View and the G-code
+     check follow below */
+  .context-stack.sheet-half .preview-panel,
+  .context-stack.sheet-full .preview-panel {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .preview-panel > [data-testid='preview-layer-card'] {
+    order: -1;
+  }
+}
+
+/* the sheet's drag handle: a small grip in a finger-sized hit area, only rendered on a phone */
+.sheet-handle {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 44px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  pointer-events: auto;
+  touch-action: none;
+  cursor: grab;
+}
+
+.sheet-handle:focus-visible {
+  outline: 2px solid var(--accent-h);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.sheet-grip {
+  display: block;
+  width: 42px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--muted);
 }

@@ -133,13 +133,15 @@
   outline: none;
 }
 
-/* the phone drawer: the card leaves its place and covers the scene, dismissed by its own button */
+/* the phone drawer: the card leaves its place and covers the scene, dismissed by its own button.
+   It stops above the tab bar (its own height token, inset included), so the user can switch tabs
+   while the list is open. */
 .left-column.drawer {
   position: fixed;
   left: 0;
   top: calc(var(--bar-h) + var(--card-gap));
-  bottom: calc(var(--card-gap) + 48px);
-  width: min(300px, 86vw);
+  bottom: calc(var(--tab-bar-h) + var(--card-gap));
+  width: min(320px, 88vw);
   max-height: none;
   border-radius: 0 var(--r) var(--r) 0;
   z-index: 20;
@@ -147,6 +149,13 @@
 
 .left-column.drawer .left-column-head {
   padding: 8px 8px 8px 12px;
+}
+
+/* every row of the list is a finger target in the drawer */
+.left-column.drawer .left-column-toggle,
+.left-column.drawer .left-drawer-close {
+  min-width: 44px;
+  height: 44px;
 }
 
 .left-drawer-title {

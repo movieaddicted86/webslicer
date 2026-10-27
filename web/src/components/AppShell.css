@@ -25,6 +25,8 @@
   --bar-h: 48px;
   --card-gap: 12px;
   --panel-w: 344px;
+  /* the phone's bottom tab bar: 52 px of tabs plus the gesture bar's inset (Rail.css) */
+  --tab-bar-h: 52px;
   /* the user's width of the object list card (the frame publishes it from the layout slice) */
   --list-w: var(--list-width, 276px);
 }

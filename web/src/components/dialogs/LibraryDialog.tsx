@@ -355,8 +355,8 @@ export function LibraryDialog({ onClose, mode }: { onClose: () => void; mode: Li
                 <span className="name" title={e.path}>
                   {e.name}
                 </span>
-                <span className="muted small">{e.dir ? '' : fmtSize(e.size)}</span>
-                <span className="muted small">{fmtDate(e.mtime)}</span>
+                <span className="muted small lib-size">{e.dir ? '' : fmtSize(e.size)}</span>
+                <span className="muted small lib-date">{fmtDate(e.mtime)}</span>
                 {!e.dir && mode === 'open' && (e.kind === 'model' || e.kind === 'project') && (
                   <button className="small" onClick={() => open(e)} disabled={busy}>
                     Open
@@ -388,7 +388,7 @@ export function LibraryDialog({ onClose, mode }: { onClose: () => void; mode: Li
               value={name}
               onChange={(e) => setName(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && save()}
-              style={{ width: 260 }}
+              className="lib-save-name"
             />
             <button className="primary" data-testid="modal-primary" onClick={save} disabled={busy || !name.trim()}>
               {busy ? 'Saving…' : 'Save'}

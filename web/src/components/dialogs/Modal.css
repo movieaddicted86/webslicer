@@ -67,3 +67,80 @@
 .form label.checkbox {
   display: flex;
 }
+
+/* phone: a dialog is a page, not a floating card – it takes the screen between the safe areas, its
+   body scrolls, and the primary action sits in a sticky foot that stays reachable without scrolling.
+   `100dvh` (not `vh`) is the height the browser bar leaves, so the button is never behind it. */
+@media (max-width: 640px) {
+  .modal-backdrop {
+    padding: 8px;
+  }
+
+  .modal {
+    width: 100%;
+    max-width: none;
+    max-height: calc(100dvh - 16px);
+  }
+
+  .modal-head {
+    padding: 6px 12px;
+  }
+
+  /* the ✕ is a finger target too */
+  .modal-head button.icon {
+    min-width: 44px;
+    height: 44px;
+  }
+
+  .modal-body {
+    padding: 12px;
+    overscroll-behavior: contain;
+  }
+
+  /* the primary action and its close sibling stay on screen: the foot sticks to the body's edge
+     while the fields above it scroll */
+  .modal-actions {
+    position: sticky;
+    bottom: 0;
+    z-index: 1;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 12px -12px -12px;
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+    background: var(--bg2);
+    border-top: 1px solid var(--border);
+  }
+
+  .modal-actions button,
+  .modal-actions a.button {
+    min-height: 44px;
+  }
+
+  /* a two-column form label has no room: the name goes above its field */
+  .form label {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .form input,
+  .form select,
+  .form textarea,
+  .modal-actions input {
+    width: 100%;
+    min-width: 0;
+    font-size: 16px;
+  }
+
+  /* a checkbox row is a finger target, and the box itself is big enough to see and hit */
+  .modal-body label.checkbox {
+    min-height: 44px;
+    align-items: center;
+  }
+
+  .modal-body input[type='checkbox'],
+  .modal-body input[type='radio'] {
+    width: 20px;
+    height: 20px;
+    flex: none;
+  }
+}

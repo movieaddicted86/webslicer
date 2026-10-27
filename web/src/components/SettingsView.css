@@ -74,3 +74,31 @@
   text-transform: uppercase;
   letter-spacing: 0.03em;
 }
+
+/* phone: a fixed 300 px side next to the page leaves no room for the fields, so the page list goes
+   above the settings and both take the full width; the list scrolls on its own line */
+@media (max-width: 640px) {
+  .settings {
+    flex-direction: column;
+  }
+
+  .settings-side {
+    width: auto;
+    max-height: 40vh;
+    flex: none;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .settings-main {
+    padding: 12px;
+  }
+
+  .settings-main h2 {
+    margin-top: 8px;
+  }
+
+  .group {
+    padding: 8px 10px;
+  }
+}

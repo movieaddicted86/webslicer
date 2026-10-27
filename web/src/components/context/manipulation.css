@@ -116,7 +116,19 @@
 /* coarse pointers get the 40 px hit area from padding around the same 34 px picture */
 @media (pointer: coarse) {
   .object-actions .icon {
-    padding: 3px;
+    min-width: 44px;
+    height: 44px;
+    padding: 0;
+  }
+
+  /* the transform rows: a thumb-sized field and its buttons (the instances stepper and Fill bed) */
+  .manip-row input {
+    min-height: 40px;
+  }
+
+  .manip-row button,
+  .manip-actions button {
+    min-height: 44px;
   }
 }
 

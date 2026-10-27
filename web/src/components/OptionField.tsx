@@ -138,6 +138,7 @@ function BedShapeEditor({ value, onChange, idPrefix }: { value: string; onChange
           <input
             id={`${idPrefix}-size-x`}
             type="number"
+            inputMode="decimal"
             value={sizeX}
             onChange={(e) => setRect(Number(e.target.value), sizeY, originX, originY)}
           />
@@ -145,6 +146,7 @@ function BedShapeEditor({ value, onChange, idPrefix }: { value: string; onChange
           <input
             id={`${idPrefix}-size-y`}
             type="number"
+            inputMode="decimal"
             value={sizeY}
             onChange={(e) => setRect(sizeX, Number(e.target.value), originX, originY)}
           />
@@ -152,6 +154,7 @@ function BedShapeEditor({ value, onChange, idPrefix }: { value: string; onChange
           <input
             id={`${idPrefix}-origin-x`}
             type="number"
+            inputMode="decimal"
             value={originX}
             onChange={(e) => setRect(sizeX, sizeY, Number(e.target.value), originY)}
           />
@@ -159,6 +162,7 @@ function BedShapeEditor({ value, onChange, idPrefix }: { value: string; onChange
           <input
             id={`${idPrefix}-origin-y`}
             type="number"
+            inputMode="decimal"
             value={originY}
             onChange={(e) => setRect(sizeX, sizeY, originX, Number(e.target.value))}
           />

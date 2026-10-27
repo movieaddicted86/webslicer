@@ -230,6 +230,7 @@ export function PrinterHosts() {
               Max hotend °C{' '}
               <input
                 type="number"
+                inputMode="decimal"
                 min={0}
                 max={ALL_METAL_MAX_HOTEND}
                 placeholder="none"
@@ -241,6 +242,7 @@ export function PrinterHosts() {
               Max bed °C{' '}
               <input
                 type="number"
+                inputMode="decimal"
                 min={0}
                 max={150}
                 placeholder="none"

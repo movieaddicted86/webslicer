@@ -168,6 +168,7 @@
 
   .topbar {
     padding: 0 6px;
+    gap: 4px;
   }
 
   /* a phone's bar has no free centre: the switch takes its place in the row instead of over it */
@@ -175,5 +176,16 @@
     position: static;
     transform: none;
     margin-left: auto;
+  }
+
+  /* the bar's icons get the finger-sized hit area (44 px) without growing the picture */
+  .topbar-icon,
+  .app-menu-trigger {
+    min-width: 44px;
+    height: 44px;
+  }
+
+  .view-switch button {
+    min-height: 44px;
   }
 }

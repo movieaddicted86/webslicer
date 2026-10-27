@@ -485,6 +485,7 @@ export function PrinterSetup({ tab, onClose }: { tab: PrinterSetupTab; onClose: 
             <input
               id="custom-printer-x"
               type="number"
+              inputMode="decimal"
               value={custom.x}
               onChange={(e) => setCustom({ ...custom, x: Number(e.target.value) })}
             />
@@ -494,6 +495,7 @@ export function PrinterSetup({ tab, onClose }: { tab: PrinterSetupTab; onClose: 
             <input
               id="custom-printer-y"
               type="number"
+              inputMode="decimal"
               value={custom.y}
               onChange={(e) => setCustom({ ...custom, y: Number(e.target.value) })}
             />
@@ -503,6 +505,7 @@ export function PrinterSetup({ tab, onClose }: { tab: PrinterSetupTab; onClose: 
             <input
               id="custom-printer-z"
               type="number"
+              inputMode="decimal"
               value={custom.z}
               onChange={(e) => setCustom({ ...custom, z: Number(e.target.value) })}
             />
@@ -513,6 +516,7 @@ export function PrinterSetup({ tab, onClose }: { tab: PrinterSetupTab; onClose: 
               <input
                 id="custom-printer-nozzle"
                 type="number"
+                inputMode="decimal"
                 step="0.05"
                 value={custom.nozzle}
                 onChange={(e) => setCustom({ ...custom, nozzle: Number(e.target.value) })}

@@ -106,3 +106,77 @@
   padding: 1px 8px;
   font-size: 12px;
 }
+
+/* the save mode's name field: it shares the foot's row with the save button */
+.lib-save-name {
+  width: 260px;
+}
+
+/* phone: the size/date columns and the two trailing buttons do not fit next to a name, so a row is
+   the checkbox, the icon and the name; opening a row is the row's own tap (a tap on a folder opens
+   it, a tap on a file loads it), and delete sits under the name at a finger's size. */
+@media (max-width: 640px) {
+  .library {
+    height: 62dvh;
+    max-height: 62dvh;
+  }
+
+  .library-list li {
+    grid-template-columns: 24px 24px minmax(0, 1fr) 44px;
+    grid-template-areas:
+      'check icon name delete'
+      'check icon open delete';
+    gap: 4px 8px;
+    padding: 8px;
+    min-height: 56px;
+  }
+
+  .library-list .lib-check {
+    grid-area: check;
+    width: 20px;
+    height: 20px;
+    opacity: 1;
+  }
+
+  .library-list li .icon {
+    grid-area: icon;
+  }
+
+  .library-list li .name {
+    grid-area: name;
+    font-size: 15px;
+  }
+
+  /* the size and the date are secondary: the size moves under the name, the date is dropped */
+  .library-list li .lib-size {
+    grid-area: open;
+    font-size: 11px;
+    align-self: start;
+  }
+
+  .library-list li .lib-date {
+    display: none;
+  }
+
+  .library-list li > button.small,
+  .library-list li > a.button.small {
+    grid-area: open;
+    justify-self: start;
+    min-height: 32px;
+    padding: 4px 12px;
+  }
+
+  .library-list li > button.icon {
+    grid-area: delete;
+    min-width: 44px;
+    height: 44px;
+  }
+
+  .library-list li.empty {
+    display: block;
+  }
+
+  .lib-save-name {
+    width: 100%;
+  }
+}

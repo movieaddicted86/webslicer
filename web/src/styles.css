@@ -64,12 +64,33 @@ body,
   background: var(--bg);
 }
 
+/* A phone's browser bar collapses and grows while scrolling, and `100%` would keep the page at the
+   height it had on load. The frame follows the visible viewport instead (`dvh`), with the plain
+   height as the fallback for browsers without it. */
+@supports (height: 100dvh) {
+  html,
+  body,
+  #root {
+    height: 100dvh;
+  }
+}
+
 button,
 input,
 select,
 textarea {
   font: inherit;
   color: inherit;
+}
+
+/* a phone's browser zooms into a field whose type is under 16 px, and the page then stays zoomed:
+   every control is 16 px on a small screen, so focusing one changes nothing */
+@media (max-width: 640px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
 }
 
 button {

@@ -70,6 +70,19 @@ function loadCards(): Record<string, boolean> {
   return parseLeftCards(read(LEFT_CARDS_KEY));
 }
 
+/**
+ * The three positions of the phone's context sheet (Layout-3.0 §4): `peek` leaves the Slice footer
+ * visible alone, `half` shows the upper part of the card, `full` the whole card. The sheet starts at
+ * `peek`: the plate and its model keep the scene, and the Slice button is in the footer's line; one
+ * tap on the handle brings the presets and the settings up.
+ */
+export type SheetState = 'peek' | 'half' | 'full';
+
+/** The order a tap on the drag handle walks: full when it was at peek or half, back to peek from full. */
+export function nextSheetState(state: SheetState): SheetState {
+  return state === 'full' ? 'peek' : state === 'peek' ? 'half' : 'full';
+}
+
 export interface LayoutSlice {
   /** true hides the side panels so the 3D view fills the window; visible by default */
   panelsHidden: boolean;
@@ -88,6 +101,12 @@ export interface LayoutSlice {
   leftDrawerOpen: boolean;
   toggleLeftDrawer: () => void;
   setLeftDrawerOpen: (open: boolean) => void;
+  /**
+   * How far the phone's context sheet is pulled up: `peek` shows the Slice footer alone, `half` the
+   * card's upper half, `full` the whole card. A session choice, not stored.
+   */
+  sheetState: SheetState;
+  setSheetState: (state: SheetState) => void;
   /** forget every stored layout choice and return to the defaults (the Preferences dialog) */
   resetLayout: () => void;
 }
@@ -119,6 +138,8 @@ export const createLayoutSlice: StateCreator<State, [], [], LayoutSlice> = (set,
   leftDrawerOpen: false,
   toggleLeftDrawer: () => get().setLeftDrawerOpen(!get().leftDrawerOpen),
   setLeftDrawerOpen: (open) => set({ leftDrawerOpen: open }),
+  sheetState: 'peek',
+  setSheetState: (state) => set({ sheetState: state }),
   resetLayout: () => {
     // every stored choice goes, so a reload starts like a first visit; the in-memory state follows so
     // the change is visible without one
@@ -135,6 +156,7 @@ export const createLayoutSlice: StateCreator<State, [], [], LayoutSlice> = (set,
       leftCollapsed: undefined,
       leftCards: {},
       leftDrawerOpen: false,
+      sheetState: 'peek',
     });
   },
 });

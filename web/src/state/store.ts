@@ -23,6 +23,7 @@ export * from './types';
 export { instanceBounds, pickedInstanceId, selectedInstance } from '../plater/objects';
 export { isModified } from './slices/preset';
 export { clientId } from './client';
+export { nextSheetState, type SheetState } from './slices/layout';
 
 export const useStore = create<State>()((...a) => ({
   ...createUiSlice(...a),
