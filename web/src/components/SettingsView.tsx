@@ -190,6 +190,7 @@ export function SettingsView() {
                       <div className="control">
                         <input
                           type="number"
+                          inputMode="decimal"
                           min={1}
                           max={16}
                           value={extruders}

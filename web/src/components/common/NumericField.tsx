@@ -37,6 +37,9 @@ export function NumericField({
   return (
     <input
       type="number"
+      // a phone's numeric keyboard carries the decimal point (and a minus sign) – the keypad
+      // without `inputmode` has neither
+      inputMode="decimal"
       id={id}
       className={className}
       step={step}

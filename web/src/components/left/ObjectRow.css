@@ -125,3 +125,29 @@
 .object-info .not-manifold {
   color: var(--yellow);
 }
+
+/* touch: a row and its instance lines are finger targets, and the visibility box is worth a thumb */
+@media (pointer: coarse) {
+  .object-row {
+    min-height: 48px;
+    padding: 6px 8px;
+  }
+
+  .object-row > input[type='checkbox'] {
+    width: 20px;
+    height: 20px;
+  }
+
+  .instance-row {
+    min-height: 44px;
+    padding: 6px 8px;
+  }
+
+  .instance-row .icon {
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+}

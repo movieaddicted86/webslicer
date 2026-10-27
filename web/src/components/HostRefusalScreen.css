@@ -58,3 +58,30 @@
 .host-refusal button {
   align-self: flex-start;
 }
+
+/* A phone shows card and splash at the screen's width: the card is a flex item of the splash, and
+   without this its content (the long `pre` fix lines) pushes it wider than the display – centred,
+   so both sides and the Retry button left the screen. The lines scroll inside themselves instead. */
+@media (max-width: 640px) {
+  .splash {
+    padding: 8px;
+  }
+
+  .host-refusal {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    padding: 16px;
+  }
+
+  .host-refusal-block,
+  .host-refusal-block code {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  /* the panel's one action is a finger target */
+  .host-refusal button {
+    min-height: 44px;
+  }
+}

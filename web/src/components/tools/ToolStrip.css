@@ -175,3 +175,23 @@
 .tool-strip-pill.compact::-webkit-scrollbar {
   display: none;
 }
+
+/* phone: the pill takes the whole scene width, so its scrolling groups stay inside the screen
+   instead of one long row that overflows the page; the page itself never scrolls sideways */
+@media (max-width: 640px) {
+  .tool-strip-band {
+    left: var(--card-gap);
+    right: var(--card-gap);
+  }
+
+  .tool-strip-pill.compact {
+    width: 100%;
+    overscroll-behavior-x: contain;
+  }
+
+  /* a finger needs the 44 px target the other touch surfaces get (the picture keeps its size) */
+  .tool-strip-pill button {
+    width: 44px;
+    height: 44px;
+  }
+}

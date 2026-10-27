@@ -226,10 +226,12 @@ test.describe('shell: the rail and the slim top bar', () => {
     });
     expect(narrow.overflow).toBeLessThanOrEqual(0);
     expect(narrow.railBelowScene).toBe(true);
-    expect(narrow.labels).toBe(5);
+    // T-091: the phone bar has four labelled tabs; Preferences and About are one tap away under More
+    expect(narrow.labels).toBe(4);
 
     // the bottom bar still navigates
-    await byId(app, 'rail-about').click();
+    await byId(app, 'rail-more').click();
+    await byId(app, 'rail-about-more').click();
     await app.waitForSelector('[data-testid="modal"]', { state: 'visible', timeout: 20_000 });
     expect(await dialogKind(app)).toBe('about');
     await app.keyboard.press('Escape');

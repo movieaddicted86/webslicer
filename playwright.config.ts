@@ -47,5 +47,30 @@ export default defineConfig({
     screenshot: 'only-on-failure',
     video: 'off',
   },
-  projects: [{ name: 'chromium', use: { browserName: 'chromium' } }],
+  projects: [
+    {
+      // the desktop suite: every spec except the phone/tablet one
+      name: 'chromium',
+      use: { browserName: 'chromium' },
+      testIgnore: /mobile\.spec\.ts/,
+    },
+    {
+      // T-091: the companion flow on a phone (390 × 844, the size of a current iPhone in CSS pixels)
+      name: 'phone',
+      testMatch: /mobile\.spec\.ts/,
+      use: {
+        browserName: 'chromium',
+        viewport: { width: 390, height: 844 },
+        deviceScaleFactor: 2,
+        hasTouch: true,
+        isMobile: true,
+      },
+    },
+    {
+      // the tablet of the responsive table: drawers, not the bottom tab bar
+      name: 'tablet',
+      testMatch: /mobile\.spec\.ts/,
+      use: { browserName: 'chromium', viewport: { width: 820, height: 1180 }, hasTouch: true, isMobile: true },
+    },
+  ],
 });

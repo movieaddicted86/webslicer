@@ -1,6 +1,8 @@
-import { useStore, type PlaterObject } from '../../state/store';
+import { useEffect, useRef, type PointerEvent } from 'react';
+import { useStore, nextSheetState, type PlaterObject, type SheetState } from '../../state/store';
 import { contextMode } from '../../state/contextMode';
 import { useSelectedObjects } from '../left/selection';
+import { useMediaQuery } from '../left/useMediaQuery';
 import { PlateMode } from './PlateMode';
 import { Presets } from './Presets';
 import { TransformCard } from './TransformCard';
@@ -18,6 +20,9 @@ import { MultiSelection } from './MultiSelection';
 import { ErrorBoundary } from '../common/ErrorBoundary';
 import { reportUiError } from '../../errorReport';
 import './ContextPanel.css';
+
+/** The width below which the context panel is a bottom sheet (the same number as `ContextPanel.css`). */
+const PHONE_QUERY = '(max-width: 640px)';
 
 /**
  * The context panel (layout 3.0, visual pass): a floating card on the right of the scene, showing what
@@ -39,6 +44,10 @@ import './ContextPanel.css';
  *
  * Simple mode keeps the reduced set it had: the plate content only, no object internals (parts,
  * overrides, ranges). Preview mode keeps `PreviewPanel` and has no Slice footer.
+ *
+ * On a phone the stack is a bottom sheet with a drag handle and the three positions of the responsive
+ * table (`sheetState` in the layout slice): `peek` keeps the footer alone (so the Slice button is
+ * always reachable), `half` shows the card's upper part, `full` the whole card over the scene.
  */
 export function ContextPanel() {
   const activeTool = useStore((s) => s.activeTool);
@@ -54,11 +63,26 @@ export function ContextPanel() {
   const objectMode = base === 'object' && storeMode !== 'simple' && selected.length === 1;
   const mode = base === 'tool' ? 'tool' : base === 'preview' ? 'preview' : objectMode ? 'object' : 'plate';
   const object: PlaterObject | undefined = objectMode ? selected[0] : undefined;
+  const phone = useMediaQuery(PHONE_QUERY);
+  const sheetState = useStore((s) => s.sheetState);
+  const setSheetState = useStore((s) => s.setSheetState);
+  // a tool opens its own panel in the card: on a phone the folded sheet would hide the controls the
+  // user just asked for, so *opening* a tool lifts the sheet to `half` – a tap can fold it back
+  // afterwards without the sheet springing open again
+  const lastMode = useRef(mode);
+  useEffect(() => {
+    if (phone && mode === 'tool' && lastMode.current !== 'tool') setSheetState('half');
+    lastMode.current = mode;
+  }, [phone, mode, setSheetState]);
+  // the sheet's three positions are classes on the stack: the phone stylesheet reads them
+  const sheetClass = phone ? `sheet sheet-${sheetState}` : '';
+  const handle = phone ? <SheetHandle state={sheetState} onCycle={() => setSheetState(nextSheetState(sheetState))} /> : null;
 
   // tool mode: the tool's own frame fills the card (its head is the header, its foot the footer)
   if (mode === 'tool') {
     return (
-      <div className="context-stack">
+      <div className={`context-stack ${sheetClass}`}>
+        {handle}
         <aside className="context-panel" data-testid="context-panel" aria-label="Context">
           <div className="context-body context-tool" data-testid="context-tool">
             <ToolMode />
@@ -69,7 +93,8 @@ export function ContextPanel() {
   }
 
   return (
-    <div className="context-stack">
+    <div className={`context-stack ${sheetClass}`}>
+      {handle}
       <aside className="context-panel" data-testid="context-panel" aria-label="Context">
         {mode === 'object' && object ? (
           /* object mode: the header is the object's own card – picture, name, size and rename */
@@ -133,6 +158,54 @@ export function ContextPanel() {
           <SlicePanel />
         </footer>
       )}
+    </div>
+  );
+}
+
+/**
+ * The sheet's drag handle (`SheetHandle` below the panel): a grip a thumb can drag up and down, and a
+ * button a tap walks through the three positions. It is the sheet's own chrome, so it sits above the
+ * card; on a wide window there is no sheet and it renders nothing.
+ */
+function SheetHandle({ state, onCycle }: { state: SheetState; onCycle: () => void }) {
+  const startY = useRef<number | null>(null);
+  const setSheetState = useStore((s) => s.setSheetState);
+  const drag = (e: PointerEvent<HTMLDivElement>) => {
+    // the handle is a button too: a drag must not also cycle on the click that ends it
+    startY.current = e.clientY;
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+  const move = (e: PointerEvent<HTMLDivElement>) => {
+    if (startY.current === null) return;
+    const dy = startY.current - e.clientY;
+    if (Math.abs(dy) < 36) return;
+    setSheetState(dy > 0 ? (state === 'peek' ? 'half' : 'full') : state === 'full' ? 'half' : 'peek');
+    startY.current = null;
+  };
+  const end = () => {
+    startY.current = null;
+  };
+  return (
+    <div
+      className="sheet-handle"
+      role="button"
+      tabIndex={0}
+      aria-label={`The panel is ${state === 'peek' ? 'collapsed' : state === 'half' ? 'half open' : 'open'} – tap to change`}
+      aria-expanded={state !== 'peek'}
+      data-testid="sheet-handle"
+      data-sheet-state={state}
+      onPointerDown={drag}
+      onPointerMove={move}
+      onPointerUp={end}
+      onPointerCancel={end}
+      onClick={onCycle}
+      onKeyDown={(e) => {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        e.preventDefault();
+        onCycle();
+      }}
+    >
+      <span className="sheet-grip" aria-hidden="true" />
     </div>
   );
 }
