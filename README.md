@@ -2,7 +2,7 @@
 
 A full-featured 3D printing slicer in the browser. WebSlicer runs the **original PrusaSlicer engine**
 (CLI) on the server and brings the plater, settings, profiles, G-code preview and printer upload to
-any browser – on a PC, a tablet or the workshop laptop.
+any browser – on a PC, a tablet, a phone or the workshop laptop.
 
 ![WebSlicer: load a model, slice, preview, send to the printer in 13 seconds](docs/images/hero.gif)
 

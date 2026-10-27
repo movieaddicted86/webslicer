@@ -96,6 +96,28 @@ PrusaSlicer feature exists here and which does not is in
 | Give the 3D view the full width                      | The top bar's **hide panels** button                                                                           |
 | See the version, the licence and the update notice   | Rail **About**                                                                                                 |
 
+### On a phone
+
+Below 640 px the same app is a companion view for the print you already started:
+
+- the rail becomes a **bottom tab bar** with four labelled entries – **Slicing**, **Library**,
+  **Printers** and **More**; More opens Preferences and About, so no function is lost. Every tab is
+  at least 44 × 44 px, and the bar stays clear of the phone's gesture area;
+- the context panel is a **bottom sheet** with a drag handle. It has three positions – **peek**
+  (the Slice button and its warning line alone, the default, so the model keeps the scene), **half**
+  (the presets and quick settings) and **full** (the whole card). Tap the handle to walk through them,
+  or drag it up and down. The **Slice button is in the sheet's footer in every position**, so the file
+  on the plate is always one tap from slicing. In the Preview the layer card is the sheet's first
+  card, so one tap on the handle brings the layer slider up with the sliced model visible above it;
+- the object list is a **drawer** that the top bar opens; it stops above the tab bar;
+- dialogs take the phone's width, scroll their body and keep their primary button in a foot that
+  stays on screen. Text and number fields use the phone's decimal keypad and are 16 px, so the browser
+  does not zoom when one is focused;
+- nothing scrolls the page sideways, and every screen works in portrait with the browser bar showing
+  (the layout measures the visible height, not `100vh`).
+
+The desktop layout is unchanged above 900 px; 640–899 px keeps the drawers of the tablet layout.
+
 ## Plater
 
 - **3D plater** (Three.js): import STL / OBJ / 3MF / AMF / STEP (drag & drop; STEP is converted on the

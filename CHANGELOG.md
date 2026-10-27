@@ -7,6 +7,12 @@ rc.3 to rc.5 and of the `Unreleased` of that time are kept verbatim in
 
 ## Unreleased
 
+### Added
+
+- **The companion flow on a phone (T-091):** below 640 px the rail is a four-tab bottom bar, the
+  context panel is a bottom sheet with a drag handle and the Slice button always in reach, dialogs and
+  touch targets fit a thumb, and nothing scrolls sideways.
+
 ## 1.0.0 – 2026-10-27
 
 First stable release: the rc.6 feature set plus the fix below; the image gets the `latest` tag.
