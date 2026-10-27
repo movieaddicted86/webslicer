@@ -139,6 +139,11 @@ export interface Toast {
 export interface CoreState {
   ready: boolean;
   fatal?: string;
+  /**
+   * The HTTP status behind `fatal`, when the server answered at all. The start-up screen tells a
+   * host-guard refusal (403) apart from every other failure with it.
+   */
+  fatalStatus?: number;
   info?: ServerInfo;
   schema?: Schema;
   dialog?:

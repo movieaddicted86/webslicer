@@ -5,6 +5,7 @@
 import type { StateCreator } from 'zustand';
 import {
   api,
+  ApiError,
   type InstalledPrinter,
   type Mode,
   type PhysicalPrinter,
@@ -205,7 +206,7 @@ export const createUiSlice: StateCreator<State, [], [], UiSlice> = (set, get) =>
       // a fresh install has nothing to print with: the printers dialog opens on the vendor profiles
       if (!installed.length) get().openDialog('printers', { tab: 'vendor' });
     } catch (e) {
-      set({ fatal: (e as Error).message });
+      set({ fatal: (e as Error).message, fatalStatus: e instanceof ApiError ? e.status : undefined });
     }
   },
 });

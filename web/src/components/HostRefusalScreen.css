@@ -1,0 +1,60 @@
+/* The start-up panel of a host-guard refusal: a card on the splash, the two fix lines as they are
+   copied. The app frame owns the splash; this is only the card in its middle. */
+.host-refusal {
+  max-width: 620px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  box-shadow: var(--shadow);
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-align: left;
+}
+
+.host-refusal h2 {
+  margin: 0;
+  font-size: 16px;
+  color: var(--yellow);
+}
+
+.host-refusal p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.host-refusal-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.host-refusal-label {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.host-refusal-block code {
+  background: var(--field);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 12px;
+  /* the line is longer than the card on a narrow window; it stays selectable, not wrapped mid-token */
+  overflow-x: auto;
+  white-space: pre;
+  user-select: all;
+}
+
+.host-refusal code {
+  background: var(--field);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-family: ui-monospace, Consolas, monospace;
+}
+
+.host-refusal button {
+  align-self: flex-start;
+}

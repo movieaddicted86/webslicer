@@ -69,6 +69,11 @@ function errorOf(res: Res): string | undefined {
   return (res.json as { error?: string } | undefined)?.error;
 }
 
+/** The `hint` of a fresh refusal, the field T-090 adds next to `error`. */
+function hintOf(res: Res): string | undefined {
+  return (res.json as { hint?: string } | undefined)?.hint;
+}
+
 /**
  * One request with a chosen `Host` header.
  *
@@ -568,11 +573,36 @@ test('a foreign Host is refused with 403 on /api and /mcp', async () => {
   const api = await callWithHost('GET', '/api/info', 'evil.example');
   assert.equal(api.status, 403);
   assert.equal(errorOf(api), 'host not allowed');
+  // the refusal names the host and the setting that opens it, so a user is not left with a dead page
+  const hint = hintOf(api) ?? '';
+  assert.match(hint, /"evil\.example"/);
+  assert.match(hint, /ALLOWED_HOSTS/);
+  assert.match(hint, /\/etc\/webslicer\/webslicer\.env/);
 
   // /mcp answers 403 before it decides whether MCP is even enabled – the rebound page learns nothing
   const mcp = await callWithHost('POST', '/mcp', 'rebind.evil.example', {});
   assert.equal(mcp.status, 403);
   assert.equal(errorOf(mcp), 'host not allowed');
+  assert.match(hintOf(mcp) ?? '', /"rebind\.evil\.example"/);
+});
+
+test('the refusal hint echoes a cut Host (it is attacker-controlled)', async () => {
+  // the 300-character case travels over the wire; control characters cannot (Node refuses the header
+  // on both sides), so `printableHeader` is pinned for those in `hostGuard.test.ts`
+  const long = `${'a'.repeat(300)}.example`;
+  const res = await callWithHost('GET', '/api/info', long);
+  assert.equal(res.status, 403);
+  const hint = hintOf(res) ?? '';
+  assert.equal(hint.match(/"([^"]*)"/)?.[1], 'a'.repeat(100));
+  // the JSON body has no second line, whatever the echoed value was
+  assert.equal(res.body.includes('\n'), false);
+});
+
+test('a foreign Origin is refused with a hint naming the origin, an allowed Host is unchanged', async () => {
+  const res = await callWithHost('GET', '/api/health', '192.168.1.42:8080', undefined, { origin: 'https://evil.example' });
+  assert.equal(res.status, 403);
+  assert.equal(errorOf(res), 'origin not allowed');
+  assert.match(hintOf(res) ?? '', /"https:\/\/evil\.example"/);
 });
 
 test('a request by IP (the LAN case) and by an ALLOWED_HOSTS name are answered', async () => {
