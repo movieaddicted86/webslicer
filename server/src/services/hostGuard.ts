@@ -28,6 +28,23 @@ export function hostNameOf(hostHeader: string | undefined): string | undefined {
   return colon < 0 ? host : host.slice(0, colon);
 }
 
+/** How long a refused header value may be when it is echoed back in a hint. */
+const ECHO_MAX = 100;
+
+/**
+ * A `Host`/`Origin` header as it may be echoed back to the client: trimmed, printable ASCII only and
+ * cut to 100 characters. The header is attacker-controlled, so it goes into a JSON `hint` and a log
+ * line, never into HTML; an empty result is named `(unknown)`.
+ */
+export function printableHeader(value: string | undefined): string {
+  const cleaned = [...String(value ?? '').trim()]
+    // the printable ASCII range: control characters (and the escape sequences built from them) are gone
+    .filter((c) => c >= ' ' && c <= '~')
+    .join('')
+    .slice(0, ECHO_MAX);
+  return cleaned || '(unknown)';
+}
+
 const LOOPBACK_NAMES: ReadonlySet<string> = new Set(['localhost', '127.0.0.1', '[::1]', '::1']);
 
 /** Whether a bare host name is a loopback name (with or without brackets). */

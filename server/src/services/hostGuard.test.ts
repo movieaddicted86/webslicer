@@ -7,7 +7,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { allowedHostNames, hostAllowed, hostNameOf, isIpLiteral, originAllowed } from './hostGuard.js';
+import { allowedHostNames, hostAllowed, hostNameOf, isIpLiteral, originAllowed, printableHeader } from './hostGuard.js';
 
 const LOCAL = ['192.168.1.42', '[fe80::1]'];
 
@@ -102,4 +102,14 @@ test('a rebinding request (foreign Host with the same Origin) is refused', () =>
   const set = allowed();
   assert.equal(hostAllowed('rebind.evil.example:8080', set), false);
   assert.equal(originAllowed('http://rebind.evil.example', 'rebind.evil.example:8080', set), false);
+});
+
+test('an echoed header value loses control characters and is cut to 100 characters', () => {
+  // it is echoed into a JSON hint and a log line, never into HTML – but it is still attacker-controlled
+  assert.equal(printableHeader('  webslicer-prusa.tail6b34f9.ts.net:8080  '), 'webslicer-prusa.tail6b34f9.ts.net:8080');
+  assert.equal(printableHeader('evil\r\nX-Injected: 1'), 'evilX-Injected: 1');
+  assert.equal(printableHeader('bell\x07back\x1b[31mspace'), 'bellback[31mspace');
+  assert.equal(printableHeader('a'.repeat(300)), 'a'.repeat(100));
+  assert.equal(printableHeader(undefined), '(unknown)');
+  assert.equal(printableHeader('\x00\x01'), '(unknown)');
 });
