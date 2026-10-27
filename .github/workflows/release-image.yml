@@ -58,7 +58,7 @@ jobs:
       # A tag push checks out the tag; a manual run checks out the ref it was started from (branch or
       # tag). The `tag` input only names the image – it never selects a different commit, so a dry run
       # on a branch cannot be turned into a build of someone else's code.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Everything the steps below branch on is decided here: the tag (a manual run may name one), the
       # version, whether the run may publish at all, and the commit to stamp into the image.
