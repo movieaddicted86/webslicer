@@ -5,6 +5,23 @@ import reactHooks from 'eslint-plugin-react-hooks';
 import tseslint from 'typescript-eslint';
 import { defineConfig } from 'eslint/config';
 
+// The dependency rule between the workspaces: `shared` is the pure core and imports neither side, `web`
+// and `server` never import each other (they talk over HTTP and through `shared`). ESLint applies only
+// the last matching `no-restricted-imports` entry per file, so every block below that sets the rule
+// for `web/src` or `server/src` files spreads the matching list.
+const notWeb = [
+  {
+    group: ['**/web/src/**', '@webslicer/web', '@webslicer/web/**'],
+    message: 'Layering: server and shared never import web. Share through shared/.',
+  },
+];
+const notServer = [
+  {
+    group: ['**/server/src/**', '@webslicer/server', '@webslicer/server/**'],
+    message: 'Layering: web and shared never import server. Share through shared/ or talk over HTTP.',
+  },
+];
+
 export default defineConfig(
   {
     ignores: ['**/dist/**', '**/node_modules/**', 'data/**', 'library/**', '.ai/**', '.claude/**', 'samples/**', 'proxmox/**'],
@@ -71,6 +88,18 @@ export default defineConfig(
     },
   },
   {
+    files: ['shared/src/**/*.ts'],
+    rules: { 'no-restricted-imports': ['error', { patterns: [...notWeb, ...notServer] }] },
+  },
+  {
+    files: ['server/src/**/*.ts'],
+    rules: { 'no-restricted-imports': ['error', { patterns: notWeb }] },
+  },
+  {
+    files: ['web/src/**/*.{ts,tsx}'],
+    rules: { 'no-restricted-imports': ['error', { patterns: notServer }] },
+  },
+  {
     // q3-server-routes: a route validates, calls one service and answers. The queue (`jobs`) and the
     // PrusaSlicer layer (`slicer`) are reached through `services/`, never directly.
     files: ['server/src/routes/**/*.ts'],
@@ -79,6 +108,7 @@ export default defineConfig(
         'error',
         {
           patterns: [
+            ...notWeb,
             {
               group: ['../slicer', '../slicer/*', '../slicer/**'],
               message: 'Routes call services only (q3-server-routes): import the use case from services/.',
@@ -104,6 +134,7 @@ export default defineConfig(
         'error',
         {
           patterns: [
+            ...notServer,
             {
               group: ['/three', '/three/examples/**'],
               message: 'three.js belongs in web/src/three/ (q4-web-store); call the plater seam (plater/meshOps) or move the code there.',
