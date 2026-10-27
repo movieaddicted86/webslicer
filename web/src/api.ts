@@ -39,6 +39,20 @@ import type {
 
 export type * from '@webslicer/shared';
 
+/**
+ * A failed API answer. `status` is what a caller can decide on: the start-up screen tells the
+ * "this address is not allowed" 403 apart from every other failure by it.
+ */
+export class ApiError extends Error {
+  readonly status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+  }
+}
+
 async function handle<T>(res: Response): Promise<T> {
   if (!res.ok) {
     let msg = `${res.status} ${res.statusText}`;
@@ -48,7 +62,7 @@ async function handle<T>(res: Response): Promise<T> {
     } catch {
       /* ignore */
     }
-    throw new Error(msg);
+    throw new ApiError(msg, res.status);
   }
   return (await res.json()) as T;
 }
