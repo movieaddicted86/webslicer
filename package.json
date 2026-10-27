@@ -1,6 +1,6 @@
 {
   "name": "webslicer",
-  "version": "1.0.0-rc.6",
+  "version": "1.0.0",
   "private": true,
   "description": "Web-based 3D printing slicer built on the PrusaSlicer engine",
   "license": "AGPL-3.0-or-later",

@@ -7,6 +7,10 @@ rc.3 to rc.5 and of the `Unreleased` of that time are kept verbatim in
 
 ## Unreleased
 
+## 1.0.0 – 2026-10-27
+
+First stable release: the rc.6 feature set plus the fix below; the image gets the `latest` tag.
+
 ### Fixed
 
 - **A refused address says what to change (T-090):** opening the app by a name not in `ALLOWED_HOSTS`
