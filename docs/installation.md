@@ -127,12 +127,42 @@ Practical cases:
 
 - **`http://192.168.1.20:8080`** – works as before; an IP literal is always allowed (an attacker
   cannot aim a DNS name at an IP literal).
-- **`http://webslicer.lan:8080`** or a NAS/LXC host name – add the name:
-  `ALLOWED_HOSTS=webslicer.lan`. Ports in the list are allowed and ignored.
+- **`http://webslicer.lan:8080`**, a NAS/LXC host name or a **Tailscale / MagicDNS name** (e.g.
+  `http://webslicer-tailnet.tail1234.ts.net:8080`, the name `tailscale status` shows) – list that
+  exact name: `ALLOWED_HOSTS=webslicer-tailnet.tail1234.ts.net`. Ports in the list are allowed and
+  ignored. A MagicDNS name is a DNS name even when it resolves to a `100.x.y.z` tailnet address, so
+  it is not accepted automatically.
 - **Behind a reverse proxy** (Caddy, nginx, Traefik) – either list the public name in
   `ALLOWED_HOSTS`, or make the proxy set the `Host` header to the address the app listens on
   (`proxy_set_header Host localhost:8080;` in nginx, `header_up Host {upstream_hostport}` in Caddy).
   If the proxy terminates TLS at another name, that name is the one to list.
+
+### "This site can't be reached" or the app says "This address is not allowed"
+
+The app itself or a proxy answered the refusal: the web app shows a **"This address is not allowed"**
+panel naming the address it was opened with, the `ALLOWED_HOSTS` line in both installs and a link
+back to this section. The fix is one line:
+
+- **Docker / Unraid** – add the name as an environment variable and restart the container:
+
+  ```bash
+  ALLOWED_HOSTS=webslicer-tailnet.tail1234.ts.net
+  ```
+
+- **Proxmox / the installer** – append it to the service environment and restart the service:
+
+  ```bash
+  echo 'ALLOWED_HOSTS=webslicer-tailnet.tail1234.ts.net' >> /etc/webslicer/webslicer.env
+  systemctl restart webslicer
+  ```
+
+- **Any install** – opening the app by the server's IP address (`http://192.168.1.20:8080`) always
+  works, because an IP literal is accepted without asking. Use it for the first configuration of a
+  tricky proxy setup.
+
+The list is comma-separated and ports are allowed but not needed (`ALLOWED_HOSTS=webslicer.lan,nas:8080`).
+The server logs one warning per refused name per hour (no full header, no flood), so
+`docker logs` / `journalctl -u webslicer` shows which name keeps knocking.
 
 Example with a custom PrusaSlicer version: `docker build --build-arg PRUSASLICER_VERSION=2.9.5 -t webslicer .`
 

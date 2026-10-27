@@ -7,6 +7,12 @@ rc.3 to rc.5 and of the `Unreleased` of that time are kept verbatim in
 
 ## Unreleased
 
+### Fixed
+
+- **A refused address says what to change (T-090):** opening the app by a name not in `ALLOWED_HOSTS`
+  (e.g. a Tailscale name) now shows a panel with the refused name, the `ALLOWED_HOSTS` line for
+  Docker and Proxmox, and a link to the installation guide – instead of a dead page ([docs](docs/installation.md#opening-the-app-by-ip-host-name-or-reverse-proxy)).
+
 ## 1.0.0-rc.6 – 2026-10-26
 
 ### Added
