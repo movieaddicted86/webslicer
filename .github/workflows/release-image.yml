@@ -206,7 +206,7 @@ jobs:
       # before the publishing build, but the build itself is what pushes.
       - name: Log in to GHCR
         if: ${{ steps.version.outputs.release == 'true' }}
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
@@ -214,7 +214,7 @@ jobs:
 
       - name: Log in to Docker Hub
         if: ${{ steps.version.outputs.release == 'true' && steps.dockerhub.outputs.configured == 'true' }}
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -222,7 +222,7 @@ jobs:
       # Step 1 of 2: the amd64 image, loaded into the runner's daemon so the smoke tests can start it.
       # Same Dockerfile as the publishing build, so its layers are a cache hit there.
       - name: Build the amd64 image for the smoke test
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           load: true
@@ -341,7 +341,7 @@ jobs:
       # version step saw a tag or the manual run was allowed to publish; otherwise this is the dry run
       # of the same build.
       - name: Build and push the image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           platforms: linux/amd64
