@@ -223,7 +223,7 @@ jobs:
         run: |
           docker logs e2e --tail 200 || true
           docker logs mock-host --tail 100 || true
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: failure()
         with:
           # one report per shard: the four jobs run on different runners, so the file sets cannot
