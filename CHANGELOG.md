@@ -7,6 +7,10 @@ rc.3 to rc.5 and of the `Unreleased` of that time are kept verbatim in
 
 ## Unreleased
 
+### Security
+
+- **`body-parser` 2.3.0 → 2.4.0:** closes the advisory GHSA-27r3-jxmh-p828 (denial of service by trailing bytes after a compressed request body); a weekly `Dependency audit` workflow now reports new advisories.
+
 ## 1.0.0 – 2026-10-27
 
 First stable release: the rc.6 feature set plus the fix below; the image gets the `latest` tag.

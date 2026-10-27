@@ -1,0 +1,30 @@
+name: Dependency audit
+
+# Production dependencies are checked against the npm advisory database: weekly (a new advisory
+# appears without any push), whenever the lock file changes on `main`, and on demand.
+#
+# This is deliberately **not** a step of `ci.yml`: an advisory published today must not turn every
+# unrelated branch red. A red run of this workflow is a to-do ("run `npm audit fix` or bump the
+# package"), not a blocked merge. Dev-only tooling is left out (`--omit=dev`): it never ships.
+on:
+  schedule:
+    - cron: '17 5 * * 1'
+  push:
+    branches: [main]
+    paths:
+      - package-lock.json
+      - '**/package.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm audit --omit=dev --audit-level=high
