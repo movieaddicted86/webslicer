@@ -153,7 +153,8 @@ function buildGcode(refs: SceneRefs, g: ParsedGcode, coloring: GcodeColoring) {
   refs.gcodeGroup.add(lines);
   refs.gcodeLines = lines;
   const widths = Float32Array.from(g.width, extrusionWidth);
-  const ribbons = new THREE.Mesh(ribbonGeometry(posAttrArray(geo), colors, widths), new ToolpathMaterial());
+  const ribbonGeo = ribbonGeometry(posAttrArray(geo), colors, widths);
+  const ribbons = new THREE.Mesh(ribbonGeo, new ToolpathMaterial(ribbonGeo));
   ribbons.frustumCulled = false;
   refs.gcodeGroup.add(ribbons);
   refs.gcodeRibbons = ribbons;
@@ -280,7 +281,8 @@ function upperBound(arr: Uint32Array, value: number, len: number): number {
   return lo;
 }
 
-function applyGcodeRange(
+/** Apply the visible layer and move windows without rebuilding the shared position buffers. */
+export function applyGcodeRange(
   refs: SceneRefs,
   gcode: ParsedGcode,
   range: [number, number],
@@ -295,10 +297,17 @@ function applyGcodeRange(
   const startSeg = gcode.layerStart[lo];
   const endSeg = gcode.layerStart[hi + 1];
   // the bottom layers stay complete, only the top layer is cut by the horizontal slider
-  const cutSeg = hi === lo ? 0 : countUpTo(gcode.moveIndex, gcode.layerStart[hi], endSeg, cut.extrusion);
+  const cutSeg = countUpTo(gcode.moveIndex, gcode.layerStart[hi], endSeg, cut.extrusion);
   const drawnSegs = gcode.layerStart[hi] - startSeg + cutSeg;
   refs.gcodeLines.geometry.setDrawRange(startSeg * 2, drawnSegs * 2);
-  refs.gcodeRibbons?.geometry.setDrawRange(startSeg, drawnSegs);
+  if (refs.gcodeRibbons) {
+    const geometry = refs.gcodeRibbons.geometry as THREE.InstancedBufferGeometry;
+    // An instanced draw range clips the quad, not its instances. Limit the instance count and let
+    // the shader select from the shared buffers at the first segment of the window.
+    geometry.setDrawRange(0, Infinity);
+    geometry.instanceCount = drawnSegs;
+    ((refs.gcodeRibbons.material as ToolpathMaterial).uniforms.uFirst.value as number) = startSeg;
+  }
   // hidden feature types are collapsed to zero-length segments
   const posAttr = refs.gcodeLines.geometry.getAttribute('position') as THREE.BufferAttribute;
   const src = gcode.positions;
@@ -319,7 +328,11 @@ function applyGcodeRange(
     }
     posAttr.needsUpdate = true;
     const ribbonPositions = refs.gcodeRibbons?.geometry.getAttribute('instanceStart') as THREE.InterleavedBufferAttribute | undefined;
-    if (ribbonPositions) ribbonPositions.data.needsUpdate = true;
+    if (ribbonPositions) {
+      ribbonPositions.data.needsUpdate = true;
+      const material = refs.gcodeRibbons?.material as ToolpathMaterial | undefined;
+      if (material) material.refresh('position');
+    }
     refs.gcodeLines.userData.masked = hidden.some(Boolean);
     refs.gcodeLines.geometry.computeBoundingSphere();
   }
@@ -429,7 +442,11 @@ export function useGcodePreview(refsRef: RefObject<SceneRefs | null>, options: G
       fillGcodeColors(attr.array as Float32Array, gcode, coloring);
       attr.needsUpdate = true;
       const ribbonColors = refs.gcodeRibbons?.geometry.getAttribute('instanceColorStart') as THREE.InterleavedBufferAttribute | undefined;
-      if (ribbonColors) ribbonColors.data.needsUpdate = true;
+      if (ribbonColors) {
+        ribbonColors.data.needsUpdate = true;
+        const material = refs.gcodeRibbons?.material as ToolpathMaterial | undefined;
+        if (material) material.refresh('color');
+      }
       refs.colorKey = coloringKey(coloring);
     }
     if (!gcode) {

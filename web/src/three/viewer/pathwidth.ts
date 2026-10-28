@@ -63,30 +63,55 @@ export function ribbonGeometry(positions: Float32Array, colors: Float32Array, wi
   return geometry;
 }
 
+/** A float texture view of one shared instanced attribute; no segment data is copied. */
+function ribbonTexture(attribute: THREE.BufferAttribute | THREE.InterleavedBufferAttribute): THREE.DataTexture {
+  const data = attribute instanceof THREE.InterleavedBufferAttribute ? attribute.data : attribute;
+  const texture = new THREE.DataTexture(data.array as Float32Array<ArrayBuffer>, data.count, 1, THREE.RGBFormat, THREE.FloatType);
+  texture.magFilter = texture.minFilter = THREE.NearestFilter;
+  texture.generateMipmaps = false;
+  texture.unpackAlignment = 1;
+  texture.needsUpdate = true;
+  return texture;
+}
+
 /** The screen-space extrusion ribbon: world width, but never narrower than the pixel floor. */
 export class ToolpathMaterial extends THREE.ShaderMaterial {
-  constructor() {
+  constructor(geometry: THREE.InstancedBufferGeometry) {
     super({
       uniforms: {
         linewidth: { value: FALLBACK_EXTRUSION_WIDTH },
         opacity: { value: 1 },
         resolution: { value: 1 },
         fovScale: { value: 0.001 },
+        uFirst: { value: 0 },
+        instanceStartTex: { value: null },
+        instanceEndTex: { value: null },
+        instanceColorStartTex: { value: null },
+        instanceColorEndTex: { value: null },
+        instanceWidthTex: { value: null },
       },
       vertexShader: `
-        attribute vec3 instanceStart;
-        attribute vec3 instanceEnd;
-        attribute vec3 instanceColorStart;
-        attribute vec3 instanceColorEnd;
-        attribute float instanceWidth;
         uniform float fovScale;
+        uniform float uFirst;
+        uniform sampler2D instanceStartTex;
+        uniform sampler2D instanceEndTex;
+        uniform sampler2D instanceColorStartTex;
+        uniform sampler2D instanceColorEndTex;
+        uniform sampler2D instanceWidthTex;
         varying vec3 vColor;
         void main() {
+          // WebGL starts every instance at attribute zero: move the shared buffers' window here.
+          float segment = float(gl_InstanceID) + uFirst;
           #ifdef USE_COLOR
-            vColor = position.x < 0.0 ? instanceColorStart : instanceColorEnd;
+            vec3 colourStart = texelFetch(instanceColorStartTex, ivec2(int(segment), 0), 0).rgb;
+            vec3 colourEnd = texelFetch(instanceColorEndTex, ivec2(int(segment), 0), 0).rgb;
+            vColor = position.x < 0.0 ? colourStart : colourEnd;
           #endif
-          vec4 start = modelViewMatrix * vec4(instanceStart, 1.0);
-          vec4 end = modelViewMatrix * vec4(instanceEnd, 1.0);
+          vec3 segmentStart = texelFetch(instanceStartTex, ivec2(int(segment), 0), 0).xyz;
+          vec3 segmentEnd = texelFetch(instanceEndTex, ivec2(int(segment), 0), 0).xyz;
+          float width = texelFetch(instanceWidthTex, ivec2(int(segment), 0), 0).x;
+          vec4 start = modelViewMatrix * vec4(segmentStart, 1.0);
+          vec4 end = modelViewMatrix * vec4(segmentEnd, 1.0);
           vec3 direction = end.xyz - start.xyz;
           float lengthMm = length(direction);
           vec3 along = lengthMm > 0.000001 ? direction / lengthMm : vec3(1.0, 0.0, 0.0);
@@ -103,7 +128,7 @@ export class ToolpathMaterial extends THREE.ShaderMaterial {
           side /= max(sideLength, 0.000001);
           vec4 clipCentre = projectionMatrix * vec4(centre, 1.0);
           float mmPerPixel = 2.0 * abs(clipCentre.w) * fovScale;
-          float halfWidth = max(instanceWidth, ${MIN_TOOLPATH_PIXELS} * mmPerPixel) * 0.5;
+          float halfWidth = max(width, ${MIN_TOOLPATH_PIXELS} * mmPerPixel) * 0.5;
           vec3 offset = along * (position.y * (lengthMm * 0.5 + halfWidth)) + side * (position.x * halfWidth);
           gl_Position = projectionMatrix * vec4(centre + offset, 1.0);
         }
@@ -120,7 +145,25 @@ export class ToolpathMaterial extends THREE.ShaderMaterial {
     });
     this.uniforms.fovScale.value = 0.001;
     this.uniforms.linewidth.value = FALLBACK_EXTRUSION_WIDTH;
+    for (const name of ['instanceStart', 'instanceEnd', 'instanceColorStart', 'instanceColorEnd', 'instanceWidth']) {
+      this.uniforms[`${name}Tex`].value = ribbonTexture(geometry.getAttribute(name));
+    }
     this.vertexColors = true;
+  }
+
+  /** Dispose only the texture views; the mesh disposer owns the shared attribute buffers. */
+  override dispose(): void {
+    for (const name of ['instanceStart', 'instanceEnd', 'instanceColorStart', 'instanceColorEnd', 'instanceWidth']) {
+      (this.uniforms[`${name}Tex`].value as THREE.DataTexture | null)?.dispose();
+    }
+    super.dispose();
+  }
+
+  /** Mark the shared-buffer texture views after an in-place feature-mask or colour update. */
+  refresh(kind: 'position' | 'color'): void {
+    for (const name of kind === 'position' ? ['instanceStart', 'instanceEnd'] : ['instanceColorStart', 'instanceColorEnd']) {
+      (this.uniforms[`${name}Tex`].value as THREE.DataTexture).needsUpdate = true;
+    }
   }
 
   /** Tangent of half the vertical field of view; zero selects an orthographic projection. */

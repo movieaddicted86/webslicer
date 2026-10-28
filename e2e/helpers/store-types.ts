@@ -320,8 +320,8 @@ export interface SceneChildLike {
     drawRange: { start: number; count: number };
     index?: { count: number } | null;
     isInstancedBufferGeometry?: boolean;
+    instanceCount?: number;
   };
-  instanceCount?: number;
   isLine?: boolean;
   isLineSegments?: boolean;
   isLineLoop?: boolean;

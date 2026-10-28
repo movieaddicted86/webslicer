@@ -66,7 +66,7 @@ test('one instanced ribbon per segment keeps the G-code width and shares the pos
   const colorEnd = geometry.getAttribute('instanceColorEnd') as THREE.InterleavedBufferAttribute;
   assert.equal(colorStart.data, colorEnd.data);
   assert.equal(colorStart.data.array, colors);
-  const material = new ToolpathMaterial();
+  const material = new ToolpathMaterial(geometry);
   assert.equal(material.uniforms.linewidth.value, 0.45);
   material.dispose();
   geometry.dispose();
