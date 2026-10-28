@@ -1,0 +1,72 @@
+/* PreviewInfo: the stats and legend chip of the phone preview (PreviewInfo.tsx). Tokens only. */
+
+.preview-info {
+  border-bottom: 1px solid var(--line);
+}
+
+.preview-info-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: auto;
+  min-height: 44px;
+  padding: 6px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  text-align: left;
+  color: var(--text);
+}
+
+.preview-info-head:hover:not(:disabled) {
+  background: var(--field);
+}
+
+/* the two numbers a glance needs; a long name wraps instead of widening the sheet */
+.preview-info-summary {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.preview-info-action {
+  flex: none;
+  color: var(--accent-h);
+  font-size: 12px;
+}
+
+.preview-info-head svg {
+  flex: none;
+  color: var(--muted);
+  transform: rotate(-90deg);
+}
+
+.preview-info.open .preview-info-head svg {
+  transform: none;
+}
+
+.preview-info-body {
+  padding: 0 12px 10px;
+}
+
+.preview-info-legend-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* the legend's own columns (time, share, length) may not widen the sheet on a 390 px screen */
+.preview-info .legend li {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}

@@ -102,3 +102,24 @@
   background: var(--accent);
   border: 2px solid var(--card);
 }
+
+/* T-092: on a phone the layer slider is the preview's main control, so its thumb is a 44 px target
+   (AC-2) on a track that stays the 4 px hairline – the offset centres the thumb on it. */
+@media (max-width: 640px) {
+  .layers input[type='range'] {
+    height: 44px;
+  }
+
+  .layers input[type='range']::-webkit-slider-thumb {
+    width: 44px;
+    height: 44px;
+    margin-top: -20px;
+    border-width: 3px;
+  }
+
+  .layers input[type='range']::-moz-range-thumb {
+    width: 40px;
+    height: 40px;
+    border-width: 3px;
+  }
+}

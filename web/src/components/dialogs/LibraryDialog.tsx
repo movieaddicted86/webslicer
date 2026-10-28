@@ -288,8 +288,14 @@ export function LibraryDialog({ onClose, mode }: { onClose: () => void; mode: Li
               ref={fileRef}
               type="file"
               multiple
+              // T-092: the system file picker offers the formats the plater reads, so a phone's picker
+              // does not list photos and music next to the models
+              accept=".stl,.obj,.3mf,.amf,.step,.stp,.gcode,.bgcode"
               style={{ display: 'none' }}
-              onChange={(e) => e.target.files && upload(e.target.files)}
+              onChange={(e) => {
+                if (e.target.files) void upload(e.target.files);
+                e.target.value = '';
+              }}
             />
           </div>
         </div>

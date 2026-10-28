@@ -14,6 +14,7 @@ import { PanelCard } from './PanelCard';
 import { Destination } from './Destination';
 import { SlicePanel } from './SlicePanel';
 import { PreviewFooter } from './PreviewFooter';
+import { PhoneResult } from './PhoneResult';
 import { PreviewPanel } from '../PreviewPanel';
 import { ToolMode } from './ToolMode';
 import { MultiSelection } from './MultiSelection';
@@ -74,6 +75,16 @@ export function ContextPanel() {
     if (phone && mode === 'tool' && lastMode.current !== 'tool') setSheetState('half');
     lastMode.current = mode;
   }, [phone, mode, setSheetState]);
+  // the first file of the flow (the Library's Load, the drop zone, the phone's picker) lands on an
+  // empty plater, and the next step is the slice: the sheet folds to `peek`, where the footer *is* the
+  // Slice state – the result line, the destination and the Slice button, one tap away. A loaded model
+  // arrives selected, which would otherwise open the object cards and hide the button behind a second
+  // tap (T-092). Only the empty → filled step folds it, so duplicating an object never moves the sheet.
+  const wasEmpty = useRef(objects.length === 0);
+  useEffect(() => {
+    if (phone && wasEmpty.current && objects.length > 0) setSheetState('peek');
+    wasEmpty.current = objects.length === 0;
+  }, [phone, objects.length, setSheetState]);
   // the sheet's three positions are classes on the stack: the phone stylesheet reads them
   const sheetClass = phone ? `sheet sheet-${sheetState}` : '';
   const handle = phone ? <SheetHandle state={sheetState} onCycle={() => setSheetState(nextSheetState(sheetState))} /> : null;
@@ -149,11 +160,15 @@ export function ContextPanel() {
       </aside>
       {mode === 'preview' ? (
         <footer className="context-footer" data-testid="context-footer">
+          {/* T-092: at `peek` the footer is the whole sheet, so the result's numbers sit here – one
+              card with the destination and Send, no scroll and no second tap */}
+          <PhoneResult />
           <Destination />
           <PreviewFooter />
         </footer>
       ) : (
         <footer className="context-footer" data-testid="context-footer">
+          <PhoneResult />
           <Destination />
           <SlicePanel />
         </footer>
