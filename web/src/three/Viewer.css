@@ -11,12 +11,89 @@
   inset: 0;
   overflow: hidden;
   background: radial-gradient(ellipse at 50% 45%, #3c4149 0%, #2b2f35 55%, #23262b 100%);
+  /* T-092: a gesture that starts on the model never scrolls the page or pulls it to refresh; the
+     canvas itself carries `touch-action: none` so the browser hands every finger to the viewer */
+  overscroll-behavior: none;
+  touch-action: manipulation;
 }
 
 .viewer canvas {
   display: block;
   width: 100%;
   height: 100%;
+  touch-action: none;
+}
+
+/* the long-press menu of a touch (touch.ts): a small card at the finger, entries a thumb hits */
+.touch-menu {
+  position: absolute;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  min-width: 136px;
+  padding: 4px;
+  background: color-mix(in srgb, var(--card) 96%, transparent);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(6px);
+}
+
+.touch-menu button {
+  min-height: 44px;
+  padding: 0 12px;
+  text-align: left;
+  background: transparent;
+  border-color: transparent;
+  border-radius: 6px;
+  color: var(--text);
+}
+
+.touch-menu button:hover,
+.touch-menu button:focus-visible {
+  background: var(--field-h);
+}
+
+/* T-092: on a phone the view band is the preview's main control, so every view is one tap on a
+   finger-sized button. The seven views wrap into two rows of thumb targets in the band between the
+   strip and the sheet – no scroll, no second menu – and each button really frames what it names.
+   Their labels are the short ones (`Viewer.tsx`), which is what keeps the row from needing the width
+   of the whole word. */
+@media (max-width: 640px) {
+  .viewer-bar-band {
+    left: var(--card-gap);
+    right: var(--card-gap);
+    top: 58px;
+  }
+
+  .viewer-toolbar {
+    flex-wrap: wrap;
+    max-width: 100%;
+    padding: 4px;
+    gap: 3px;
+  }
+
+  .viewer-toolbar button {
+    min-width: 40px;
+    min-height: 40px;
+    height: 40px;
+    font-size: 12px;
+  }
+
+  /* the reset button sits below the row instead of beside it: at 390 px it would cover a view */
+  .viewer-fit {
+    display: none;
+  }
+
+  .viewer-hint {
+    display: none;
+  }
+
+  /* the long-press menu is anchored to the canvas; on a phone its entries get the phone's 44 px */
+  .touch-menu button {
+    min-height: 48px;
+    font-size: 16px;
+  }
 }
 
 /* the key hints sit at the bottom of the band, never under a card */

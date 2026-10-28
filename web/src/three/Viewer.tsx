@@ -1,6 +1,6 @@
 import { useRef, useMemo } from 'react';
 import { useStore } from '../state/store';
-import { VIEWS } from './viewer/cameraMath';
+import { VIEWS, type CameraView } from './viewer/cameraMath';
 import { printerLayerLimits } from '../plater/layerProfile';
 import { useKeyboardShortcuts } from './viewer/useKeyboardShortcuts';
 import type { SceneRefs } from './viewer/types';
@@ -16,9 +16,27 @@ import { useCutPlane } from './viewer/useCutPlane';
 import { normalizeColor } from '../gcode/colorprint';
 import { paintKindOf } from '../tools/paintKind';
 import { ToolStrip } from '../components/tools/ToolStrip';
+import { useMediaQuery } from '../components/left/useMediaQuery';
 import './Viewer.css';
 
 export { VOLUME_COLORS } from './viewer/colors';
+
+/** The width below which the view bar is the phone's compact row (the same number as the stylesheet). */
+const PHONE_QUERY = '(max-width: 640px)';
+
+/**
+ * The phone's view labels (T-092): seven full labels would need two rows of wide buttons over the
+ * model, so each view keeps its initial and the tooltip/accessible name still says the whole word.
+ */
+const SHORT_VIEW_LABEL: Record<CameraView, string> = {
+  iso: 'Iso',
+  top: 'Top',
+  bottom: 'Bot',
+  front: 'Fr',
+  rear: 'Re',
+  left: 'Le',
+  right: 'Ri',
+};
 
 export function Viewer() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -61,8 +79,8 @@ export function Viewer() {
     return m && (m.bedModel || m.bedTexture) ? `${m.vendorId}|${m.bedModel || ''}|${m.bedTexture || ''}` : '';
   });
 
-  // --- init scene
-  useScene(refsRef, containerRef);
+  // --- init scene (the touch gestures frame everything on a double tap, like the Home button)
+  useScene(refsRef, containerRef, { frameAll: () => requestCamera({ mode: 'bed' }) });
 
   useBed(refsRef, bedShape, bedAssetKey);
 
@@ -110,6 +128,11 @@ export function Viewer() {
   // keyboard
   useKeyboardShortcuts(requestCamera, toggleOrtho);
 
+  // T-092: on a phone the seven views share one row of short buttons over the top of the scene, which
+  // is also what the Preview's view buttons are – one tap, and each frames the toolpaths (the same
+  // `focusBox` a key uses)
+  const phone = useMediaQuery(PHONE_QUERY);
+
   return (
     <div className={`viewer ${placeOnFace ? 'place-on-face' : ''}`} ref={containerRef}>
       {/* L-4: the tool strip floats at the top centre; the open tool's controls are in the context
@@ -125,24 +148,45 @@ export function Viewer() {
           It floats centred in the band between the cards, as the tool strip does, so it never sits
           under the context panel. */}
       <div className="viewer-bar-band">
-        <div className="viewer-toolbar">
+        <div className={`viewer-toolbar${phone ? ' compact' : ''}`}>
           {VIEWS.map((v) => (
-            <button key={v.id} title={`${v.label} view (${v.key})`} onClick={() => requestCamera({ mode: 'view', view: v.id })}>
-              {v.label}
+            <button
+              key={v.id}
+              className="viewer-view-button"
+              title={`${v.label} view (${v.key})`}
+              aria-label={`${v.label} view`}
+              data-testid={`viewer-view-${v.id}`}
+              onClick={() => requestCamera({ mode: 'view', view: v.id })}
+            >
+              {/* T-092: a phone gets a short label, so the seven views stay one row of one-tap buttons;
+                  the title and the accessible name keep the whole word */}
+              {phone ? SHORT_VIEW_LABEL[v.id] : v.label}
             </button>
           ))}
           <button
             className={ortho ? 'active' : ''}
             title={ortho ? 'Orthographic projection (K)' : 'Perspective projection (K)'}
+            data-testid="viewer-projection"
             onClick={toggleOrtho}
           >
             {ortho ? 'Ortho' : 'Persp'}
           </button>
-          <button title="Zoom to selection (Z)" aria-label="Zoom to selection (Z)" onClick={() => requestCamera({ mode: 'fit' })}>
+          <button
+            title="Zoom to selection (Z)"
+            aria-label="Zoom to selection (Z)"
+            data-testid="viewer-fit-selection"
+            onClick={() => requestCamera({ mode: 'fit' })}
+          >
             ⌖
           </button>
         </div>
-        <button className="viewer-fit" title="Reset view" aria-label="Reset view" onClick={() => requestCamera({ mode: 'bed' })}>
+        <button
+          className="viewer-fit"
+          title="Reset view"
+          aria-label="Reset view"
+          data-testid="viewer-fit"
+          onClick={() => requestCamera({ mode: 'bed' })}
+        >
           ⌂
         </button>
       </div>

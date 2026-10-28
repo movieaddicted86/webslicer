@@ -5,7 +5,7 @@
  * the same place, so the GPU resources (geometries, textures, programs) live exactly as long as they
  * did before.
  */
-import { useEffect } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 import type { RefObject } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
@@ -16,6 +16,8 @@ import { renderThumbnails as renderSceneThumbnails } from '../thumbnail';
 import { setThumbnailRenderer } from '../../state/thumbnailRenderer';
 import { FOV, orthoHeightOf, setOrthoFrustum } from './camera';
 import { createPainting } from './painting';
+import { aimAt, pickablesOf } from './pickables';
+import { createTouch } from './touch';
 import type { SceneRefs } from './types';
 
 function readTransform(obj: THREE.Object3D) {
@@ -26,7 +28,18 @@ function readTransform(obj: THREE.Object3D) {
   };
 }
 
-export function useScene(refsRef: RefObject<SceneRefs | null>, containerRef: RefObject<HTMLDivElement | null>) {
+export interface SceneOptions {
+  /** frame everything (the touch double tap): the viewer's camera request, so it is Home's command */
+  frameAll: () => void;
+}
+
+export function useScene(refsRef: RefObject<SceneRefs | null>, containerRef: RefObject<HTMLDivElement | null>, options: SceneOptions) {
+  // the scene is built once; the gesture callbacks are read through a ref so it stays that way
+  const optionsRef = useRef(options);
+  useLayoutEffect(() => {
+    optionsRef.current = options;
+  });
+
   // --- init scene
   useEffect(() => {
     const container = containerRef.current!;
@@ -44,6 +57,9 @@ export function useScene(refsRef: RefObject<SceneRefs | null>, containerRef: Ref
     controls.dampingFactor = 0.1;
     // the polar angle stays unlimited: "Bottom" (key 2) puts the camera below the bed, like PrusaSlicer
     controls.mouseButtons = { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.PAN, RIGHT: THREE.MOUSE.PAN };
+    // T-092: the touch gestures are the viewer's own (`./touch`), so OrbitControls must not also read
+    // the fingers – otherwise one drag would orbit twice. The mouse keeps every mapping it had.
+    controls.touches = { ONE: null, TWO: null };
 
     scene.add(new THREE.AmbientLight(0xffffff, 0.55));
     const key = new THREE.DirectionalLight(0xffffff, 1.1);
@@ -161,12 +177,15 @@ export function useScene(refsRef: RefObject<SceneRefs | null>, containerRef: Ref
       if (!e.shiftKey && !e.ctrlKey) st.select([]);
     };
     const onPointerDown = (e: PointerEvent) => {
+      // touches belong to `./touch`: the mouse path below must not also start a stroke or a click
+      if (e.pointerType === 'touch') return;
       if (painting.down(e)) return;
       if (e.button !== 0) return;
       downOnGizmo = transform.dragging;
       downPos = [e.clientX, e.clientY];
     };
     const onPointerUp = (e: PointerEvent) => {
+      if (e.pointerType === 'touch') return;
       if (e.button !== 0 || !downPos) return;
       const moved = Math.hypot(e.clientX - downPos[0], e.clientY - downPos[1]);
       downPos = null;
@@ -175,18 +194,8 @@ export function useScene(refsRef: RefObject<SceneRefs | null>, containerRef: Ref
       // a drag orbits or pans and a gizmo drag moves the object; neither is a click
       if (moved > 4) return;
       if (useStore.getState().view !== 'plater') return;
-      const rect = renderer.domElement.getBoundingClientRect();
-      const ndc = new THREE.Vector2(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
-      refs.raycaster.setFromCamera(ndc, refs.camera);
-      const pickables: THREE.Object3D[] = [];
-      for (const n of refs.nodes.values()) {
-        if (!n.group.visible) continue;
-        for (const inst of n.instances.values()) {
-          if (!inst.group.visible) continue;
-          pickables.push(inst.mesh, ...inst.volumes.values());
-        }
-      }
-      const hits = refs.raycaster.intersectObjects(pickables, false);
+      aimAt(refs, e.clientX, e.clientY);
+      const hits = refs.raycaster.intersectObjects(pickablesOf(refs), false);
       const st = useStore.getState();
       if (st.activeTool === 'placeOnFace') {
         // lay the clicked face flat on the bed
@@ -231,6 +240,13 @@ export function useScene(refsRef: RefObject<SceneRefs | null>, containerRef: Ref
     renderer.domElement.addEventListener('pointerleave', painting.endStroke);
     renderer.domElement.addEventListener('contextmenu', painting.contextMenu);
 
+    // --- touch gestures (T-092): orbit, pinch, tap, double tap, long press, drag of the picked object
+    const touch = createTouch(refs, { frameAll: () => optionsRef.current.frameAll() });
+    renderer.domElement.addEventListener('pointerdown', touch.down);
+    renderer.domElement.addEventListener('pointermove', touch.move);
+    renderer.domElement.addEventListener('pointerup', touch.up);
+    renderer.domElement.addEventListener('pointercancel', touch.cancel);
+
     let raf = 0;
     const loop = () => {
       controls.update();
@@ -243,6 +259,11 @@ export function useScene(refsRef: RefObject<SceneRefs | null>, containerRef: Ref
       cancelAnimationFrame(raf);
       ro.disconnect();
       unwatchTool();
+      touch.stop();
+      renderer.domElement.removeEventListener('pointerdown', touch.down);
+      renderer.domElement.removeEventListener('pointermove', touch.move);
+      renderer.domElement.removeEventListener('pointerup', touch.up);
+      renderer.domElement.removeEventListener('pointercancel', touch.cancel);
       renderer.domElement.removeEventListener('pointerdown', onPointerDown);
       renderer.domElement.removeEventListener('pointerup', onPointerUp);
       renderer.domElement.removeEventListener('pointermove', painting.move);
