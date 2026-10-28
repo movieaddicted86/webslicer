@@ -119,7 +119,10 @@ export function SendToPrinterDialog({ onClose }: { onClose: () => void }) {
     setBusy(true);
     try {
       const r: SendResult = await api.sendToPrinter(job.id, printerId, filename, start, override && reason.trim() ? { reason } : undefined);
-      toast(r.ok ? 'success' : 'error', r.message);
+      // T-092: the confirmation names both things the user chose – the printer's name and the file –
+      // so the toast says where the G-code went even when several hosts are set up
+      const done = `Uploaded ${filename} to ${printer?.name ?? 'the printer'}${start ? ' and started the print' : ''}`;
+      toast(r.ok ? 'success' : 'error', r.ok ? done : r.message);
       if (r.ok) onClose();
     } catch (e) {
       const serverIssues = issuesOf(e);

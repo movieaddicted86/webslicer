@@ -1,0 +1,22 @@
+/* PhoneResult: the result line of the phone sheet's footer (PhoneResult.tsx). Tokens only. */
+
+.phone-result {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  font-size: 12px;
+  color: var(--muted);
+  /* the numbers are the card's whole content: no horizontal scroll from a long time string */
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.phone-result-item {
+  white-space: nowrap;
+}
+
+.phone-result-item b {
+  color: var(--text);
+  font-weight: 600;
+}

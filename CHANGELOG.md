@@ -16,6 +16,9 @@ rc.3 to rc.5 and of the `Unreleased` of that time are kept verbatim in
 - **The companion flow on a phone (T-091):** below 640 px the rail is a four-tab bottom bar, the
   context panel is a bottom sheet with a drag handle and the Slice button always in reach, dialogs and
   touch targets fit a thumb, and nothing scrolls sideways.
+- **The 3D view by finger (T-092):** one finger orbits, two fingers zoom and pan, a tap selects, a
+  double tap frames the plate, a long press offers Duplicate and Delete, and no gesture scrolls the
+  page; the phone's preview frames the toolpaths per view and keeps time, filament and Send in reach.
 
 ## 1.0.0 – 2026-10-27
 

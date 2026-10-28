@@ -8,8 +8,8 @@
  * view really draws the model.
  */
 import { CUBE, PAIR, importFile, press, read, state } from '../helpers/app';
-import { bedOutline, frameProbe, shot, tapCamera } from '../helpers/canvas';
-import { expect, test } from '../helpers/fixtures';
+import { bedOutline, frameProbe, project, shot, tapCamera, toolpathBox } from '../helpers/canvas';
+import { expect, openSharedSlice, sliceOnce, test } from '../helpers/fixtures';
 
 const KEYS = ['0', '1', '2', '3', '4', '5', '6'];
 /** The bottom view (2) looks through the plate: the bed covers the model, so the canvas does not change. */
@@ -148,6 +148,48 @@ test.describe('camera: the seven views', () => {
     await app.waitForTimeout(1000);
     const keyTop = await frameProbe(app);
     expect(buttonTop.objects).toEqual(keyTop.objects);
+  });
+
+  /**
+   * T-092, the FINDINGS row on the preview's framing: in the Preview a view must frame the *toolpaths*
+   * of the visible layers (that is what `focusBox` asks for), not fall back to the whole bed. Measured
+   * on the camera target, not on pixels: the visible toolpaths' box centre projects onto the centre of
+   * the picture, and the box fills a good part of it.
+   */
+  test('in the preview every view frames the visible toolpaths, not the empty bed', async ({ app, browser }) => {
+    const sharedJob = await sliceOnce(browser);
+    await openSharedSlice(app, sharedJob);
+    await app.evaluate(() => window.webslicer.getState().setView('preview'));
+    await app.waitForTimeout(1500);
+    const box = await toolpathBox(app);
+    expect(box, 'the preview has toolpaths').not.toBeNull();
+    if (!box) return;
+    const middle: [number, number, number] = [0, 1, 2].map((i) => (box.min[i] + box.max[i]) / 2) as [number, number, number];
+    const corners: Array<[number, number, number]> = [];
+    for (let i = 0; i < 8; i++) {
+      corners.push([i & 1 ? box.max[0] : box.min[0], i & 2 ? box.max[1] : box.min[1], i & 4 ? box.max[2] : box.min[2]]);
+    }
+
+    for (const [key, view] of [
+      ['0', 'iso'],
+      ['1', 'top'],
+      ['3', 'front'],
+    ] as const) {
+      await press(app, key);
+      await app.waitForTimeout(1000);
+      const [centre] = (await project(app, [middle])) ?? [null];
+      expect(centre, `view ${view}: the toolpaths are in front of the camera`).not.toBeNull();
+      expect(Math.abs(centre![0]), `view ${view}: the toolpaths are centred horizontally`).toBeLessThan(0.2);
+      expect(Math.abs(centre![1]), `view ${view}: the toolpaths are centred vertically`).toBeLessThan(0.2);
+      const projected = (await project(app, corners)) ?? [];
+      const xs = projected.filter((v): v is [number, number] => !!v).map((v) => v[0]);
+      const ys = projected.filter((v): v is [number, number] => !!v).map((v) => v[1]);
+      // an empty bed would be framed much wider: the print would be a speck in the middle
+      expect(
+        Math.max(...xs) - Math.min(...xs) > 0.5 || Math.max(...ys) - Math.min(...ys) > 0.5,
+        `view ${view}: the toolpaths fill the picture`,
+      ).toBe(true);
+    }
   });
 });
 

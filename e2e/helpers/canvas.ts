@@ -109,6 +109,25 @@ export async function project(page: Page, points: Vec3[]): Promise<Projected | n
 /** A projected bounding box `[minX, minY, maxX, maxY]` in NDC, or null when no point is visible. */
 export type NdcBox = [number, number, number, number] | null;
 
+/** Where a world point sits on the page, in CSS pixels (null when it is behind the camera). */
+export async function screenPoint(page: Page, world: Vec3): Promise<{ x: number; y: number } | null> {
+  const ndc = await project(page, [world]);
+  const v = ndc?.[0];
+  if (!v) return null;
+  const rect = await page.locator('.viewer canvas').boundingBox();
+  if (!rect) return null;
+  return { x: rect.x + ((v[0] + 1) / 2) * rect.width, y: rect.y + ((1 - v[1]) / 2) * rect.height };
+}
+
+/** The live camera of the last frame: where it stands and which way it looks (a finger moves it). */
+export async function cameraPose(page: Page): Promise<{ x: number; y: number; z: number } | null> {
+  return page.evaluate(() => {
+    const c = window.__wsCamera?.camera as { position?: { x: number; y: number; z: number } } | undefined;
+    const p = c?.position;
+    return p ? { x: p.x, y: p.y, z: p.z } : null;
+  });
+}
+
 export interface FrameProbe {
   bed: NdcBox;
   objects: NdcBox;
@@ -408,6 +427,36 @@ export async function gcodeLook(page: Page): Promise<GcodeLook | null> {
       }
     }
     return { opacity: material.opacity ?? 1, colours: seen.size };
+  });
+}
+
+export interface ToolpathBox {
+  min: Vec3;
+  max: Vec3;
+}
+
+/**
+ * The world bounds of the toolpaths the preview shows (the window `focusBox`/`gcodeBox` frames): the
+ * segments of the visible layer range, read from the parsed G-code in the store. `null` without a
+ * G-code or with an empty range.
+ */
+export async function toolpathBox(page: Page): Promise<ToolpathBox | null> {
+  return page.evaluate(() => {
+    const s = window.webslicer.getState();
+    const g = s.gcode;
+    if (!g) return null;
+    const [lo, hi] = s.previewLayerRange;
+    const from = g.layerStart[lo] * 6;
+    const to = g.layerStart[Math.min(hi + 1, g.layerCount)] * 6;
+    const min: [number, number, number] = [Infinity, Infinity, Infinity];
+    const max: [number, number, number] = [-Infinity, -Infinity, -Infinity];
+    for (let i = from; i < to; i += 3) {
+      for (let k = 0; k < 3; k++) {
+        min[k] = Math.min(min[k], g.positions[i + k]);
+        max[k] = Math.max(max[k], g.positions[i + k]);
+      }
+    }
+    return Number.isFinite(min[0]) ? { min, max } : null;
   });
 }
 

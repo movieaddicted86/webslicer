@@ -114,7 +114,34 @@ Below 640 px the same app is a companion view for the print you already started:
   stays on screen. Text and number fields use the phone's decimal keypad and are 16 px, so the browser
   does not zoom when one is focused;
 - nothing scrolls the page sideways, and every screen works in portrait with the browser bar showing
-  (the layout measures the visible height, not `100vh`).
+  (the layout measures the visible height, not `100vh`); a phone turned on its side (844 × 390) keeps
+  the Slice button in reach as well.
+
+**The 3D view by finger.** The canvas takes every touch itself, so no gesture scrolls the page, pulls
+it to refresh or fires the browser's back-swipe – a finger on the model is always a finger on the
+model:
+
+| Gesture                         | What it does                                                            |
+| ------------------------------- | ----------------------------------------------------------------------- |
+| One finger on empty space, drag | Orbit around the plate                                                  |
+| Two fingers, pinch              | Zoom in and out                                                         |
+| Two fingers, move together      | Pan the view                                                            |
+| Double tap                      | Frame everything – the same as the Home button                          |
+| Tap an object                   | Select it (a 12 px tolerance, so a thumb does not have to hit the edge) |
+| Tap empty space                 | Deselect and close an open tool                                         |
+| Drag a **selected** object      | Move it on the plate; it drops onto the bed when the finger lifts       |
+| Long press an object            | A small menu: **Duplicate**, **Delete**                                 |
+
+Rotating, scaling and the exact numbers stay in the panels, where a field and a stepper are more
+precise than a finger. The seven view buttons sit in one row of short labels above the model (their
+tooltips keep the whole word), and each frames what its name says.
+
+**A print from the phone's view.** The first file of the flow – picked in the Library, dropped, or
+chosen with the plater's own **Choose a model…** button – folds the sheet to **peek**, where the
+result line (**time · filament · cost**) sits right above the destination and **Send**. The Preview's
+view buttons (Iso, Top, Front, …) frame the visible toolpaths in one tap, the layer slider's thumb is
+a 44 px touch target, and the legend and the sliced details fold into a **Details** chip in the sheet
+instead of floating over the model.
 
 The desktop layout is unchanged above 900 px; 640–899 px keeps the drawers of the tablet layout.
 

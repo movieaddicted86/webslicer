@@ -249,6 +249,18 @@ const HOOKS = [
   'sliced-info',
   'send-button',
   'toast',
+  // T-092: the touch viewer's view bar, the phone's result line and the two folded panels
+  'viewer-view',
+  'viewer-projection',
+  'viewer-fit-selection',
+  'viewer-fit',
+  'phone-result',
+  'preview-info',
+  'preview-info-toggle',
+  'preview-info-scheme',
+  'dropzone-file',
+  'dropzone-empty',
+  'dropzone-pick',
 ] as const;
 
 /**
