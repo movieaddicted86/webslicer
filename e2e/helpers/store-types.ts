@@ -92,6 +92,10 @@ export interface E2EGcode {
   featureTypes: string[];
   types: ArrayLike<number>;
   markerCount: number;
+  /** the toolpath vertices (three floats per vertex, two vertices per segment) – the camera specs read them */
+  positions: ArrayLike<number>;
+  /** the first segment of each layer, plus one past the last – the layer windows of `positions` */
+  layerStart: ArrayLike<number>;
 }
 
 export interface E2ECustomGcode {
@@ -234,6 +238,9 @@ export interface E2EState {
   removeObjects: (ids: string[]) => void;
   setOption: (type: 'print' | 'filament' | 'printer', key: string, value: string, extruderIdx?: number) => void;
   setView: (view: string) => void;
+  /** the phone's context sheet: `peek` (the footer alone), `half` and `full` (T-091) */
+  sheetState: 'peek' | 'half' | 'full';
+  setSheetState: (state: 'peek' | 'half' | 'full') => void;
   setMode: (mode: 'simple' | 'advanced' | 'expert') => void;
   selectPreset: (type: 'print' | 'filament' | 'printer', name: string, extruderIdx?: number) => Promise<void>;
   openDialog: (dialog: string, payload?: unknown) => void;
