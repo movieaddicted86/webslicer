@@ -328,6 +328,8 @@ export async function gizmoHandle(page: Page): Promise<{ x: number; y: number; c
 
 export interface GcodeScene {
   segs: number;
+  /** first extrusion instance and visible instance count of the close-up ribbons */
+  ribbonRange: [number, number] | null;
   travel: number;
   points: number;
   drawn: number;
@@ -339,8 +341,8 @@ export interface GcodeScene {
 
 /**
  * What the G-code group draws. The sliders and the feature toggles never rebuild geometry: they move
- * `geometry.drawRange` (and collapse hidden segments to zero length), so the drawn counts are the
- * observable. The group is the scene child with the most line/point vertices.
+ * the hairline draw range and the ribbon instance window (and collapse hidden segments to zero length),
+ * so the drawn counts are the observable. The group is the scene child with the most line/point vertices.
  */
 export async function gcodeScene(page: Page): Promise<GcodeScene> {
   return page.evaluate(() => {
@@ -357,8 +359,9 @@ export async function gcodeScene(page: Page): Promise<GcodeScene> {
         group = child;
       }
     }
-    if (!group) return { segs: 0, travel: 0, points: 0, drawn: 0, collapsed: 0, wide: false };
+    if (!group) return { segs: 0, ribbonRange: null, travel: 0, points: 0, drawn: 0, collapsed: 0, wide: false };
     let segs = 0;
+    let ribbonRange: [number, number] | null = null;
     let wide = false;
     let travel = 0;
     let points = 0;
@@ -369,6 +372,12 @@ export async function gcodeScene(page: Page): Promise<GcodeScene> {
       const pos = o.geometry.attributes.position;
       const material = Array.isArray(o.material) ? o.material[0] : o.material;
       if (o.isLineSegments && material?.vertexColors) {
+        const first = dr.start / 2;
+        const count = Math.min(dr.count, pos.count - dr.start) / 2;
+        if (o.visible) {
+          segs += count;
+          ribbonRange = [first, count];
+        }
         // the feature mask lives on this hidden hairline twin even though the ribbons are what draws
         const n = Math.min(dr.count, pos.count);
         const a = pos.array;
@@ -377,19 +386,20 @@ export async function gcodeScene(page: Page): Promise<GcodeScene> {
           const o2 = (i + 1) * 3;
           if (a[o1] === a[o2] && a[o1 + 1] === a[o2 + 1] && a[o1 + 2] === a[o2 + 2]) collapsed++;
         }
-        if (o.visible) segs += n / 2;
         return;
       }
       if (!o.visible) return;
       if (o.isLineSegments) {
         travel += Math.min(dr.count, pos.count) / 2;
       } else if (o.isMesh && o.geometry.isInstancedBufferGeometry && material?.vertexColors) {
-        // one visible ribbon instance per extrusion
-        segs += Math.min(dr.count, o.instanceCount ?? Infinity);
+        // one visible ribbon instance per extrusion, starting at the first instance of the layer window
+        const count = o.geometry.instanceCount ?? 0;
+        ribbonRange = [(material as { uniforms?: { uFirst?: { value: number } } }).uniforms?.uFirst?.value ?? 0, count];
+        segs += count;
         wide = true;
       } else if (o.isPoints) points += Math.min(dr.count, pos.count);
     });
-    return { segs, travel, points, drawn: segs + travel + points, collapsed, wide };
+    return { segs, ribbonRange, travel, points, drawn: segs + travel + points, collapsed, wide };
   });
 }
 

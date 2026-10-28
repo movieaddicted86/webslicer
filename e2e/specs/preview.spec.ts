@@ -3,11 +3,12 @@
  * the legends and the WebGL resource census – ported from `.claude/t17-browser.mjs` (S10) and
  * `.claude/t18-browser.mjs`.
  *
- * The sliders and toggles never rebuild geometry: they move `geometry.drawRange` (and collapse hidden
- * segments), so the drawn counts of the G-code group are the observable – not pixels.
+ * The sliders and toggles never rebuild geometry: they move the hairline draw range and the ribbon
+ * instance window (and collapse hidden segments), so the drawn counts are the observable – not pixels.
  */
 import fs from 'node:fs';
 import { CUBE, importFile, read, settle, sliceAndWait, waitSliceDone } from '../helpers/app';
+import type { Page } from '@playwright/test';
 import { census, gcodeLook, gcodeScene, markerKindProbe, toolMarkerPosition, visibleMeshes } from '../helpers/canvas';
 import { expect, openSharedSlice, sliceOnce, test } from '../helpers/fixtures';
 import { click, fill, outline } from '../helpers/dom';
@@ -114,7 +115,64 @@ test.describe('preview: the sliced result (UAT-14)', () => {
   });
 });
 
+/** Draw one layer window through the actual Top/Bottom inputs and inspect the rendered segment range. */
+async function expectLayerWindow(app: Page, bottom: number, top: number): Promise<void> {
+  await fill(app, '[data-testid="layer-slider-bottom"]', String(bottom), 250);
+  await fill(app, '[data-testid="layer-slider"]', String(top), 250);
+  const expected = await app.evaluate(
+    ([lo, hi]) => {
+      const g = window.webslicer.getState().gcode!;
+      return [g.layerStart[lo], g.layerStart[hi + 1] - g.layerStart[lo]];
+    },
+    [bottom, top] as const,
+  );
+  await expect.poll(async () => (await gcodeScene(app)).ribbonRange).toEqual(expected);
+  const scene = await gcodeScene(app);
+  expect(scene.segs).toBe(expected[1]);
+  expect(scene.segs).toBeGreaterThan(0);
+}
+
 test.describe('preview: the sliders (UAT-06, UAT-19)', () => {
+  for (const near of [true, false]) {
+    test(`layer windows and the horizontal cut limit ${near ? 'close-up ribbon' : 'far hairline'} segments`, async ({ app }) => {
+      await openPreview(app);
+      expect((await gcodeScene(app)).wide).toBe(false);
+      if (near) {
+        const box = (await app.locator('.viewer canvas').boundingBox())!;
+        await app.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+        await expect
+          .poll(
+            async () => {
+              await app.mouse.wheel(0, -900);
+              await app.waitForTimeout(400);
+              return (await gcodeScene(app)).wide;
+            },
+            { timeout: 20_000 },
+          )
+          .toBe(true);
+      }
+      const layers = await read(app, (s) => s.gcode!.layerCount);
+      const full = await gcodeScene(app);
+      expect(full.ribbonRange).toEqual([0, full.segs]);
+      const middle = Math.floor((layers - 1) / 2);
+      await expectLayerWindow(app, middle, layers - 1);
+      await expectLayerWindow(app, middle, middle);
+      await expectLayerWindow(app, layers - 1, layers - 1);
+      await expectLayerWindow(app, 0, 0);
+      await expectLayerWindow(app, 0, layers - 1);
+      expect((await gcodeScene(app)).ribbonRange).toEqual(full.ribbonRange);
+
+      const cut = await read(app, (s) => {
+        const g = s.gcode!;
+        const start = g.layerStart[g.layerCount - 1];
+        const end = g.layerStart[g.layerCount];
+        return g.moveIndex[start + Math.floor((end - start) / 2)];
+      });
+      await app.evaluate((value) => window.webslicer.getState().setPreviewMoveCut(value), cut);
+      await expect.poll(async () => (await gcodeScene(app)).segs).toBeLessThan(full.segs);
+    });
+  }
+
   test('the layer card has both layer sliders, the marker track and the three code buttons', async ({ app }) => {
     await openPreview(app);
     const layers = await read(app, (s) => s.gcode?.layerCount ?? 0);

@@ -7,6 +7,11 @@ rc.3 to rc.5 and of the `Unreleased` of that time are kept verbatim in
 
 ## Unreleased
 
+### Fixed
+
+- **Zoomed Preview layer sliders (T-097):** Top, Bottom and Move now limit wide toolpath ribbons
+  just like hairlines; single first/last layers no longer disappear (regression of T-094).
+
 ### Added
 
 - **Beta preview and setup feedback (T-094):** nozzle choices form aligned standard/High-flow grids,
