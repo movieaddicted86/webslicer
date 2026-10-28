@@ -4,6 +4,7 @@ import type { OptionDef } from '../api';
 import { decodeVector, encodeVector, parsePoints, serializePoints, toBool } from '../values';
 import { NumericField } from './common/NumericField';
 import { TextField } from './common/TextField';
+import { hexColourValue, isValidColour, pickerColour } from './colour';
 import './OptionField.css';
 import { Icon } from '../icons/Icon';
 
@@ -20,6 +21,42 @@ interface Props {
   disabled?: boolean;
   /** a configuration limit this field breaks (S1-e): block = red, warn = yellow */
   issue?: ConfigIssue;
+}
+
+/**
+ * The filament colour: a native colour picker next to the hex field, both editing the same
+ * stored value. The picker can only show one `#rrggbb`, so a list of colours keeps the plain field.
+ */
+function ColourField({ id, value, onChange, disabled }: { id: string; value: string; onChange: (v: string) => void; disabled?: boolean }) {
+  const picker = pickerColour(value);
+  const valid = isValidColour(value);
+  return (
+    <div className={`colour-field ${valid ? '' : 'invalid'}`} data-testid="colour-field">
+      <input
+        type="color"
+        className="colour-swatch"
+        data-testid="colour-picker"
+        aria-label="Pick the filament colour"
+        value={picker ?? '#808080'}
+        disabled={disabled}
+        onChange={(e) => onChange(hexColourValue(e.target.value))}
+      />
+      <TextField
+        id={id}
+        value={value}
+        onChange={(t) => onChange(hexColourValue(t))}
+        type="text"
+        className="colour-hex"
+        spellCheck={false}
+        disabled={disabled}
+      />
+      {!valid && (
+        <p className="field-issue warn" role="status">
+          Use a hex colour such as #FF8000.
+        </p>
+      )}
+    </div>
+  );
 }
 
 function ScalarInput({
@@ -63,6 +100,10 @@ function ScalarInput({
     case 'float':
       return <NumericField id={id} text={value} onText={onChange} step={scalarType === 'int' ? 1 : 'any'} disabled={disabled} />;
     case 'string':
+      // a filament colour is one colour per extruder slot; with a colour list the plain field stays
+      if (def.key === 'filament_colour' && !value.includes(';') && !value.includes('"')) {
+        return <ColourField id={id} value={value} onChange={onChange} disabled={disabled} />;
+      }
       if (def.multiline || def.gcode) {
         return (
           <TextField

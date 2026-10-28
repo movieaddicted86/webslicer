@@ -186,6 +186,42 @@ test.describe('dialogs: the app dialogs (S11)', () => {
     await closeDialog(app, 'escape');
   });
 
+  test('the nozzle grid keeps its standard and high-flow rows on one line at desktop and phone widths', async ({ app }) => {
+    await openDialog(app, 'printers', { tab: 'vendor' });
+    await app.waitForTimeout(500);
+    for (const width of [1280, 390]) {
+      await app.setViewportSize({ width, height: 844 });
+      await app.waitForTimeout(300);
+      const grid = await app.evaluate(() => ({
+        scroll: document.documentElement.scrollWidth,
+        viewport: innerWidth,
+        grids: Array.from(document.querySelectorAll<HTMLElement>('[data-testid="variant-grid"]')).map((g) => {
+          const columns = (g.querySelector('.variant-row') as HTMLElement).style.gridTemplateColumns;
+          const rows = Array.from(g.querySelectorAll<HTMLElement>('.variant-row')).map((r) => {
+            const boxes = Array.from(r.children).map((c) => {
+              const b = c.getBoundingClientRect();
+              return { y: b.y, width: b.width, text: (c.querySelector('.variant-text') as HTMLElement).innerText };
+            });
+            return { columns: (r as HTMLElement).style.gridTemplateColumns, boxes };
+          });
+          return { columns, rows };
+        }),
+      }));
+      expect(grid.scroll).toBe(grid.viewport);
+      expect(grid.grids.length).toBeGreaterThan(0);
+      expect(grid.grids.some((g) => g.rows.length > 1)).toBe(true);
+      for (const model of grid.grids) {
+        expect(model.columns).toMatch(/^repeat\(\d+, minmax\(0px, 1fr\)\)$/);
+        for (const row of model.rows) {
+          expect(row.columns).toBe(model.columns);
+          expect(new Set(row.boxes.map((b) => Math.round(b.y))).size).toBe(1);
+          expect(new Set(row.boxes.map((b) => Math.round(b.width))).size).toBe(1);
+          for (const box of row.boxes) expect(box.text).not.toBe('');
+        }
+      }
+    }
+  });
+
   // T-057: these two read and write the server's printer list – the other files' host tests share the
   // same lock, so two workers never see each other's hosts
   test('the physical printer form offers the three host types and starts with Save disabled', { lock: 'server-state' }, async ({ app }) => {
@@ -487,9 +523,9 @@ test.describe('dialogs: the settings fields (S12)', () => {
     // shows the bare value and a typed colour becomes the new one
     const before = await read(app, (s) => s.presets.filament[0].current.filament_colour);
     const colour = before.toUpperCase() === '#00FF00' ? '#FF8000' : '#00FF00';
-    await fill(app, '#opt-filament_colour input', colour, 500);
+    await fill(app, '#opt-filament_colour input.colour-hex', colour, 500);
     expect(await read(app, (s) => s.presets.filament[0].current.filament_colour)).toBe(before);
-    await app.locator('#opt-filament_colour input').first().press('Enter');
+    await app.locator('#opt-filament_colour input.colour-hex').press('Enter');
     await app.waitForTimeout(600);
     expect(await read(app, (s) => s.presets.filament[0].current.filament_colour)).toBe(colour);
 

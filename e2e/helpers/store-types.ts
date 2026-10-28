@@ -96,6 +96,7 @@ export interface E2EGcode {
   positions: ArrayLike<number>;
   /** the first segment of each layer, plus one past the last – the layer windows of `positions` */
   layerStart: ArrayLike<number>;
+  moveIndex: ArrayLike<number>;
 }
 
 export interface E2ECustomGcode {
@@ -314,14 +315,20 @@ export interface SceneChildLike {
     attributes: {
       position: { count: number; array: ArrayLike<number> };
       color?: { count: number; array: ArrayLike<number> };
+      instanceColorStart?: { count: number; array: ArrayLike<number> };
     };
     drawRange: { start: number; count: number };
     index?: { count: number } | null;
+    isInstancedBufferGeometry?: boolean;
   };
+  instanceCount?: number;
   isLine?: boolean;
   isLineSegments?: boolean;
   isLineLoop?: boolean;
   isPoints?: boolean;
   isMesh?: boolean;
+  isInstancedBufferGeometry?: boolean;
+  position?: { x: number; y: number; z: number };
+  renderOrder?: number;
   traverse: (fn: (o: SceneChildLike) => void) => void;
 }

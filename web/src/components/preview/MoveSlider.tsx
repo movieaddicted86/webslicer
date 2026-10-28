@@ -38,7 +38,7 @@ export function MoveSlider({ gcode }: { gcode: ParsedGcode }) {
         min={first}
         max={last}
         value={value}
-        title="Print the top layer move by move"
+        title="Print the top layer move by move – the yellow marker is the nozzle"
         onChange={(e) => {
           const v = Number(e.target.value);
           setMoveCut(v >= last ? undefined : v);

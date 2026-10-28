@@ -7,6 +7,12 @@ rc.3 to rc.5 and of the `Unreleased` of that time are kept verbatim in
 
 ## Unreleased
 
+### Added
+
+- **Beta preview and setup feedback (T-094):** nozzle choices form aligned standard/High-flow grids,
+  Preview toolpaths show their real width, filament colours have a picker, and Move draws the partial
+  layer with a visible nozzle marker.
+
 ## 1.1.0 – 2026-10-28
 
 The phone release: the companion flow (pick a model, slice, preview, send) works on a phone.

@@ -333,6 +333,8 @@ export interface GcodeScene {
   drawn: number;
   /** segments drawn as a point: how the viewer hides one feature type */
   collapsed: number;
+  /** true when the close-up ribbons draw instead of the far-away hairlines */
+  wide: boolean;
 }
 
 /**
@@ -355,29 +357,39 @@ export async function gcodeScene(page: Page): Promise<GcodeScene> {
         group = child;
       }
     }
-    if (!group) return { segs: 0, travel: 0, points: 0, drawn: 0, collapsed: 0 };
+    if (!group) return { segs: 0, travel: 0, points: 0, drawn: 0, collapsed: 0, wide: false };
     let segs = 0;
+    let wide = false;
     let travel = 0;
     let points = 0;
     let collapsed = 0;
     group.traverse((o) => {
-      if (!o.visible || !o.geometry) return; // the group also holds the tool marker (a Mesh)
+      if (!o.geometry) return;
       const dr = o.geometry.drawRange;
       const pos = o.geometry.attributes.position;
       const material = Array.isArray(o.material) ? o.material[0] : o.material;
-      if (o.isLineSegments) {
+      if (o.isLineSegments && material?.vertexColors) {
+        // the feature mask lives on this hidden hairline twin even though the ribbons are what draws
         const n = Math.min(dr.count, pos.count);
-        if (material?.vertexColors) segs += n / 2;
-        else travel += n / 2;
         const a = pos.array;
         for (let i = dr.start; i < dr.start + n; i += 2) {
           const o1 = i * 3;
           const o2 = (i + 1) * 3;
           if (a[o1] === a[o2] && a[o1 + 1] === a[o2 + 1] && a[o1 + 2] === a[o2 + 2]) collapsed++;
         }
+        if (o.visible) segs += n / 2;
+        return;
+      }
+      if (!o.visible) return;
+      if (o.isLineSegments) {
+        travel += Math.min(dr.count, pos.count) / 2;
+      } else if (o.isMesh && o.geometry.isInstancedBufferGeometry && material?.vertexColors) {
+        // one visible ribbon instance per extrusion
+        segs += Math.min(dr.count, o.instanceCount ?? Infinity);
+        wide = true;
       } else if (o.isPoints) points += Math.min(dr.count, pos.count);
     });
-    return { segs, travel, points, drawn: segs + travel + points, collapsed };
+    return { segs, travel, points, drawn: segs + travel + points, collapsed, wide };
   });
 }
 
@@ -386,6 +398,21 @@ export interface GcodeLook {
   opacity: number;
   /** how many distinct vertex colours the sampled toolpath segments carry (1 = the one grey of Z-06) */
   colours: number;
+  /** first sampled colour in sRGB, for the filament-colour check */
+  first?: string;
+}
+
+/** The current nozzle position, so the Move slider's head marker is an observable. */
+export async function toolMarkerPosition(page: Page): Promise<Vec3 | null> {
+  return page.evaluate(() => {
+    const scene = window.__wsScene();
+    let found: SceneChildLike | null = null;
+    scene.traverse((o) => {
+      if (o.isMesh && o.visible && o.geometry && !o.geometry.isInstancedBufferGeometry && o.position && o.renderOrder === 30) found = o;
+    });
+    const marker = found as (SceneChildLike & { position: { x: number; y: number; z: number } }) | null;
+    return marker ? [marker.position.x, marker.position.y, marker.position.z] : null;
+  });
 }
 
 /**
@@ -409,24 +436,28 @@ export async function gcodeLook(page: Page): Promise<GcodeLook | null> {
     }
     let line: SceneChildLike | null = null;
     group?.traverse((o) => {
-      if (line || !o.isLineSegments) return;
+      if (line) return;
       const m = Array.isArray(o.material) ? o.material[0] : o.material;
-      if (m?.vertexColors) line = o;
+      if ((o.isLineSegments || (o.isMesh && o.geometry?.isInstancedBufferGeometry)) && m?.vertexColors && o.visible) line = o;
     });
     if (!line) return null;
     const found = line as SceneChildLike;
     const material = (Array.isArray(found.material) ? found.material[0] : found.material) as { opacity?: number };
-    const colors = (found.geometry as unknown as { attributes: { color?: { count: number; array: ArrayLike<number> } } }).attributes.color;
+    const colors = found.geometry?.attributes.color ?? found.geometry?.attributes.instanceColorStart;
     const seen = new Set<string>();
+    let first: string | undefined;
     if (colors) {
       // every segment repeats its colour twice (two vertices), so sampling singles is enough
       const n = Math.min(colors.count, 8000);
       for (let i = 0; i < n; i += 2) {
         const o = i * 3;
-        seen.add(`${Math.round(colors.array[o] * 255)},${Math.round(colors.array[o + 1] * 255)},${Math.round(colors.array[o + 2] * 255)}`);
+        const srgb = (v: number) => Math.round(255 * (v <= 0.0031308 ? 12.92 * v : 1.055 * Math.pow(v, 1 / 2.4) - 0.055));
+        const rgb = `${srgb(colors.array[o])},${srgb(colors.array[o + 1])},${srgb(colors.array[o + 2])}`;
+        seen.add(rgb);
+        if (i === 0) first = rgb;
       }
     }
-    return { opacity: material.opacity ?? 1, colours: seen.size };
+    return { opacity: material.opacity ?? 1, colours: seen.size, first };
   });
 }
 
@@ -510,7 +541,7 @@ export async function visibleMeshes(page: Page): Promise<{ meshes: number; toolp
       }
       if (!vis) return;
       if (o.isMesh && o.name !== 'bed' && o.name !== 'bed-model' && o.name !== 'bed-texture') meshes++;
-      if (o.isLine || o.isLineSegments) toolpaths++;
+      if (o.isLine || o.isLineSegments || (o.isMesh && o.geometry?.isInstancedBufferGeometry)) toolpaths++;
     });
     return { meshes, toolpaths };
   });

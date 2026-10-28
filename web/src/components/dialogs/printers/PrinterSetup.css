@@ -142,10 +142,37 @@
   margin-bottom: 4px;
 }
 
+/* one fixed-column grid per model: the standard nozzles in the first row, the high-flow ones in a
+   second row under their own label. Every card uses the same column count, so the boxes line up
+   across models instead of drifting with the length of each label. */
 .variants {
   display: flex;
-  flex-wrap: wrap;
-  gap: 4px 12px;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.variant-row {
+  display: grid;
+  gap: 2px 8px;
+}
+
+.variant-row label {
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.variant-row .variant-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.variant-row-label {
+  margin-top: 2px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .custom-printer {
@@ -303,6 +330,16 @@
   }
 
   /* a checkbox a finger can hit: the box grows, the label stays the size it is */
+  /* the thumbnail costs more room than the nozzle names on a phone; the model name identifies it */
+  .model > img {
+    display: none;
+  }
+
+  .model-body {
+    min-width: 0;
+    flex: 1;
+  }
+
   .variants label,
   .filament-entries label {
     display: inline-flex;
@@ -315,5 +352,20 @@
   .filament-entries input[type='checkbox'] {
     width: 20px;
     height: 20px;
+  }
+
+  /* the phone drops the unit, not the nozzle: the widest model's row only stays on one line if
+     every cell is narrow, and the box title keeps the full "0.4 mm" for a long press */
+  .variant-row {
+    gap: 2px 4px;
+  }
+
+  .variant-row label {
+    font-size: 12px;
+    gap: 4px;
+  }
+
+  .variant-row .variant-unit {
+    display: none;
   }
 }

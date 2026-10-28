@@ -8,7 +8,7 @@
  */
 import fs from 'node:fs';
 import { CUBE, importFile, read, settle, sliceAndWait, waitSliceDone } from '../helpers/app';
-import { census, gcodeScene, markerKindProbe, visibleMeshes } from '../helpers/canvas';
+import { census, gcodeLook, gcodeScene, markerKindProbe, toolMarkerPosition, visibleMeshes } from '../helpers/canvas';
 import { expect, openSharedSlice, sliceOnce, test } from '../helpers/fixtures';
 import { click, fill, outline } from '../helpers/dom';
 
@@ -179,21 +179,38 @@ test.describe('preview: the sliders (UAT-06, UAT-19)', () => {
     const probe = first as NonNullable<typeof first>;
     expect(probe.drawn).toBe(probe.total);
 
-    const cuts = [Math.floor(probe.move[Math.floor(probe.total * 0.5)]), Math.floor(probe.move[Math.floor(probe.total * 0.1)])];
-    const steps: Array<{ drawn: number; expected: number }> = [];
+    const cuts = await read(app, (s) => {
+      const g = s.gcode!;
+      const start = g.layerStart[g.layerCount - 1];
+      const end = g.layerStart[g.layerCount];
+      return [g.moveIndex[start + Math.floor((end - start) * 0.5)], g.moveIndex[start + Math.floor((end - start) * 0.1)]];
+    });
+    const steps: Array<{ drawn: number; expected: number; segs: number; marker: [number, number, number] | null }> = [];
+    const full = await gcodeScene(app);
+    const firstMarker = await toolMarkerPosition(app);
     for (const cut of cuts) {
       await app.evaluate((v) => window.webslicer.getState().setPreviewMoveCut(v), cut);
       await app.waitForTimeout(1100);
       const p = await markerKindProbe(app);
-      steps.push({ drawn: (p as NonNullable<typeof p>).drawn, expected: probe.move.filter((m) => m <= cut).length });
+      steps.push({
+        drawn: (p as NonNullable<typeof p>).drawn,
+        expected: probe.move.filter((m) => m <= cut).length,
+        segs: (await gcodeScene(app)).segs,
+        marker: await toolMarkerPosition(app),
+      });
     }
     for (const step of steps) expect(step.drawn, 'the markers up to the cut').toBe(step.expected);
-    expect(steps[0].drawn).toBeGreaterThan(steps[1].drawn);
+    // B-5: the cut is not only a marker filter – the top layer itself is partly drawn and the head moves
+    expect(steps[0].segs).toBeLessThan(full.segs);
+    expect(steps[1].segs).toBeLessThan(steps[0].segs);
+    expect(steps[0].marker).not.toEqual(firstMarker);
+    expect(steps[1].marker).not.toEqual(steps[0].marker);
 
     const note = await app.locator('[data-testid="move-slider-panel"] .muted.small').textContent();
     await app.evaluate(() => window.webslicer.getState().setPreviewMoveCut(undefined));
     await app.waitForTimeout(1000);
     expect((await markerKindProbe(app))?.drawn).toBe(probe.total);
+    expect((await gcodeScene(app)).segs).toBe(full.segs);
     expect(await app.locator('[data-testid="move-slider-panel"] .muted.small').textContent()).not.toBe(note);
     expect(note).toMatch(/\/ \d+ moves/);
   });
@@ -392,6 +409,42 @@ test.describe('preview: what is drawn (UAT-19)', () => {
     expect(withLegend.every((s) => s.lines > 1)).toBe(true);
     await app.locator('[data-testid="preview-view-mode"]').selectOption('feature');
     await app.waitForTimeout(600);
+  });
+
+  test('the colour picker and the hex field edit the same Preview colour', async ({ app }) => {
+    await openPreview(app);
+    await app.evaluate(() => window.webslicer.getState().setPreviewColorMode('colorprint'));
+    await app.evaluate(() => window.webslicer.getState().setView('filament'));
+    await fill(app, '.settings-side input.search', 'filament_colour', 500);
+    const before = await read(app, (s) => s.presets.filament[0].current.filament_colour);
+    const picker = app.locator('#opt-filament_colour [data-testid="colour-picker"]');
+    const hex = app.locator('#opt-filament_colour .colour-hex');
+    await picker.evaluate((el: HTMLInputElement) => {
+      const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+      set?.call(el, '#3366cc');
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await app.waitForTimeout(500);
+    expect(await read(app, (s) => s.presets.filament[0].current.filament_colour)).toBe('#3366CC');
+    expect(await hex.inputValue()).toBe('#3366CC');
+    await app.evaluate(() => window.webslicer.getState().setView('preview'));
+    await app.waitForTimeout(700);
+    expect((await gcodeLook(app))?.first).toBe('51,102,204');
+
+    await app.evaluate(() => window.webslicer.getState().setView('filament'));
+    await fill(app, '#opt-filament_colour .colour-hex', '#E64A19', 300);
+    await hex.press('Enter');
+    await app.waitForTimeout(500);
+    expect(await read(app, (s) => s.presets.filament[0].current.filament_colour)).toBe('#E64A19');
+    expect(await picker.inputValue()).toBe('#e64a19');
+    await app.evaluate(() => window.webslicer.getState().setView('preview'));
+    await app.waitForTimeout(700);
+    expect((await gcodeLook(app))?.first).toBe('230,74,25');
+
+    await app.evaluate(() => window.webslicer.getState().setView('filament'));
+    await click(app, '#opt-filament_colour .icon.reset', 300);
+    expect(await read(app, (s) => s.presets.filament[0].current.filament_colour)).toBe(before);
   });
 
   test('Shells draws the plater meshes over the toolpaths', async ({ app }) => {

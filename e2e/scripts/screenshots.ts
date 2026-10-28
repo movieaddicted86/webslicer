@@ -175,6 +175,22 @@ async function settingsShot(page: Page): Promise<void> {
   await shot(page, 'settings', 'Print Settings in Advanced mode');
 }
 
+/** The filament colour's native swatch beside the hex field. */
+async function filamentShot(page: Page): Promise<void> {
+  await page.evaluate(() => window.webslicer.getState().setView('filament'));
+  await page.locator('.settings-side input.search').fill('filament_colour');
+  await settle(page, 700);
+  await shot(page, 'filament-colour', 'the filament colour swatch and hex field');
+}
+
+/** The vendor profiles' fixed-column standard and high-flow nozzle rows. */
+async function vendorShot(page: Page): Promise<void> {
+  await page.evaluate(() => window.webslicer.getState().openDialog('printers', { tab: 'vendor' }));
+  await settle(page, 1200);
+  await shot(page, 'printer-vendor-grid', 'the standard and high-flow nozzle grid');
+  await page.evaluate(() => window.webslicer.getState().closeDialog());
+}
+
 /** The preview of a real slice: toolpaths, legend, layer slider and the layer codes. */
 async function previewShot(page: Page): Promise<void> {
   await page.evaluate(() => window.webslicer.getState().setView('plater'));
@@ -223,6 +239,8 @@ async function main(): Promise<void> {
     await platerShot(page);
     await cutShot(page);
     await settingsShot(page);
+    await filamentShot(page);
+    await vendorShot(page);
     await previewShot(page);
     await libraryShot(page);
     await context.close();

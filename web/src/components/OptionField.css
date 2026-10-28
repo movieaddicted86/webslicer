@@ -43,6 +43,34 @@
   min-width: 160px;
 }
 
+/* The colour swatch and its hex field are one control: the swatch opens the native picker, the
+   field takes a typed hex; both write the same value, an unreadable value turns the field red */
+.colour-field {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.option .control .colour-swatch {
+  width: 34px;
+  height: 28px;
+  padding: 2px;
+  flex: none;
+  cursor: pointer;
+}
+
+.option .control .colour-hex {
+  flex: 0 1 130px;
+  min-width: 110px;
+  font-family: ui-monospace, Consolas, monospace;
+  text-transform: uppercase;
+}
+
+.colour-field.invalid .colour-hex {
+  border-color: #7a2a2a;
+}
+
 .option .control textarea {
   width: 100%;
   min-width: 300px;
