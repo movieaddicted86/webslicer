@@ -14,6 +14,14 @@ import { colorAtZ, normalizeColor } from '../../gcode/colorprint';
 import type { View } from '../../state/types';
 import { clearAndDispose } from './dispose';
 import type { SceneRefs } from './types';
+import {
+  extrusionWidth,
+  FALLBACK_EXTRUSION_WIDTH,
+  pixelsPerMillimetre,
+  ribbonGeometry,
+  ToolpathMaterial,
+  wideToolpaths,
+} from './pathwidth';
 
 interface GcodeColoring {
   mode: PreviewColorMode;
@@ -23,6 +31,11 @@ interface GcodeColoring {
   toolColors: string[];
   /** the plate fails the checks: the result is shown as outdated, one grey and no layer colours (Z-06) */
   outdated: boolean;
+}
+
+/** The position buffer of the toolpath geometry (one shared buffer for hairlines and ribbons). */
+function posAttrArray(geometry: THREE.BufferGeometry): Float32Array {
+  return geometry.getAttribute('position').array as Float32Array;
 }
 
 /** The look of a result that must not pass as current: one grey, low opacity, no scheme colours. */
@@ -92,6 +105,8 @@ function coloringKey(c: GcodeColoring): string {
 function applyOutdatedLook(refs: SceneRefs, outdated: boolean) {
   const lines = refs.gcodeLines?.material as THREE.LineBasicMaterial | undefined;
   if (lines) lines.opacity = outdated ? OUTDATED_OPACITY : 1;
+  const ribbons = refs.gcodeRibbons?.material as ToolpathMaterial | undefined;
+  if (ribbons) ribbons.opacity = outdated ? OUTDATED_OPACITY : 1;
   const travel = refs.travelLines?.material as THREE.LineBasicMaterial | undefined;
   if (travel) {
     travel.color.set(outdated ? OUTDATED_GREY : TRAVEL_COLOR);
@@ -118,6 +133,8 @@ function buildGcode(refs: SceneRefs, g: ParsedGcode, coloring: GcodeColoring) {
   // B1: the toolpaths of the previous preview are GPU resources; `clear()` would leave them behind
   clearAndDispose(refs.gcodeGroup);
   refs.gcodeLines = undefined;
+  refs.gcodeRibbons = undefined;
+  refs.pathSizeKey = undefined;
   refs.travelLines = undefined;
   refs.wipeLines = undefined;
   refs.markerPoints = undefined;
@@ -130,8 +147,16 @@ function buildGcode(refs: SceneRefs, g: ParsedGcode, coloring: GcodeColoring) {
   geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
   const lines = new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ vertexColors: true, transparent: true }));
   lines.frustumCulled = false;
+  // hidden features keep using zero-length hairlines; the fat ribbons below share this buffer, so
+  // changing the visible features or the layer range never rebuilds either geometry
   refs.gcodeGroup.add(lines);
   refs.gcodeLines = lines;
+  const widths = Float32Array.from(g.width, extrusionWidth);
+  const ribbons = new THREE.Mesh(ribbonGeometry(posAttrArray(geo), colors, widths), new ToolpathMaterial());
+  ribbons.frustumCulled = false;
+  refs.gcodeGroup.add(ribbons);
+  refs.gcodeRibbons = ribbons;
+  lines.visible = false;
 
   const tg = new THREE.BufferGeometry();
   tg.setAttribute('position', new THREE.BufferAttribute(g.travelPositions, 3));
@@ -194,12 +219,14 @@ function buildGcode(refs: SceneRefs, g: ParsedGcode, coloring: GcodeColoring) {
   refs.markerPoints = points;
 
   const cone = new THREE.Mesh(
-    new THREE.ConeGeometry(0.6, 1.6, 12),
-    new THREE.MeshBasicMaterial({ color: TOOL_MARKER_COLOR, transparent: true }),
+    new THREE.ConeGeometry(1.5, 4, 16),
+    new THREE.MeshBasicMaterial({ color: TOOL_MARKER_COLOR, transparent: true, depthTest: false }),
   );
   cone.rotation.x = Math.PI / 2; // PrusaSlicer's marker points along +Z
   cone.visible = false;
   cone.renderOrder = 30;
+  // A small screen-visible head marker is what makes the Move slider's current position visible even
+  // when a partially printed top layer is hidden among the finished layers below it.
   refs.gcodeGroup.add(cone);
   refs.toolMarker = cone;
 
@@ -270,6 +297,7 @@ function applyGcodeRange(
   const cutSeg = hi === lo ? 0 : countUpTo(gcode.moveIndex, gcode.layerStart[hi], endSeg, cut.extrusion);
   const drawnSegs = gcode.layerStart[hi] - startSeg + cutSeg;
   refs.gcodeLines.geometry.setDrawRange(startSeg * 2, drawnSegs * 2);
+  refs.gcodeRibbons?.geometry.setDrawRange(startSeg, drawnSegs);
   // hidden feature types are collapsed to zero-length segments
   const posAttr = refs.gcodeLines.geometry.getAttribute('position') as THREE.BufferAttribute;
   const src = gcode.positions;
@@ -289,6 +317,8 @@ function applyGcodeRange(
       }
     }
     posAttr.needsUpdate = true;
+    const ribbonPositions = refs.gcodeRibbons?.geometry.getAttribute('instanceStart') as THREE.InterleavedBufferAttribute | undefined;
+    if (ribbonPositions) ribbonPositions.data.needsUpdate = true;
     refs.gcodeLines.userData.masked = hidden.some(Boolean);
     refs.gcodeLines.geometry.computeBoundingSphere();
   }
@@ -347,6 +377,25 @@ interface GcodePreviewOptions {
   outdated: boolean;
 }
 
+/** The ribbon width follows zoom, projection and canvas size without rebuilding any segment. */
+export function updatePreviewPathSize(refs: SceneRefs): void {
+  if (!refs.gcodeRibbons) return;
+  const height = refs.renderer.getSize(new THREE.Vector2()).y;
+  const scale = pixelsPerMillimetre(refs.renderer, refs.camera, refs.controls.target);
+  const key = `${height}:${scale.toFixed(4)}:${refs.camera.type}`;
+  if (key === refs.pathSizeKey) return;
+  const wide = wideToolpaths(scale, FALLBACK_EXTRUSION_WIDTH);
+  refs.gcodeRibbons.visible = wide;
+  if (refs.gcodeLines) refs.gcodeLines.visible = !wide;
+  const material = refs.gcodeRibbons.material as ToolpathMaterial;
+  material.uniforms.resolution.value = height;
+  const ortho = refs.camera as THREE.OrthographicCamera;
+  material.setFovScale(ortho.isOrthographicCamera ? 1 / (2 * scale) : Math.tan((refs.persp.fov * Math.PI) / 360) / height);
+  const markerScale = Math.max(0.6, 8 / scale);
+  refs.toolMarker?.scale.setScalar(markerScale);
+  refs.pathSizeKey = key;
+}
+
 export function useGcodePreview(refsRef: RefObject<SceneRefs | null>, options: GcodePreviewOptions) {
   const {
     gcode,
@@ -378,6 +427,8 @@ export function useGcodePreview(refsRef: RefObject<SceneRefs | null>, options: G
       const attr = refs.gcodeLines.geometry.getAttribute('color') as THREE.BufferAttribute;
       fillGcodeColors(attr.array as Float32Array, gcode, coloring);
       attr.needsUpdate = true;
+      const ribbonColors = refs.gcodeRibbons?.geometry.getAttribute('instanceColorStart') as THREE.InterleavedBufferAttribute | undefined;
+      if (ribbonColors) ribbonColors.data.needsUpdate = true;
       refs.colorKey = coloringKey(coloring);
     }
     if (!gcode) {
@@ -390,8 +441,12 @@ export function useGcodePreview(refsRef: RefObject<SceneRefs | null>, options: G
     if (gcode) {
       const topLayer = Math.max(0, Math.min(range[1], gcode.layerCount - 1));
       const window = moveWindow(gcode, topLayer);
-      const cut = moveCut === undefined ? { ...window.end, marker: Number.MAX_SAFE_INTEGER } : { ...window.end, marker: moveCut };
+      const cut =
+        moveCut === undefined
+          ? { ...window.end, marker: Number.MAX_SAFE_INTEGER }
+          : { extrusion: moveCut, travel: moveCut, wipe: moveCut, marker: moveCut };
       applyGcodeRange(refs, gcode, range, cut, showTravel, markerVis, featureVis);
+      updatePreviewPathSize(refs);
     }
     // `refsRef` is a stable ref object owned by the Viewer; its content changes without a re-render
     // eslint-disable-next-line react-hooks/exhaustive-deps -- stable ref, not a dependency

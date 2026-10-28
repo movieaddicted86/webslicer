@@ -11,6 +11,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
 import { useStore, type PlaterObject } from '../../state/store';
+import { updatePreviewPathSize } from './useGcodePreview';
 import { modsOf } from '../../selection';
 import { renderThumbnails as renderSceneThumbnails } from '../thumbnail';
 import { setThumbnailRenderer } from '../../state/thumbnailRenderer';
@@ -250,6 +251,7 @@ export function useScene(refsRef: RefObject<SceneRefs | null>, containerRef: Ref
     let raf = 0;
     const loop = () => {
       controls.update();
+      updatePreviewPathSize(refs);
       renderer.render(scene, refs.camera);
       raf = requestAnimationFrame(loop);
     };

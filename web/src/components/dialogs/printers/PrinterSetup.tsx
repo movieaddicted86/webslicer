@@ -9,7 +9,57 @@ import { SafetyStep } from './SafetyStep';
 import { RiskNoticeCard } from './RiskNoticeCard';
 import type { CustomFilamentTemperatures } from '../../../state/slices/preset';
 import { repositoryUrl, summaryLine, vendorView } from './vendorUpdates';
+import { columnCount, variantGrid, type VariantGrid } from './variants';
 import './PrinterSetup.css';
+
+/**
+ * The nozzles of one printer model as a fixed grid: the standard nozzles in the first row and
+ * the high-flow ones in a second row under a "High flow" label. Both rows share the column count of
+ * the widest model in the list, so the cards line up instead of each sizing to its own content.
+ */
+function VariantRows({
+  model,
+  columns,
+  selected,
+  onToggle,
+}: {
+  model: { variants: string[] };
+  columns: number;
+  selected: (variant: string) => boolean;
+  onToggle: (variant: string) => void;
+}) {
+  const grid = variantGrid(model.variants);
+  // a model without variants is one "default" printer, as the bundles spell it
+  if (!grid.standard.length && !grid.highFlow.length) grid.standard.push({ value: '', label: 'default', unit: '' });
+  const row = (cells: VariantGrid['standard'], which: 'standard' | 'high-flow') => (
+    <div
+      className={`variant-row ${which}`}
+      data-testid={`variant-row-${which}`}
+      style={{ gridTemplateColumns: `repeat(${Math.max(1, columns)}, minmax(0, 1fr))` }}
+    >
+      {cells.map((c) => (
+        <label key={c.value || 'default'} className="checkbox" title={c.unit ? `${c.label} ${c.unit}` : c.label}>
+          <input type="checkbox" checked={selected(c.value)} onChange={() => onToggle(c.value)} />{' '}
+          <span className="variant-text">
+            {c.label}
+            {c.unit && <span className="variant-unit"> {c.unit}</span>}
+          </span>
+        </label>
+      ))}
+    </div>
+  );
+  return (
+    <div className="variants" data-testid="variant-grid">
+      {row(grid.standard, 'standard')}
+      {grid.highFlow.length > 0 && (
+        <>
+          <div className="variant-row-label small muted">High flow</div>
+          {row(grid.highFlow, 'high-flow')}
+        </>
+      )}
+    </div>
+  );
+}
 
 /** The refused bundle's findings, taken from the error the client raised from the 409 body. */
 function refusalsOf(error: unknown): BundleRefusal[] {
@@ -319,6 +369,8 @@ export function PrinterSetup({ tab, onClose }: { tab: PrinterSetupTab; onClose: 
     );
   const models = (vendor?.models || []).filter((m) => !filter || m.name.toLowerCase().includes(filter.toLowerCase()));
   const families = [...new Set(models.map((m) => m.family || 'Other'))];
+  // one column count for every card of the list, so a short model does not stretch its boxes
+  const columns = columnCount(models);
 
   /**
    * The printer step's own limits: the nozzle is the only bounded value it sets.
@@ -444,14 +496,7 @@ export function PrinterSetup({ tab, onClose }: { tab: PrinterSetupTab; onClose: 
                           <div className="model-name">
                             {m.name} <span className="muted small">{m.technology}</span>
                           </div>
-                          <div className="variants">
-                            {(m.variants.length ? m.variants : ['']).map((v) => (
-                              <label key={v} className="checkbox">
-                                <input type="checkbox" checked={has(m, v)} onChange={() => toggleVariant(m, v)} />{' '}
-                                {v ? `${v} mm` : 'default'}
-                              </label>
-                            ))}
-                          </div>
+                          <VariantRows model={m} columns={columns} selected={(v) => has(m, v)} onToggle={(v) => toggleVariant(m, v)} />
                         </div>
                       </div>
                     ))}

@@ -43,6 +43,10 @@ export interface SceneRefs {
   raycaster: THREE.Raycaster;
   dragging: boolean;
   gcodeLines?: THREE.LineSegments;
+  /** fat extrusion ribbons; the hairline geometry above stays the feature-hiding source */
+  gcodeRibbons?: THREE.Mesh;
+  /** screen size the ribbon shader currently uses (updated without rebuilding geometry) */
+  pathSizeKey?: string;
   travelLines?: THREE.LineSegments;
   wipeLines?: THREE.LineSegments;
   /** one THREE.Points per marker kind, so each kind can be toggled and coloured on its own */

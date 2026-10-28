@@ -7,6 +7,12 @@ rc.3 to rc.5 and of the `Unreleased` of that time are kept verbatim in
 
 ## Unreleased
 
+### Added
+
+- **Beta preview and setup feedback (T-094):** nozzle choices form aligned standard/High-flow grids,
+  Preview toolpaths show their real width, filament colours have a picker, and Move draws the partial
+  layer with a visible nozzle marker.
+
 ### Security
 
 - **`body-parser` 2.3.0 → 2.4.0:** closes the advisory GHSA-27r3-jxmh-p828 (denial of service by trailing bytes after a compressed request body); a weekly `Dependency audit` workflow now reports new advisories.

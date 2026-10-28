@@ -30,7 +30,8 @@ PrusaSlicer feature exists here and which does not is in
 - **Printers**: one dialog behind the rail's _Printers_ and the printer dropdown's _Add / remove
   printers…_, with four tabs – **My printers** (the PrusaLink / OctoPrint / Moonraker hosts), **Vendor
   profiles** (install and update the vendor bundles), **Filaments** (the visible-filament filter) and
-  **Custom printer** (the two-step wizard). The entry point picks the tab: the rail opens on _My
+  **Custom printer** (the two-step wizard). Vendor model cards align their nozzle choices in fixed
+  columns, with **High flow** nozzles in their own row, on desktop and phone. The entry point picks the tab: the rail opens on _My
   printers_, the printer dropdown on _Vendor profiles_. Vendor profiles opens with one line – all up
   to date, or how many vendors have an update – and lists only the vendors with an update and the
   user's own ones; **Show all vendors** reveals the rest. A row names the installed version and, only
@@ -250,7 +251,9 @@ The desktop layout is unchanged above 900 px; 640–899 px keeps the drawers of 
 
 - **Slicing** with the real engine (FFF and SLA), progress via server-sent events, job queue with
   parallel jobs.
-- **G-code preview**: toolpaths coloured by feature type (PrusaSlicer colours) or as colour print, layer
+- **G-code preview**: extrusion toolpaths have the width from the G-code (0.45 mm when it carries no
+  width, at least 1.5 screen pixels). Close-up views draw the real width; distant dense layers use
+  hairlines to keep navigation responsive. Toolpaths are coloured by feature type (PrusaSlicer colours) or as colour print; layer
   slider (top/bottom) with a value badge, travel moves, legend with lengths, print time / filament usage
   / cost, and the colour schemes (height, width, speed, fan speed, temperature, volumetric flow, layer
   time). The **Sliced info** card (file, filament in m/g/cm³, time, layers, size – and the **SLICED**
@@ -259,7 +262,10 @@ The desktop layout is unchanged above 900 px; 640–899 px keeps the drawers of 
   right carries the **View** card (colour scheme, a "Show" section with a legend swatch and a switch per
   layer – travel, retractions, seams, tool changes, shells), the **G-code check** (preflight) and the
   **Layer** card (range summary, the two layer sliders with their badges, the layer codes and the move
-  slider). The footer card holds **Send to printer** (primary), the export icon and the destination.
+  slider). The move slider draws the top layer up to the selected move and puts the yellow nozzle
+  marker at that point. The footer card holds **Send to printer** (primary), the export icon and the destination.
+- **Filament colour**: the colour swatch and the hex field edit the same value; invalid hex text is
+  marked before it reaches the Preview's colour-print or per-tool colours.
 - **An outdated result says so**: a finished result stays on screen when the plate or the settings stop
   passing the checks, but it is drawn **greyed out** – one grey at low opacity instead of the layer
   colours – and the Preview opens with "This result is outdated – the plate does not pass the checks"
