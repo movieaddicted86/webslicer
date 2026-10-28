@@ -8,6 +8,11 @@ export const MIN_TOOLPATH_PIXELS = 1.5;
 /** Below this real path width, hairlines keep dense far-away views cheap. */
 export const RIBBON_PIXEL_THRESHOLD = 3;
 
+/** Opt-in E2E baseline: `?testToolpaths=hairlines`; normal visits always use the adaptive renderer. */
+export function toolpathMode(search: string): 'adaptive' | 'hairlines' {
+  return new URLSearchParams(search).get('testToolpaths') === 'hairlines' ? 'hairlines' : 'adaptive';
+}
+
 /** The millimetres an extrusion ribbon spans; missing or invalid widths get the common fallback. */
 export function extrusionWidth(width: number | undefined): number {
   return width !== undefined && Number.isFinite(width) && width > 0 ? width : FALLBACK_EXTRUSION_WIDTH;

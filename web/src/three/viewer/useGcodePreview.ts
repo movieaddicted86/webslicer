@@ -20,6 +20,7 @@ import {
   pixelsPerMillimetre,
   ribbonGeometry,
   ToolpathMaterial,
+  toolpathMode,
   wideToolpaths,
 } from './pathwidth';
 
@@ -384,7 +385,7 @@ export function updatePreviewPathSize(refs: SceneRefs): void {
   const scale = pixelsPerMillimetre(refs.renderer, refs.camera, refs.controls.target);
   const key = `${height}:${scale.toFixed(4)}:${refs.camera.type}`;
   if (key === refs.pathSizeKey) return;
-  const wide = wideToolpaths(scale, FALLBACK_EXTRUSION_WIDTH);
+  const wide = toolpathMode(window.location.search) === 'adaptive' && wideToolpaths(scale, FALLBACK_EXTRUSION_WIDTH);
   refs.gcodeRibbons.visible = wide;
   if (refs.gcodeLines) refs.gcodeLines.visible = !wide;
   const material = refs.gcodeRibbons.material as ToolpathMaterial;

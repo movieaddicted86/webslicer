@@ -8,10 +8,19 @@ import {
   RIBBON_PIXEL_THRESHOLD,
   ribbonGeometry,
   ToolpathMaterial,
+  toolpathMode,
   toolpathWidth,
   viewHeight,
   wideToolpaths,
 } from './pathwidth.js';
+
+test('the hairline baseline is an explicit opt-in and normal visits stay adaptive', () => {
+  assert.equal(toolpathMode(''), 'adaptive');
+  assert.equal(toolpathMode('?testToolpaths=ribbons'), 'adaptive');
+  assert.equal(toolpathMode('?testToolpaths=HAIRLINES'), 'adaptive');
+  assert.equal(toolpathMode('?testToolpaths=hairlines'), 'hairlines');
+  assert.equal(toolpathMode('?foo=1&testToolpaths=hairlines'), 'hairlines');
+});
 
 test('the extrusion width comes from the G-code and falls back to 0.45 mm', () => {
   assert.equal(extrusionWidth(0.6), 0.6);
