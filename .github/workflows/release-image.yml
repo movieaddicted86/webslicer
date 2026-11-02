@@ -185,7 +185,7 @@ jobs:
 
       # No QEMU: the image is amd64 only, built on the runner's own architecture. The GHA cache
       # (`scope=release`) carries the layers from the smoke build into the publishing build.
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v4
 
       # Tags: the exact version without the `v`, `latest` when the version step allows it, and the sha.
       # `latest` follows a pre-release only while no stable release exists (see the version step), so
