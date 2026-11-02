@@ -38,7 +38,7 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "gifenc": "1.0.3",
     "prettier": "^3.9.10",
-    "typescript-eslint": "^8.72.0"
+    "typescript-eslint": "^8.72.1"
   },
   "engines": {
     "node": ">=22"
