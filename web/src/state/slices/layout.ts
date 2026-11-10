@@ -71,16 +71,55 @@ function loadCards(): Record<string, boolean> {
 }
 
 /**
- * The three positions of the phone's context sheet (Layout-3.0 §4): `peek` leaves the Slice footer
- * visible alone, `half` shows the upper part of the card, `full` the whole card. The sheet starts at
- * `peek`: the plate and its model keep the scene, and the Slice button is in the footer's line; one
- * tap on the handle brings the presets and the settings up.
+ * The four positions of the phone's context sheet (Layout-3.0 §4): `hidden` leaves the drag handle
+ * alone above the tab bar so the scene has the whole screen, `peek` adds the Slice footer, `half`
+ * shows the upper part of the card, `full` the whole card. The sheet starts at `peek`: the plate and
+ * its model keep the scene, and the Slice button is in the footer's line; one tap on the handle
+ * brings the presets and the settings up.
  */
-export type SheetState = 'peek' | 'half' | 'full';
+export type SheetState = 'hidden' | 'peek' | 'half' | 'full';
 
-/** The order a tap on the drag handle walks: full when it was at peek or half, back to peek from full. */
+/** The sheet positions from the top down, the order a drag travels through them. */
+const SHEET_ORDER: readonly SheetState[] = ['hidden', 'peek', 'half', 'full'];
+
+/**
+ * The four heights a sheet position is measured against, in px from the scene's bottom: the grip
+ * alone (`hidden`), the grip and the footer's row (`peek`), the card's upper half plus the footer
+ * (`half`), and the whole room the sheet may fill (`full`).
+ */
+export interface SheetHeights {
+  /** the grip's own height – the sheet at `hidden` */
+  hidden: number;
+  /** the footer's row and the gap under the grip – the sheet at `peek` */
+  peek: number;
+  /** the card's upper half, the footer and the two gaps – the sheet at `half` */
+  half: number;
+  /** the whole scene the sheet may fill – the sheet at `full` */
+  full: number;
+}
+
+/**
+ * Where a released drag settles: on the nearest position in px, or on the next one in the finger's
+ * direction when the fling is fast enough (`velocity` in px/ms, positive = the sheet grows).
+ */
+export function settleSheetState(height: number, velocity: number, heights: SheetHeights, fling = 0.45): SheetState {
+  const nearest = SHEET_ORDER.reduce((best, state) =>
+    Math.abs(heights[state] - height) < Math.abs(heights[best] - height) ? state : best,
+  );
+  if (Math.abs(velocity) < fling) return nearest;
+  const index = SHEET_ORDER.indexOf(nearest);
+  const next = velocity > 0 ? index + 1 : index - 1;
+  return SHEET_ORDER[Math.min(SHEET_ORDER.length - 1, Math.max(0, next))];
+}
+
+/**
+ * The order a tap on the drag handle walks: `hidden` comes back to `peek`, `peek` opens to `half`,
+ * `half` to `full`, and `full` folds back to `peek`. A tap never lands on `hidden` – that position is
+ * the drag's, so the Slice button never vanishes from under a finger that only meant to fold the
+ * sheet.
+ */
 export function nextSheetState(state: SheetState): SheetState {
-  return state === 'full' ? 'peek' : state === 'peek' ? 'half' : 'full';
+  return state === 'hidden' ? 'peek' : state === 'full' ? 'peek' : state === 'half' ? 'full' : 'half';
 }
 
 export interface LayoutSlice {
@@ -102,8 +141,8 @@ export interface LayoutSlice {
   toggleLeftDrawer: () => void;
   setLeftDrawerOpen: (open: boolean) => void;
   /**
-   * How far the phone's context sheet is pulled up: `peek` shows the Slice footer alone, `half` the
-   * card's upper half, `full` the whole card. A session choice, not stored.
+   * How far the phone's context sheet is pulled up: `hidden` the drag handle alone, `peek` the Slice
+   * footer, `half` the card's upper half, `full` the whole card. A session choice, not stored.
    */
   sheetState: SheetState;
   setSheetState: (state: SheetState) => void;

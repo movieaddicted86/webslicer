@@ -6,7 +6,7 @@
 import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { useStore } from '../store';
-import { parseLeftCards } from './layout';
+import { nextSheetState, parseLeftCards, settleSheetState, type SheetHeights } from './layout';
 
 const PANELS = 'webslicer.panelsHidden';
 const WIDTH = 'webslicer.leftWidth';
@@ -108,4 +108,42 @@ test('the stored cards are parsed only when they are a plain object of booleans'
   assert.deepEqual(parseLeftCards('not json'), {});
   assert.deepEqual(parseLeftCards('[true]'), {}, 'an array is not a card map');
   assert.deepEqual(parseLeftCards('{"objects":"yes","legend":true}'), { legend: true }, 'non-booleans are dropped');
+});
+
+const SHEET: SheetHeights = { hidden: 44, peek: 200, half: 420, full: 700 };
+
+test('a tap on the handle walks peek → half → full → peek and never lands on hidden', () => {
+  const walk: string[] = [];
+  let state = nextSheetState('peek');
+  for (let i = 0; i < 6; i++) {
+    walk.push(state);
+    state = nextSheetState(state);
+  }
+  assert.deepEqual(walk, ['half', 'full', 'peek', 'half', 'full', 'peek']);
+  assert.ok(!walk.includes('hidden'), 'the tap cycle never hides the sheet');
+});
+
+test('a tap on a hidden sheet brings it back to peek', () => {
+  assert.equal(nextSheetState('hidden'), 'peek');
+});
+
+test('a released drag settles on the nearest position, a fling continues one step further', () => {
+  // no fling: the nearest of the four heights
+  assert.equal(settleSheetState(60, 0, SHEET), 'hidden');
+  assert.equal(settleSheetState(300, 0, SHEET), 'peek');
+  assert.equal(settleSheetState(500, 0, SHEET), 'half');
+  assert.equal(settleSheetState(690, 0, SHEET), 'full');
+  // a release just under a position still settles on the nearest, not on the one it came from
+  assert.equal(settleSheetState(250, 0, SHEET), 'peek');
+  assert.equal(settleSheetState(510, 0, SHEET), 'half');
+
+  // a fling up from peek goes on to half (already past it: to full), never past full
+  assert.equal(settleSheetState(230, 1.2, SHEET), 'half');
+  assert.equal(settleSheetState(600, 1.2, SHEET), 'full');
+  assert.equal(settleSheetState(690, 1.2, SHEET), 'full');
+  // a fling down from peek reaches hidden and stops there
+  assert.equal(settleSheetState(190, -1.2, SHEET), 'hidden');
+  assert.equal(settleSheetState(50, -1.2, SHEET), 'hidden');
+  // a slow release is a nearest-position decision, not a fling
+  assert.equal(settleSheetState(230, 0.1, SHEET), 'peek');
 });

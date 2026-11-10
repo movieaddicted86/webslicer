@@ -16,8 +16,10 @@ import { SlicePanel } from './SlicePanel';
 import { PreviewFooter } from './PreviewFooter';
 import { PhoneResult } from './PhoneResult';
 import { PreviewPanel } from '../PreviewPanel';
+import { PreviewInfo } from '../preview/PreviewInfo';
 import { ToolMode } from './ToolMode';
 import { MultiSelection } from './MultiSelection';
+import { useSheetDrag } from './useSheetDrag';
 import { ErrorBoundary } from '../common/ErrorBoundary';
 import { reportUiError } from '../../errorReport';
 import './ContextPanel.css';
@@ -46,9 +48,10 @@ const PHONE_QUERY = '(max-width: 640px)';
  * Simple mode keeps the reduced set it had: the plate content only, no object internals (parts,
  * overrides, ranges). Preview mode keeps `PreviewPanel` and has no Slice footer.
  *
- * On a phone the stack is a bottom sheet with a drag handle and the three positions of the responsive
- * table (`sheetState` in the layout slice): `peek` keeps the footer alone (so the Slice button is
- * always reachable), `half` shows the card's upper part, `full` the whole card over the scene.
+ * On a phone the stack is a bottom sheet with a drag handle and the four positions of the responsive
+ * table (`sheetState` in the layout slice): `hidden` keeps the handle alone, `peek` the footer (so the
+ * Slice button is always reachable), `half` the card's upper part, `full` the whole card over the
+ * scene. The grip and the card's header drag it, one-to-one with the finger.
  */
 export function ContextPanel() {
   const activeTool = useStore((s) => s.activeTool);
@@ -67,6 +70,8 @@ export function ContextPanel() {
   const phone = useMediaQuery(PHONE_QUERY);
   const sheetState = useStore((s) => s.sheetState);
   const setSheetState = useStore((s) => s.setSheetState);
+  const stackRef = useRef<HTMLDivElement>(null);
+  const drag = useSheetDrag(stackRef, setSheetState);
   // a tool opens its own panel in the card: on a phone the folded sheet would hide the controls the
   // user just asked for, so *opening* a tool lifts the sheet to `half` – a tap can fold it back
   // afterwards without the sheet springing open again
@@ -85,14 +90,34 @@ export function ContextPanel() {
     if (phone && wasEmpty.current && objects.length > 0) setSheetState('peek');
     wasEmpty.current = objects.length === 0;
   }, [phone, objects.length, setSheetState]);
-  // the sheet's three positions are classes on the stack: the phone stylesheet reads them
-  const sheetClass = phone ? `sheet sheet-${sheetState}` : '';
-  const handle = phone ? <SheetHandle state={sheetState} onCycle={() => setSheetState(nextSheetState(sheetState))} /> : null;
+  // the sheet's positions are classes on the stack: the phone stylesheet reads them
+  const sheetClass = phone ? `sheet sheet-${sheetState}${drag.dragging ? ' sheet-dragging' : ''}` : '';
+  // the grip drags the sheet, and so does the card's header (`sheet-drag` below); the body scrolls
+  const dragProps = phone
+    ? {
+        onPointerDown: drag.onPointerDown,
+        onPointerMove: drag.onPointerMove,
+        onPointerUp: drag.onPointerUp,
+        onPointerCancel: drag.onPointerCancel,
+      }
+    : {};
+  const handle = phone ? (
+    <SheetHandle
+      state={sheetState}
+      {...dragProps}
+      onCycle={() => {
+        if (drag.consumeDrag()) return;
+        setSheetState(nextSheetState(sheetState));
+      }}
+    />
+  ) : null;
+  /** The header is the sheet's second drag surface; the ✕ and the fields in it keep their own press. */
+  const headerDrag = phone ? dragProps : {};
 
   // tool mode: the tool's own frame fills the card (its head is the header, its foot the footer)
   if (mode === 'tool') {
     return (
-      <div className={`context-stack ${sheetClass}`}>
+      <div className={`context-stack ${sheetClass}`} ref={stackRef}>
         {handle}
         <aside className="context-panel" data-testid="context-panel" aria-label="Context">
           <div className="context-body context-tool" data-testid="context-tool">
@@ -104,16 +129,16 @@ export function ContextPanel() {
   }
 
   return (
-    <div className={`context-stack ${sheetClass}`}>
+    <div className={`context-stack ${sheetClass}`} ref={stackRef} data-sheet-state={phone ? sheetState : undefined}>
       {handle}
       <aside className="context-panel" data-testid="context-panel" aria-label="Context">
         {mode === 'object' && object ? (
           /* object mode: the header is the object's own card – picture, name, size and rename */
-          <div className="context-header object-header-slot" data-testid="context-header">
+          <div className="context-header object-header-slot" data-testid="context-header" {...headerDrag}>
             <ObjectHeader o={object} />
           </div>
         ) : mode === 'plate' ? (
-          <div className="context-header" data-testid="context-header">
+          <div className="context-header" data-testid="context-header" {...headerDrag}>
             <h2 className="context-title">Plate</h2>
           </div>
         ) : null}
@@ -161,8 +186,11 @@ export function ContextPanel() {
       {mode === 'preview' ? (
         <footer className="context-footer" data-testid="context-footer">
           {/* T-092: at `peek` the footer is the whole sheet, so the result's numbers sit here – one
-              card with the destination and Send, no scroll and no second tap */}
+              card with the destination and Send, no scroll and no second tap. R-05: the Details chip
+              (legend and sliced info) is a labelled row of the same footer, so it is found without
+              searching for it in the card. */}
           <PhoneResult />
+          <PreviewInfo />
           <Destination />
           <PreviewFooter />
         </footer>
@@ -179,40 +207,31 @@ export function ContextPanel() {
 
 /**
  * The sheet's drag handle (`SheetHandle` below the panel): a grip a thumb can drag up and down, and a
- * button a tap walks through the three positions. It is the sheet's own chrome, so it sits above the
+ * button a tap walks through the four positions. It is the sheet's own chrome, so it sits above the
  * card; on a wide window there is no sheet and it renders nothing.
  */
-function SheetHandle({ state, onCycle }: { state: SheetState; onCycle: () => void }) {
-  const startY = useRef<number | null>(null);
-  const setSheetState = useStore((s) => s.setSheetState);
-  const drag = (e: PointerEvent<HTMLDivElement>) => {
-    // the handle is a button too: a drag must not also cycle on the click that ends it
-    startY.current = e.clientY;
-    e.currentTarget.setPointerCapture(e.pointerId);
-  };
-  const move = (e: PointerEvent<HTMLDivElement>) => {
-    if (startY.current === null) return;
-    const dy = startY.current - e.clientY;
-    if (Math.abs(dy) < 36) return;
-    setSheetState(dy > 0 ? (state === 'peek' ? 'half' : 'full') : state === 'full' ? 'half' : 'peek');
-    startY.current = null;
-  };
-  const end = () => {
-    startY.current = null;
-  };
+function SheetHandle({
+  state,
+  onCycle,
+  ...dragProps
+}: {
+  state: SheetState;
+  onCycle: () => void;
+  onPointerDown?: (e: PointerEvent<HTMLDivElement>) => void;
+  onPointerMove?: (e: PointerEvent<HTMLDivElement>) => void;
+  onPointerUp?: (e: PointerEvent<HTMLDivElement>) => void;
+  onPointerCancel?: (e: PointerEvent<HTMLDivElement>) => void;
+}) {
   return (
     <div
       className="sheet-handle"
       role="button"
       tabIndex={0}
-      aria-label={`The panel is ${state === 'peek' ? 'collapsed' : state === 'half' ? 'half open' : 'open'} – tap to change`}
-      aria-expanded={state !== 'peek'}
+      aria-label={`The panel is ${SHEET_POSITION[state]} – tap to change`}
+      aria-expanded={state !== 'hidden' && state !== 'peek'}
       data-testid="sheet-handle"
       data-sheet-state={state}
-      onPointerDown={drag}
-      onPointerMove={move}
-      onPointerUp={end}
-      onPointerCancel={end}
+      {...dragProps}
       onClick={onCycle}
       onKeyDown={(e) => {
         if (e.key !== 'Enter' && e.key !== ' ') return;
@@ -224,3 +243,11 @@ function SheetHandle({ state, onCycle }: { state: SheetState; onCycle: () => voi
     </div>
   );
 }
+
+/** What the handle's accessible name says about the current position. */
+const SHEET_POSITION: Record<SheetState, string> = {
+  hidden: 'put away',
+  peek: 'collapsed',
+  half: 'half open',
+  full: 'open',
+};

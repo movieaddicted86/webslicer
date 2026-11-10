@@ -110,26 +110,44 @@
   width: 100%;
 }
 
-/* phone: the stack is a sheet over the lower part of the scene; the footer keeps its row below it.
-   The sheet has three positions (the layout slice's `sheetState`), and `peek` is the one that keeps
-   the Slice button reachable: the card folds away and only the footer's row stays. The handle above
-   the card is the sheet's own chrome; the card body scrolls inside the room the footer leaves. */
+/* phone: the panel is a sheet that floats over the lower part of the scene. It has four positions
+   (`sheetState` in the layout slice): `hidden` keeps only the drag handle above the tab bar so the
+   scene has the whole screen, `peek` adds the Slice footer's row, `half` the card's upper part and
+   `full` the whole card. The handle above the card is the sheet's own chrome; the card body scrolls
+   inside the room the footer leaves. */
 @media (max-width: 640px) {
   .context-stack {
     top: auto;
     left: var(--card-gap);
     right: var(--card-gap);
     width: auto;
+    /* the sheet stops above the tab bar, so its footer never sits under the bar */
     max-height: calc(100% - var(--bar-h) - var(--tab-bar-h) - var(--card-gap));
-    /* the stack is bottom-anchored: the footer keeps its place at the bottom of the scene */
+    /* the footer keeps its place at the bottom of the scene */
     justify-content: flex-end;
-    pointer-events: none;
+    overflow: hidden;
     z-index: 5;
+    pointer-events: none;
+    /* the drag follows the finger one-to-one and settles with a short ease (reduced motion: none) */
+    transition: height 180ms ease-out;
+  }
+
+  .context-stack.sheet-dragging {
+    transition: none;
   }
 
   .context-panel {
     flex: none;
     max-height: 46vh;
+  }
+
+  /* hidden: the handle alone, the Slice footer is out of reach – that is the point of the position */
+  .context-stack.sheet-hidden > .context-footer {
+    display: none;
+  }
+
+  .context-stack.sheet-hidden .context-panel {
+    display: none;
   }
 
   /* peek: the card is gone, the footer shows the Slice button and its warning line alone */
@@ -171,6 +189,17 @@
 
   .preview-panel > [data-testid='preview-layer-card'] {
     order: -1;
+  }
+
+  /* the header is the sheet's second drag surface: the grip alone is a small target for a thumb */
+  .context-header {
+    touch-action: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .context-stack {
+    transition: none;
   }
 }
 
