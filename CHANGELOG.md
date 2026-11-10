@@ -9,11 +9,20 @@ rc.3 to rc.5 and of the `Unreleased` of that time are kept verbatim in
 
 ### Fixed
 
+- **Phone test follow-ups (T-099):** an empty plate offers **From library** next to the picker, the
+  Preview's view row drops Bottom (#14; the Plater keeps all seven, key 2 still works), and the legend
+  and stats sit behind a labelled **Details** chip in the sheet's peek row.
 - **Zoomed Preview layer sliders (T-097):** Top, Bottom and Move now limit wide toolpath ribbons
   just like hairlines; single first/last layers no longer disappear (regression of T-094).
 - **A sliced model stays visible when zoomed in close (T-098):** the close-up toolpaths no longer
   need a texture as wide as the segment count, so a phone shows the result instead of an empty
   Preview, also after _Slice again_ (regression of T-094).
+
+### Changed
+
+- **The phone's sheet and view row (T-099):** the sheet follows the finger one-to-one, settles on the
+  nearest of hidden / peek / half / full after the release, and a tap cycles peek → half → full →
+  peek; the view row is four buttons in one line (Home, Iso, turn left, turn right).
 
 ### Added
 
