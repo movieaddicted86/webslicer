@@ -12,9 +12,10 @@ const MODES: Array<{ id: Mode; label: string; hint: string }> = [
 ];
 
 /**
- * The application preferences – a small dialog, not a settings page. Three blocks: the visibility
- * mode (which used to sit in the menu), the read-only online-services status (the
- * `WEBSLICER_UPDATE_CHECK` switch the server answers with) and a reset of the stored panel layout.
+ * The application preferences – a small dialog, not a settings page. Four blocks: the visibility
+ * mode (which used to sit in the menu), the phone's guided start (T-100), the read-only
+ * online-services status (the `WEBSLICER_UPDATE_CHECK` switch the server answers with) and a reset
+ * of the stored panel layout.
  *
  * The print, filament and printer settings are not here: they open from **Menu → Settings** and from
  * the button in each preset row.
@@ -22,6 +23,8 @@ const MODES: Array<{ id: Mode; label: string; hint: string }> = [
 export function PreferencesDialog({ onClose }: { onClose: () => void }) {
   const mode = useStore((s) => s.mode);
   const setMode = useStore((s) => s.setMode);
+  const guidedStart = useStore((s) => s.guidedStart);
+  const setGuidedStart = useStore((s) => s.setGuidedStart);
   const update = useStore((s) => s.updateStatus);
   const resetLayout = useStore((s) => s.resetLayout);
   const toast = useStore((s) => s.toast);
@@ -82,6 +85,22 @@ export function PreferencesDialog({ onClose }: { onClose: () => void }) {
           </a>
           .
         </p>
+      </section>
+
+      <section className="pref-block" aria-label="Guided start">
+        <h3>Guided start</h3>
+        <p className="muted small">
+          On a phone, a fresh plate opens a four-step flow from the model to the print. Turn it off to start in the usual layout.
+        </p>
+        <label className="pref-check">
+          <input
+            type="checkbox"
+            checked={guidedStart}
+            onChange={(e) => setGuidedStart(e.target.checked)}
+            data-testid="preferences-guided-start"
+          />
+          <span>Guided start on phones</span>
+        </label>
       </section>
 
       <section className="pref-block" aria-label="Interface">

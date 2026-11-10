@@ -45,6 +45,26 @@
   gap: 2px;
 }
 
+/* the guided start's one switch: a finger-sized row, like the mode rows above (T-100) */
+.pref-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  margin-top: 4px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.pref-check input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
 .pref-block .kv {
   margin: 6px 0;
 }
