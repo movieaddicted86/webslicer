@@ -5,7 +5,7 @@
  */
 import * as THREE from 'three';
 import { bedShapeOf } from '@webslicer/shared';
-import { fitFrame, orthoExtents, orthoFitDistance, orthoFrustumHeight } from './cameraMath';
+import { fitFrame, orthoExtents, orthoFitDistance, orthoFrustumHeight, turnOffset } from './cameraMath';
 import { useStore, pickedInstanceId } from '../../state/store';
 import type { ParsedGcode } from '../../gcode/types';
 import type { SceneRefs } from './types';
@@ -58,6 +58,20 @@ export function frameBox(refs: SceneRefs, box: THREE.Box3, dir: THREE.Vector3, u
   refs.ortho.up.copy(frame.up);
   setOrthoFrustum(refs.ortho, orthoFrustumHeight(frame.distance, FOV), aspect);
   refs.controls.target.copy(frame.target);
+  refs.controls.update();
+}
+
+/**
+ * Turn the camera around the world's vertical axis by quarter turns, keeping the orbit target, the
+ * elevation and the distance: the phone's two turn buttons. Both cameras move, so switching the
+ * projection afterwards keeps the framing.
+ */
+export function turnCamera(refs: SceneRefs, turns: number) {
+  const target = refs.controls.target;
+  for (const camera of [refs.persp, refs.ortho]) {
+    const offset = camera.position.clone().sub(target);
+    camera.position.copy(target).add(turnOffset(offset, turns));
+  }
   refs.controls.update();
 }
 

@@ -7,6 +7,7 @@ import {
   orthoExtents,
   orthoFitDistance,
   orthoFrustumHeight,
+  turnOffset,
   viewBasis,
   viewByKey,
   viewDef,
@@ -55,6 +56,21 @@ test('the seven standard views carry PrusaSlicer’s keys and directions', () =>
   const iso = dir('iso');
   assert.ok(iso.x > 0 && iso.y < 0 && iso.z > 0, `iso ${iso.toArray()}`);
   assert.ok(Math.abs(iso.length() - 1) < 1e-9);
+});
+
+test('a quarter turn keeps the elevation and the distance and lands on the next isometric corner', () => {
+  const iso = viewDirection('iso').dir;
+  const turned = turnOffset(iso, 1);
+  assert.ok(Math.abs(turned.length() - iso.length()) < 1e-9, 'the distance is unchanged');
+  assert.ok(Math.abs(turned.z - iso.z) < 1e-9, 'the elevation is unchanged');
+  // a quarter turn around +Z maps (x, y) to (-y, x): the four corners of the iso ring
+  assert.ok(Math.abs(turned.x - -iso.y) < 1e-9 && Math.abs(turned.y - iso.x) < 1e-9, turned.toArray().join(','));
+  // four turns return to where the camera started
+  const back = turnOffset(iso, 4);
+  assert.ok(back.distanceTo(iso) < 1e-9, `four turns came back to ${back.toArray()}`);
+  // and the two directions are opposites
+  const left = turnOffset(iso, -1);
+  assert.ok(left.distanceTo(turnOffset(iso, 3)) < 1e-9, 'one turn left is three turns right');
 });
 
 test('every view has an orthonormal basis that keeps the world upright', () => {

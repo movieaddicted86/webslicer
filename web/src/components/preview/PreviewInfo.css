@@ -1,4 +1,7 @@
-/* PreviewInfo: the stats and legend chip of the phone preview (PreviewInfo.tsx). Tokens only. */
+/* PreviewInfo: the Details chip of the phone preview's peek row (PreviewInfo.tsx). Tokens only.
+ *
+ * It lives in the sheet's footer, so it is visible without opening the card: one labelled row, with
+ * the sliced info and the legend unfolding below it inside the footer's scroll room. */
 
 .preview-info {
   border-bottom: 1px solid var(--line);
@@ -9,12 +12,11 @@
   align-items: center;
   gap: 8px;
   width: 100%;
-  height: auto;
   min-height: 44px;
-  padding: 6px 12px;
+  padding: 0;
   background: transparent;
   border: none;
-  border-radius: 0;
+  border-radius: 6px;
   text-align: left;
   color: var(--text);
 }
@@ -23,18 +25,13 @@
   background: var(--field);
 }
 
-/* the two numbers a glance needs; a long name wraps instead of widening the sheet */
-.preview-info-summary {
+/* the chip's word: the whole point of R-05 is that a reader finds it, so it is not muted chrome */
+.preview-info-action {
   flex: 1;
   min-width: 0;
-  font-size: 12px;
-  overflow-wrap: anywhere;
-}
-
-.preview-info-action {
-  flex: none;
-  color: var(--accent-h);
-  font-size: 12px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .preview-info-head svg {
@@ -48,7 +45,12 @@
 }
 
 .preview-info-body {
-  padding: 0 12px 10px;
+  /* the opened body scrolls inside the chip instead of growing the peek footer over the scene's
+     view row: the chip's own row stays where the thumb left it */
+  max-height: 40vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 0 10px;
 }
 
 .preview-info-legend-head {

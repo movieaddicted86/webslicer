@@ -104,12 +104,15 @@ Below 640 px the same app is a companion view for the print you already started:
 - the rail becomes a **bottom tab bar** with four labelled entries – **Slicing**, **Library**,
   **Printers** and **More**; More opens Preferences and About, so no function is lost. Every tab is
   at least 44 × 44 px, and the bar stays clear of the phone's gesture area;
-- the context panel is a **bottom sheet** with a drag handle. It has three positions – **peek**
-  (the Slice button and its warning line alone, the default, so the model keeps the scene), **half**
-  (the presets and quick settings) and **full** (the whole card). Tap the handle to walk through them,
-  or drag it up and down. The **Slice button is in the sheet's footer in every position**, so the file
-  on the plate is always one tap from slicing. In the Preview the layer card is the sheet's first
-  card, so one tap on the handle brings the layer slider up with the sliced model visible above it;
+- the context panel is a **bottom sheet** with a drag handle. It has four positions – **hidden** (the
+  grip alone, so the scene has the whole screen), **peek** (the Slice button and its warning line
+  alone, the default, so the model keeps the scene), **half** (the presets and quick settings) and
+  **full** (the whole card). Drag the handle or the card's header and the sheet follows the finger
+  one-to-one; it settles on the nearest position when the finger lifts, or on the next one in the
+  direction of a fling. A tap walks through peek → half → full → peek and never down to hidden. The
+  **Slice button is in the sheet's footer in every position but hidden**, so the file on the plate is
+  always one tap from slicing. In the Preview the layer card is the sheet's first card, so one tap on
+  the handle brings the layer slider up with the sliced model visible above it;
 - the object list is a **drawer** that the top bar opens; it stops above the tab bar;
 - dialogs take the phone's width, scroll their body and keep their primary button in a foot that
   stays on screen. Text and number fields use the phone's decimal keypad and are 16 px, so the browser
@@ -134,15 +137,18 @@ model:
 | Long press an object            | A small menu: **Duplicate**, **Delete**                                 |
 
 Rotating, scaling and the exact numbers stay in the panels, where a field and a stepper are more
-precise than a finger. The seven view buttons sit in one row of short labels above the model (their
-tooltips keep the whole word), and each frames what its name says.
+precise than a finger. The view row above the model is four icon buttons in one line – **Home**
+(frames the whole plate), **Iso**, and the two quarter turns that walk the camera around the model at
+the same elevation and distance – so the four isometric corners are one tap apart. On a wider window
+the row keeps the seven named views (minus Bottom in the Preview, where the plate hides the underside;
+key 2 still reaches it there and in the Plater).
 
 **A print from the phone's view.** The first file of the flow – picked in the Library, dropped, or
-chosen with the plater's own **Choose a model…** button – folds the sheet to **peek**, where the
-result line (**time · filament · cost**) sits right above the destination and **Send**. The Preview's
-view buttons (Iso, Top, Front, …) frame the visible toolpaths in one tap, the layer slider's thumb is
-a 44 px touch target, and the legend and the sliced details fold into a **Details** chip in the sheet
-instead of floating over the model.
+chosen with the plater's own **Choose a model…** or **From library** button – folds the sheet to
+**peek**, where the result line (**time · filament · cost**) sits right above the destination and
+**Send**. The Preview's view row frames the visible toolpaths in one tap, the layer slider's thumb is
+a 44 px touch target, and the legend and the sliced details sit behind a labelled **Details** chip in
+the peek row, so they are one tap away without opening the sheet.
 
 The desktop layout is unchanged above 900 px; 640–899 px keeps the drawers of the tablet layout.
 

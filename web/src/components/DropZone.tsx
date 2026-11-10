@@ -3,6 +3,8 @@ import { useStore } from '../state/store';
 import { importFiles } from '../importFiles';
 import { SUPPORTED_EXTENSIONS } from '../three/loaders';
 import { useMediaQuery } from './left/useMediaQuery';
+import { navEntry } from '../nav/navMap';
+import { runNavAction } from '../nav/actions';
 import { Icon } from '../icons/Icon';
 import './DropZone.css';
 
@@ -11,8 +13,9 @@ const PHONE_QUERY = '(max-width: 640px)';
 
 /**
  * The scene's drop target. A file dragged onto the plate is imported, as it always was. On a phone
- * there is no drag, so an empty plater shows one card that opens the system file picker with the
- * formats the plater reads (T-092) – the companion flow's first step without a menu or a drawer.
+ * there is no drag, so an empty plater shows one card with the two ways in (T-092, P-02): the
+ * system file picker with the formats the plater reads, and the file library – the same dialog the
+ * rail's Library entry opens, so the flow's first step needs neither a menu nor a drawer.
  * The hidden input stays for both, so the card is a second trigger and not a second import path.
  */
 export function DropZone({ children }: { children: ReactNode }) {
@@ -54,6 +57,17 @@ export function DropZone({ children }: { children: ReactNode }) {
           <button type="button" className="primary" data-testid="dropzone-pick" onClick={openPicker}>
             <Icon name="import" size={16} />
             Choose a model…
+          </button>
+          {/* P-02: the library is the app's own way to a model the phone did not take a photo of
+              – the same dialog its rail entry opens, never a second list */}
+          <button
+            type="button"
+            className="secondary"
+            data-testid="dropzone-library"
+            onClick={() => void runNavAction(navEntry('library').action)}
+          >
+            <Icon name="library" size={16} />
+            From library
           </button>
         </div>
       )}

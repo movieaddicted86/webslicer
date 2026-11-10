@@ -36,14 +36,59 @@ async function send(page: Page, type: 'touchStart' | 'touchMove' | 'touchEnd' | 
   });
 }
 
+/** The move points of one finger from `from` to `to`, `steps` moves after the start. */
+function pointsBetween(from: Point, to: Point, steps: number): Point[] {
+  return Array.from({ length: steps }, (_, i) => ({
+    x: from.x + ((to.x - from.x) * (i + 1)) / steps,
+    y: from.y + ((to.y - from.y) * (i + 1)) / steps,
+  }));
+}
+
 /** One finger from `from` to `to` in `steps` moves, then lifted. */
 export async function touchDrag(page: Page, from: Point, to: Point, steps = 8): Promise<void> {
   await send(page, 'touchStart', [from]);
-  for (let i = 1; i <= steps; i++) {
-    await send(page, 'touchMove', [{ x: from.x + ((to.x - from.x) * i) / steps, y: from.y + ((to.y - from.y) * i) / steps }]);
+  for (const point of pointsBetween(from, to, steps)) {
+    await send(page, 'touchMove', [point]);
     await page.waitForTimeout(16);
   }
   await send(page, 'touchEnd', [to]);
+}
+
+/**
+ * The same drag, watched while it runs: `probe` is awaited after every move, so a test can sample
+ * where the dragged element's edge sits under the finger (a follow-the-finger check).
+ */
+export async function touchDragProbed(
+  page: Page,
+  from: Point,
+  to: Point,
+  probe: (point: Point) => Promise<void>,
+  steps = 8,
+  stepDelay = 45,
+): Promise<void> {
+  await send(page, 'touchStart', [from]);
+  for (const point of pointsBetween(from, to, steps)) {
+    await send(page, 'touchMove', [point]);
+    await page.waitForTimeout(stepDelay);
+    await probe(point);
+  }
+  await send(page, 'touchEnd', [to]);
+}
+
+/**
+ * A fast drag: the whole gesture is queued in one go, so the moves land back to back instead of one
+ * per rendered frame. That is what a fling is – the sample rate of an awaited drag (16 ms of wait plus
+ * a software-rasterized frame) never reaches the speed of a thumb.
+ */
+export async function touchFling(page: Page, from: Point, to: Point, steps = 6): Promise<void> {
+  const client = await session(page);
+  await Promise.all([
+    client.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [touchPoint(from)] }),
+    ...pointsBetween(from, to, steps).map((p) =>
+      client.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [touchPoint(p)] }),
+    ),
+    client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }),
+  ]);
 }
 
 /**
