@@ -72,11 +72,14 @@
     gap: 4px;
   }
 
-  /* one square icon button per view: a thumb target, not a word that needs the row's width */
+  /* one square icon button per view: a thumb target, not a word that needs the row's width.
+     The base `.viewer-toolbar button { height: 28px }` comes later in this file, so the phone rule
+     needs `min-height` as well as `height` to keep the 44 px target. */
   .viewer-toolbar button {
     width: 44px;
     min-width: 44px;
     height: 44px;
+    min-height: 44px;
     padding: 0;
     display: grid;
     place-items: center;
