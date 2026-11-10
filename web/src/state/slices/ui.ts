@@ -19,6 +19,7 @@ import { loadSelection, saveSelection } from './preset';
 import { MODE_RANK } from '../../values';
 import type { State, Toast, View } from '../types';
 import type { IssueTarget } from '../../safety/configIssues';
+import { canAdvance, nextStep, previousStep, type FlowStep } from '../guidedFlow';
 
 /** The settings view a limit issue points at, with the extruder slot an issue of a filament may name. */
 export type SettingFocus = IssueTarget;
@@ -42,6 +43,23 @@ export interface UiSlice {
   refreshPrinterSafety: () => Promise<void>;
   /** acknowledge the risk notice; the server keeps it (per major version) */
   acknowledgeRiskNotice: () => Promise<void>;
+  /** the current step of the guided flow, or `undefined` when the app is in its free layout */
+  flowStep?: FlowStep;
+  /** whether the guided flow should open on an empty phone plate (Preferences, default on) */
+  guidedStart: boolean;
+  /** start the guided flow at its first step (a fresh phone start, More → Guided start) */
+  startFlow: () => void;
+  /**
+   * Advance one step. The first step needs a model on the plate (nothing else has a condition), and the
+   * last step has no Next – there the footer's own Slice and Send lead on.
+   */
+  nextFlowStep: () => void;
+  /** back one step; the first step has none */
+  previousFlowStep: () => void;
+  /** leave the flow for the free layout, keeping the plate, the presets and the edits */
+  leaveFlow: () => void;
+  /** switch the preference on or off and remember it in this browser; off closes the flow */
+  setGuidedStart: (on: boolean) => void;
   mode: Mode;
   view: View;
   showIncompatible: boolean;
@@ -79,6 +97,17 @@ let toastId = 0;
 /** The plater/preview tab the browser last showed (T-035); only these two are remembered. */
 const VIEW_KEY = 'webslicer.view';
 
+/** The phone's "Guided start" preference (T-100); an absent value means on – the phone's default. */
+const GUIDED_START_KEY = 'webslicer.guidedStart';
+
+function loadGuidedStart(): boolean {
+  try {
+    return localStorage.getItem(GUIDED_START_KEY) !== 'off';
+  } catch {
+    return true;
+  }
+}
+
 function loadView(): View {
   try {
     const v = localStorage.getItem(VIEW_KEY);
@@ -102,6 +131,32 @@ export const createUiSlice: StateCreator<State, [], [], UiSlice> = (set, get) =>
   showAllFilaments: false,
   sendDestination: undefined,
   setSendDestination: (id) => set({ sendDestination: id || undefined }),
+  flowStep: undefined,
+  guidedStart: loadGuidedStart(),
+  startFlow: () => set({ flowStep: 1 }),
+  nextFlowStep: () => {
+    const s = get();
+    const step = s.flowStep;
+    if (step === undefined) return;
+    if (!canAdvance(step, { objectsPresent: s.objects.length > 0 })) return;
+    const next = nextStep(step);
+    if (next !== undefined) set({ flowStep: next });
+  },
+  previousFlowStep: () => {
+    const step = get().flowStep;
+    if (step === undefined) return;
+    const previous = previousStep(step);
+    if (previous !== undefined) set({ flowStep: previous });
+  },
+  leaveFlow: () => set({ flowStep: undefined }),
+  setGuidedStart: (on) => {
+    set(on ? { guidedStart: true } : { guidedStart: false, flowStep: undefined });
+    try {
+      localStorage.setItem(GUIDED_START_KEY, on ? 'on' : 'off');
+    } catch {
+      /* private window: the preference works for this page, it just does not survive the reload */
+    }
+  },
   toasts: [],
   toast: (kind, text, action) => {
     const id = ++toastId;
