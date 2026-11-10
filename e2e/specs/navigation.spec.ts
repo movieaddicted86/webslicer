@@ -13,7 +13,7 @@
 import { expect, test } from '../helpers/fixtures';
 import { byId } from '../helpers/hooks';
 import { dialogKind } from '../helpers/dom';
-import { read } from '../helpers/app';
+import { armGuidedStart, read } from '../helpers/app';
 import {
   EXPORT_ENTRIES,
   MENU_ENTRIES,
@@ -196,4 +196,18 @@ test.describe('navigation: one home per function', () => {
     await link.click();
     await expect.poll(() => read(app, (s) => s.view)).toBe('print');
   });
+});
+
+/**
+ * The guided start's boundary (T-100, AC-6): the flow is the phone layout's start screen. With the
+ * preference on, a wide window still starts in the usual layout – no flow, no sheet, the free plate's
+ * destination and Slice button where they always are.
+ */
+test('the guided start stays off the desktop layout (T-100)', async ({ app }) => {
+  await armGuidedStart(app);
+  await expect(app.getByTestId('guided-card')).toHaveCount(0);
+  expect(await read(app, (s) => s.flowStep)).toBeUndefined();
+  await expect(app.getByTestId('sheet-handle')).toHaveCount(0);
+  await expect(app.getByTestId('destination')).toBeVisible();
+  await expect(app.getByTestId('slice-button')).toBeVisible();
 });

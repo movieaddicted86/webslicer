@@ -29,7 +29,8 @@ export type NavAction =
   | { kind: 'export'; target: ExportTarget }
   | { kind: 'undo' }
   | { kind: 'redo' }
-  | { kind: 'hidePanels' };
+  | { kind: 'hidePanels' }
+  | { kind: 'guidedStart' };
 
 export interface NavEntry {
   /** stable function id; the hosts mark their elements with it (`data-nav-id`) */
@@ -207,6 +208,20 @@ export const PRESET_PRINTERS_ENTRY: NavEntry = {
   action: { kind: 'dialog', dialog: 'printers', payload: { tab: 'vendor' } },
 };
 
+/**
+ * The phone's second door into the guided flow (T-100): the More menu lists it with the rail's
+ * remaining rows. It is a rail function, so the desktop rail could grow the row too, but the flow
+ * itself is phone-only – the entry lives here so the menu cannot hand-write it.
+ */
+export const GUIDED_START_ENTRY: NavEntry = {
+  id: 'guidedStart',
+  label: 'Guided start',
+  icon: 'guided',
+  home: 'rail',
+  action: { kind: 'guidedStart' },
+  testId: 'rail-guided',
+};
+
 /** The bar's actions; their labels change with their state, so they are not rendered from the table. */
 export const TOP_BAR_ENTRIES: readonly NavEntry[] = [
   { id: 'undo', label: 'Undo', icon: 'undo', home: 'top-bar', action: { kind: 'undo' }, testId: 'undo-button' },
@@ -245,6 +260,7 @@ export const NAV_ENTRIES: readonly NavEntry[] = [
   ...EXPORT_ENTRIES,
   ...SETTINGS_ENTRIES,
   PRESET_PRINTERS_ENTRY,
+  GUIDED_START_ENTRY,
   ...TOP_BAR_ENTRIES,
   ...VIEW_SWITCH_ENTRIES,
 ];

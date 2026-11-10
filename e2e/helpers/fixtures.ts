@@ -23,6 +23,10 @@ export interface AppFixture {
 
 async function prepare(page: Page): Promise<void> {
   await installCanvasProbe(page);
+  // T-100: a fresh phone plate opens the guided flow by default, which would take the sheet from
+  // every other phone spec. The suite starts in the free layout; the flow's own spec turns the
+  // preference back on before its reload.
+  await page.addInitScript(() => localStorage.setItem('webslicer.guidedStart', 'off'));
   await openApp(page);
   // a dialog of an earlier state or the Simple mode would hide controls the specs click
   await page.evaluate(() => {

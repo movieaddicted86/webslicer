@@ -20,6 +20,7 @@ import {
   RotateCcw,
   RotateCw,
   Scaling,
+  Sparkles,
   Split,
   SquarePlus,
   SquareSplitHorizontal,
@@ -129,6 +130,8 @@ export const ICON_TABLE = {
   slicing: { source: 'prusa', file: 'lb_slicing' },
   about: { source: 'prusa', file: 'info' },
   hidePanels: { source: 'prusa', file: 'tb_show_ui' },
+  /** the phone's guided start (T-100): a sparkles mark – Prusa has no artwork for a flow */
+  guided: { source: 'lucide', icon: Sparkles },
 
   // dialogs and chrome
   remove: { source: 'lucide', icon: X },

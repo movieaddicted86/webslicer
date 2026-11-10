@@ -195,6 +195,27 @@
   .context-header {
     touch-action: none;
   }
+
+  /* the footer is where a thumb lands (T-100): the destination, the checks and Slice are all
+     finger-sized, like the guided step card's own controls */
+  .context-stack > .context-footer select,
+  .context-stack > .context-footer button {
+    min-height: 44px;
+  }
+}
+
+/* the guided flow's header (T-100): the step's title and the "1 / 4" counter on the right */
+.context-header.guided-header {
+  justify-content: space-between;
+  align-items: center;
+}
+
+.guided-count {
+  flex: none;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.06em;
+  color: var(--muted);
 }
 
 @media (prefers-reduced-motion: reduce) {

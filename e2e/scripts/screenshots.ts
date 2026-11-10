@@ -245,6 +245,28 @@ async function main(): Promise<void> {
     await libraryShot(page);
     await context.close();
 
+    // the phone's guided start (T-100): step 1 on a fresh plate, then step 4 with the model on it.
+    // The phone viewport is what opens the flow (below 640 px), and a fresh browser context has the
+    // default preference on.
+    const guided = await browser.newContext({
+      viewport: { width: 390, height: 844 },
+      isMobile: true,
+      hasTouch: true,
+      deviceScaleFactor: 2,
+      baseURL: base,
+    });
+    const guidedPage = await guided.newPage();
+    await prepare(guidedPage);
+    await settle(guidedPage, 800);
+    await shot(guidedPage, 'guided-step-1', 'the guided start on a phone: step 1, the two ways to a model');
+    await importFile(guidedPage, CUBE);
+    for (let next = 0; next < 3; next++) {
+      await guidedPage.getByTestId('guided-next').click();
+      await settle(guidedPage, 700);
+    }
+    await shot(guidedPage, 'guided-step-4', 'the guided start on a phone: step 4, the summary, destination and Slice');
+    await guided.close();
+
     // a second model with two objects makes the plater look less empty for the hero image
     const hero = await browser.newContext({ viewport: VIEWPORT, baseURL: base });
     const heroPage = await hero.newPage();

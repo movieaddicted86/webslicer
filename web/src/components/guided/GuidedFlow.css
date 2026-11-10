@@ -1,0 +1,116 @@
+/* GuidedFlow: the phone's four guided steps and their button row (GuidedFlow.tsx). Tokens only. */
+
+.guided {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 12px 12px;
+}
+
+.guided-text {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+/* every control a step carries is a thumb-sized target (AC-7): the preset rows, the quick settings
+   and the links all sit in the sheet, where a finger is the only pointer */
+.guided select,
+.guided input,
+.guided button {
+  min-height: 44px;
+}
+
+/* the two ways in of step 1: full-width, finger-sized, one above the other */
+.guided-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.guided-actions .primary,
+.guided-actions .secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 44px;
+}
+
+.guided-file {
+  margin: 0;
+  padding: 6px 8px;
+  background: var(--field);
+  border-radius: 6px;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+/* step 2: the preset rows carry their own padding; the card only stacks them */
+.guided-presets {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.guided-link {
+  align-self: flex-start;
+  min-height: 44px;
+}
+
+/* step 3: the quick settings come without the card padding they get inside the panel */
+.guided-quick .quick-settings {
+  padding: 0;
+}
+
+.guided-quick .panel-row {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+/* step 4: a short reading of the print the footer's Slice button would start */
+.guided-summary {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.guided-summary > div {
+  display: flex;
+  gap: 10px;
+  font-size: 13px;
+  min-width: 0;
+}
+
+.guided-summary dt {
+  flex: none;
+  color: var(--muted);
+}
+
+.guided-summary dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* the footer's row: Back and Next take the room, Skip keeps its own width on the right */
+.guided-nav {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.guided-nav button {
+  min-height: 44px;
+}
+
+.guided-nav .guided-next {
+  flex: 1;
+}
+
+.guided-nav .guided-skip {
+  flex: none;
+  white-space: nowrap;
+}

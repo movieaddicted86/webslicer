@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import { useStore } from '../state/store';
 import { Icon } from '../icons/Icon';
-import { RAIL_ENTRIES, type NavEntry } from '../nav/navMap';
+import { GUIDED_START_ENTRY, RAIL_ENTRIES, type NavEntry } from '../nav/navMap';
 import { runNavAction } from '../nav/actions';
 import { useMediaQuery } from './left/useMediaQuery';
 import './Rail.css';
@@ -22,7 +22,8 @@ const PHONE_QUERY = '(max-width: 640px)';
  *
  * The phone's tab bar has the four tabs of the responsive table (Layout-3.0 §4): Slicing, Library,
  * Printers and More. More is a container, not a new function – it opens the remaining rail rows
- * (Preferences, About) one tap away, so nothing leaves the tab bar's four tabs.
+ * (Guided start, Preferences, About) one tap away, so nothing leaves the tab bar's four tabs; the
+ * guided start is the phone flow's second door (T-100).
  */
 export function Rail() {
   const view = useStore((s) => s.view);
@@ -86,7 +87,7 @@ export function Rail() {
           </button>
           {moreOpen && (
             <div className="rail-more-menu" role="menu" aria-label="More" id="rail-more-menu" data-testid="rail-more-menu">
-              {[preferences, about]
+              {[GUIDED_START_ENTRY, preferences, about]
                 .filter((e): e is NavEntry => !!e)
                 .map((entry) => (
                   <button

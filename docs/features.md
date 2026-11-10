@@ -113,6 +113,13 @@ Below 640 px the same app is a companion view for the print you already started:
   **Slice button is in the sheet's footer in every position but hidden**, so the file on the plate is
   always one tap from slicing. In the Preview the layer card is the sheet's first card, so one tap on
   the handle brings the layer slider up with the sliced model visible above it;
+- a fresh session with an empty plate opens the **guided start** – four steps in the sheet, **1 / 4**
+  to **4 / 4**: a model (this device or the library), the printer and its profiles, the settings (or
+  **Fine as it is? Just continue.**), then the destination and **Slice now**. **Back**, **Next** and
+  **Skip** sit in the sheet's footer; on the last step Skip reads **More settings**. The flow is
+  reopened from **More → Guided start**. An empty plate's footer stays quiet – no destination,
+  warning line or Slice button – until a model is on it. Preferences → **Guided start on phones**
+  (default on) turns the flow off, and a reload that restored a model starts in the free layout;
 - the object list is a **drawer** that the top bar opens; it stops above the tab bar;
 - dialogs take the phone's width, scroll their body and keep their primary button in a foot that
   stays on screen. Text and number fields use the phone's decimal keypad and are 16 px, so the browser
@@ -143,7 +150,7 @@ the same elevation and distance – so the four isometric corners are one tap ap
 the row keeps the seven named views (minus Bottom in the Preview, where the plate hides the underside;
 key 2 still reaches it there and in the Plater).
 
-**A print from the phone's view.** The first file of the flow – picked in the Library, dropped, or
+**A print from the phone's view.** In the free layout the first file of the flow – picked in the Library, dropped, or
 chosen with the plater's own **Choose a model…** or **From library** button – folds the sheet to
 **peek**, where the result line (**time · filament · cost**) sits right above the destination and
 **Send**. The Preview's view row frames the visible toolpaths in one tap, the layer slider's thumb is

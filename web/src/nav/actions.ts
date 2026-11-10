@@ -103,6 +103,13 @@ export async function runNavAction(action: NavAction): Promise<true | void> {
     case 'hidePanels':
       st.togglePanels();
       return;
+    case 'guidedStart':
+      // the flow's second door (T-100): back to the plater, step 1 – the store owns the step. A tool
+      // panel would hide the sheet's card, so the flow closes it first.
+      st.closeTool();
+      st.setView('plater');
+      st.startFlow();
+      return;
     case 'import':
       return true;
   }

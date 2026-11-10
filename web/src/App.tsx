@@ -8,6 +8,7 @@ import { Dialogs } from './components/dialogs/Dialogs';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { isHostRefusal } from './hostRefusal';
 import { reportUiError } from './errorReport';
+import { startGuidedFlowIfDue } from './state/guidedStart';
 
 export function App() {
   const init = useStore((s) => s.init);
@@ -23,11 +24,12 @@ export function App() {
   }, [init]);
 
   // The last session comes back on its own (T-035) – once the presets are loaded, so the restored
-  // project settings meet the same store a click on "Restore" did.
+  // project settings meet the same store a click on "Restore" did. The guided start is decided after
+  // it, so a reload that brought a model back never opens the flow (T-100).
   useEffect(() => {
     if (!ready || sessionStarted.current) return;
     sessionStarted.current = true;
-    void startSession();
+    void startSession().then(() => startGuidedFlowIfDue());
   }, [ready]);
 
   if (fatal) {

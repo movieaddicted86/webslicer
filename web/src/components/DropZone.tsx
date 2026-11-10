@@ -17,12 +17,17 @@ const PHONE_QUERY = '(max-width: 640px)';
  * system file picker with the formats the plater reads, and the file library – the same dialog the
  * rail's Library entry opens, so the flow's first step needs neither a menu nor a drawer.
  * The hidden input stays for both, so the card is a second trigger and not a second import path.
+ * While the guided flow is open its first step carries the same two actions in the sheet, so the
+ * scene's card stays away (T-100).
  */
 export function DropZone({ children }: { children: ReactNode }) {
   const [over, setOver] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const phone = useMediaQuery(PHONE_QUERY);
   const empty = useStore((s) => s.objects.length === 0);
+  // the guided flow's first step carries the same two ways in, in the sheet: the scene keeps the
+  // model's room instead of showing the card twice (T-100)
+  const guiding = useStore((s) => s.flowStep !== undefined);
   const openPicker = () => fileRef.current?.click();
   return (
     <div
@@ -51,7 +56,7 @@ export function DropZone({ children }: { children: ReactNode }) {
           e.target.value = '';
         }}
       />
-      {phone && empty && (
+      {phone && empty && !guiding && (
         <div className="dropzone-empty" data-testid="dropzone-empty">
           <div>Nothing on the plate yet.</div>
           <button type="button" className="primary" data-testid="dropzone-pick" onClick={openPicker}>

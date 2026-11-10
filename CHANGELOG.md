@@ -26,6 +26,10 @@ rc.3 to rc.5 and of the `Unreleased` of that time are kept verbatim in
 
 ### Added
 
+- **Guided start on a phone (T-100):** a fresh empty plate opens a four-step flow – model, printer and
+  profiles, settings, then destination and Slice now – with Back, Next and Skip, reopened from **More →
+  Guided start** and switched off in Preferences. The empty footer stays quiet, and a reload with a
+  model starts in the free layout.
 - **Beta preview and setup feedback (T-094):** nozzle choices form aligned standard/High-flow grids,
   Preview toolpaths show their real width, filament colours have a picker, and Move draws the partial
   layer with a visible nozzle marker.
