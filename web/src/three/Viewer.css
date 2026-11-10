@@ -54,11 +54,9 @@
   background: var(--field-h);
 }
 
-/* T-092: on a phone the view band is the preview's main control, so every view is one tap on a
-   finger-sized button. The seven views wrap into two rows of thumb targets in the band between the
-   strip and the sheet – no scroll, no second menu – and each button really frames what it names.
-   Their labels are the short ones (`Viewer.tsx`), which is what keeps the row from needing the width
-   of the whole word. */
+/* T-099: on a phone the view row is exactly four buttons in one line: home, iso, rotate left,
+   rotate right. All four are square icon buttons that fit the scene's width without wrapping,
+   and the row is a single line. */
 @media (max-width: 640px) {
   .viewer-bar-band {
     left: var(--card-gap);
@@ -66,21 +64,27 @@
     top: 58px;
   }
 
+  /* the row never wraps and keeps to the scene's width, centred in the band */
   .viewer-toolbar {
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     max-width: 100%;
     padding: 4px;
-    gap: 3px;
+    gap: 4px;
   }
 
+  /* one square icon button per view: a thumb target, not a word that needs the row's width */
   .viewer-toolbar button {
-    min-width: 40px;
-    min-height: 40px;
-    height: 40px;
-    font-size: 12px;
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+    min-height: 44px;
+    padding: 0;
+    display: grid;
+    place-items: center;
   }
 
-  /* the reset button sits below the row instead of beside it: at 390 px it would cover a view */
+  /* the projection and the zoom-to-selection shortcuts stay off the phone row, and so does the
+     reset button: the row is the four views and nothing else, and the keys/gestures cover the rest */
   .viewer-fit {
     display: none;
   }

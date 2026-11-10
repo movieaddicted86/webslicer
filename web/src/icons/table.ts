@@ -1,4 +1,5 @@
 import {
+  Box,
   ChevronDown,
   Combine,
   Copy,
@@ -9,6 +10,7 @@ import {
   FlipHorizontal2,
   FlipVertical,
   FolderPlus,
+  House,
   Lock,
   LockOpen,
   Menu,
@@ -16,6 +18,7 @@ import {
   PencilLine,
   RefreshCw,
   RotateCcw,
+  RotateCw,
   Scaling,
   Split,
   SquarePlus,
@@ -140,6 +143,13 @@ export const ICON_TABLE = {
   expand: { source: 'lucide', icon: ChevronDown },
   /** the object list itself – its card heading and the phone's drawer toggle */
   objects: { source: 'prusa', file: 'object_icon' },
+
+  // the phone's view row (T-099): Home, Iso and the two quarter turns. The desktop row keeps its
+  // words, so these are icon-only controls with an `aria-label`/`title`
+  viewHome: { source: 'lucide', icon: House },
+  viewIso: { source: 'lucide', icon: Box },
+  viewTurnLeft: { source: 'lucide', icon: RotateCcw },
+  viewTurnRight: { source: 'lucide', icon: RotateCw },
 } as const satisfies Record<string, IconSource>;
 
 /** The function names the app may render – the keys of the one table. */

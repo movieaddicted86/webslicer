@@ -93,6 +93,15 @@ export function viewDirection(view: CameraView): { dir: THREE.Vector3; up: THREE
 }
 
 /**
+ * The camera offset after a quarter turn around the world's vertical axis: this is what the phone's
+ * turn buttons do, so the elevation and the distance stay exactly as they were and an isometric view
+ * becomes the next isometric corner.
+ */
+export function turnOffset(offset: THREE.Vector3, quarterTurns: number): THREE.Vector3 {
+  return offset.clone().applyAxisAngle(new THREE.Vector3(0, 0, 1), (Math.PI / 2) * quarterTurns);
+}
+
+/**
  * Height of the orthographic frustum that shows the same area as the perspective view at
  * `distance` – this is what keeps the framing when the camera type is switched.
  */

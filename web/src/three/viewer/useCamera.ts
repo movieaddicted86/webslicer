@@ -12,7 +12,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 import { useStore } from '../../state/store';
 import { viewDirection } from './cameraMath';
-import { DEFAULT_BED, bedBox, focusBox, frameBox, readOrthoPref, switchCamera, writeOrthoPref } from './camera';
+import { DEFAULT_BED, bedBox, focusBox, frameBox, readOrthoPref, switchCamera, turnCamera, writeOrthoPref } from './camera';
 import type { CamRequest, SceneRefs } from './types';
 
 interface CameraState {
@@ -62,6 +62,12 @@ export function useCamera(refsRef: RefObject<SceneRefs | null>, ortho: boolean, 
     if (request.req.mode === 'view') {
       const { dir, up } = viewDirection(request.req.view);
       frameBox(refs, focusBox(refs, shape), dir, up);
+      return;
+    }
+    if (request.req.mode === 'turn') {
+      // the phone's turn buttons: quarter turns around the vertical axis at the same elevation and
+      // distance, so the framing of the model stays and only the side changes
+      turnCamera(refs, request.req.turns);
       return;
     }
     // zoom to selection keeps the direction the user is looking from

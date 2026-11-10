@@ -70,5 +70,9 @@ export interface BedAsset {
   texture?: string;
 }
 
-/** A camera command from a toolbar button or a key; the sequence number makes a repeat re-run. */
-export type CamRequest = { mode: 'view'; view: CameraView } | { mode: 'fit' } | { mode: 'bed' };
+/**
+ * A camera command from a toolbar button or a key; the sequence number makes a repeat re-run. `turn`
+ * rotates around the vertical axis by quarter turns (`-1` left, `+1` right) and keeps elevation and
+ * distance – the phone's two turn buttons.
+ */
+export type CamRequest = { mode: 'view'; view: CameraView } | { mode: 'fit' } | { mode: 'bed' } | { mode: 'turn'; turns: number };
