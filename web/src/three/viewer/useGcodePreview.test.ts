@@ -40,7 +40,7 @@ function previewRefs(gcode: ReturnType<typeof parseGcode>): SceneRefs {
     colors,
     Float32Array.from(gcode.width, () => 0.45),
   );
-  const ribbons = new THREE.Mesh(ribbonGeo, new ToolpathMaterial(ribbonGeo));
+  const ribbons = new THREE.Mesh(ribbonGeo, new ToolpathMaterial(ribbonGeo, 8192));
   return { gcodeLines: lines, gcodeRibbons: ribbons } as unknown as SceneRefs;
 }
 

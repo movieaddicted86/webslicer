@@ -19,6 +19,7 @@ import {
   FALLBACK_EXTRUSION_WIDTH,
   pixelsPerMillimetre,
   ribbonGeometry,
+  ribbonSupport,
   ToolpathMaterial,
   toolpathMode,
   wideToolpaths,
@@ -135,6 +136,7 @@ function buildGcode(refs: SceneRefs, g: ParsedGcode, coloring: GcodeColoring) {
   clearAndDispose(refs.gcodeGroup);
   refs.gcodeLines = undefined;
   refs.gcodeRibbons = undefined;
+  refs.ribbonFallbackReason = undefined;
   refs.pathSizeKey = undefined;
   refs.travelLines = undefined;
   refs.wipeLines = undefined;
@@ -153,12 +155,20 @@ function buildGcode(refs: SceneRefs, g: ParsedGcode, coloring: GcodeColoring) {
   refs.gcodeGroup.add(lines);
   refs.gcodeLines = lines;
   const widths = Float32Array.from(g.width, extrusionWidth);
-  const ribbonGeo = ribbonGeometry(posAttrArray(geo), colors, widths);
-  const ribbons = new THREE.Mesh(ribbonGeo, new ToolpathMaterial(ribbonGeo));
-  ribbons.frustumCulled = false;
-  refs.gcodeGroup.add(ribbons);
-  refs.gcodeRibbons = ribbons;
-  lines.visible = false;
+  // A device that cannot hold the result falls back to the hairlines; a sliced result is never invisible.
+  const support = ribbonSupport(refs.renderer, g.segmentCount, window.location.search);
+  try {
+    if (!support.usable) throw new Error(support.reason ?? 'ribbons unavailable');
+    const ribbonGeo = ribbonGeometry(posAttrArray(geo), colors, widths);
+    const ribbons = new THREE.Mesh(ribbonGeo, new ToolpathMaterial(ribbonGeo, support.maxTextureSize));
+    ribbons.frustumCulled = false;
+    refs.gcodeGroup.add(ribbons);
+    refs.gcodeRibbons = ribbons;
+    lines.visible = false;
+  } catch (error) {
+    // a failed ribbon setup (no float textures, a shader error, a grid too small) keeps the hairlines
+    refs.ribbonFallbackReason = error instanceof Error ? error.message : String(error);
+  }
 
   const tg = new THREE.BufferGeometry();
   tg.setAttribute('position', new THREE.BufferAttribute(g.travelPositions, 3));
@@ -398,6 +408,7 @@ export function updatePreviewPathSize(refs: SceneRefs): void {
   const scale = pixelsPerMillimetre(refs.renderer, refs.camera, refs.controls.target);
   const key = `${height}:${scale.toFixed(4)}:${refs.camera.type}`;
   if (key === refs.pathSizeKey) return;
+  // when no ribbons exist (a device without float textures) the hairlines stay on at every zoom
   const wide = toolpathMode(window.location.search) === 'adaptive' && wideToolpaths(scale, FALLBACK_EXTRUSION_WIDTH);
   refs.gcodeRibbons.visible = wide;
   if (refs.gcodeLines) refs.gcodeLines.visible = !wide;
