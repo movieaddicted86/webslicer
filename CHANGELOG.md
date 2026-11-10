@@ -11,6 +11,9 @@ rc.3 to rc.5 and of the `Unreleased` of that time are kept verbatim in
 
 - **Zoomed Preview layer sliders (T-097):** Top, Bottom and Move now limit wide toolpath ribbons
   just like hairlines; single first/last layers no longer disappear (regression of T-094).
+- **A sliced model stays visible when zoomed in close (T-098):** the close-up toolpaths no longer
+  need a texture as wide as the segment count, so a phone shows the result instead of an empty
+  Preview, also after _Slice again_ (regression of T-094).
 
 ### Added
 

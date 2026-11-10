@@ -45,6 +45,8 @@ export interface SceneRefs {
   gcodeLines?: THREE.LineSegments;
   /** fat extrusion ribbons; the hairline geometry above stays the feature-hiding source */
   gcodeRibbons?: THREE.Mesh;
+  /** why this result draws hairlines instead of ribbons (no ribbons at close zoom on this device) */
+  ribbonFallbackReason?: string;
   /** screen size the ribbon shader currently uses (updated without rebuilding geometry) */
   pathSizeKey?: string;
   travelLines?: THREE.LineSegments;
