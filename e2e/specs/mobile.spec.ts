@@ -72,6 +72,15 @@ async function cubeOnPlate(page: Page): Promise<void> {
   await tapCamera(page);
 }
 
+/** Upload the sample cube into the open Library dialog and load it (its row closes the dialog). */
+async function loadCubeFromLibrary(page: Page): Promise<void> {
+  await page.locator('.library input[type="file"]').setInputFiles(CUBE);
+  const row = page.locator('[data-testid="library-row"]').filter({ hasText: 'calibration_cube_20mm' }).first();
+  await expect(row).toBeVisible({ timeout: 30_000 });
+  await row.locator('.name').click();
+  await expect(page.getByTestId('modal')).toHaveCount(0, { timeout: 60_000 });
+}
+
 /** The centre of the first object (on its surface, where a finger hits it). */
 async function objectCentre(page: Page): Promise<[number, number, number]> {
   return read(page, (s) => {
@@ -99,11 +108,7 @@ test.describe('the companion flow on a small screen (T-091, T-099)', () => {
     // From library is the app's one library, the dialog its rail entry opens
     await app.getByTestId('dropzone-library').click();
     await expect(app.getByTestId('modal')).toBeVisible();
-    await app.locator('.library input[type="file"]').setInputFiles(CUBE);
-    const row = app.locator('[data-testid="library-row"]').filter({ hasText: 'calibration_cube_20mm' }).first();
-    await expect(row).toBeVisible({ timeout: 30_000 });
-    await row.locator('.name').click();
-    await expect(app.getByTestId('modal')).toHaveCount(0, { timeout: 60_000 });
+    await loadCubeFromLibrary(app);
     // the first file onto an empty plate folds the sheet to peek, the Slice button one tap away
     await app.waitForFunction(() => window.webslicer.getState().objects.length > 0, null, { timeout: 120_000 });
     await settle(app, 1200);
@@ -120,12 +125,7 @@ test.describe('the companion flow on a small screen (T-091, T-099)', () => {
     await expect(app.getByTestId('modal')).toBeVisible();
     await expectInsideViewport(app, '[data-testid="modal"]', 'the Library dialog');
     await expectNoSidewaysScroll(app, 'the Library');
-    await app.locator('.library input[type="file"]').setInputFiles(CUBE);
-    const row = app.locator('[data-testid="library-row"]').filter({ hasText: 'calibration_cube_20mm' }).first();
-    await expect(row).toBeVisible({ timeout: 30_000 });
-    // the row's own tap loads the file (a plain click in the open mode) and closes the dialog
-    await row.locator('.name').click();
-    await expect(app.getByTestId('modal')).toHaveCount(0, { timeout: 60_000 });
+    await loadCubeFromLibrary(app);
     await app.waitForFunction(
       () => {
         const s = window.webslicer.getState();
@@ -299,6 +299,26 @@ test.describe('the companion flow on a small screen (T-091, T-099)', () => {
 });
 
 /**
+ * The sheet's geometry right now: its position, its own height and the scene it leaves visible (from
+ * the canvas's top edge to the sheet's top edge), plus the footer's laid-out height (0 when hidden).
+ */
+async function sheetMetrics(app: Page) {
+  return app.evaluate(() => {
+    const canvas = document.querySelector('.viewer canvas')!.getBoundingClientRect();
+    const sheet = document.querySelector('.context-stack')!.getBoundingClientRect();
+    const footer = document.querySelector<HTMLElement>('.context-stack .context-footer');
+    return {
+      state: window.webslicer.getState().sheetState,
+      // the position's rule hides the footer; the element stays in the DOM, so it is the layout that
+      // says whether it is drawn (a display:none box has no height)
+      footer: footer ? footer.getBoundingClientRect().height : 0,
+      visible: sheet.top - canvas.top,
+      sheet: sheet.height,
+    };
+  });
+}
+
+/**
  * The sheet's fourth position and its feel (T-099): dragging down from peek reaches `hidden` – the
  * grip alone, the scene all the way down – and a tap brings peek back. The tap cycle never lands on
  * `hidden`, so the Slice button cannot vanish from under a finger that only meant to fold the sheet.
@@ -310,17 +330,7 @@ test.describe('the sheet moves all the way down (T-099)', () => {
     await cubeOnPlate(app);
     const handle = app.getByTestId('sheet-handle');
     await expect(handle).toHaveAttribute('data-sheet-state', 'peek');
-    const before = await app.evaluate(() => {
-      const canvas = document.querySelector('.viewer canvas')!.getBoundingClientRect();
-      const sheet = document.querySelector('.context-stack')!.getBoundingClientRect();
-      return {
-        state: window.webslicer.getState().sheetState,
-        canvas: canvas.height,
-        // the scene the sheet leaves visible: from the canvas's top edge to the sheet's
-        visible: sheet.top - canvas.top,
-        sheet: sheet.height,
-      };
-    });
+    const before = await sheetMetrics(app);
 
     // a slow drag down (below the fling speed): the sheet follows the finger and settles on the
     // nearest position, which from peek is hidden
@@ -328,19 +338,7 @@ test.describe('the sheet moves all the way down (T-099)', () => {
     await touchDrag(app, grip, { x: grip.x, y: grip.y + 260 }, 10);
     await settle(app, 600);
     await expect(handle).toHaveAttribute('data-sheet-state', 'hidden');
-    const after = await app.evaluate(() => {
-      const footer = document.querySelector<HTMLElement>('.context-stack .context-footer');
-      const canvas = document.querySelector('.viewer canvas')!.getBoundingClientRect();
-      const sheet = document.querySelector('.context-stack')!.getBoundingClientRect();
-      return {
-        state: window.webslicer.getState().sheetState,
-        // the position's rule hides the footer; the element stays in the DOM, so it is the layout
-        // that says whether it is drawn (a display:none box has no height)
-        footer: footer ? footer.getBoundingClientRect().height : 0,
-        visible: sheet.top - canvas.top,
-        sheet: sheet.height,
-      };
-    });
+    const after = await sheetMetrics(app);
     expect(before.state).toBe('peek');
     expect(after.state).toBe('hidden');
     expect(after.sheet, 'only the grip stays above the tab bar').toBeLessThan(before.sheet);
@@ -390,7 +388,7 @@ test.describe('the sheet moves all the way down (T-099)', () => {
       expect(Math.abs(s.top - s.finger - offset!), `the sheet's top edge follows the finger (${JSON.stringify(s)})`).toBeLessThan(8);
     // and it really moved: the last sample is far above the first
     expect(samples.at(-1)!.top, 'the sheet followed the finger up').toBeLessThan(samples[0].top - 100);
-    const end = await app.evaluate(() => window.webslicer.getState().sheetState);
+    const end = await read(app, (s) => s.sheetState);
     expect(['peek', 'half', 'full'], 'the release settles on a position').toContain(end);
 
     // a fling up from peek ends at half or full, never back at peek or at hidden
@@ -399,9 +397,7 @@ test.describe('the sheet moves all the way down (T-099)', () => {
     const grip2 = await centreOf(app, '[data-testid="sheet-handle"]');
     await touchFling(app, grip2, { x: grip2.x, y: grip2.y - 140 });
     await settle(app, 700);
-    expect(['half', 'full'], 'a fling up from peek opens the sheet').toContain(
-      await app.evaluate(() => window.webslicer.getState().sheetState),
-    );
+    expect(['half', 'full'], 'a fling up from peek opens the sheet').toContain(await read(app, (s) => s.sheetState));
   });
 });
 
@@ -419,12 +415,19 @@ test.describe('the phone view row turns the model (T-099)', () => {
     await expect(row).toBeVisible();
     const buttons = row.getByRole('button');
     await expect(buttons).toHaveCount(4);
-    const ids = ['view-home', 'view-iso', 'view-turn-left', 'view-turn-right'];
+    // the four buttons, in row order, with the whole name each one carries
+    const VIEW_BUTTONS = [
+      ['view-home', 'Home'],
+      ['view-iso', 'Iso view'],
+      ['view-turn-left', 'Turn left 90°'],
+      ['view-turn-right', 'Turn right 90°'],
+    ] as const;
+    const ids = VIEW_BUTTONS.map(([id]) => id);
     for (const id of ids) await expect(app.getByTestId(id)).toBeVisible();
     // one line: every button shares the row's vertical band, and the row is one button tall
     const boxes = await Promise.all(ids.map((id) => app.getByTestId(id).boundingBox()));
-    expect(boxes.every((b) => !!b)).toBe(true);
     const boxesOk = boxes.filter((b): b is NonNullable<typeof b> => !!b);
+    expect(boxesOk, 'every view button is rendered').toHaveLength(ids.length);
     const top = Math.min(...boxesOk.map((b) => b.y));
     const bottom = Math.max(...boxesOk.map((b) => b.y + b.height));
     expect(bottom - top, 'the row is one button tall').toBeLessThanOrEqual(Math.max(...boxesOk.map((b) => b.height)) + 1);
@@ -437,12 +440,7 @@ test.describe('the phone view row turns the model (T-099)', () => {
     await expect(app.getByTestId('viewer-view-bottom')).toHaveCount(0);
     await expect(app.getByTestId('viewer-view-top')).toHaveCount(0);
     // every button carries its whole name as tooltip and accessible name
-    for (const [id, label] of [
-      ['view-home', 'Home'],
-      ['view-iso', 'Iso view'],
-      ['view-turn-left', 'Turn left 90°'],
-      ['view-turn-right', 'Turn right 90°'],
-    ] as const) {
+    for (const [id, label] of VIEW_BUTTONS) {
       await expect(app.getByTestId(id)).toHaveAttribute('aria-label', label);
       await expect(app.getByTestId(id)).toHaveAttribute('title', /.+/);
     }
@@ -451,10 +449,9 @@ test.describe('the phone view row turns the model (T-099)', () => {
     await app.getByTestId('view-iso').click();
     await settle(app, 700);
     const start = await cameraPose(app);
-    const target = await app.evaluate(() => {
-      const s = window.webslicer.getState();
-      return s.objects[0] ? { x: s.objects[0].instances[0].position[0], y: s.objects[0].instances[0].position[1] } : null;
-    });
+    const target = await read(app, (s) =>
+      s.objects[0] ? { x: s.objects[0].instances[0].position[0], y: s.objects[0].instances[0].position[1] } : null,
+    );
     expect(start && target).toBeTruthy();
     const measure = (p: { x: number; y: number; z: number }, t: { x: number; y: number }) => ({
       elevation: Math.hypot(p.x - t.x, p.y - t.y),

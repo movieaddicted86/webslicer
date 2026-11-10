@@ -92,13 +92,16 @@ export function viewDirection(view: CameraView): { dir: THREE.Vector3; up: THREE
   return { dir: d.dir.clone(), up: d.up.clone() };
 }
 
+/** The world's up axis (the app's Z-up world), the axis a quarter turn rotates around. */
+const WORLD_Z = new THREE.Vector3(0, 0, 1);
+
 /**
  * The camera offset after a quarter turn around the world's vertical axis: this is what the phone's
  * turn buttons do, so the elevation and the distance stay exactly as they were and an isometric view
  * becomes the next isometric corner.
  */
 export function turnOffset(offset: THREE.Vector3, quarterTurns: number): THREE.Vector3 {
-  return offset.clone().applyAxisAngle(new THREE.Vector3(0, 0, 1), (Math.PI / 2) * quarterTurns);
+  return offset.clone().applyAxisAngle(WORLD_Z, (Math.PI / 2) * quarterTurns);
 }
 
 /**

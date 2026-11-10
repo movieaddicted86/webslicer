@@ -3,6 +3,8 @@ import { useStore } from '../state/store';
 import { importFiles } from '../importFiles';
 import { SUPPORTED_EXTENSIONS } from '../three/loaders';
 import { useMediaQuery } from './left/useMediaQuery';
+import { navEntry } from '../nav/navMap';
+import { runNavAction } from '../nav/actions';
 import { Icon } from '../icons/Icon';
 import './DropZone.css';
 
@@ -21,7 +23,6 @@ export function DropZone({ children }: { children: ReactNode }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const phone = useMediaQuery(PHONE_QUERY);
   const empty = useStore((s) => s.objects.length === 0);
-  const openDialog = useStore((s) => s.openDialog);
   const openPicker = () => fileRef.current?.click();
   return (
     <div
@@ -59,7 +60,12 @@ export function DropZone({ children }: { children: ReactNode }) {
           </button>
           {/* P-02: the library is the app's own way to a model the phone did not take a photo of
               – the same dialog its rail entry opens, never a second list */}
-          <button type="button" className="secondary" data-testid="dropzone-library" onClick={() => openDialog('library', 'open')}>
+          <button
+            type="button"
+            className="secondary"
+            data-testid="dropzone-library"
+            onClick={() => void runNavAction(navEntry('library').action)}
+          >
             <Icon name="library" size={16} />
             From library
           </button>

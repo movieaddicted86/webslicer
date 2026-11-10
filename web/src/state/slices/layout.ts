@@ -98,11 +98,14 @@ export interface SheetHeights {
   full: number;
 }
 
+/** The fling speed (px/ms) from which a released sheet continues in the finger's direction. */
+export const FLING_VELOCITY = 0.45;
+
 /**
  * Where a released drag settles: on the nearest position in px, or on the next one in the finger's
  * direction when the fling is fast enough (`velocity` in px/ms, positive = the sheet grows).
  */
-export function settleSheetState(height: number, velocity: number, heights: SheetHeights, fling = 0.45): SheetState {
+export function settleSheetState(height: number, velocity: number, heights: SheetHeights, fling = FLING_VELOCITY): SheetState {
   const nearest = SHEET_ORDER.reduce((best, state) =>
     Math.abs(heights[state] - height) < Math.abs(heights[best] - height) ? state : best,
   );
@@ -112,6 +115,14 @@ export function settleSheetState(height: number, velocity: number, heights: Shee
   return SHEET_ORDER[Math.min(SHEET_ORDER.length - 1, Math.max(0, next))];
 }
 
+/** The position a tap on the drag handle walks to next (the tap cycle, never `hidden`). */
+const NEXT_SHEET_STATE: Record<SheetState, SheetState> = {
+  hidden: 'peek',
+  peek: 'half',
+  half: 'full',
+  full: 'peek',
+};
+
 /**
  * The order a tap on the drag handle walks: `hidden` comes back to `peek`, `peek` opens to `half`,
  * `half` to `full`, and `full` folds back to `peek`. A tap never lands on `hidden` – that position is
@@ -119,7 +130,7 @@ export function settleSheetState(height: number, velocity: number, heights: Shee
  * sheet.
  */
 export function nextSheetState(state: SheetState): SheetState {
-  return state === 'hidden' ? 'peek' : state === 'full' ? 'peek' : state === 'half' ? 'full' : 'half';
+  return NEXT_SHEET_STATE[state];
 }
 
 export interface LayoutSlice {

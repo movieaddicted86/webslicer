@@ -1,4 +1,4 @@
-import { useEffect, useRef, type PointerEvent } from 'react';
+import { useEffect, useRef } from 'react';
 import { useStore, nextSheetState, type PlaterObject, type SheetState } from '../../state/store';
 import { contextMode } from '../../state/contextMode';
 import { useSelectedObjects } from '../left/selection';
@@ -19,7 +19,7 @@ import { PreviewPanel } from '../PreviewPanel';
 import { PreviewInfo } from '../preview/PreviewInfo';
 import { ToolMode } from './ToolMode';
 import { MultiSelection } from './MultiSelection';
-import { useSheetDrag } from './useSheetDrag';
+import { useSheetDrag, type SheetDrag } from './useSheetDrag';
 import { ErrorBoundary } from '../common/ErrorBoundary';
 import { reportUiError } from '../../errorReport';
 import './ContextPanel.css';
@@ -92,7 +92,7 @@ export function ContextPanel() {
   }, [phone, objects.length, setSheetState]);
   // the sheet's positions are classes on the stack: the phone stylesheet reads them
   const sheetClass = phone ? `sheet sheet-${sheetState}${drag.dragging ? ' sheet-dragging' : ''}` : '';
-  // the grip drags the sheet, and so does the card's header (`sheet-drag` below); the body scrolls
+  // the grip drags the sheet, and so does the card's header (`dragProps` below); the body scrolls
   const dragProps = phone
     ? {
         onPointerDown: drag.onPointerDown,
@@ -112,7 +112,6 @@ export function ContextPanel() {
     />
   ) : null;
   /** The header is the sheet's second drag surface; the ✕ and the fields in it keep their own press. */
-  const headerDrag = phone ? dragProps : {};
 
   // tool mode: the tool's own frame fills the card (its head is the header, its foot the footer)
   if (mode === 'tool') {
@@ -129,16 +128,16 @@ export function ContextPanel() {
   }
 
   return (
-    <div className={`context-stack ${sheetClass}`} ref={stackRef} data-sheet-state={phone ? sheetState : undefined}>
+    <div className={`context-stack ${sheetClass}`} ref={stackRef}>
       {handle}
       <aside className="context-panel" data-testid="context-panel" aria-label="Context">
         {mode === 'object' && object ? (
           /* object mode: the header is the object's own card – picture, name, size and rename */
-          <div className="context-header object-header-slot" data-testid="context-header" {...headerDrag}>
+          <div className="context-header object-header-slot" data-testid="context-header" {...dragProps}>
             <ObjectHeader o={object} />
           </div>
         ) : mode === 'plate' ? (
-          <div className="context-header" data-testid="context-header" {...headerDrag}>
+          <div className="context-header" data-testid="context-header" {...dragProps}>
             <h2 className="context-title">Plate</h2>
           </div>
         ) : null}
@@ -217,11 +216,7 @@ function SheetHandle({
 }: {
   state: SheetState;
   onCycle: () => void;
-  onPointerDown?: (e: PointerEvent<HTMLDivElement>) => void;
-  onPointerMove?: (e: PointerEvent<HTMLDivElement>) => void;
-  onPointerUp?: (e: PointerEvent<HTMLDivElement>) => void;
-  onPointerCancel?: (e: PointerEvent<HTMLDivElement>) => void;
-}) {
+} & Partial<Pick<SheetDrag, 'onPointerDown' | 'onPointerMove' | 'onPointerUp' | 'onPointerCancel'>>) {
   return (
     <div
       className="sheet-handle"

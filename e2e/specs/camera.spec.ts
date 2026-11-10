@@ -10,10 +10,22 @@
 import { CUBE, PAIR, importFile, press, read, settle, state } from '../helpers/app';
 import { bedOutline, cameraPose, frameProbe, project, shot, tapCamera, toolpathBox } from '../helpers/canvas';
 import { expect, openSharedSlice, sliceOnce, test } from '../helpers/fixtures';
+import type { Page } from '@playwright/test';
 
 const KEYS = ['0', '1', '2', '3', '4', '5', '6'];
 /** The bottom view (2) looks through the plate: the bed covers the model, so the canvas does not change. */
 const VIEWS_WITH_MODEL = ['0', '1', '3', '4', '5', '6'];
+
+/** Click Top, then press the bottom key: the pose before and after, so a test can compare them. */
+async function bottomFromTop(app: Page) {
+  await app.getByTestId('viewer-view-top').click();
+  await settle(app, 900);
+  const top = await cameraPose(app);
+  await press(app, '2');
+  await settle(app, 900);
+  const bottom = await cameraPose(app);
+  return { top, bottom };
+}
 
 test.describe('camera: the seven views', () => {
   test('every view key draws and centres the object, only the bottom one hides it', async ({ app }) => {
@@ -165,14 +177,9 @@ test.describe('camera: the seven views', () => {
     // the plater's row: all seven views, Bottom among them
     await expect(app.getByTestId('viewer-view-bottom')).toHaveCount(1);
     await expect(app.getByTestId('viewer-view-top')).toHaveCount(1);
-    await app.getByTestId('viewer-view-top').click();
-    await settle(app, 900);
-    const topPose = await cameraPose(app);
-    expect(topPose).not.toBeNull();
-    await press(app, '2');
-    await settle(app, 900);
-    const platerBottom = await cameraPose(app);
-    expect(platerBottom!.z, 'the plater key 2 looks up from below the plate').toBeLessThan(topPose!.z - 10);
+    const plater = await bottomFromTop(app);
+    expect(plater.top).not.toBeNull();
+    expect(plater.bottom!.z, 'the plater key 2 looks up from below the plate').toBeLessThan(plater.top!.z - 10);
 
     // the preview's row: six views, no Bottom
     await app.evaluate(() => window.webslicer.getState().setView('preview'));
@@ -183,13 +190,8 @@ test.describe('camera: the seven views', () => {
     expect(row).toHaveLength(8); // six views, the projection and zoom to selection
 
     // the shortcut is still there in the preview
-    await app.getByTestId('viewer-view-top').click();
-    await settle(app, 900);
-    const previewTop = await cameraPose(app);
-    await press(app, '2');
-    await settle(app, 900);
-    const previewBottom = await cameraPose(app);
-    expect(previewBottom!.z, 'the preview key 2 looks up from below the plate').toBeLessThan(previewTop!.z - 10);
+    const preview = await bottomFromTop(app);
+    expect(preview.bottom!.z, 'the preview key 2 looks up from below the plate').toBeLessThan(preview.top!.z - 10);
   });
 
   /**

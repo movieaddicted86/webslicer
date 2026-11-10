@@ -1,16 +1,14 @@
 import { useRef, useState, type PointerEvent, type RefObject } from 'react';
-import { settleSheetState, type SheetHeights, type SheetState } from '../../state/store';
+import { FLING_VELOCITY, settleSheetState, type SheetHeights, type SheetState } from '../../state/store';
 
 /** The drag handle's height when the stylesheet cannot tell (it is a finger-sized 44 px). */
 const FALLBACK_HANDLE = 44;
-/** The ease the sheet settles with; the stylesheet's transition length, and off with reduced motion. */
-const SETTLE_MS = 190;
+/** The stylesheet's settle ease length; the inline px is handed back once it is over. */
+const SETTLE_MS = 180;
 /** A finger has to travel this far before the gesture is a drag and not a tap. */
 const TAP_SLOP = 6;
 /** The window of pointer samples the fling velocity is read from. */
 const FLING_SAMPLES = 6;
-/** The fling speed (px/ms) from which the sheet continues in the finger's direction. */
-const FLING = 0.45;
 
 interface Drag {
   pointerId: number;
@@ -19,7 +17,6 @@ interface Drag {
   height: number;
   heights: SheetHeights;
   samples: Array<{ y: number; t: number }>;
-  moved: boolean;
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -29,8 +26,7 @@ function clamp(value: number, min: number, max: number): number {
 /** The rate the sheet's height changes, in px/ms (positive = the sheet grows). */
 function velocityOf(samples: Drag['samples']): number {
   const first = samples[0];
-  const last = samples.at(-1);
-  if (!first || !last) return 0;
+  const last = samples[samples.length - 1];
   const dt = last.t - first.t;
   return dt > 0 ? -(last.y - first.y) / dt : 0;
 }
@@ -97,7 +93,6 @@ export function useSheetDrag(stackRef: RefObject<HTMLDivElement | null>, setStat
       height: rect.height,
       heights: measure(stack, footerHeight),
       samples: [{ y: e.clientY, t: performance.now() }],
-      moved: false,
     };
     dragged.current = false;
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -115,7 +110,7 @@ export function useSheetDrag(stackRef: RefObject<HTMLDivElement | null>, setStat
     stack.style.height = `${height}px`;
     d.samples.push({ y: e.clientY, t: performance.now() });
     if (d.samples.length > FLING_SAMPLES) d.samples.shift();
-    if (Math.abs(e.clientY - d.startY) > TAP_SLOP) d.moved = true;
+    if (Math.abs(e.clientY - d.startY) > TAP_SLOP) dragged.current = true;
   };
 
   const end = (e: PointerEvent<HTMLElement>, cancelled: boolean) => {
@@ -123,19 +118,20 @@ export function useSheetDrag(stackRef: RefObject<HTMLDivElement | null>, setStat
     if (!d || e.pointerId !== d.pointerId) return;
     drag.current = null;
     const stack = stackRef.current;
-    dragged.current = d.moved;
     setDragging(false);
+    // a tap (or a press that never moved) is not a drag: the press only pinned the height, so hand it
+    // back and let the handle's own click cycle the sheet – no settle, no state write, no timers
+    if (!dragged.current) {
+      if (stack) stack.style.height = '';
+      return;
+    }
     const velocity = cancelled ? 0 : velocityOf(d.samples);
-    const target = settleSheetState(d.height, velocity, d.heights, FLING);
+    const target = settleSheetState(d.height, velocity, d.heights, FLING_VELOCITY);
     setState(target);
     if (!stack) return;
     // the eased settle: the height is a px value on both sides of the step, so it animates; the
-    // position's own layout takes over again once the ease is over (and holds the same height)
-    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
-    if (reduced) {
-      stack.style.height = '';
-      return;
-    }
+    // position's own layout takes over again once the ease is over (and holds the same height).
+    // Reduced motion is the stylesheet's: it disables the transition, so this jump is instant.
     requestAnimationFrame(() => {
       stack.style.height = `${d.heights[target]}px`;
     });

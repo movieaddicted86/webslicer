@@ -1,9 +1,9 @@
 import { useRef, useMemo } from 'react';
 import { useStore } from '../state/store';
-import { VIEWS } from './viewer/cameraMath';
+import { VIEWS, viewDef } from './viewer/cameraMath';
 import { printerLayerLimits } from '../plater/layerProfile';
 import { useKeyboardShortcuts } from './viewer/useKeyboardShortcuts';
-import type { SceneRefs } from './viewer/types';
+import type { CamRequest, SceneRefs } from './viewer/types';
 import { useGizmo } from './viewer/useGizmo';
 import { usePlaterObjects } from './viewer/usePlaterObjects';
 import { useBed } from './viewer/useBed';
@@ -32,17 +32,49 @@ const PHONE_QUERY = '(max-width: 640px)';
  * nor Bottom on a companion screen; the two turns give the four isometric corners instead, staying at
  * the same elevation and distance.
  */
+const VIEW_ISO = viewDef('iso');
+/** #14: the desktop view row of the Preview – every standard view but Bottom. */
+const PREVIEW_VIEWS = VIEWS.filter((v) => v.id !== 'bottom');
 const PHONE_VIEWS: Array<{
   id: 'home' | 'iso' | 'turn-left' | 'turn-right';
   label: string;
   title: string;
   icon: IconName;
+  request: CamRequest;
   testId: string;
 }> = [
-  { id: 'home', label: 'Home', title: 'Home view – frame the whole plate', icon: 'viewHome', testId: 'view-home' },
-  { id: 'iso', label: 'Iso view', title: 'Iso view (0)', icon: 'viewIso', testId: 'view-iso' },
-  { id: 'turn-left', label: 'Turn left 90°', title: 'Turn the view 90° to the left', icon: 'viewTurnLeft', testId: 'view-turn-left' },
-  { id: 'turn-right', label: 'Turn right 90°', title: 'Turn the view 90° to the right', icon: 'viewTurnRight', testId: 'view-turn-right' },
+  {
+    id: 'home',
+    label: 'Home',
+    title: 'Home view – frame the whole plate',
+    icon: 'viewHome',
+    request: { mode: 'bed' },
+    testId: 'view-home',
+  },
+  {
+    id: 'iso',
+    label: `${VIEW_ISO.label} view`,
+    title: `${VIEW_ISO.label} view (${VIEW_ISO.key})`,
+    icon: 'viewIso',
+    request: { mode: 'view', view: 'iso' },
+    testId: 'view-iso',
+  },
+  {
+    id: 'turn-left',
+    label: 'Turn left 90°',
+    title: 'Turn the view 90° to the left',
+    icon: 'viewTurnLeft',
+    request: { mode: 'turn', turns: -1 },
+    testId: 'view-turn-left',
+  },
+  {
+    id: 'turn-right',
+    label: 'Turn right 90°',
+    title: 'Turn the view 90° to the right',
+    icon: 'viewTurnRight',
+    request: { mode: 'turn', turns: 1 },
+    testId: 'view-turn-right',
+  },
 ];
 
 export function Viewer() {
@@ -142,7 +174,7 @@ export function Viewer() {
   // #14: the Preview's plate hides the underside of the model anyway, so its view row drops Bottom;
   // the Plater keeps all seven (checking overhangs and the first layer from below), and the keyboard
   // shortcut still reaches the bottom view in both
-  const desktopViews = view === 'preview' ? VIEWS.filter((v) => v.id !== 'bottom') : VIEWS;
+  const desktopViews = view === 'preview' ? PREVIEW_VIEWS : VIEWS;
 
   return (
     <div className={`viewer ${placeOnFace ? 'place-on-face' : ''}`} ref={containerRef}>
@@ -159,57 +191,53 @@ export function Viewer() {
           It floats centred in the band between the cards, as the tool strip does, so it never sits
           under the context panel. On a phone it is the four-button row described in `PHONE_VIEWS`. */}
       <div className="viewer-bar-band">
-        {phone ? (
-          <div className="viewer-toolbar" data-testid="viewer-view-row">
-            {PHONE_VIEWS.map((v) => (
+        <div className="viewer-toolbar" data-testid={phone ? 'viewer-view-row' : undefined}>
+          {phone
+            ? PHONE_VIEWS.map((v) => (
+                <button
+                  key={v.id}
+                  className="viewer-view-button"
+                  title={v.title}
+                  aria-label={v.label}
+                  data-testid={v.testId}
+                  onClick={() => requestCamera(v.request)}
+                >
+                  <Icon name={v.icon} size={20} />
+                </button>
+              ))
+            : desktopViews.map((v) => (
+                <button
+                  key={v.id}
+                  className="viewer-view-button"
+                  title={`${v.label} view (${v.key})`}
+                  aria-label={`${v.label} view`}
+                  data-testid={`viewer-view-${v.id}`}
+                  onClick={() => requestCamera({ mode: 'view', view: v.id })}
+                >
+                  {v.label}
+                </button>
+              ))}
+          {!phone && (
+            <>
               <button
-                key={v.id}
-                className="viewer-view-button"
-                title={v.title}
-                aria-label={v.label}
-                data-testid={v.testId}
-                onClick={() => {
-                  if (v.id === 'home') return requestCamera({ mode: 'bed' });
-                  if (v.id === 'iso') return requestCamera({ mode: 'view', view: 'iso' });
-                  return requestCamera({ mode: 'turn', turns: v.id === 'turn-left' ? -1 : 1 });
-                }}
+                className={ortho ? 'active' : ''}
+                title={ortho ? 'Orthographic projection (K)' : 'Perspective projection (K)'}
+                data-testid="viewer-projection"
+                onClick={toggleOrtho}
               >
-                <Icon name={v.icon} size={20} />
+                {ortho ? 'Ortho' : 'Persp'}
               </button>
-            ))}
-          </div>
-        ) : (
-          <div className="viewer-toolbar">
-            {desktopViews.map((v) => (
               <button
-                key={v.id}
-                className="viewer-view-button"
-                title={`${v.label} view (${v.key})`}
-                aria-label={`${v.label} view`}
-                data-testid={`viewer-view-${v.id}`}
-                onClick={() => requestCamera({ mode: 'view', view: v.id })}
+                title="Zoom to selection (Z)"
+                aria-label="Zoom to selection (Z)"
+                data-testid="viewer-fit-selection"
+                onClick={() => requestCamera({ mode: 'fit' })}
               >
-                {v.label}
+                ⌖
               </button>
-            ))}
-            <button
-              className={ortho ? 'active' : ''}
-              title={ortho ? 'Orthographic projection (K)' : 'Perspective projection (K)'}
-              data-testid="viewer-projection"
-              onClick={toggleOrtho}
-            >
-              {ortho ? 'Ortho' : 'Persp'}
-            </button>
-            <button
-              title="Zoom to selection (Z)"
-              aria-label="Zoom to selection (Z)"
-              data-testid="viewer-fit-selection"
-              onClick={() => requestCamera({ mode: 'fit' })}
-            >
-              ⌖
-            </button>
-          </div>
-        )}
+            </>
+          )}
+        </div>
         <button
           className="viewer-fit"
           title="Reset view"
