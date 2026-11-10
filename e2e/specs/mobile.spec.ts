@@ -19,7 +19,16 @@ import { cameraPose, frameProbe, project as projectPoints, screenPoint, tapCamer
 import { expect, openSharedSlice, sliceOnce, test } from '../helpers/fixtures';
 import { E2E_PRINTER } from '../global-setup';
 import { addPrinter, clearUploads, HAS_MOCK_HOST, removePrinters, uploads, type TestPrinter } from '../helpers/mock-host';
-import { canvasPoint, centreOf, touchDoubleTap, touchDrag, touchLongPress, touchPinch } from '../helpers/touch';
+import {
+  canvasPoint,
+  centreOf,
+  touchDoubleTap,
+  touchDrag,
+  touchDragProbed,
+  touchFling,
+  touchLongPress,
+  touchPinch,
+} from '../helpers/touch';
 import type { Page } from '@playwright/test';
 
 /** The project this test is running in (`phone` or `tablet`). */
@@ -72,9 +81,35 @@ async function objectCentre(page: Page): Promise<[number, number, number]> {
   });
 }
 
-test.describe('the companion flow on a small screen (T-091)', () => {
+test.describe('the companion flow on a small screen (T-091, T-099)', () => {
   // the send test creates a print host: server state like the send spec's own tests
   test.describe.configure({ lock: 'server-state' });
+
+  test('an empty plate offers the library as well as the phone picker (AC-1)', async ({ app }) => {
+    test.skip(!isPhone(), 'the empty-plate card is the phone layout');
+    await expectNoSidewaysScroll(app, 'the empty plater');
+    const card = app.getByTestId('dropzone-empty');
+    await expect(card).toBeVisible();
+    // both ways in are finger-sized targets and in the viewport
+    for (const id of ['dropzone-pick', 'dropzone-library']) {
+      await expectInsideViewport(app, `[data-testid="${id}"]`, `the ${id} button`);
+      const box = await app.getByTestId(id).boundingBox();
+      expect(box!.height, `${id} is shorter than 44 px`).toBeGreaterThanOrEqual(44);
+    }
+    // From library is the app's one library, the dialog its rail entry opens
+    await app.getByTestId('dropzone-library').click();
+    await expect(app.getByTestId('modal')).toBeVisible();
+    await app.locator('.library input[type="file"]').setInputFiles(CUBE);
+    const row = app.locator('[data-testid="library-row"]').filter({ hasText: 'calibration_cube_20mm' }).first();
+    await expect(row).toBeVisible({ timeout: 30_000 });
+    await row.locator('.name').click();
+    await expect(app.getByTestId('modal')).toHaveCount(0, { timeout: 60_000 });
+    // the first file onto an empty plate folds the sheet to peek, the Slice button one tap away
+    await app.waitForFunction(() => window.webslicer.getState().objects.length > 0, null, { timeout: 120_000 });
+    await settle(app, 1200);
+    await expect(app.getByTestId('sheet-handle')).toHaveAttribute('data-sheet-state', 'peek');
+    await expectInsideViewport(app, '[data-testid="slice-button"]', 'the Slice button after the library load');
+  });
 
   test('Library → sheet → filament → slice → preview works without scrolling the page', async ({ app }) => {
     // the phone starts on the plater with the Slice footer in reach
@@ -101,16 +136,14 @@ test.describe('the companion flow on a small screen (T-091)', () => {
     );
     await app.waitForTimeout(1000);
 
-    // the sheet's handle is the phone's own chrome; both starting positions keep the Slice button on
-    // screen, which is the one control the companion flow cannot do without
+    // the sheet's handle is the phone's own chrome; the tap cycle walks peek → half → full → peek
+    // and never lands on `hidden`, which is the drag's position alone
     if (isPhone()) {
       const handle = app.getByTestId('sheet-handle');
       await expect(handle).toBeVisible();
       // it starts folded to peek: the model keeps the scene and the Slice button sits in the footer
       await expect(handle).toHaveAttribute('data-sheet-state', 'peek');
       await expectInsideViewport(app, '[data-testid="slice-button"]', 'the Slice button (peek)');
-      // a tap on the handle walks the positions: peek → half → full → peek, and the Slice button
-      // stays on screen in every one of them
       await handle.click();
       await app.waitForTimeout(400);
       await expect(handle).toHaveAttribute('data-sheet-state', 'half');
@@ -266,6 +299,187 @@ test.describe('the companion flow on a small screen (T-091)', () => {
 });
 
 /**
+ * The sheet's fourth position and its feel (T-099): dragging down from peek reaches `hidden` – the
+ * grip alone, the scene all the way down – and a tap brings peek back. The tap cycle never lands on
+ * `hidden`, so the Slice button cannot vanish from under a finger that only meant to fold the sheet.
+ */
+test.describe('the sheet moves all the way down (T-099)', () => {
+  test.skip(({ viewport }) => (viewport?.width ?? 0) > 640, 'the sheet is the phone layout');
+
+  test('a drag from peek settles on hidden, and a tap brings peek back (AC-2)', async ({ app }) => {
+    await cubeOnPlate(app);
+    const handle = app.getByTestId('sheet-handle');
+    await expect(handle).toHaveAttribute('data-sheet-state', 'peek');
+    const before = await app.evaluate(() => {
+      const canvas = document.querySelector('.viewer canvas')!.getBoundingClientRect();
+      const sheet = document.querySelector('.context-stack')!.getBoundingClientRect();
+      return {
+        state: window.webslicer.getState().sheetState,
+        canvas: canvas.height,
+        // the scene the sheet leaves visible: from the canvas's top edge to the sheet's
+        visible: sheet.top - canvas.top,
+        sheet: sheet.height,
+      };
+    });
+
+    // a slow drag down (below the fling speed): the sheet follows the finger and settles on the
+    // nearest position, which from peek is hidden
+    const grip = await centreOf(app, '[data-testid="sheet-handle"]');
+    await touchDrag(app, grip, { x: grip.x, y: grip.y + 260 }, 10);
+    await settle(app, 600);
+    await expect(handle).toHaveAttribute('data-sheet-state', 'hidden');
+    const after = await app.evaluate(() => {
+      const footer = document.querySelector<HTMLElement>('.context-stack .context-footer');
+      const canvas = document.querySelector('.viewer canvas')!.getBoundingClientRect();
+      const sheet = document.querySelector('.context-stack')!.getBoundingClientRect();
+      return {
+        state: window.webslicer.getState().sheetState,
+        // the position's rule hides the footer; the element stays in the DOM, so it is the layout
+        // that says whether it is drawn (a display:none box has no height)
+        footer: footer ? footer.getBoundingClientRect().height : 0,
+        visible: sheet.top - canvas.top,
+        sheet: sheet.height,
+      };
+    });
+    expect(before.state).toBe('peek');
+    expect(after.state).toBe('hidden');
+    expect(after.sheet, 'only the grip stays above the tab bar').toBeLessThan(before.sheet);
+    // the Slice footer is the hidden position's point: it is not drawn at all
+    expect(after.footer, 'the Slice footer is out of the sheet at hidden').toBe(0);
+    // the scene keeps the whole room: the visible part of the canvas grows by the peek footer's height
+    expect(after.visible, 'the 3D view grows when the sheet gets out of the way').toBeGreaterThan(before.visible + 100);
+
+    // a tap on the handle brings peek back, and the Slice button is in reach again
+    await handle.click();
+    await app.waitForTimeout(400);
+    await expect(handle).toHaveAttribute('data-sheet-state', 'peek');
+    await expectInsideViewport(app, '[data-testid="slice-button"]', 'the Slice button after the tap');
+
+    // the tap cycle never lands on hidden: peek → half → full → peek
+    for (const expected of ['half', 'full', 'peek']) {
+      await handle.click();
+      await app.waitForTimeout(400);
+      await expect(handle).toHaveAttribute('data-sheet-state', expected);
+    }
+  });
+
+  test('the sheet follows the finger during the drag and settles after the release (AC-7)', async ({ app }) => {
+    await cubeOnPlate(app);
+    const handle = app.getByTestId('sheet-handle');
+    await expect(handle).toHaveAttribute('data-sheet-state', 'peek');
+    const grip = await centreOf(app, '[data-testid="sheet-handle"]');
+    const samples: Array<{ finger: number; top: number }> = [];
+    // the top edge's own offset from the finger: the grip's centre sits half a handle below it
+    let offset: number | null = null;
+    await touchDragProbed(
+      app,
+      grip,
+      { x: grip.x, y: grip.y - 180 },
+      async (point) => {
+        const top = await app.evaluate(() => document.querySelector('.context-stack')!.getBoundingClientRect().top);
+        offset ??= top - point.y;
+        samples.push({ finger: point.y, top });
+      },
+      10,
+    );
+    await settle(app, 700);
+    // every sample keeps the press's own offset within the 8 px tolerance: the finger and the
+    // sheet's top edge move together, one-to-one, with no jump between positions
+    expect(offset, 'the drag was sampled').not.toBeNull();
+    for (const s of samples)
+      expect(Math.abs(s.top - s.finger - offset!), `the sheet's top edge follows the finger (${JSON.stringify(s)})`).toBeLessThan(8);
+    // and it really moved: the last sample is far above the first
+    expect(samples.at(-1)!.top, 'the sheet followed the finger up').toBeLessThan(samples[0].top - 100);
+    const end = await app.evaluate(() => window.webslicer.getState().sheetState);
+    expect(['peek', 'half', 'full'], 'the release settles on a position').toContain(end);
+
+    // a fling up from peek ends at half or full, never back at peek or at hidden
+    await app.evaluate(() => window.webslicer.getState().setSheetState('peek'));
+    await app.waitForTimeout(400);
+    const grip2 = await centreOf(app, '[data-testid="sheet-handle"]');
+    await touchFling(app, grip2, { x: grip2.x, y: grip2.y - 140 });
+    await settle(app, 700);
+    expect(['half', 'full'], 'a fling up from peek opens the sheet').toContain(
+      await app.evaluate(() => window.webslicer.getState().sheetState),
+    );
+  });
+});
+
+/**
+ * The phone's view row (T-099, AC-8): exactly four buttons in one line over the scene – Home, Iso and
+ * the two quarter turns. The turns keep the camera's elevation and distance, so from Iso they walk
+ * the four isometric corners and four turns return to where they started.
+ */
+test.describe('the phone view row turns the model (T-099)', () => {
+  test.skip(({ viewport }) => (viewport?.width ?? 0) > 640, 'the four-button row is the phone layout');
+
+  test('exactly Home, Iso, turn left, turn right – one line, and the turns keep elevation and distance (AC-8)', async ({ app }) => {
+    await cubeOnPlate(app);
+    const row = app.getByTestId('viewer-view-row');
+    await expect(row).toBeVisible();
+    const buttons = row.getByRole('button');
+    await expect(buttons).toHaveCount(4);
+    const ids = ['view-home', 'view-iso', 'view-turn-left', 'view-turn-right'];
+    for (const id of ids) await expect(app.getByTestId(id)).toBeVisible();
+    // one line: every button shares the row's vertical band, and the row is one button tall
+    const boxes = await Promise.all(ids.map((id) => app.getByTestId(id).boundingBox()));
+    expect(boxes.every((b) => !!b)).toBe(true);
+    const boxesOk = boxes.filter((b): b is NonNullable<typeof b> => !!b);
+    const top = Math.min(...boxesOk.map((b) => b.y));
+    const bottom = Math.max(...boxesOk.map((b) => b.y + b.height));
+    expect(bottom - top, 'the row is one button tall').toBeLessThanOrEqual(Math.max(...boxesOk.map((b) => b.height)) + 1);
+    for (const b of boxesOk) {
+      expect(b.height, 'a view button is a finger target').toBeGreaterThanOrEqual(44);
+      expect(b.width, 'a view button is a finger target').toBeGreaterThanOrEqual(44);
+    }
+    await expectInsideViewport(app, '[data-testid="viewer-view-row"]', 'the view row');
+    // the named views are gone from the phone row, in the plater and in the preview
+    await expect(app.getByTestId('viewer-view-bottom')).toHaveCount(0);
+    await expect(app.getByTestId('viewer-view-top')).toHaveCount(0);
+    // every button carries its whole name as tooltip and accessible name
+    for (const [id, label] of [
+      ['view-home', 'Home'],
+      ['view-iso', 'Iso view'],
+      ['view-turn-left', 'Turn left 90°'],
+      ['view-turn-right', 'Turn right 90°'],
+    ] as const) {
+      await expect(app.getByTestId(id)).toHaveAttribute('aria-label', label);
+      await expect(app.getByTestId(id)).toHaveAttribute('title', /.+/);
+    }
+
+    // the camera pose before the turns: iso, then one turn keeps the elevation and the distance
+    await app.getByTestId('view-iso').click();
+    await settle(app, 700);
+    const start = await cameraPose(app);
+    const target = await app.evaluate(() => {
+      const s = window.webslicer.getState();
+      return s.objects[0] ? { x: s.objects[0].instances[0].position[0], y: s.objects[0].instances[0].position[1] } : null;
+    });
+    expect(start && target).toBeTruthy();
+    const measure = (p: { x: number; y: number; z: number }, t: { x: number; y: number }) => ({
+      elevation: Math.hypot(p.x - t.x, p.y - t.y),
+      height: p.z,
+    });
+    const m0 = measure(start!, target!);
+    await app.getByTestId('view-turn-right').click();
+    await settle(app, 700);
+    const turned = await cameraPose(app);
+    const m1 = measure(turned!, target!);
+    expect(Math.abs(m1.height - m0.height), 'the elevation is unchanged').toBeLessThan(1);
+    expect(Math.abs(m1.elevation - m0.elevation), 'the distance is unchanged').toBeLessThan(1);
+    expect(Math.hypot(turned!.x - start!.x, turned!.y - start!.y), 'the camera really turned').toBeGreaterThan(3);
+
+    // four turns return to the starting pose
+    for (let i = 0; i < 3; i++) {
+      await app.getByTestId('view-turn-right').click();
+      await settle(app, 600);
+    }
+    const back = await cameraPose(app);
+    expect(Math.hypot(back!.x - start!.x, back!.y - start!.y), 'four turns come back to the pose').toBeLessThan(1);
+  });
+});
+
+/**
  * The 3D view by finger (T-092). Every gesture goes through the browser's own touch pipeline
  * (`helpers/touch.ts`, CDP `Input.dispatchTouchEvent`), so the viewer receives real
  * `pointerType: 'touch'` events. The checks read the store and the projected camera: "the camera
@@ -383,7 +597,10 @@ test.describe('the 3D view by finger (T-092)', () => {
 test.describe('the preview on a phone (T-092)', () => {
   test.describe.configure({ lock: 'server-state' });
 
-  test('every view button frames the toolpaths, and the layer slider moves by touch', async ({ app, browser }) => {
+  test('Home and Iso frame the toolpaths, the turns keep the framing, and the layer slider moves by touch (T-092, T-099)', async ({
+    app,
+    browser,
+  }) => {
     test.skip(!isPhone(), 'the phone preview is the sheet layout of a 390 px screen');
     const sharedJob = await sliceOnce(browser);
     await openSharedSlice(app, sharedJob);
@@ -399,24 +616,34 @@ test.describe('the preview on a phone (T-092)', () => {
       corners.push([i & 1 ? box!.max[0] : box!.min[0], i & 2 ? box!.max[1] : box!.min[1], i & 4 ? box!.max[2] : box!.min[2]]);
     }
 
-    for (const view of ['iso', 'top', 'front'] as const) {
-      await app.getByTestId(`viewer-view-${view}`).click();
+    // T-099: the phone row is Home, Iso and the two turns; the named views are not on it any more
+    const views = [
+      ['view-iso', 'Iso'],
+      ['view-turn-right', 'turn right'],
+      ['view-turn-right', 'turn right again'],
+      ['view-turn-left', 'turn left'],
+    ] as const;
+    for (const [id, name] of views) {
+      await app.getByTestId(id).click();
       await settle(app, 900);
       // the toolpaths' centre sits at the centre of the picture (that is the orbit target, and what
       // "frames the toolpaths" means), and their box fills it – a fallback to the whole bed would
       // centre the plate and leave the print small
       const [onScreen] = (await projectPoints(app, [middle])) ?? [null];
-      expect(onScreen, `${view} keeps the toolpaths in view`).not.toBeNull();
-      expect(Math.abs(onScreen![0]), `${view} centres the toolpaths horizontally`).toBeLessThan(0.2);
-      expect(Math.abs(onScreen![1]), `${view} centres the toolpaths vertically`).toBeLessThan(0.2);
+      expect(onScreen, `${name} keeps the toolpaths in view`).not.toBeNull();
+      expect(Math.abs(onScreen![0]), `${name} centres the toolpaths horizontally`).toBeLessThan(0.2);
+      expect(Math.abs(onScreen![1]), `${name} centres the toolpaths vertically`).toBeLessThan(0.2);
       const projected = (await projectPoints(app, corners)) ?? [];
       const xs = projected.filter((p): p is [number, number] => !!p).map((p) => p[0]);
       const ys = projected.filter((p): p is [number, number] => !!p).map((p) => p[1]);
       expect(
         Math.max(...xs) - Math.min(...xs) > 0.5 || Math.max(...ys) - Math.min(...ys) > 0.5,
-        `${view} fills the picture with the toolpaths`,
+        `${name} fills the picture with the toolpaths`,
       ).toBe(true);
     }
+    // Home frames the whole plate again
+    await app.getByTestId('view-home').click();
+    await settle(app, 900);
     // the layer slider is a 44 px touch target and moves the visible layer range with a finger drag.
     // The preview opens in the peek sheet, where the card is folded away, so one tap on the handle
     // brings the preview card (and its slider) into reach first.
@@ -451,6 +678,29 @@ test.describe('the preview on a phone (T-092)', () => {
     await expectInsideViewport(app, '[data-testid="send-button"]', 'the Send button');
     await expectNoSidewaysScroll(app, 'the peek sheet');
     await expect(app.getByTestId('sheet-handle')).toHaveAttribute('data-sheet-state', 'peek');
+
+    // R-05: the Details chip is in the peek row, so it is found without opening the sheet: one tap
+    // opens the sliced info and the legend
+    const details = app.getByTestId('preview-info-toggle');
+    await expect(details).toBeVisible();
+    await expectInsideViewport(app, '[data-testid="preview-info-toggle"]', 'the Details chip');
+    await expect(details).toContainText('Details');
+    // the chip's own row is a finger target
+    const chip = await details.boundingBox();
+    expect(chip!.height, 'the Details chip is shorter than 44 px').toBeGreaterThanOrEqual(44);
+    await expect(app.getByTestId('preview-info-stats')).toHaveCount(0);
+    await details.click();
+    await settle(app, 500);
+    await expect(details).toHaveAttribute('aria-expanded', 'true');
+    await expect(app.getByTestId('preview-info-stats')).toBeVisible();
+    // the legend the chip opened (the left column's card is a drawer here and has its own)
+    await expect(app.getByTestId('preview-info').getByTestId('legend')).toBeVisible();
+    // the opened body is inside the sheet, so nothing it holds widens the 390 px page
+    await expectNoSidewaysScroll(app, 'the Details body');
+    // and the same tap folds it again
+    await details.click();
+    await settle(app, 400);
+    await expect(details).toHaveAttribute('aria-expanded', 'false');
   });
 });
 

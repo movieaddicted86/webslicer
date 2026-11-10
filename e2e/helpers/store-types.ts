@@ -239,9 +239,9 @@ export interface E2EState {
   removeObjects: (ids: string[]) => void;
   setOption: (type: 'print' | 'filament' | 'printer', key: string, value: string, extruderIdx?: number) => void;
   setView: (view: string) => void;
-  /** the phone's context sheet: `peek` (the footer alone), `half` and `full` (T-091) */
-  sheetState: 'peek' | 'half' | 'full';
-  setSheetState: (state: 'peek' | 'half' | 'full') => void;
+  /** the phone's context sheet: `hidden` (the grip alone), `peek` (the footer), `half` and `full` (T-091, T-099) */
+  sheetState: 'hidden' | 'peek' | 'half' | 'full';
+  setSheetState: (state: 'hidden' | 'peek' | 'half' | 'full') => void;
   setMode: (mode: 'simple' | 'advanced' | 'expert') => void;
   selectPreset: (type: 'print' | 'filament' | 'printer', name: string, extruderIdx?: number) => Promise<void>;
   openDialog: (dialog: string, payload?: unknown) => void;

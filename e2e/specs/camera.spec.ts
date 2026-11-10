@@ -7,8 +7,8 @@
  * (`frameProbe`), which is exact and independent of lighting; the pixels are only used to prove that a
  * view really draws the model.
  */
-import { CUBE, PAIR, importFile, press, read, state } from '../helpers/app';
-import { bedOutline, frameProbe, project, shot, tapCamera, toolpathBox } from '../helpers/canvas';
+import { CUBE, PAIR, importFile, press, read, settle, state } from '../helpers/app';
+import { bedOutline, cameraPose, frameProbe, project, shot, tapCamera, toolpathBox } from '../helpers/canvas';
 import { expect, openSharedSlice, sliceOnce, test } from '../helpers/fixtures';
 
 const KEYS = ['0', '1', '2', '3', '4', '5', '6'];
@@ -148,6 +148,48 @@ test.describe('camera: the seven views', () => {
     await app.waitForTimeout(1000);
     const keyTop = await frameProbe(app);
     expect(buttonTop.objects).toEqual(keyTop.objects);
+  });
+
+  /**
+   * #14: the Preview's view row drops the Bottom button – the plate hides the underside of the print
+   * there anyway – while the Plater keeps all seven (checking overhangs and the first layer from below
+   * is what the Plater uses it for). The number key 2 still reaches the bottom view in both, so a user
+   * who knew the shortcut keeps it.
+   */
+  test('the Preview drops the Bottom button, the Plater keeps it, and key 2 still shows the underside (#14)', async ({ app }) => {
+    await importFile(app, PAIR);
+    await app.evaluate(() => window.webslicer.getState().select([]));
+    await settle(app, 1200);
+    await tapCamera(app);
+
+    // the plater's row: all seven views, Bottom among them
+    await expect(app.getByTestId('viewer-view-bottom')).toHaveCount(1);
+    await expect(app.getByTestId('viewer-view-top')).toHaveCount(1);
+    await app.getByTestId('viewer-view-top').click();
+    await settle(app, 900);
+    const topPose = await cameraPose(app);
+    expect(topPose).not.toBeNull();
+    await press(app, '2');
+    await settle(app, 900);
+    const platerBottom = await cameraPose(app);
+    expect(platerBottom!.z, 'the plater key 2 looks up from below the plate').toBeLessThan(topPose!.z - 10);
+
+    // the preview's row: six views, no Bottom
+    await app.evaluate(() => window.webslicer.getState().setView('preview'));
+    await settle(app, 1500);
+    await expect(app.getByTestId('viewer-view-bottom')).toHaveCount(0);
+    await expect(app.getByTestId('viewer-view-top')).toHaveCount(1);
+    const row = await app.evaluate(() => Array.from(document.querySelectorAll('.viewer-toolbar button')).map((b) => b.textContent?.trim()));
+    expect(row).toHaveLength(8); // six views, the projection and zoom to selection
+
+    // the shortcut is still there in the preview
+    await app.getByTestId('viewer-view-top').click();
+    await settle(app, 900);
+    const previewTop = await cameraPose(app);
+    await press(app, '2');
+    await settle(app, 900);
+    const previewBottom = await cameraPose(app);
+    expect(previewBottom!.z, 'the preview key 2 looks up from below the plate').toBeLessThan(previewTop!.z - 10);
   });
 
   /**

@@ -47,6 +47,44 @@ export async function touchDrag(page: Page, from: Point, to: Point, steps = 8): 
 }
 
 /**
+ * The same drag, watched while it runs: `probe` is awaited after every move, so a test can sample
+ * where the dragged element's edge sits under the finger (a follow-the-finger check).
+ */
+export async function touchDragProbed(
+  page: Page,
+  from: Point,
+  to: Point,
+  probe: (point: Point) => Promise<void>,
+  steps = 8,
+  stepDelay = 45,
+): Promise<void> {
+  await send(page, 'touchStart', [from]);
+  for (let i = 1; i <= steps; i++) {
+    const point = { x: from.x + ((to.x - from.x) * i) / steps, y: from.y + ((to.y - from.y) * i) / steps };
+    await send(page, 'touchMove', [point]);
+    await page.waitForTimeout(stepDelay);
+    await probe(point);
+  }
+  await send(page, 'touchEnd', [to]);
+}
+
+/**
+ * A fast drag: the whole gesture is queued in one go, so the moves land back to back instead of one
+ * per rendered frame. That is what a fling is – the sample rate of an awaited drag (16 ms of wait plus
+ * a software-rasterized frame) never reaches the speed of a thumb.
+ */
+export async function touchFling(page: Page, from: Point, to: Point, steps = 6): Promise<void> {
+  const client = await session(page);
+  const at = (i: number) => ({ x: from.x + ((to.x - from.x) * i) / steps, y: from.y + ((to.y - from.y) * i) / steps });
+  const moves = Array.from({ length: steps }, (_, i) => at(i + 1));
+  await Promise.all([
+    client.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [touchPoint(from)] }),
+    ...moves.map((p) => client.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [touchPoint(p)] })),
+    client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }),
+  ]);
+}
+
+/**
  * Two fingers around `centre`, starting `fromSpan` pixels apart and ending `toSpan` apart. Both move
  * symmetrically, so the midpoint stays where it is (the pinch's zoom, not its pan).
  */
