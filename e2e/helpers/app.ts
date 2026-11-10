@@ -209,3 +209,15 @@ export async function blockSessionRestore(page: Page): Promise<void> {
     return route.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ error: 'no autosave' }) });
   });
 }
+
+/**
+ * Land on the guided flow as a fresh phone does (T-100): the default preference on and no session to
+ * restore. The fixture's own init script turns the flow off for every other phone spec; this one is
+ * added after it, so it wins on the reload.
+ */
+export async function armGuidedStart(page: Page): Promise<void> {
+  await page.addInitScript(() => localStorage.setItem('webslicer.guidedStart', 'on'));
+  await blockSessionRestore(page);
+  await page.reload({ waitUntil: 'networkidle' });
+  await waitReady(page);
+}

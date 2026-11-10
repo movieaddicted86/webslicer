@@ -245,6 +245,14 @@ export interface E2EState {
   /** the phone's context sheet: `hidden` (the grip alone), `peek` (the footer), `half` and `full` (T-091, T-099) */
   sheetState: SheetState;
   setSheetState: (state: SheetState) => void;
+  /** the phone's guided flow (T-100): the open step, `undefined` in the free layout */
+  flowStep?: 1 | 2 | 3 | 4;
+  guidedStart: boolean;
+  startFlow: () => void;
+  nextFlowStep: () => void;
+  previousFlowStep: () => void;
+  leaveFlow: () => void;
+  setGuidedStart: (on: boolean) => void;
   setMode: (mode: 'simple' | 'advanced' | 'expert') => void;
   selectPreset: (type: 'print' | 'filament' | 'printer', name: string, extruderIdx?: number) => Promise<void>;
   openDialog: (dialog: string, payload?: unknown) => void;

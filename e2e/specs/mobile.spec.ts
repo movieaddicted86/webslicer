@@ -14,7 +14,7 @@
  * The flows are driven through the DOM (the tab bar, the sheet handle, the buttons) so a broken
  * control fails the test; the store is only read.
  */
-import { CUBE, read, settle } from '../helpers/app';
+import { armGuidedStart, CUBE, read, settle } from '../helpers/app';
 import { cameraPose, frameProbe, project as projectPoints, screenPoint, tapCamera, toolpathBox } from '../helpers/canvas';
 import { expect, openSharedSlice, sliceOnce, test } from '../helpers/fixtures';
 import { E2E_PRINTER } from '../global-setup';
@@ -730,5 +730,256 @@ test.describe('a phone in landscape (T-092)', () => {
     await expect(app.getByTestId('context-panel')).toBeVisible();
     await expectInsideViewport(app, '[data-testid="context-panel"]', 'the context panel (landscape)');
     await expectNoSidewaysScroll(app, 'landscape with the panels');
+  });
+});
+
+/**
+ * The guided start (T-100): a fresh phone plate opens a four-step flow from the model to the print,
+ * the empty footer stays quiet until there is something to send or slice, and More → Guided start is
+ * the way back in. The flow is a second path through the same controls – the library dialog, the
+ * preset rows, the quick settings, the destination and the Slice button – so these tests drive them
+ * through the DOM and only read the store.
+ */
+test.describe('the guided start on a phone (T-100)', () => {
+  // the walk creates a print host for its Send step: server state like the send spec's own tests
+  test.describe.configure({ lock: 'server-state' });
+
+  /** The step's own checks: no sideways scroll, 44 px targets, every control named, a heading. */
+  async function checkStep(page: Page, screen: string, ids: string[]): Promise<void> {
+    await expectNoSidewaysScroll(page, screen);
+    for (const id of ids) {
+      const el = page.getByTestId(id).first();
+      if ((await el.count()) === 0) continue;
+      await expectInsideViewport(page, `[data-testid="${id}"]`, `${screen}'s ${id}`);
+      const box = await el.boundingBox();
+      expect(box, `${screen}: ${id} is rendered`).toBeTruthy();
+      expect(box!.height, `${screen}: ${id} is shorter than 44 px`).toBeGreaterThanOrEqual(44);
+    }
+    const problems = await page.evaluate(() => {
+      const out: string[] = [];
+      const card = document.querySelector('[data-testid="guided-card"]');
+      const header = document.querySelector('[data-testid="guided-header"]');
+      if (!card) return ['the guided card is not drawn'];
+      if (!card.getAttribute('aria-label')) out.push('the card has no accessible label');
+      if (!header?.querySelector('h2')) out.push('the step has no heading');
+      if (
+        !document
+          .querySelector('[data-testid="guided-step"]')
+          ?.textContent?.trim()
+          .match(/^[1-4] \/ 4$/)
+      )
+        out.push('the "n / 4" counter is missing');
+      const name = (el: HTMLElement) => {
+        const labels = (el as HTMLInputElement).labels;
+        return (el.getAttribute('aria-label') || el.getAttribute('title') || labels?.[0]?.textContent || el.textContent || '').trim();
+      };
+      const controls = document.querySelectorAll<HTMLElement>(
+        '[data-testid="guided-card"] button, [data-testid="guided-card"] input, [data-testid="guided-card"] select, ' +
+          '[data-testid="guided-nav"] button, [data-testid="context-footer"] select',
+      );
+      for (const el of Array.from(controls)) {
+        const r = el.getBoundingClientRect();
+        if (r.width === 0 && r.height === 0) continue;
+        if (!name(el)) out.push(`${el.tagName.toLowerCase()}.${el.className} has no accessible name`);
+      }
+      // every control the flow puts in reach is a thumb target (AC-7): the step's own buttons, the
+      // preset and quick-setting selects, the destination's select and the Slice button
+      const areas = ['[data-testid="guided-card"]', '[data-testid="guided-nav"]', '[data-testid="context-footer"]']
+        .map((sel) => document.querySelector(sel))
+        .filter((el): el is Element => !!el);
+      for (const area of areas) {
+        for (const el of Array.from(area.querySelectorAll<HTMLElement>('button, select, input'))) {
+          const r = el.getBoundingClientRect();
+          if (r.width === 0 && r.height === 0) continue;
+          if (r.height < 44) out.push(`${el.tagName.toLowerCase()}.${el.className} is ${Math.round(r.height)} px tall`);
+        }
+      }
+      return out;
+    });
+    expect(problems, `${screen}: accessible names and the step's heading`).toEqual([]);
+  }
+
+  test('a fresh phone opens step 1, and the empty footer is quiet (AC-2)', async ({ app }) => {
+    test.skip(!isPhone(), 'the guided flow is the phone layout');
+    await armGuidedStart(app);
+    await expect(app.getByTestId('guided-card')).toBeVisible();
+    await expect(app.getByTestId('guided-step')).toHaveText('1 / 4');
+    await expect(app.getByTestId('guided-header')).toContainText('Pick a model');
+    await checkStep(app, 'guided step 1', ['guided-pick', 'guided-library', 'guided-next', 'guided-skip']);
+    // step 1 carries the two ways in, so the scene's card is not drawn a second time
+    await expect(app.getByTestId('dropzone-empty')).toHaveCount(0);
+    await expect(app.getByTestId('guided-file')).toHaveCount(0);
+    await expect(app.getByTestId('guided-back')).toHaveCount(0);
+    await expect(app.getByTestId('guided-next')).toBeDisabled();
+    await expect(app.getByTestId('guided-skip')).toHaveText('Skip');
+    // the quiet footer: an empty plate has nothing to send and nothing to slice
+    await expect(app.getByTestId('destination')).toHaveCount(0);
+    await expect(app.getByTestId('slice-panel')).toHaveCount(0);
+    await expect(app.getByTestId('slice-button')).toHaveCount(0);
+  });
+
+  test('the four steps carry a model to a slice, and the changed setting reaches the job (AC-3, AC-7)', async ({ app }) => {
+    test.skip(!isPhone(), 'the guided flow is the phone layout');
+    let created: TestPrinter[] = [];
+    try {
+      if (HAS_MOCK_HOST) {
+        created = [await addPrinter(app, { name: 'Guided host', presetName: E2E_PRINTER })];
+        await app.evaluate(async () => {
+          const s = window.webslicer.getState();
+          await s.refreshPresetLists();
+          await s.refreshPhysicalPrinters();
+        });
+        clearUploads();
+      }
+      await armGuidedStart(app);
+      // step 1: the app's one library dialog is the flow's way to a model
+      await app.getByTestId('guided-library').click();
+      await expect(app.getByTestId('modal')).toBeVisible();
+      await loadCubeFromLibrary(app);
+      await expect(app.getByTestId('guided-file')).toContainText('calibration_cube_20mm');
+      await expect(app.getByTestId('guided-next')).toBeEnabled();
+      await app.getByTestId('guided-next').click();
+
+      // step 2: the same three preset rows the panel shows
+      await expect(app.getByTestId('guided-step')).toHaveText('2 / 4');
+      await expect(app.getByTestId('guided-header')).toContainText('Printer and profiles');
+      // AC-3: pick each row – the same three selects the panel's preset card shows. The printer is
+      // the fixture's own, so the later summary and the sliced G-code start from a known profile.
+      for (const type of ['printer', 'filament', 'print'] as const) {
+        const select = app.locator(`[data-testid="preset-select-${type}"] select`).first();
+        await expect(select).toBeVisible();
+        const current = await select.inputValue();
+        const options = await select
+          .locator('option')
+          .evaluateAll((os) => os.map((o) => (o as HTMLOptionElement).value).filter((v) => !!v && v !== 'printersVendor'));
+        const wanted = type === 'printer' ? E2E_PRINTER : current || options[0] || '';
+        expect(options, `the fixture offers the ${type} preset`).toContain(wanted);
+        await select.selectOption(wanted);
+        await settle(app, 800);
+        await expect(select).toHaveValue(wanted);
+      }
+      await checkStep(app, 'guided step 2', ['guided-back', 'guided-next', 'guided-skip']);
+      await app.getByTestId('guided-next').click();
+
+      // step 3: "Fine as it is?" plus the quick settings; one value changed by the user
+      await expect(app.getByTestId('guided-step')).toHaveText('3 / 4');
+      await expect(app.getByTestId('guided-card')).toContainText('Fine as it is? Just continue.');
+      await expect(app.getByTestId('quick-density')).toBeVisible();
+      await app.getByTestId('quick-density').selectOption('40%');
+      await settle(app, 900);
+      expect(await read(app, (s) => s.presets.print.current.fill_density)).toBe('40%');
+      await checkStep(app, 'guided step 3', ['guided-back', 'guided-next', 'guided-skip']);
+      await app.getByTestId('guided-next').click();
+
+      // step 4: the summary, then the free layout's own destination and Slice button
+      await expect(app.getByTestId('guided-step')).toHaveText('4 / 4');
+      await expect(app.getByTestId('guided-summary')).toBeVisible();
+      await expect(app.getByTestId('guided-summary')).toContainText(E2E_PRINTER);
+      await expect(app.getByTestId('guided-next')).toHaveCount(0);
+      await expect(app.getByTestId('guided-skip')).toHaveText('More settings');
+      await expect(app.getByTestId('destination')).toBeVisible();
+      await expect(app.getByTestId('slice-button')).toBeVisible();
+      await checkStep(app, 'guided step 4', ['guided-back', 'guided-skip', 'slice-button']);
+
+      await app.getByTestId('slice-button').click();
+      await app.waitForFunction(
+        () => {
+          const j = window.webslicer.getState().job;
+          return !!j && ['done', 'error'].includes(j.status);
+        },
+        null,
+        { timeout: 600_000 },
+      );
+      const job = await read(app, (s) => ({ id: s.job?.id ?? '', status: s.job?.status }));
+      expect(job.status, 'the guided slice finished').toBe('done');
+      const gcode = await app.evaluate(async (id) => (await fetch(`/api/jobs/${id}/gcode`)).text(), job.id);
+      expect(gcode, 'the quick setting reached the sliced job').toMatch(/fill_density\s*=\s*40%/);
+
+      // the slice opens the preview: the result line and Send sit in the peek sheet
+      await expect(app.getByTestId('phone-result')).toBeVisible({ timeout: 30_000 });
+      await expectInsideViewport(app, '[data-testid="send-button"]', 'Send after the guided slice');
+      if (HAS_MOCK_HOST) {
+        await app.getByTestId('send-button').click();
+        await expect(app.getByTestId('modal')).toBeVisible();
+        await app.getByTestId('modal-primary').click();
+        await expect(app.getByTestId('modal')).toHaveCount(0, { timeout: 60_000 });
+        const sent = uploads();
+        expect(sent, 'the guided flow sent the job').toHaveLength(1);
+        expect(sent[0].bytes).toBeGreaterThan(1000);
+      }
+    } finally {
+      if (created.length) await removePrinters(app, created);
+      clearUploads();
+    }
+  });
+
+  test('Skip leaves the free layout with the model, and More → Guided start reopens step 1 (AC-4)', async ({ app }) => {
+    test.skip(!isPhone(), 'the guided flow is the phone layout');
+    await armGuidedStart(app);
+    await app.getByTestId('guided-library').click();
+    await expect(app.getByTestId('modal')).toBeVisible();
+    await loadCubeFromLibrary(app);
+    await app.getByTestId('guided-next').click();
+    await expect(app.getByTestId('guided-step')).toHaveText('2 / 4');
+    // Skip is always in the footer: one tap returns to the free layout
+    await app.getByTestId('guided-skip').click();
+    await expect(app.getByTestId('guided-card')).toHaveCount(0);
+    expect(await read(app, (s) => s.flowStep), 'the flow closed').toBeUndefined();
+    await expect(app.getByTestId('slice-button')).toBeVisible();
+    // the same model, the free layout's own header
+    await expect(app.getByTestId('context-panel')).toBeVisible();
+    // More → Guided start: the flow comes back on step 1, with the model already on the plate
+    await app.getByTestId('rail-more').click();
+    await app.getByTestId('rail-guided-more').click();
+    await expect(app.getByTestId('guided-step')).toHaveText('1 / 4');
+    await expect(app.getByTestId('guided-file')).toContainText('calibration_cube_20mm');
+    await expect(app.getByTestId('guided-next')).toBeEnabled();
+    await expect(app.getByTestId('guided-back')).toHaveCount(0);
+  });
+
+  test('the preference turns the flow off, and an empty phone plate stays quiet (AC-5)', async ({ app }) => {
+    test.skip(!isPhone(), 'the guided flow is the phone layout');
+    // the fixture starts with the guided start off: no flow, the scene's card and a quiet footer
+    await expect(app.getByTestId('guided-card')).toHaveCount(0);
+    await expect(app.getByTestId('dropzone-empty')).toBeVisible();
+    // the two model actions of T-099 are the empty plate's way in
+    await expect(app.getByTestId('dropzone-pick')).toBeVisible();
+    await expect(app.getByTestId('dropzone-library')).toBeVisible();
+    await expect(app.getByTestId('destination')).toHaveCount(0);
+    await expect(app.getByTestId('slice-panel')).toHaveCount(0);
+    // the preference is a Preferences row and it is off
+    await app.getByTestId('rail-more').click();
+    await app.getByTestId('rail-preferences-more').click();
+    const toggle = app.getByTestId('preferences-guided-start');
+    await expect(toggle).toBeVisible();
+    await expect(toggle).not.toBeChecked();
+    // turning it on is remembered for the next fresh start, without changing the current plate
+    await toggle.check();
+    await app.evaluate(() => window.webslicer.getState().closeDialog());
+    expect(await read(app, (s) => s.guidedStart)).toBe(true);
+    expect(await app.evaluate(() => localStorage.getItem('webslicer.guidedStart'))).toBe('on');
+    await expect(app.getByTestId('guided-card')).toHaveCount(0);
+  });
+
+  test('a tablet keeps the free layout and never opens the flow (AC-6)', async ({ app }) => {
+    test.skip(isPhone(), 'the tablet is the second project this file runs');
+    await armGuidedStart(app);
+    await expect(app.getByTestId('guided-card')).toHaveCount(0);
+    expect(await read(app, (s) => s.flowStep), 'no step off the phone').toBeUndefined();
+    await expect(app.getByTestId('sheet-handle')).toHaveCount(0);
+    await expect(app.getByTestId('context-panel')).toBeVisible();
+    await expect(app.getByTestId('slice-button')).toBeVisible();
+  });
+
+  test('844 × 390 landscape leaves the flow closed instead of squeezing it (AC-7)', async ({ app }) => {
+    test.skip(!isPhone(), 'the landscape check turns the phone project sideways');
+    await armGuidedStart(app);
+    await app.setViewportSize({ width: 844, height: 390 });
+    await settle(app, 800);
+    await expectNoSidewaysScroll(app, 'guided landscape');
+    // 844 px is past the 640 px phone breakpoint: the wide layout, not a squeezed flow
+    await expect(app.getByTestId('guided-card')).toHaveCount(0);
+    await expect(app.getByTestId('sheet-handle')).toHaveCount(0);
+    await expect(app.getByTestId('slice-button')).toBeVisible();
   });
 });

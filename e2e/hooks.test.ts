@@ -269,6 +269,21 @@ const HOOKS = [
   'dropzone-file',
   'dropzone-empty',
   'dropzone-pick',
+  // T-100: the phone's guided start – the step card, its counter, its ways in and its button row
+  'guided-card',
+  'guided-header',
+  'guided-step',
+  'guided-pick',
+  'guided-library',
+  'guided-file',
+  'guided-printers',
+  'guided-summary',
+  'guided-nav',
+  'guided-back',
+  'guided-next',
+  'guided-skip',
+  'rail-guided',
+  'preferences-guided-start',
 ] as const;
 
 /**
