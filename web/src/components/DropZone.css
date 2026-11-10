@@ -33,7 +33,8 @@
   z-index: 6;
 }
 
-.dropzone-empty .primary {
+.dropzone-empty .primary,
+.dropzone-empty .secondary {
   display: inline-flex;
   align-items: center;
   justify-content: center;
