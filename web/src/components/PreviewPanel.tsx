@@ -8,7 +8,6 @@ import { LayerSlider } from './preview/LayerSlider';
 import { MoveSlider } from './preview/MoveSlider';
 import { ViewOptions } from './preview/ViewOptions';
 import { Preflight } from './preview/Preflight';
-import { PreviewInfo } from './preview/PreviewInfo';
 import { fmtZ } from '../format';
 import './PreviewPanel.css';
 import './common/progress.css';
@@ -101,10 +100,9 @@ export function PreviewPanel() {
       )}
       {job && job.status === 'done' && (
         <>
-          {/* T-092: on a phone the result's numbers and the legend fold into one chip in the sheet
-              instead of the object list's cards, which are a drawer there; a wide window keeps them
-              in the left column and the chip renders nothing */}
-          <PreviewInfo />
+          {/* R-05: the phone's Details chip is in the sheet's peek row now (the preview footer), so
+              it is visible without opening the card; on a wide window the numbers stay in the left
+              column and the chip does not exist */}
           {outdated ? (
             // Z-06: the result is kept but it belongs to a plate that no longer passes the checks, so
             // the Preview says so instead of presenting it as the print that would come out
