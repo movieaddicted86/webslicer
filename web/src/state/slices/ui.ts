@@ -45,6 +45,11 @@ export interface UiSlice {
   acknowledgeRiskNotice: () => Promise<void>;
   /** the current step of the guided flow, or `undefined` when the app is in its free layout */
   flowStep?: FlowStep;
+  /**
+   * the user answered the skip question on an empty plate (T-101): the flow stays away until a model
+   * was on the plate again, so answering "Yes" or "Don't show again" is not undone at once
+   */
+  flowDismissed: boolean;
   /** whether the guided flow should open on an empty phone plate (Preferences, default on) */
   guidedStart: boolean;
   /** start the guided flow at its first step (a fresh phone start, More → Guided start) */
@@ -132,8 +137,9 @@ export const createUiSlice: StateCreator<State, [], [], UiSlice> = (set, get) =>
   sendDestination: undefined,
   setSendDestination: (id) => set({ sendDestination: id || undefined }),
   flowStep: undefined,
+  flowDismissed: false,
   guidedStart: loadGuidedStart(),
-  startFlow: () => set({ flowStep: 1 }),
+  startFlow: () => set({ flowStep: 1, flowDismissed: false }),
   nextFlowStep: () => {
     const s = get();
     const step = s.flowStep;
@@ -148,7 +154,7 @@ export const createUiSlice: StateCreator<State, [], [], UiSlice> = (set, get) =>
     const previous = previousStep(step);
     if (previous !== undefined) set({ flowStep: previous });
   },
-  leaveFlow: () => set({ flowStep: undefined }),
+  leaveFlow: () => set({ flowStep: undefined, flowDismissed: get().objects.length === 0 }),
   setGuidedStart: (on) => {
     set(on ? { guidedStart: true } : { guidedStart: false, flowStep: undefined });
     try {

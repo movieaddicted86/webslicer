@@ -5,7 +5,7 @@
  */
 import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { canAdvance, nextStep, previousStep, startStep } from './guidedFlow';
+import { canAdvance, flowOpensOnEmpty, nextStep, previousStep, startStep } from './guidedFlow';
 import { useStore } from './store';
 
 beforeEach(() => {
@@ -21,6 +21,34 @@ test('no flow off a phone, with the preference off, or when the session restored
   assert.equal(startStep({ phone: true, enabled: false, objectsPresent: false }), undefined);
   // the reload rule: a model on the plate opens the free layout, never the flow
   assert.equal(startStep({ phone: true, enabled: true, objectsPresent: true }), undefined);
+});
+
+test('an empty plate reopens the flow, unless the skip question was answered', () => {
+  const base = { phone: true, enabled: true, objectsPresent: false, dismissed: false };
+  assert.equal(flowOpensOnEmpty(base), true);
+  // the toggle: off a phone, with the preference off, a full plate, or after the skip answer
+  assert.equal(flowOpensOnEmpty({ ...base, phone: false }), false);
+  assert.equal(flowOpensOnEmpty({ ...base, enabled: false }), false);
+  assert.equal(flowOpensOnEmpty({ ...base, objectsPresent: true }), false);
+  assert.equal(flowOpensOnEmpty({ ...base, dismissed: true }), false);
+});
+
+test('leaving the flow suppresses it on an empty plate only, until a model arrives', () => {
+  const s = () => useStore.getState();
+  useStore.setState({ objects: [], flowDismissed: false });
+  s().startFlow();
+  s().leaveFlow();
+  assert.equal(s().flowStep, undefined);
+  assert.equal(s().flowDismissed, true, 'the skip answer holds on the empty plate');
+  // "Don't show again" switches the preference off as well; "Yes" only closes this episode
+  useStore.setState({ objects: [{ id: 'obj-1' } as never], flowDismissed: false });
+  s().startFlow();
+  s().leaveFlow();
+  assert.equal(s().flowDismissed, false, 'a plate with a model leaves nothing to suppress');
+  // the next start clears an earlier answer
+  useStore.setState({ objects: [], flowDismissed: true });
+  s().startFlow();
+  assert.equal(s().flowDismissed, false);
 });
 
 test('Next walks 1 → 2 → 3 → 4 and the last step has none', () => {

@@ -7,7 +7,7 @@
  * reload that restored a model finds `objectsPresent` and opens the free layout. The preference is the
  * one thing remembered, in `localStorage` (`webslicer.guidedStart`).
  */
-import { startStep } from './guidedFlow';
+import { flowOpensOnEmpty, startStep } from './guidedFlow';
 import { useStore } from './store';
 
 /** The width of the phone layout – the same number as the components' own phone query. */
@@ -24,4 +24,33 @@ export function startGuidedFlowIfDue(): void {
   const step = startStep({ phone, enabled: s.guidedStart, objectsPresent: s.objects.length > 0 });
   if (step === undefined) return;
   s.startFlow();
+}
+
+/**
+ * Keep the flow coming back on an empty plate (T-101): the start decision above runs once, so this
+ * watcher opens the flow again when the last model leaves the plate, or when an already empty plate
+ * is shown in the Plater (a tab switch, not a reload). The skip answer (`flowDismissed`) and the
+ * preference switch it off until a model was on the plate again.
+ *
+ * Returns the unsubscribe, so the app can drop it with the component tree.
+ */
+export function watchGuidedFlow(): () => void {
+  let count = useStore.getState().objects.length;
+  let view = useStore.getState().view;
+  return useStore.subscribe((s) => {
+    const becameEmpty = count > 0 && s.objects.length === 0;
+    const enteredPlater = view !== 'plater' && s.view === 'plater' && s.objects.length === 0;
+    count = s.objects.length;
+    view = s.view;
+    if (!becameEmpty && !enteredPlater) return;
+    if (s.view !== 'plater' || s.flowStep !== undefined) return;
+    const phone = typeof window !== 'undefined' && window.matchMedia(PHONE_FLOW_QUERY).matches;
+    const opens = flowOpensOnEmpty({
+      phone,
+      enabled: s.guidedStart,
+      objectsPresent: s.objects.length > 0,
+      dismissed: s.flowDismissed,
+    });
+    if (opens) s.startFlow();
+  });
 }

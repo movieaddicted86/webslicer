@@ -19,7 +19,7 @@ import { PreviewPanel } from '../PreviewPanel';
 import { PreviewInfo } from '../preview/PreviewInfo';
 import { ToolMode } from './ToolMode';
 import { MultiSelection } from './MultiSelection';
-import { GuidedFlow, GuidedNav } from '../guided/GuidedFlow';
+import { GuidedFlow, GuidedNav, GuidedPreviewNav } from '../guided/GuidedFlow';
 import { FLOW_TITLES, type FlowStep } from '../../state/guidedFlow';
 import { useSheetDrag, type SheetDrag } from './useSheetDrag';
 import { ErrorBoundary } from '../common/ErrorBoundary';
@@ -75,7 +75,10 @@ export function ContextPanel() {
   const flowStep = useStore((s) => s.flowStep);
   // T-100: the guided flow owns the plater's sheet on a phone – it is a second path through the same
   // panel, so every plater mode (empty, object, multi-selection) shows the step's card and its buttons
-  const flow = phone && view === 'plater' && flowStep !== undefined ? flowStep : undefined;
+  const platerFlow = phone && view === 'plater' && flowStep !== undefined ? flowStep : undefined;
+  // T-101/G-09: the flow stays alive across the switch to the Preview after step 4's slice – there the
+  // footer carries the flow's Back and Finish beside the result and Send, the card stays the Preview's
+  const previewFlow = phone && view === 'preview' && flowStep === 4;
   // the quiet start (T-100): an empty phone plate has nothing to send and nothing to slice, so the
   // footer stays empty and the scene's card carries the two ways in. Desktop keeps the destination
   // and the (disabled) Slice button it always showed.
@@ -90,19 +93,15 @@ export function ContextPanel() {
     if (phone && mode === 'tool' && lastMode.current !== 'tool') setSheetState('half');
     lastMode.current = mode;
   }, [phone, mode, setSheetState]);
-  // a guided step opens its card in the sheet: at `peek` the card is folded away, so a step change
-  // lifts the sheet to `half` once, the same as opening a tool. A tap or drag can fold it again
-  // afterwards; the step's buttons stay in the footer either way (T-100).
+  // A guided step opens its card in the sheet: while the flow is open the sheet takes the height its
+  // card needs (T-101 – no forced `half`, no step-by-step jump). Only *opening* the flow lifts a
+  // sheet the user had put away, so its first card is visible; folding it again is the user's own
+  // move and stays through every step. `hidden` is a regular position during the flow too.
   const lastFlow = useRef<FlowStep | undefined>(undefined);
   useEffect(() => {
-    if (phone && flowStep !== undefined && lastFlow.current !== flowStep) setSheetState('half');
+    const opening = flowStep !== undefined && lastFlow.current === undefined;
     lastFlow.current = flowStep;
-  }, [phone, flowStep, setSheetState]);
-  // Step 4: an empty plate stays quiet in the footer – nothing to send, nothing to slice. The flow
-  // never fully hides its sheet either: Skip lives in the footer, so `hidden` is the empty plate's
-  // position alone and the flow keeps its buttons (T-100).
-  useEffect(() => {
-    if (phone && flowStep !== undefined && sheetState === 'hidden') setSheetState('peek');
+    if (phone && opening && sheetState === 'hidden') setSheetState('peek');
   }, [phone, flowStep, sheetState, setSheetState]);
   // the first file of the flow (the Library's Load, the drop zone, the phone's picker) lands on an
   // empty plater, and the next step is the slice: the sheet folds to `peek`, where the footer *is* the
@@ -115,8 +114,11 @@ export function ContextPanel() {
     if (phone && flowStep === undefined && wasEmpty.current && objects.length > 0) setSheetState('peek');
     wasEmpty.current = objects.length === 0;
   }, [phone, flowStep, objects.length, setSheetState]);
-  // the sheet's positions are classes on the stack: the phone stylesheet reads them
-  const sheetClass = phone ? `sheet sheet-${sheetState}${drag.dragging ? ' sheet-dragging' : ''}` : '';
+  // the sheet's positions are classes on the stack: the phone stylesheet reads them. `sheet-flow` is
+  // the guided start's own height rule (T-101): the card's height, at most 45 % of the viewport
+  const sheetClass = phone
+    ? `sheet sheet-${sheetState}${platerFlow !== undefined ? ' sheet-flow' : ''}${drag.dragging ? ' sheet-dragging' : ''}`
+    : '';
   // the grip drags the sheet, and so does the card's header (`dragProps` below); the body scrolls
   const dragProps = phone
     ? {
@@ -156,12 +158,12 @@ export function ContextPanel() {
     <div className={`context-stack ${sheetClass}`} ref={stackRef}>
       {handle}
       <aside className="context-panel" data-testid="context-panel" aria-label="Context">
-        {flow !== undefined ? (
+        {platerFlow !== undefined ? (
           /* the guided flow's card: the step's title, the counter and the step's own content */
           <div className="context-header guided-header" data-testid="guided-header" {...dragProps}>
-            <h2 className="context-title">{FLOW_TITLES[flow]}</h2>
+            <h2 className="context-title">{FLOW_TITLES[platerFlow]}</h2>
             <span className="guided-count" data-testid="guided-step">
-              {flow} / 4
+              {platerFlow} / 4
             </span>
           </div>
         ) : mode === 'object' && object ? (
@@ -175,8 +177,8 @@ export function ContextPanel() {
           </div>
         ) : null}
         <div className="context-body">
-          {flow !== undefined ? (
-            <GuidedFlow step={flow} />
+          {platerFlow !== undefined ? (
+            <GuidedFlow step={platerFlow} />
           ) : mode === 'preview' ? (
             // P-7: the preview card reads the job, the G-code and the toolpaths – a throw there is
             // recovered in the card, the plate panel and the footer keep their place
@@ -218,25 +220,46 @@ export function ContextPanel() {
         </div>
       </aside>
       {mode === 'preview' ? (
-        <footer className="context-footer" data-testid="context-footer">
+        <footer className={`context-footer${previewFlow ? ' preview-flow' : ''}`} data-testid="context-footer">
           {/* T-092: at `peek` the footer is the whole sheet, so the result's numbers sit here – one
               card with the destination and Send, no scroll and no second tap. R-05: the Details chip
               (legend and sliced info) is a labelled row of the same footer, so it is found without
-              searching for it in the card. */}
-          <PhoneResult />
-          <PreviewInfo />
-          <Destination />
-          <PreviewFooter />
+              searching for it in the card.
+              T-101/AC-8: with the flow open the footer is two finger-sized rows instead – the result
+              with the Details chip, then Send with Back and Finish – so the sheet at `peek` leaves
+              ≥ 55 % of the screen to the scene. */}
+          {previewFlow ? (
+            <>
+              <div className="preview-flow-row preview-flow-result">
+                <PhoneResult />
+                <PreviewInfo />
+              </div>
+              <Destination />
+              <div className="preview-flow-row preview-flow-actions">
+                <PreviewFooter />
+                {/* T-101: the guided start stays alive after its slice – the result, Send, Back to the
+                    Plater at step 4 and Finish, no second flow and no question */}
+                <GuidedPreviewNav />
+              </div>
+            </>
+          ) : (
+            <>
+              <PhoneResult />
+              <PreviewInfo />
+              <Destination />
+              <PreviewFooter />
+            </>
+          )}
         </footer>
       ) : (
         <footer className="context-footer" data-testid="context-footer">
           <PhoneResult />
-          {flow !== undefined ? (
+          {platerFlow !== undefined ? (
             <>
-              <GuidedNav step={flow} />
+              <GuidedNav step={platerFlow} />
               {/* the last step's actions are the free layout's own: the destination, the checks and
                   Slice. No second button, no second slice path (T-100). */}
-              {flow === 4 && (
+              {platerFlow === 4 && (
                 <>
                   <Destination />
                   <SlicePanel />

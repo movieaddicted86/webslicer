@@ -117,6 +117,8 @@ export const createObjectSlice: SlicePart<ObjectSlice> = (set, get) => ({
       selectedVolumeId: undefined,
       selectedInstanceId: undefined,
       sliceDirty: true,
+      // a model on the plate ends the skip answer: the next empty plate opens the flow again (T-101)
+      flowDismissed: false,
     }));
     // N8b: the import is one undo step – the arrange after it belongs to the same step
     if (!opts.keepPositions) get().arrange({ record: false });

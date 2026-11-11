@@ -110,6 +110,35 @@
   flex: 1;
 }
 
+/* T-101: the skip question replaces the row – one short line, two finger-sized answers */
+.guided-ask {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.guided-ask-text {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.guided-ask-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.guided-ask-actions button {
+  flex: 1;
+  min-height: 44px;
+}
+
+/* the Preview's guided footer (T-101): Back and Finish share the line */
+.guided-nav .guided-back,
+.guided-nav .guided-finish {
+  flex: 1;
+}
+
 .guided-nav .guided-skip {
   flex: none;
   white-space: nowrap;

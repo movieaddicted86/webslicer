@@ -202,6 +202,87 @@
   .context-stack > .context-footer button {
     min-height: 44px;
   }
+
+  /* The guided start (T-101): the sheet takes the height its card needs, at most 45 % of the
+     viewport – no forced `half`, no step-by-step jump, and step 4's short card leaves no space
+     below. `peek` is the flow's natural open state (the card and its footer); `hidden` stays the
+     drag's position and the handle brings the same height back. A longer card scrolls in the body. */
+  .context-stack.sheet-flow {
+    max-height: min(45vh, calc(100% - var(--bar-h) - var(--tab-bar-h) - var(--card-gap)));
+  }
+
+  .context-stack.sheet-flow.sheet-peek .context-panel {
+    display: flex;
+  }
+
+  .context-stack.sheet-flow .context-panel {
+    flex: 0 1 auto;
+    min-height: 0;
+    max-height: none;
+  }
+
+  .context-stack.sheet-flow.sheet-half .context-panel,
+  .context-stack.sheet-flow.sheet-full .context-panel {
+    height: auto;
+  }
+
+  /* step 4 and a short step: the card is as tall as its content, so no empty space is left */
+  .context-stack.sheet-flow .context-body {
+    flex: 0 1 auto;
+    overflow-y: auto;
+  }
+
+  /* T-101/AC-8: the Preview's guided footer is two finger-sized rows – the result beside the Details
+     chip, then Send beside Back and Finish. At `peek` the destination and the export icons wait for
+     the opened sheet (the send dialog asks for the destination anyway), so the collapsed sheet
+     leaves at least 55 % of the screen to the scene; every target keeps its 44 px. */
+  .context-stack .context-footer.preview-flow {
+    padding: 10px;
+    gap: 8px;
+  }
+
+  .preview-flow-row {
+    display: flex;
+    align-items: stretch;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .preview-flow-result {
+    align-items: center;
+    min-height: 44px;
+  }
+
+  .preview-flow-result .phone-result {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .preview-flow-result .preview-info {
+    flex: none;
+    border-bottom: none;
+  }
+
+  .preview-flow-actions > .preview-footer-actions {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .preview-flow-actions > .guided-nav {
+    flex: none;
+    gap: 6px;
+  }
+
+  .preview-flow-actions .guided-back,
+  .preview-flow-actions .guided-finish {
+    flex: none;
+    padding: 0 12px;
+  }
+
+  .context-stack.sheet-peek .context-footer.preview-flow > .destination,
+  .context-stack.sheet-peek .context-footer.preview-flow .preview-footer-actions .icon-action {
+    display: none;
+  }
 }
 
 /* the guided flow's header (T-100): the step's title and the "1 / 4" counter on the right */
