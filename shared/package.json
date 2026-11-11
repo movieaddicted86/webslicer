@@ -18,7 +18,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.test.json",
-    "test": "tsx --test \"src/**/*.test.ts\""
+    "test": "tsx --test --test-reporter=dot \"src/**/*.test.ts\"",
+    "test:verbose": "tsx --test \"src/**/*.test.ts\""
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

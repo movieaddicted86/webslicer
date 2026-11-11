@@ -35,12 +35,12 @@ Give the implementing model access to the repository and start it with (replace 
 
 > You are a senior TypeScript developer working on WebSlicer
 > (https://github.com/movieaddicted86/webslicer). Read `docs/work-packages/CONVENTIONS.md`,
-> `docs/work-packages/CODING-GUIDELINES.md` and `docs/work-packages/<FILE>` completely before
-> changing anything. Implement the work package phase by phase on the branch `feature/<ID>`, one
-> commit per phase, and verify each phase exactly as described. Follow the binding decisions; if
-> one of them does not work, stop and explain instead of deviating. Stay inside the listed files
-> unless a phase says otherwise. Do not merge into `main`. Finish with the handover report
-> described in CONVENTIONS §8, including the before/after numbers each package asks for.
+> `docs/work-packages/CODING-GUIDELINES.md`, the appendix under `docs/work-packages/conventions/`
+> that the package names, and `docs/work-packages/<FILE>` before changing anything. Implement the
+> work package phase by phase on the branch `feature/<ID>`, one commit per phase, and verify each
+> phase exactly as described. Follow the binding decisions; if one of them does not work, stop and
+> explain instead of deviating. Stay inside the listed files unless a phase says otherwise. Do not
+> merge into `main`. Finish with the handover report described in CONVENTIONS §8.
 
 ## Conventions specific to the review packages
 
@@ -50,4 +50,3 @@ Give the implementing model access to the repository and start it with (replace 
 - **No new abstractions beyond what the package names.** No engine interface, no adapter layer
   around three.js, no API versioning, no DI container.
 - **Comments:** no ticket ids in new comments (the commit message carries the id); keep the "why".
-- **Numbers in the handover:** file sizes (bytes) of the files a package splits, before and after.
