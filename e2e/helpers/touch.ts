@@ -108,6 +108,23 @@ export async function touchPinch(page: Page, centre: Point, fromSpan: number, to
   await send(page, 'touchEnd', fingers(toSpan));
 }
 
+/**
+ * Two fingers keeping their distance while their midpoint travels from `from` to `to`: the pinch's
+ * pan, without the zoom (T-101: a camera the user moved by two fingers, then a turn).
+ */
+export async function touchPan(page: Page, from: Point, to: Point, steps = 8): Promise<void> {
+  const fingers = (p: Point): Point[] => [
+    { x: p.x - 30, y: p.y },
+    { x: p.x + 30, y: p.y },
+  ];
+  await send(page, 'touchStart', fingers(from));
+  for (let i = 1; i <= steps; i++) {
+    await send(page, 'touchMove', fingers({ x: from.x + ((to.x - from.x) * i) / steps, y: from.y + ((to.y - from.y) * i) / steps }));
+    await page.waitForTimeout(16);
+  }
+  await send(page, 'touchEnd', fingers(to));
+}
+
 /** A finger that rests for `ms`, which the viewer reads as a long press, then lifts. */
 export async function touchLongPress(page: Page, at: Point, ms = 750): Promise<void> {
   await send(page, 'touchStart', [at]);

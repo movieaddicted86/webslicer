@@ -14,8 +14,18 @@
  * The flows are driven through the DOM (the tab bar, the sheet handle, the buttons) so a broken
  * control fails the test; the store is only read.
  */
-import { armGuidedStart, CUBE, read, settle } from '../helpers/app';
-import { cameraPose, frameProbe, project as projectPoints, screenPoint, tapCamera, toolpathBox } from '../helpers/canvas';
+import { armGuidedStart, blockSessionRestore, CUBE, importFile, openApp, read, settle } from '../helpers/app';
+import {
+  angleDelta,
+  cameraPose,
+  cameraRig,
+  frameProbe,
+  project as projectPoints,
+  screenPoint,
+  shot,
+  tapCamera,
+  toolpathBox,
+} from '../helpers/canvas';
 import { expect, openSharedSlice, sliceOnce, test } from '../helpers/fixtures';
 import { E2E_PRINTER } from '../global-setup';
 import { addPrinter, clearUploads, HAS_MOCK_HOST, removePrinters, uploads, type TestPrinter } from '../helpers/mock-host';
@@ -27,6 +37,7 @@ import {
   touchDragProbed,
   touchFling,
   touchLongPress,
+  touchPan,
   touchPinch,
 } from '../helpers/touch';
 import type { Page } from '@playwright/test';
@@ -299,6 +310,81 @@ test.describe('the companion flow on a small screen (T-091, T-099)', () => {
 });
 
 /**
+ * The room the top rows and the sheet leave for the 3D view, in viewport pixels, plus the sheet's own
+ * height – the numbers the T-101 framing and sheet checks read.
+ */
+async function freeBand(app: Page) {
+  return app.evaluate(() => {
+    const canvas = document.querySelector('.viewer canvas')!.getBoundingClientRect();
+    const row = document.querySelector('[data-testid="viewer-view-row"]')?.getBoundingClientRect();
+    const stack = document.querySelector('.context-stack')!.getBoundingClientRect();
+    return {
+      canvas: { x: canvas.x, y: canvas.y, width: canvas.width, height: canvas.height },
+      top: row ? row.bottom + 8 : canvas.y,
+      bottom: stack.top - 8,
+      sheetHeight: stack.height,
+      viewportHeight: window.innerHeight,
+    };
+  });
+}
+
+/** The plate's footprint corners and every object's box, in world coordinates. */
+async function sceneCorners(app: Page): Promise<{ bed: Array<[number, number, number]>; models: Array<[number, number, number]> }> {
+  return read(app, (s) => {
+    const shape = (s.presets.printer.current.bed_shape || '0x0,200x0,200x200,0x200').split(',');
+    const bed = shape.map((part) => {
+      const [x, y] = part.split('x').map(Number);
+      return [x, y, 0] as [number, number, number];
+    });
+    const models: Array<[number, number, number]> = [];
+    for (const o of s.objects) {
+      for (const i of o.instances) {
+        for (let k = 0; k < 8; k++) {
+          models.push([
+            i.position[0] + ((k & 1 ? 1 : -1) * (o.size[0] * i.scale[0])) / 2,
+            i.position[1] + ((k & 2 ? 1 : -1) * (o.size[1] * i.scale[1])) / 2,
+            i.position[2] + (k & 4 ? 1 : 0) * o.size[2] * i.scale[2],
+          ]);
+        }
+      }
+    }
+    return { bed, models };
+  });
+}
+
+/**
+ * T-101 AC-2: the plate and every model project completely into the band the top rows and the sheet
+ * leave free (4 px tolerance). Returns the band so a caller can check the sheet's height too.
+ */
+async function expectFramedInBand(app: Page, what: string) {
+  const { bed, models } = await sceneCorners(app);
+  const ndc = await projectPoints(app, [...bed, ...models]);
+  expect(ndc, `${what}: the camera is tapped`).not.toBeNull();
+  const missing = ndc!.filter((p) => !p).length;
+  expect(missing, `${what}: every corner is in front of the camera`).toBe(0);
+  const band = await freeBand(app);
+  const px = (v: number) => band.canvas.x + ((v + 1) / 2) * band.canvas.width;
+  const py = (v: number) => band.canvas.y + ((1 - v) / 2) * band.canvas.height;
+  const xs = ndc!.map((p) => px(p![0]));
+  const ys = ndc!.map((p) => py(p![1]));
+  expect(band.bottom, `${what}: the sheet leaves room for the scene`).toBeGreaterThan(band.top + 100);
+  expect(Math.min(...ys), `${what}: nothing is hidden under the top rows`).toBeGreaterThanOrEqual(band.top - 4);
+  expect(Math.max(...ys), `${what}: nothing is hidden under the sheet`).toBeLessThanOrEqual(band.bottom + 4);
+  expect(Math.min(...xs), `${what}: the scene is not cut on the left`).toBeGreaterThanOrEqual(band.canvas.x - 4);
+  expect(Math.max(...xs), `${what}: the scene is not cut on the right`).toBeLessThanOrEqual(band.canvas.x + band.canvas.width + 4);
+  return band;
+}
+
+/** The plate and the model are really drawn (T-101 AC-1: not a black canvas). */
+async function expectSceneDrawn(app: Page, what: string): Promise<void> {
+  const a = await shot(app);
+  expect(a.plateCount, `${what}: the plate is drawn (plate-coloured pixels)`).toBeGreaterThan(2000);
+  expect(a.warmCount, `${what}: the model is drawn (warm pixels)`).toBeGreaterThan(300);
+  const cells = a.grid.flat();
+  expect(Math.max(...cells) - Math.min(...cells), `${what}: the scene is not one flat colour`).toBeGreaterThan(20);
+}
+
+/**
  * The sheet's geometry right now: its position, its own height and the scene it leaves visible (from
  * the canvas's top edge to the sheet's top edge), plus the footer's laid-out height (0 when hidden).
  */
@@ -516,10 +602,16 @@ test.describe('the 3D view by finger (T-092)', () => {
 
   test('two fingers zoom, and a double tap frames the whole plate again', async ({ app }) => {
     await cubeOnPlate(app);
+    // the pose the double tap has to give back: the Home button's own frame (T-101 frames plate and
+    // objects after an import, which is a little wider than the plate alone)
+    await app.getByTestId('view-home').click();
+    await settle(app, 700);
     await tapCamera(app);
     const home = await frameProbe(app);
     expect(home.objects, 'the cube is projected before the gesture').not.toBeNull();
-    const centre = await canvasPoint(app, 0.5, 0.3);
+    // an empty spot of the scene, clear of the model and its gizmo: T-101 frames the model into the
+    // band above the sheet, so the canvas' own centre now holds it – a tap there belongs to the gizmo
+    const centre = await canvasPoint(app, 0.25, 0.45);
 
     // two fingers moving apart zoom in: the bed grows in the picture. The objects' box cannot show it –
     // `frameProbe` projects one centre per instance, so a single cube is a point with no span – the
@@ -623,13 +715,18 @@ test.describe('the preview on a phone (T-092)', () => {
     for (const [id, name] of views) {
       await app.getByTestId(id).click();
       await settle(app, 900);
-      // the toolpaths' centre sits at the centre of the picture (that is the orbit target, and what
-      // "frames the toolpaths" means), and their box fills it – a fallback to the whole bed would
-      // centre the plate and leave the print small
+      // the toolpaths' centre sits at the centre of the free band (T-101: on a phone the view is
+      // framed into the room above the sheet, not into the whole canvas), and their box fills the
+      // band – a fallback to the whole bed would centre the plate and leave the print small
+      const band = await freeBand(app);
       const [onScreen] = (await projectPoints(app, [middle])) ?? [null];
       expect(onScreen, `${name} keeps the toolpaths in view`).not.toBeNull();
       expect(Math.abs(onScreen![0]), `${name} centres the toolpaths horizontally`).toBeLessThan(0.2);
-      expect(Math.abs(onScreen![1]), `${name} centres the toolpaths vertically`).toBeLessThan(0.2);
+      const centreY = band.canvas.y + ((1 - onScreen![1]) / 2) * band.canvas.height;
+      expect(
+        Math.abs(centreY - (band.top + band.bottom) / 2),
+        `${name} centres the toolpaths in the band (${Math.round(centreY)} px, band ${band.top}…${band.bottom})`,
+      ).toBeLessThan(12);
       const projected = (await projectPoints(app, corners)) ?? [];
       const xs = projected.filter((p): p is [number, number] => !!p).map((p) => p[0]);
       const ys = projected.filter((p): p is [number, number] => !!p).map((p) => p[1]);
@@ -811,7 +908,7 @@ test.describe('the guided start on a phone (T-100)', () => {
     await expect(app.getByTestId('guided-file')).toHaveCount(0);
     await expect(app.getByTestId('guided-back')).toHaveCount(0);
     await expect(app.getByTestId('guided-next')).toBeDisabled();
-    await expect(app.getByTestId('guided-skip')).toHaveText('Skip');
+    await expect(app.getByTestId('guided-skip')).toHaveText('Skip guided start');
     // the quiet footer: an empty plate has nothing to send and nothing to slice
     await expect(app.getByTestId('destination')).toHaveCount(0);
     await expect(app.getByTestId('slice-panel')).toHaveCount(0);
@@ -913,7 +1010,7 @@ test.describe('the guided start on a phone (T-100)', () => {
     }
   });
 
-  test('Skip leaves the free layout with the model, and More → Guided start reopens step 1 (AC-4)', async ({ app }) => {
+  test('Skip asks about next time: Yes keeps the flow, Don’t show again turns it off (AC-6)', async ({ app }) => {
     test.skip(!isPhone(), 'the guided flow is the phone layout');
     await armGuidedStart(app);
     await app.getByTestId('guided-library').click();
@@ -921,20 +1018,48 @@ test.describe('the guided start on a phone (T-100)', () => {
     await loadCubeFromLibrary(app);
     await app.getByTestId('guided-next').click();
     await expect(app.getByTestId('guided-step')).toHaveText('2 / 4');
-    // Skip is always in the footer: one tap returns to the free layout
+    // Skip opens the question in place of the row; both answers are finger-sized and either leaves
     await app.getByTestId('guided-skip').click();
+    const question = app.getByTestId('guided-skip-question');
+    await expect(question).toBeVisible();
+    await expect(question).toContainText('Show the guided start next time?');
+    for (const id of ['guided-skip-yes', 'guided-skip-never']) {
+      const box = await app.getByTestId(id).boundingBox();
+      expect(box, `${id} is rendered`).toBeTruthy();
+      expect(box!.height, `${id} is a finger target`).toBeGreaterThanOrEqual(44);
+    }
+    // Yes: back to the free layout, the preference stays on
+    await app.getByTestId('guided-skip-yes').click();
     await expect(app.getByTestId('guided-card')).toHaveCount(0);
-    expect(await read(app, (s) => s.flowStep), 'the flow closed').toBeUndefined();
+    expect(await read(app, (s) => s.flowStep), 'Yes closed the flow').toBeUndefined();
+    expect(await read(app, (s) => s.guidedStart), 'Yes keeps the preference on').toBe(true);
+    expect(await read(app, (s) => s.flowDismissed), 'Yes asks again on the next empty plate').toBe(false);
     await expect(app.getByTestId('slice-button')).toBeVisible();
-    // the same model, the free layout's own header
-    await expect(app.getByTestId('context-panel')).toBeVisible();
-    // More → Guided start: the flow comes back on step 1, with the model already on the plate
+
+    // a fresh session with the preference on opens it again
+    await armGuidedStart(app);
+    await expect(app.getByTestId('guided-card')).toBeVisible();
+    await expect(app.getByTestId('guided-step')).toHaveText('1 / 4');
+    await app.getByTestId('guided-skip').click();
+    await app.getByTestId('guided-skip-never').click();
+    await expect(app.getByTestId('guided-card')).toHaveCount(0);
+    expect(await read(app, (s) => s.guidedStart), 'Don’t show again switches the preference off').toBe(false);
+    expect(await app.evaluate(() => localStorage.getItem('webslicer.guidedStart')), 'the choice is remembered').toBe('off');
+    // the same preference over a fresh session (a new page of the context, so no earlier init script
+    // can override it): no flow on the empty plate
+    const fresh = await app.context().newPage();
+    await blockSessionRestore(fresh);
+    await openApp(fresh);
+    expect(await read(fresh, (s) => s.guidedStart), 'the fresh session starts with the preference off').toBe(false);
+    expect(await read(fresh, (s) => s.flowStep), 'no flow on an empty plate with the preference off').toBeUndefined();
+    await expect(fresh.getByTestId('guided-card')).toHaveCount(0);
+    await expect(fresh.getByTestId('dropzone-empty')).toBeVisible();
+    await fresh.close();
+
+    // More → Guided start still opens it, and its Skip asks its own question again
     await app.getByTestId('rail-more').click();
     await app.getByTestId('rail-guided-more').click();
     await expect(app.getByTestId('guided-step')).toHaveText('1 / 4');
-    await expect(app.getByTestId('guided-file')).toContainText('calibration_cube_20mm');
-    await expect(app.getByTestId('guided-next')).toBeEnabled();
-    await expect(app.getByTestId('guided-back')).toHaveCount(0);
   });
 
   test('the preference turns the flow off, and an empty phone plate stays quiet (AC-5)', async ({ app }) => {
@@ -981,5 +1106,291 @@ test.describe('the guided start on a phone (T-100)', () => {
     await expect(app.getByTestId('guided-card')).toHaveCount(0);
     await expect(app.getByTestId('sheet-handle')).toHaveCount(0);
     await expect(app.getByTestId('slice-button')).toBeVisible();
+  });
+});
+
+/**
+ * The phone retest's fixes (T-101): the model stays visible above the sheet, the flow sheet takes its
+ * own height and folds to `hidden`, a turn levels the horizon, an empty plate reopens the flow, and a
+ * slice leaves the flow alive across the switch to the Preview. The pixel checks read the canvas
+ * screenshot; the framing checks project the real plate and object corners through the live camera.
+ */
+test.describe('the retest fixes on a phone (T-101)', () => {
+  test.skip(({ viewport }) => (viewport?.width ?? 0) > 640, 'the fixes are the phone layout');
+  // the guided-slice test creates a print host: server state like the send spec's own tests
+  test.describe.configure({ lock: 'server-state' });
+
+  /**
+   * The changed footer's accessibility pass (T-101 AC-9, the same self-written check as the flow's
+   * steps in T-100 – this repo has no axe-core): every visible control of the footer has an
+   * accessible name and is a thumb target.
+   */
+  async function checkFooter(page: Page, screen: string, ids: string[]): Promise<void> {
+    for (const id of ids) {
+      const el = page.getByTestId(id).first();
+      if ((await el.count()) === 0) continue;
+      await expect(el).toBeInViewport();
+      const box = await el.boundingBox();
+      expect(box, `${screen}: ${id} is rendered`).toBeTruthy();
+      expect(box!.height, `${screen}: ${id} is shorter than 44 px`).toBeGreaterThanOrEqual(44);
+    }
+    const problems = await page.evaluate(() => {
+      const out: string[] = [];
+      const name = (el: HTMLElement) => {
+        const labels = (el as HTMLInputElement).labels;
+        return (el.getAttribute('aria-label') || el.getAttribute('title') || labels?.[0]?.textContent || el.textContent || '').trim();
+      };
+      const footer = document.querySelector('[data-testid="context-footer"]');
+      if (!footer) return ['the footer is not drawn'];
+      for (const el of Array.from(footer.querySelectorAll<HTMLElement>('button, select, input'))) {
+        const r = el.getBoundingClientRect();
+        if (r.width === 0 && r.height === 0) continue;
+        if (!name(el)) out.push(`${el.tagName.toLowerCase()}.${el.className} has no accessible name`);
+        if (r.height < 44) out.push(`${el.tagName.toLowerCase()}.${el.className} is ${Math.round(r.height)} px tall`);
+      }
+      return out;
+    });
+    expect(problems, `${screen}: accessible names and finger targets`).toEqual([]);
+  }
+
+  test('an import lands centred and drawn, and removing it reopens the flow (AC-1, AC-5)', async ({ app }) => {
+    await armGuidedStart(app);
+    await expect(app.getByTestId('guided-step')).toHaveText('1 / 4');
+    const bedCentre = async () =>
+      app.evaluate(() => {
+        const shape = (window.webslicer.getState().presets.printer.current.bed_shape || '0x0,200x0,200x200,0x200').split(',');
+        const pts = shape.map((p) => p.split('x').map(Number));
+        return {
+          x: (Math.min(...pts.map((p) => p[0])) + Math.max(...pts.map((p) => p[0]))) / 2,
+          y: (Math.min(...pts.map((p) => p[1])) + Math.max(...pts.map((p) => p[1]))) / 2,
+        };
+      });
+    const placedAt = () => read(app, (s) => ({ x: s.objects[0].instances[0].position[0], y: s.objects[0].instances[0].position[1] }));
+
+    // the device's file picker, from step 1
+    await importFile(app, CUBE);
+    await settle(app, 1500);
+    await expect(app.getByTestId('guided-file')).toContainText('calibration_cube_20mm');
+    let centre = await bedCentre();
+    let at = await placedAt();
+    expect(Math.hypot(at.x - centre.x, at.y - centre.y), 'a first import in the flow lands on the plate centre').toBeLessThan(1);
+    await tapCamera(app);
+    await expectSceneDrawn(app, 'the plater after the device import');
+
+    // leave the flow, then remove the last model: the flow opens again on the empty plate
+    await app.getByTestId('guided-skip').click();
+    await app.getByTestId('guided-skip-yes').click();
+    await expect(app.getByTestId('guided-card')).toHaveCount(0);
+    await app.evaluate(() => window.webslicer.getState().clearObjects());
+    await expect(app.getByTestId('guided-card')).toBeVisible({ timeout: 10_000 });
+    await expect(app.getByTestId('guided-step')).toHaveText('1 / 4');
+    await expect(app.getByTestId('guided-pick')).toBeVisible();
+    expect(await read(app, (s) => s.flowStep), 'the empty plate starts the flow').toBe(1);
+
+    // the library is the second way in, and it lands centred too
+    await app.getByTestId('guided-library').click();
+    await expect(app.getByTestId('modal')).toBeVisible();
+    await loadCubeFromLibrary(app);
+    await settle(app, 1500);
+    centre = await bedCentre();
+    at = await placedAt();
+    expect(Math.hypot(at.x - centre.x, at.y - centre.y), 'the library import lands on the plate centre').toBeLessThan(1);
+    await tapCamera(app);
+    await expectSceneDrawn(app, 'the plater after the library import');
+
+    // preference off: the same removal does not open the flow
+    await app.getByTestId('guided-skip').click();
+    await app.getByTestId('guided-skip-yes').click();
+    await expect(app.getByTestId('guided-card')).toHaveCount(0);
+    await app.evaluate(() => window.webslicer.getState().setGuidedStart(false));
+    await app.evaluate(() => window.webslicer.getState().clearObjects());
+    await settle(app, 1200);
+    await expect(app.getByTestId('guided-card')).toHaveCount(0);
+    expect(await read(app, (s) => s.flowStep), 'the preference off keeps the flow closed').toBeUndefined();
+    await expect(app.getByTestId('dropzone-empty')).toBeVisible();
+  });
+
+  test('each step frames plate and model above the sheet, the sheet stays under 45 %, and it folds to hidden (AC-2, AC-3)', async ({
+    app,
+  }) => {
+    await armGuidedStart(app);
+    await importFile(app, CUBE);
+    await settle(app, 1500);
+    for (const step of [1, 2, 3, 4] as const) {
+      await expect(app.getByTestId('guided-step')).toHaveText(`${step} / 4`);
+      await settle(app, 1200);
+      await tapCamera(app);
+      const band = await expectFramedInBand(app, `guided step ${step}`);
+      expect(band.sheetHeight, `step ${step}: the sheet stays at most 45 % of the viewport`).toBeLessThanOrEqual(
+        band.viewportHeight * 0.45 + 1,
+      );
+      if (step < 4) await app.getByTestId('guided-next').click();
+    }
+
+    // AC-3: the flow's sheet is a normal sheet – dragging down reaches hidden, a tap brings it back
+    const handle = app.getByTestId('sheet-handle');
+    await expect(handle).toHaveAttribute('data-sheet-state', 'peek');
+    const grip = await centreOf(app, '[data-testid="sheet-handle"]');
+    await touchDrag(app, grip, { x: grip.x, y: grip.y + 300 }, 10);
+    await settle(app, 600);
+    await expect(handle).toHaveAttribute('data-sheet-state', 'hidden');
+    await expect(app.getByTestId('guided-card')).not.toBeVisible();
+    expect(await read(app, (s) => s.flowStep), 'the fold does not change the step').toBe(4);
+    await handle.click();
+    await settle(app, 600);
+    await expect(handle).toHaveAttribute('data-sheet-state', 'peek');
+    await expect(app.getByTestId('guided-card')).toBeVisible();
+    await expect(app.getByTestId('guided-step')).toHaveText('4 / 4');
+  });
+
+  test('a turn levels the horizon from Home, from Iso, after an orbit and after a pan (AC-4)', async ({ app }) => {
+    await importFile(app, CUBE);
+    await settle(app, 1200);
+
+    /** One turn right: +90° around +Z, with the horizon level and everything else where it was. */
+    async function turnRight(what: string) {
+      await tapCamera(app);
+      const before = await cameraRig(app);
+      expect(before, `${what}: the camera rig is readable`).toBeTruthy();
+      await app.getByTestId('view-turn-right').click();
+      await settle(app, 800);
+      await tapCamera(app);
+      const after = await cameraRig(app);
+      expect(after, `${what}: the camera rig is readable after the turn`).toBeTruthy();
+      // up is +Z: the horizon is level
+      expect(after!.up[0], `${what}: up has no x`).toBeCloseTo(0, 3);
+      expect(after!.up[1], `${what}: up has no y`).toBeCloseTo(0, 3);
+      expect(after!.up[2], `${what}: up is +Z`).toBeGreaterThan(0.999);
+      // exactly a quarter turn around the vertical axis through the same target
+      expect(Math.abs(angleDelta(after!.azimuth, before!.azimuth) - 90), `${what}: the turn is 90°`).toBeLessThan(0.5);
+      expect(Math.abs(after!.elevation - before!.elevation), `${what}: the elevation is unchanged`).toBeLessThan(0.05);
+      expect(Math.abs(after!.distance - before!.distance), `${what}: the distance is unchanged`).toBeLessThan(0.05);
+      expect(Math.hypot(...after!.target.map((v, i) => v - before!.target[i])), `${what}: the target is unchanged`).toBeLessThan(0.05);
+      return after!;
+    }
+
+    // a straight view: Home, then Iso
+    await app.getByTestId('view-home').click();
+    await settle(app, 900);
+    await turnRight('from Home');
+    await app.getByTestId('view-iso').click();
+    await settle(app, 900);
+    await turnRight('from Iso');
+
+    // after a finger orbit: the camera was moved by hand, and a turn levels it again
+    const empty = await canvasPoint(app, 0.2, 0.32);
+    await touchDrag(app, empty, { x: empty.x + 90, y: empty.y + 40 });
+    await settle(app, 700);
+    await turnRight('after an orbit');
+    // after a two-finger pan
+    const at = await canvasPoint(app, 0.5, 0.32);
+    await touchPan(app, at, { x: at.x + 50, y: at.y + 20 });
+    await settle(app, 700);
+    const afterPan = await turnRight('after a pan');
+
+    // four turns from the last pose come back to it
+    const start = afterPan;
+    for (let i = 0; i < 4; i++) {
+      await app.getByTestId('view-turn-right').click();
+      await settle(app, 500);
+    }
+    await tapCamera(app);
+    const back = await cameraRig(app);
+    expect(back, 'the rig after four turns').toBeTruthy();
+    expect(Math.hypot(...back!.position.map((v, i) => v - start.position[i])), 'four turns return to the start').toBeLessThan(0.5);
+    expect(Math.hypot(...back!.target.map((v, i) => v - start.target[i])), 'and to the same target').toBeLessThan(0.05);
+    expect(back!.up[2], 'and to a level horizon').toBeGreaterThan(0.999);
+  });
+
+  test('a guided slice keeps the flow into the Preview, and the plater is drawn after it (AC-1, AC-7, AC-8)', async ({ app }) => {
+    test.skip(!HAS_MOCK_HOST, 'the flow slice sends to the mock print host – run it with `npm run e2e:docker`');
+    let created: TestPrinter[] = [];
+    try {
+      created = [await addPrinter(app, { name: 'T-101 host', presetName: E2E_PRINTER })];
+      await app.evaluate(async () => {
+        const s = window.webslicer.getState();
+        await s.refreshPresetLists();
+        await s.refreshPhysicalPrinters();
+      });
+      clearUploads();
+
+      await armGuidedStart(app);
+      await importFile(app, CUBE);
+      await settle(app, 1200);
+      for (let i = 0; i < 3; i++) {
+        await app.getByTestId('guided-next').click();
+        await settle(app, 500);
+      }
+      await expect(app.getByTestId('guided-step')).toHaveText('4 / 4');
+
+      await app.getByTestId('slice-button').click();
+      await app.waitForFunction(
+        () => {
+          const j = window.webslicer.getState().job;
+          return !!j && ['done', 'error'].includes(j.status);
+        },
+        null,
+        { timeout: 600_000 },
+      );
+      expect(await read(app, (s) => s.job?.status), 'the guided slice finished').toBe('done');
+      await expect(app.getByTestId('phone-result')).toBeVisible({ timeout: 30_000 });
+
+      // AC-7: the step-4 sheet survives the switch to the Preview – result, Send, Back and Finish
+      await settle(app, 1500);
+      await app.evaluate(() => window.webslicer.getState().setSheetState('peek'));
+      await settle(app, 600);
+      await expect(app.getByTestId('guided-preview-nav')).toBeVisible();
+      await expect(app.getByTestId('send-button')).toBeVisible();
+      await expect(app.getByTestId('guided-preview-back')).toBeInViewport();
+      await expect(app.getByTestId('guided-preview-finish')).toBeInViewport();
+      expect(await read(app, (s) => s.flowStep), 'the flow is still at step 4 in the Preview').toBe(4);
+      await checkFooter(app, 'the Preview footer with the flow open', [
+        'preview-info-toggle',
+        'send-button',
+        'guided-preview-back',
+        'guided-preview-finish',
+      ]);
+
+      // AC-8: at peek the scene keeps at least 55 % of the viewport height, hidden at least 70 %
+      const peek = await freeBand(app);
+      const freeOf = (b: Awaited<ReturnType<typeof freeBand>>) => (b.bottom - b.top) / b.viewportHeight;
+      expect(freeOf(peek), `peek leaves ${Math.round(freeOf(peek) * 100)} % of the viewport to the scene`).toBeGreaterThanOrEqual(0.55);
+      const grip = await centreOf(app, '[data-testid="sheet-handle"]');
+      await touchDrag(app, grip, { x: grip.x, y: grip.y + 320 }, 10);
+      await settle(app, 700);
+      await expect(app.getByTestId('sheet-handle')).toHaveAttribute('data-sheet-state', 'hidden');
+      const hidden = await freeBand(app);
+      expect(freeOf(hidden), `hidden leaves ${Math.round(freeOf(hidden) * 100)} %`).toBeGreaterThanOrEqual(0.7);
+      await app.getByTestId('sheet-handle').click();
+      await settle(app, 600);
+
+      // Send reaches the mock host
+      await app.getByTestId('send-button').click();
+      await expect(app.getByTestId('modal')).toBeVisible();
+      await app.getByTestId('modal-primary').click();
+      await expect(app.getByTestId('modal')).toHaveCount(0, { timeout: 60_000 });
+      expect(uploads(), 'the flow sent the job').toHaveLength(1);
+
+      // Back returns to the Plater at step 4 with the result kept, and the plater is drawn again
+      await app.getByTestId('guided-preview-back').click();
+      await settle(app, 1200);
+      await expect(app.getByTestId('guided-step')).toHaveText('4 / 4');
+      expect(await read(app, (s) => s.job?.status), 'the sliced result is kept').toBe('done');
+      await tapCamera(app);
+      await expectSceneDrawn(app, 'the plater after the slice');
+
+      // Finish leaves to the free Preview layout without a question
+      await app.evaluate(() => window.webslicer.getState().setView('preview'));
+      await settle(app, 1000);
+      await app.getByTestId('guided-preview-finish').click();
+      await settle(app, 600);
+      expect(await read(app, (s) => s.flowStep), 'Finish left the flow').toBeUndefined();
+      await expect(app.getByTestId('guided-preview-nav')).toHaveCount(0);
+      await expect(app.getByTestId('guided-card')).toHaveCount(0);
+      await expect(app.getByTestId('send-button')).toBeVisible();
+    } finally {
+      if (created.length) await removePrinters(app, created);
+      clearUploads();
+    }
   });
 });

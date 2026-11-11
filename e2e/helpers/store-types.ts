@@ -247,6 +247,8 @@ export interface E2EState {
   setSheetState: (state: SheetState) => void;
   /** the phone's guided flow (T-100): the open step, `undefined` in the free layout */
   flowStep?: 1 | 2 | 3 | 4;
+  /** T-101: the user answered "Don't show again" on an empty plate – no flow until a model arrives */
+  flowDismissed: boolean;
   guidedStart: boolean;
   startFlow: () => void;
   nextFlowStep: () => void;
@@ -300,6 +302,14 @@ declare global {
     __wsMain: () => RendererLike;
     __wsScene: () => SceneLike;
     __wsCamera?: { camera: unknown; scene: unknown; proj: number[]; inv: number[] };
+    /** the viewer's camera rig (T-101): `useScene` attaches it, so the turn checks can read the orbit target and the up vector */
+    __wsRig?: {
+      camera: { position: { x: number; y: number; z: number }; up: { x: number; y: number; z: number } };
+      controls: { target: { x: number; y: number; z: number } };
+      persp: { position: { x: number; y: number; z: number }; up: { x: number; y: number; z: number } };
+      ortho: { position: { x: number; y: number; z: number }; up: { x: number; y: number; z: number } };
+      userMoved: boolean;
+    };
   }
 }
 

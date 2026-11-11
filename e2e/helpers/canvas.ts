@@ -128,6 +128,53 @@ export async function cameraPose(page: Page): Promise<{ x: number; y: number; z:
   });
 }
 
+export interface CameraRig {
+  /** where the last frame's camera stands, which way is up and the orbit target it turns around */
+  position: Vec3;
+  up: Vec3;
+  target: Vec3;
+  /** distance to the target, in mm */
+  distance: number;
+  /** angle around +Z in degrees (atan2 of y over x), and the elevation above the plate */
+  azimuth: number;
+  elevation: number;
+  /** true once a hand (mouse, finger) moved the camera: the automatic framing is off then */
+  userMoved: boolean;
+}
+
+/**
+ * The camera rig (T-101): the live camera's position and up vector, the orbit target and the three
+ * numbers a turn must keep (T-101 AC-4). The last rendered camera comes from `tapCamera`; the target
+ * and the gesture flag from `window.__wsRig`, which the viewer attaches.
+ */
+export async function cameraRig(page: Page): Promise<CameraRig | null> {
+  return page.evaluate(() => {
+    const rig = window.__wsRig;
+    const camera = (window.__wsCamera?.camera ?? rig?.camera) as
+      { position: { x: number; y: number; z: number }; up: { x: number; y: number; z: number } } | undefined;
+    if (!camera || !rig) return null;
+    const p = camera.position;
+    const u = camera.up;
+    const t = rig.controls.target;
+    const dx = p.x - t.x;
+    const dy = p.y - t.y;
+    const dz = p.z - t.z;
+    const distance = Math.hypot(dx, dy, dz);
+    return {
+      position: [p.x, p.y, p.z],
+      up: [u.x, u.y, u.z],
+      target: [t.x, t.y, t.z],
+      distance,
+      azimuth: (Math.atan2(dy, dx) * 180) / Math.PI,
+      elevation: distance ? (Math.asin(dz / distance) * 180) / Math.PI : 0,
+      userMoved: rig.userMoved,
+    };
+  });
+}
+
+/** The short signed difference of two angles in degrees, in (-180, 180]. */
+export const angleDelta = (a: number, b: number): number => ((((a - b) % 360) + 540) % 360) - 180;
+
 export interface FrameProbe {
   bed: NdcBox;
   objects: NdcBox;
