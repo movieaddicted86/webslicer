@@ -115,11 +115,17 @@ Below 640 px the same app is a companion view for the print you already started:
   the handle brings the layer slider up with the sliced model visible above it;
 - a fresh session with an empty plate opens the **guided start** – four steps in the sheet, **1 / 4**
   to **4 / 4**: a model (this device or the library), the printer and its profiles, the settings (or
-  **Fine as it is? Just continue.**), then the destination and **Slice now**. **Back**, **Next** and
-  **Skip** sit in the sheet's footer; on the last step Skip reads **More settings**. The flow is
-  reopened from **More → Guided start**. An empty plate's footer stays quiet – no destination,
-  warning line or Slice button – until a model is on it. Preferences → **Guided start on phones**
-  (default on) turns the flow off, and a reload that restored a model starts in the free layout;
+  **Fine as it is? Just continue.**), then the destination and **Slice now**. **Back** and **Next**
+  sit in the sheet's footer; steps 1–3 carry **Skip guided start**, which asks _Show the guided start
+  next time?_ – **Yes** keeps it, **Don’t show again** switches the preference off. On the last step
+  Skip reads **More settings**. The flow opens whenever the plate is or becomes empty – on a fresh
+  start and again after the last model is removed – and is reopened from **More → Guided start**. An
+  empty plate's footer stays quiet – no destination, warning line or Slice button – until a model is
+  on it. Preferences → **Guided start on phones** (default on) turns the flow off, and a reload that
+  restored a model starts in the free layout. The flow's sheet takes the height its card needs (at
+  most 45 % of the screen) and folds to **hidden** like any other sheet. After **Slice now** the flow
+  stays alive in the Preview: the result line, **Send to printer**, **Back** (to step 4 in the
+  Plater, the result kept) and **Finish** are in the sheet's footer;
 - the object list is a **drawer** that the top bar opens; it stops above the tab bar;
 - dialogs take the phone's width, scroll their body and keep their primary button in a foot that
   stays on screen. Text and number fields use the phone's decimal keypad and are 16 px, so the browser
@@ -146,16 +152,29 @@ model:
 Rotating, scaling and the exact numbers stay in the panels, where a field and a stepper are more
 precise than a finger. The view row above the model is four icon buttons in one line – **Home**
 (frames the whole plate), **Iso**, and the two quarter turns that walk the camera around the model at
-the same elevation and distance – so the four isometric corners are one tap apart. On a wider window
-the row keeps the seven named views (minus Bottom in the Preview, where the plate hides the underside;
-key 2 still reaches it there and in the Plater).
+the same elevation and distance – so the four isometric corners are one tap apart. A turn always
+leaves the horizon level (the world's up stays vertical), whatever view or finger orbit it started
+from. On a wider window the row keeps the seven named views (minus Bottom in the Preview, where the
+plate hides the underside; key 2 still reaches it there and in the Plater).
+
+On a phone the 3D view owns the space above the sheet: whenever a model arrives, a guided step
+changes or the sheet settles, the plate and every object are framed completely inside the band
+between the top rows and the sheet's top edge. Only a camera moved by hand keeps its place; **Home**
+gives the framing back. A first import – from the device, the library or the drop zone – lands
+centred on the plate.
 
 **A print from the phone's view.** In the free layout the first file of the flow – picked in the Library, dropped, or
 chosen with the plater's own **Choose a model…** or **From library** button – folds the sheet to
 **peek**, where the result line (**time · filament · cost**) sits right above the destination and
-**Send**. The Preview's view row frames the visible toolpaths in one tap, the layer slider's thumb is
-a 44 px touch target, and the legend and the sliced details sit behind a labelled **Details** chip in
-the peek row, so they are one tap away without opening the sheet.
+**Send**. The Preview edits no plate, so its tool strip is not shown on a phone and the view row
+takes the top edge; that row frames the visible toolpaths in one tap, the layer slider's thumb is a
+44 px touch target, and the legend and the sliced details sit behind a labelled **Details** chip in
+the peek row, so they are one tap away without opening the sheet. With the guided start still open
+the Preview's peek footer is two finger-sized rows – the result beside **Details**, then **Send**
+beside **Back** and **Finish**; the destination and the copy buttons are in the panel once it is
+opened. At **peek** the sheet and the top rows still leave at least 55 % of the screen height to the
+3D view, and with the sheet **hidden** at least 70 % does, so a zoomed-in Preview never buries the
+model under its own controls.
 
 The desktop layout is unchanged above 900 px; 640–899 px keeps the drawers of the tablet layout.
 

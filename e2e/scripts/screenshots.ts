@@ -260,11 +260,39 @@ async function main(): Promise<void> {
     await settle(guidedPage, 800);
     await shot(guidedPage, 'guided-step-1', 'the guided start on a phone: step 1, the two ways to a model');
     await importFile(guidedPage, CUBE);
-    for (let next = 0; next < 3; next++) {
-      await guidedPage.getByTestId('guided-next').click();
-      await settle(guidedPage, 700);
-    }
+    await guidedPage.getByTestId('guided-next').click();
+    await settle(guidedPage, 900);
+    await shot(guidedPage, 'guided-step-2', 'the guided start on a phone: step 2, printer and profiles');
+    await guidedPage.getByTestId('guided-next').click();
+    await settle(guidedPage, 900);
+    await shot(guidedPage, 'guided-step-3', 'the guided start on a phone: step 3, the quick settings');
+    await guidedPage.getByTestId('guided-next').click();
+    await settle(guidedPage, 900);
     await shot(guidedPage, 'guided-step-4', 'the guided start on a phone: step 4, the summary, destination and Slice');
+    // T-101: the Preview's free 3D area at peek and with the sheet hidden
+    await guidedPage.getByTestId('slice-button').click();
+    await guidedPage.waitForFunction(
+      () => {
+        const j = window.webslicer.getState().job;
+        return !!j && ['done', 'error'].includes(j.status);
+      },
+      null,
+      { timeout: 600_000 },
+    );
+    await guidedPage.evaluate(() => window.webslicer.getState().setSheetState('peek'));
+    await guidedPage.waitForFunction(() => !!window.webslicer.getState().gcode && !window.webslicer.getState().gcodeLoading, null, {
+      timeout: 180_000,
+    });
+    // the slice's "Slicing finished" toast lives 4.5 s and lies over the tab bar: wait it out
+    await guidedPage.waitForFunction(() => document.querySelectorAll('[data-testid="toast"]').length === 0, null, {
+      timeout: 20_000,
+    });
+    await guidedPage.getByTestId('view-iso').click();
+    await settle(guidedPage, 2000);
+    await shot(guidedPage, 'phone-preview-peek', 'the Phone Preview at peek: the result and Send in the sheet');
+    await guidedPage.evaluate(() => window.webslicer.getState().setSheetState('hidden'));
+    await settle(guidedPage, 1500);
+    await shot(guidedPage, 'phone-preview-hidden', 'the Phone Preview with the sheet hidden: the whole scene');
     await guided.close();
 
     // a second model with two objects makes the plater look less empty for the hero image

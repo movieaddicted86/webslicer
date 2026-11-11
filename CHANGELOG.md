@@ -9,6 +9,9 @@ rc.3 to rc.5 and of the `Unreleased` of that time are kept verbatim in
 
 ### Fixed
 
+- **Phone retest follow-ups (T-101):** the 3D view frames the plate and model into the room above the
+  sheet (instead of behind it), every turn leaves a level horizon, a first import lands centred, and
+  the Plater is drawn again after a slice instead of turning black.
 - **Phone test follow-ups (T-099):** an empty plate offers **From library** next to the picker, the
   Preview's view row drops Bottom (#14; the Plater keeps all seven, key 2 still works), and the legend
   and stats sit behind a labelled **Details** chip in the sheet's peek row.
@@ -20,6 +23,10 @@ rc.3 to rc.5 and of the `Unreleased` of that time are kept verbatim in
 
 ### Changed
 
+- **The guided start finishes properly (T-101):** its sheet takes the card's height (at most 45 % of
+  the screen) and folds to hidden; it opens whenever the plate is empty again; **Skip guided start**
+  asks whether to show it next time; after slicing, the Preview keeps the result, Send, Back and
+  Finish. The phone Preview at peek leaves at least 55 % of the screen to the 3D view (70 % hidden).
 - **The phone's sheet and view row (T-099):** the sheet follows the finger one-to-one, settles on the
   nearest of hidden / peek / half / full after the release, and a tap cycles peek → half → full →
   peek; the view row is four buttons in one line (Home, Iso, turn left, turn right).
