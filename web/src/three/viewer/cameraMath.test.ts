@@ -4,10 +4,12 @@ import * as THREE from 'three';
 import {
   VIEWS,
   fitFrame,
+  fitFrameInBand,
   orthoExtents,
   orthoFitDistance,
   orthoFrustumHeight,
   turnOffset,
+  uprightUp,
   viewBasis,
   viewByKey,
   viewDef,
@@ -155,5 +157,45 @@ test('a box fitted for the perspective camera also fits the orthographic frustum
       assert.ok(Math.abs(corner.dot(basis.up)) <= halfHeight + 1e-9, `${v.id} vertical`);
       assert.ok(Math.abs(corner.dot(basis.right)) <= halfWidth + 1e-9, `${v.id} horizontal`);
     }
+  }
+});
+
+test('a turn levels the up vector again, but a vertical view keeps its own', () => {
+  const worldUp = new THREE.Vector3(0, 0, 1);
+  const tilted = new THREE.Vector3(0, 0.4, 0.9).normalize();
+  // an orbit left the up tilted: the next turn puts the horizon back on the world's axis
+  assert.ok(uprightUp(new THREE.Vector3(1, -1, 1).normalize(), tilted).equals(worldUp));
+  // looking straight down, +Z is parallel to the view direction: that up would be degenerate
+  assert.ok(uprightUp(new THREE.Vector3(0, 0, 1), tilted).equals(tilted));
+  assert.ok(uprightUp(new THREE.Vector3(0, 0, -1), tilted).equals(tilted));
+});
+
+test('a frame in a band keeps every corner of the box inside the band, centred in it', () => {
+  const b = box([0, 0, 0], [250, 210, 90]);
+  const band = { top: 110, bottom: 470, width: 390, height: 744 };
+  for (const v of VIEWS) {
+    const frame = fitFrameInBand(b, v.dir, v.up, FOV, band);
+    const camera = new THREE.PerspectiveCamera(FOV, band.width / band.height, 1, 5000);
+    camera.position.copy(frame.position);
+    camera.up.copy(frame.up);
+    camera.lookAt(frame.target);
+    camera.updateMatrixWorld();
+    camera.updateProjectionMatrix();
+    const corner = new THREE.Vector3();
+    let minY = Infinity;
+    let maxY = -Infinity;
+    for (let i = 0; i < 8; i++) {
+      corner.set(i & 1 ? b.max.x : b.min.x, i & 2 ? b.max.y : b.min.y, i & 4 ? b.max.z : b.min.z);
+      const ndc = corner.clone().project(camera);
+      const y = ((1 - ndc.y) / 2) * band.height;
+      minY = Math.min(minY, y);
+      maxY = Math.max(maxY, y);
+      assert.ok(Math.abs(ndc.x) <= 1 + 1e-6, `${v.id}: corner outside horizontally (${ndc.x})`);
+    }
+    // 4 px tolerance like the acceptance check, and the box's centre sits around the band's centre
+    assert.ok(minY >= band.top - 4 && maxY <= band.bottom + 4, `${v.id}: ${minY.toFixed(1)}…${maxY.toFixed(1)} outside`);
+    const centreNdc = b.getCenter(new THREE.Vector3()).project(camera);
+    const centreY = ((1 - centreNdc.y) / 2) * band.height;
+    assert.ok(Math.abs(centreY - (band.top + band.bottom) / 2) < 8, `${v.id}: centre at ${centreY.toFixed(1)}`);
   }
 });

@@ -8,13 +8,31 @@
  * state therefore lives in `useCameraState` (called with the other state, before the toolbar and the
  * keyboard hook) and the effects in `useCamera` (called where the inline effects were).
  */
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 import { useStore } from '../../state/store';
 import { viewDirection } from './cameraMath';
-import { DEFAULT_BED, bedBox, focusBox, frameBox, readOrthoPref, switchCamera, turnCamera, writeOrthoPref } from './camera';
+import {
+  DEFAULT_BED,
+  bedBox,
+  focusBox,
+  frameBox,
+  readOrthoPref,
+  sceneBox,
+  switchCamera,
+  turnCamera,
+  visibleBandOf,
+  writeOrthoPref,
+} from './camera';
 import type { CamRequest, SceneRefs } from './types';
 
+/** The width below which the sheet owns the lower part of the scene (the same as the stylesheet). */
+const PHONE_QUERY = '(max-width: 640px)';
+
+/** The room above the phone's sheet; nothing on a wide window, where the cards sit beside the scene. */
+function bandOf(refs: SceneRefs) {
+  return window.matchMedia(PHONE_QUERY).matches ? visibleBandOf(refs) : undefined;
+}
 interface CameraState {
   /** true while the orthographic projection is active */
   ortho: boolean;
@@ -31,12 +49,11 @@ export function useCameraState(): CameraState {
   const [ortho, setOrtho] = useState(readOrthoPref);
   const [request, setRequest] = useState<CameraState['request']>(undefined);
   const seq = useRef(0);
-  return {
-    ortho,
-    request,
-    toggleOrtho: () => setOrtho((o) => !o),
-    requestCamera: (req: CamRequest) => setRequest({ req, seq: ++seq.current }),
-  };
+  // stable callbacks: the automatic framing effect depends on `requestCamera` and must not re-run on
+  // every render of the viewer
+  const toggleOrtho = useCallback(() => setOrtho((o) => !o), []);
+  const requestCamera = useCallback((req: CamRequest) => setRequest({ req, seq: ++seq.current }), [setRequest]);
+  return { ortho, request, toggleOrtho, requestCamera };
 }
 
 export function useCamera(refsRef: RefObject<SceneRefs | null>, ortho: boolean, request: CameraState['request']) {
@@ -49,19 +66,32 @@ export function useCamera(refsRef: RefObject<SceneRefs | null>, ortho: boolean, 
     // eslint-disable-next-line react-hooks/exhaustive-deps -- stable ref, not a dependency
   }, [ortho]);
 
-  // --- camera commands: standard views, zoom to selection, fit the bed
+  // --- camera commands: standard views, zoom to selection, fit the bed, the automatic framing
   useEffect(() => {
     const refs = refsRef.current;
     if (!refs || !request) return;
     const shape = useStore.getState().presets.printer.current.bed_shape || DEFAULT_BED;
+    const band = bandOf(refs);
     if (request.req.mode === 'bed') {
+      // Home frames the plate again, so it ends an earlier manual view: sheet changes may reframe
+      refs.userMoved = false;
       const { dir, up } = viewDirection('iso');
-      frameBox(refs, bedBox(shape), dir, up);
+      frameBox(refs, bedBox(shape), dir, up, band);
       return;
     }
+    if (request.req.mode === 'scene') {
+      // the automatic framing (a model was added, a guided step changed, the sheet settled): keep the
+      // direction the user is looking from and show plate and all objects in the room above the sheet
+      const current = refs.camera.position.clone().sub(refs.controls.target);
+      const { dir, up } = current.lengthSq() > 1e-9 ? { dir: current.normalize(), up: refs.camera.up.clone() } : viewDirection('iso');
+      frameBox(refs, sceneBox(refs, shape), dir, up, band);
+      return;
+    }
+    // every other command is the user's own view: automatic framing leaves it alone from now on
+    refs.userMoved = true;
     if (request.req.mode === 'view') {
       const { dir, up } = viewDirection(request.req.view);
-      frameBox(refs, focusBox(refs, shape), dir, up);
+      frameBox(refs, focusBox(refs, shape), dir, up, band);
       return;
     }
     if (request.req.mode === 'turn') {
@@ -72,7 +102,7 @@ export function useCamera(refsRef: RefObject<SceneRefs | null>, ortho: boolean, 
     }
     // zoom to selection keeps the direction the user is looking from
     const offset = refs.camera.position.clone().sub(refs.controls.target);
-    frameBox(refs, focusBox(refs, shape), offset.normalize(), refs.camera.up.clone());
+    frameBox(refs, focusBox(refs, shape), offset.normalize(), refs.camera.up.clone(), band);
     // `refsRef` is a stable ref object owned by the Viewer; its content changes without a re-render
     // eslint-disable-next-line react-hooks/exhaustive-deps -- stable ref, not a dependency
   }, [request]);

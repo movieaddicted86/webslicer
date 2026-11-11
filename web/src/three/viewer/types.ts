@@ -42,6 +42,11 @@ export interface SceneRefs {
   nodes: Map<string, ObjectNode>;
   raycaster: THREE.Raycaster;
   dragging: boolean;
+  /**
+   * the user moved the camera by hand (orbit, pan, zoom) or by an explicit view command since the
+   * last automatic framing – automatic framing must not take the view away from them
+   */
+  userMoved: boolean;
   gcodeLines?: THREE.LineSegments;
   /** fat extrusion ribbons; the hairline geometry above stays the feature-hiding source */
   gcodeRibbons?: THREE.Mesh;
@@ -73,6 +78,8 @@ export interface BedAsset {
 /**
  * A camera command from a toolbar button or a key; the sequence number makes a repeat re-run. `turn`
  * rotates around the vertical axis by quarter turns (`-1` left, `+1` right) and keeps elevation and
- * distance – the phone's two turn buttons.
+ * distance – the phone's two turn buttons. `scene` is the automatic framing of the plate and every
+ * object into the room above the sheet.
  */
-export type CamRequest = { mode: 'view'; view: CameraView } | { mode: 'fit' } | { mode: 'bed' } | { mode: 'turn'; turns: number };
+export type CamRequest =
+  { mode: 'view'; view: CameraView } | { mode: 'fit' } | { mode: 'bed' } | { mode: 'turn'; turns: number } | { mode: 'scene' };

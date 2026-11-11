@@ -11,6 +11,7 @@ import { useCamera, useCameraState } from './viewer/useCamera';
 import { useGcodePreview } from './viewer/useGcodePreview';
 import { useOutdatedResult } from '../state/useOutdatedResult';
 import { useScene } from './viewer/useScene';
+import { useAutoFrame } from './viewer/useAutoFrame';
 import { useShells } from './viewer/useShells';
 import { useCutPlane } from './viewer/useCutPlane';
 import { normalizeColor } from '../gcode/colorprint';
@@ -81,6 +82,7 @@ export function Viewer() {
   const containerRef = useRef<HTMLDivElement>(null);
   const refsRef = useRef<SceneRefs | null>(null);
   const { ortho, request: camRequest, toggleOrtho, requestCamera } = useCameraState();
+  const phone = useMediaQuery(PHONE_QUERY);
 
   const objects = useStore((s) => s.objects);
   const selectedIds = useStore((s) => s.selectedIds);
@@ -127,6 +129,9 @@ export function Viewer() {
   // zoom to selection, fit the bed
   useCamera(refsRef, ortho, camRequest);
 
+  // --- the phone frames the plate and its objects into the room above the sheet (T-101)
+  useAutoFrame(refsRef, requestCamera, phone);
+
   // --- objects and the transform gizmo
   usePlaterObjects(refsRef, {
     objects,
@@ -170,17 +175,18 @@ export function Viewer() {
   // T-092: on a phone the seven views share one row of short buttons over the top of the scene, which
   // is also what the Preview's view buttons are – one tap, and each frames the toolpaths (the same
   // `focusBox` a key uses)
-  const phone = useMediaQuery(PHONE_QUERY);
   // #14: the Preview's plate hides the underside of the model anyway, so its view row drops Bottom;
   // the Plater keeps all seven (checking overhangs and the first layer from below), and the keyboard
   // shortcut still reaches the bottom view in both
   const desktopViews = view === 'preview' ? PREVIEW_VIEWS : VIEWS;
 
   return (
-    <div className={`viewer ${placeOnFace ? 'place-on-face' : ''}`} ref={containerRef}>
+    <div className={`viewer view-${view} ${placeOnFace ? 'place-on-face' : ''}`} ref={containerRef}>
       {/* L-4: the tool strip floats at the top centre; the open tool's controls are in the context
-          panel and carry the key hints, so there is no banner repeating them over the scene */}
-      <ToolStrip />
+          panel and carry the key hints, so there is no banner repeating them over the scene.
+          T-101/AC-8: the Preview edits no plate, so a phone shows no strip there and the view row
+          takes the top edge – the sheet then leaves most of the screen to the toolpaths. */}
+      {!(phone && view === 'preview') && <ToolStrip />}
       <div className="viewer-hint">
         {view === 'plater' && (
           <div>Left: rotate · Right/Middle: pan · Wheel: zoom · M/R/S: move/rotate/scale · F: place on face · A: arrange · Del: delete</div>

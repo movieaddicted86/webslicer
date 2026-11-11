@@ -64,6 +64,12 @@
     top: 58px;
   }
 
+  /* T-101/AC-8: the Preview shows no tool strip, so the view row takes the top edge; the scene
+     above the preview sheet gains the strip's 58 px */
+  .viewer.view-preview .viewer-bar-band {
+    top: 10px;
+  }
+
   /* the row never wraps and keeps to the scene's width, centred in the band */
   .viewer-toolbar {
     flex-wrap: nowrap;

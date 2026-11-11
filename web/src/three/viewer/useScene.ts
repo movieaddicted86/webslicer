@@ -96,10 +96,14 @@ export function useScene(refsRef: RefObject<SceneRefs | null>, containerRef: Ref
       nodes: new Map(),
       raycaster: new THREE.Raycaster(),
       dragging: false,
+      userMoved: false,
       shells: [],
       shellsOn: false,
     };
     refsRef.current = refs;
+    // Debug hook, like `window.webslicer` in main.tsx: the scene's camera rig (both cameras, the orbit
+    // target) can be read from the console and from the E2E camera checks without a second scene
+    (window as unknown as { __wsRig?: SceneRefs }).__wsRig = refs;
     setThumbnailRenderer((specs, colors) => renderSceneThumbnails(scene, objectsGroup, specs, colors));
 
     const applyToStore = (target: THREE.Object3D, commit: boolean) => {
@@ -142,8 +146,11 @@ export function useScene(refsRef: RefObject<SceneRefs | null>, containerRef: Ref
     });
 
     const onResize = () => {
-      const w = container.clientWidth || 1;
-      const h = container.clientHeight || 1;
+      const w = container.clientWidth;
+      const h = container.clientHeight;
+      // a backgrounded tab and a folded frame report 0: shrinking the drawing buffer to one pixel
+      // would stretch a dark row over the whole canvas and leave the plater black
+      if (!(w >= 1) || !(h >= 1) || !Number.isFinite(w) || !Number.isFinite(h)) return;
       renderer.setSize(w, h, false);
       const aspect = w / h;
       persp.aspect = aspect;
@@ -154,6 +161,12 @@ export function useScene(refsRef: RefObject<SceneRefs | null>, containerRef: Ref
     const ro = new ResizeObserver(onResize);
     ro.observe(container);
     onResize();
+
+    // a hand on the camera (orbit, pan, wheel) ends the automatic framing until Home asks again
+    const onControlsStart = () => {
+      refs.userMoved = true;
+    };
+    controls.addEventListener('start', onControlsStart);
 
     // picking
     let downPos: [number, number] | null = null;
@@ -260,6 +273,7 @@ export function useScene(refsRef: RefObject<SceneRefs | null>, containerRef: Ref
     return () => {
       cancelAnimationFrame(raf);
       ro.disconnect();
+      controls.removeEventListener('start', onControlsStart);
       unwatchTool();
       touch.stop();
       renderer.domElement.removeEventListener('pointerdown', touch.down);
@@ -277,6 +291,8 @@ export function useScene(refsRef: RefObject<SceneRefs | null>, containerRef: Ref
       renderer.dispose();
       container.removeChild(renderer.domElement);
       refsRef.current = null;
+      const debug = window as unknown as { __wsRig?: SceneRefs };
+      if (debug.__wsRig === refs) delete debug.__wsRig;
       setThumbnailRenderer(undefined);
     };
     // `containerRef`/`refsRef` are stable ref objects owned by the Viewer; the scene is built once
