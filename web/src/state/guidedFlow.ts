@@ -38,6 +38,15 @@ export function startStep(f: FlowStart): FlowStep | undefined {
   return f.phone && f.enabled && !f.objectsPresent ? 1 : undefined;
 }
 
+/**
+ * Whether an empty plate opens the flow in the running session (T-101): the same phone preference as
+ * the fresh start, but a plate that became empty also counts – until the user answered the skip
+ * question, which suppresses the flow for the rest of this empty-plate episode.
+ */
+export function flowOpensOnEmpty(f: FlowStart & { dismissed: boolean }): boolean {
+  return f.phone && f.enabled && !f.objectsPresent && !f.dismissed;
+}
+
 /** Whether the current step may advance; only the model step has a condition (a model on the plate). */
 export function canAdvance(step: FlowStep, facts: { objectsPresent: boolean }): boolean {
   return step === 1 ? facts.objectsPresent : true;

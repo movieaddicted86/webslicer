@@ -5,7 +5,16 @@
  */
 import * as THREE from 'three';
 import { bedShapeOf } from '@webslicer/shared';
-import { fitFrame, orthoExtents, orthoFitDistance, orthoFrustumHeight, turnOffset } from './cameraMath';
+import {
+  fitFrame,
+  fitFrameInBand,
+  orthoExtents,
+  orthoFitDistance,
+  orthoFrustumHeight,
+  turnOffset,
+  uprightUp,
+  type FrameBand,
+} from './cameraMath';
 import { useStore, pickedInstanceId } from '../../state/store';
 import type { ParsedGcode } from '../../gcode/types';
 import type { SceneRefs } from './types';
@@ -48,10 +57,17 @@ export function setOrthoFrustum(cam: THREE.OrthographicCamera, height: number, a
 /**
  * Frame `box`: both cameras are moved to the same place and the ortho frustum is set to the area
  * the perspective view shows at that distance, so switching the camera never changes the framing.
+ * `band` is the part of the canvas the phone's sheet leaves free; the box is centred there instead
+ * of in the whole canvas.
  */
-export function frameBox(refs: SceneRefs, box: THREE.Box3, dir: THREE.Vector3, up: THREE.Vector3) {
-  const aspect = refs.persp.aspect || 1;
-  const frame = fitFrame(box, dir, up, FOV, aspect);
+export function frameBox(refs: SceneRefs, box: THREE.Box3, dir: THREE.Vector3, up: THREE.Vector3, band?: FrameBand) {
+  const width = refs.renderer.domElement.clientWidth || 1;
+  const height = refs.renderer.domElement.clientHeight || 1;
+  const aspect = width / height;
+  const frame =
+    band && Number.isFinite(band.top) && Number.isFinite(band.bottom) && band.bottom - band.top > 80
+      ? fitFrameInBand(box, dir, up, FOV, { ...band, width, height })
+      : fitFrame(box, dir, up, FOV, aspect);
   refs.persp.position.copy(frame.position);
   refs.persp.up.copy(frame.up);
   refs.ortho.position.copy(frame.position);
@@ -64,13 +80,16 @@ export function frameBox(refs: SceneRefs, box: THREE.Box3, dir: THREE.Vector3, u
 /**
  * Turn the camera around the world's vertical axis by quarter turns, keeping the orbit target, the
  * elevation and the distance: the phone's two turn buttons. Both cameras move, so switching the
- * projection afterwards keeps the framing.
+ * projection afterwards keeps the framing. The up vector goes back to the world's vertical axis –
+ * an orbit tilts it, and turning a tilted horizon around Z would keep the tilt (N-08).
  */
 export function turnCamera(refs: SceneRefs, turns: number) {
   const target = refs.controls.target;
   for (const camera of [refs.persp, refs.ortho]) {
     const offset = camera.position.clone().sub(target);
+    const up = uprightUp(offset, camera.up);
     camera.position.copy(target).add(turnOffset(offset, turns));
+    camera.up.copy(up);
   }
   refs.controls.update();
 }
@@ -125,7 +144,35 @@ export function focusBox(refs: SceneRefs, bedShape: string): THREE.Box3 {
   return box.isEmpty() ? bedBox(bedShape) : box;
 }
 
-/** Move the controls, the picking ray and the gizmo onto the other camera, keeping the framing. */
+/**
+ * The box a phone's automatic framing shows: the whole plate and every object on it, whatever the
+ * selection. Unlike `focusBox` it never narrows to the selection – the user has to see the plate and
+ * all parts in the room the sheet leaves.
+ */
+export function sceneBox(refs: SceneRefs, bedShape: string): THREE.Box3 {
+  const box = bedBox(bedShape);
+  const node = new THREE.Box3();
+  for (const entry of refs.nodes.values()) {
+    for (const inode of entry.instances.values()) {
+      box.union(node.setFromObject(inode.mesh));
+      for (const vm of inode.volumes.values()) box.union(node.setFromObject(vm));
+    }
+  }
+  return box;
+}
+
+/** The part of the canvas a phone's bottom sheet leaves free: below the view row, above the sheet. */
+export function visibleBandOf(refs: SceneRefs): FrameBand | undefined {
+  const canvas = refs.renderer.domElement.getBoundingClientRect();
+  if (!canvas.height) return undefined;
+  const row = document.querySelector<HTMLElement>('[data-testid="viewer-view-row"]');
+  const stack = document.querySelector<HTMLElement>('.context-stack');
+  const top = row ? Math.max(0, row.getBoundingClientRect().bottom - canvas.top + 8) : 0;
+  const bottom = stack ? Math.min(canvas.height, stack.getBoundingClientRect().top - canvas.top - 8) : canvas.height;
+  if (!(bottom - top > 80)) return undefined;
+  return { top, bottom, width: canvas.width, height: canvas.height };
+}
+
 export function switchCamera(refs: SceneRefs, ortho: boolean) {
   const from = refs.camera as THREE.PerspectiveCamera | THREE.OrthographicCamera;
   const to = ortho ? refs.ortho : refs.persp;

@@ -92,6 +92,59 @@ export function viewDirection(view: CameraView): { dir: THREE.Vector3; up: THREE
   return { dir: d.dir.clone(), up: d.up.clone() };
 }
 
+/**
+ * The up vector after a quarter turn: the world's vertical axis, so the horizon is level again after
+ * an orbit that tilted it. A view straight down or up has no level horizon – there the current up
+ * stays, because +Z would be parallel to the view direction.
+ */
+export function uprightUp(dir: THREE.Vector3, current: THREE.Vector3): THREE.Vector3 {
+  return Math.abs(dir.clone().normalize().z) > 0.9999 ? current.clone() : new THREE.Vector3(0, 0, 1);
+}
+
+/** A horizontal strip of the canvas, in CSS px (y down), that the framed box has to fill. */
+export interface FrameBand {
+  top: number;
+  bottom: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * Frame `box` into the band above the phone's sheet: the camera keeps the canvas' aspect, but the
+ * distance fits the band's height and the pose is shifted so the box is centred in the band instead
+ * of the canvas. The result is a normal camera pose – no projection tricks – so orbiting, picking
+ * and the orthographic switch keep working on it.
+ */
+export function fitFrameInBand(
+  box: THREE.Box3,
+  dir: THREE.Vector3,
+  up: THREE.Vector3,
+  fovDeg: number,
+  band: FrameBand,
+  margin = 0.08,
+): Frame {
+  const bandHeight = Math.max(1, band.bottom - band.top);
+  const tan = Math.tan((fovDeg * Math.PI) / 360);
+  // the band covers `bandHeight / canvas height` of the canvas: fit that much less of the world
+  const fovEff = (2 * Math.atan(tan * Math.min(1, bandHeight / Math.max(band.height, 1))) * 180) / Math.PI;
+  const frame = fitFrame(box, dir, up, fovEff, Math.max(band.width, 1) / bandHeight, margin);
+  // moving camera and target together along the view's up axis moves the picture down: the band's
+  // centre is above the canvas' centre, so the box has to move up on screen. The move is made along
+  // the world's vertical axis, scaled so it shifts the picture by the same amount, not along the
+  // tilted screen-up axis: the orbit target keeps the box's x/y, so a quarter turn spins around the
+  // plate's own vertical instead of around a point beside it (AC-4).
+  const basis = viewBasis(frame.position.clone().sub(frame.target), frame.up);
+  const worldPerPixel = (2 * frame.distance * tan) / Math.max(band.height, 1);
+  const shift = ((band.top + band.bottom) / 2 - band.height / 2) * worldPerPixel;
+  const offset = Math.abs(basis.up.z) > 0.05 ? new THREE.Vector3(0, 0, shift / basis.up.z) : basis.up.clone().multiplyScalar(shift);
+  return {
+    target: frame.target.clone().add(offset),
+    position: frame.position.clone().add(offset),
+    up: frame.up,
+    distance: frame.distance,
+  };
+}
+
 /** The world's up axis (the app's Z-up world), the axis a quarter turn rotates around. */
 const WORLD_Z = new THREE.Vector3(0, 0, 1);
 

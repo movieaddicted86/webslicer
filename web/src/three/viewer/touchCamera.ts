@@ -21,6 +21,8 @@ const activeCamera = (refs: SceneRefs): THREE.PerspectiveCamera | THREE.Orthogra
 
 /** Put both cameras at the same pose and hand the target to the orbit controls. */
 function setPose(refs: SceneRefs, target: THREE.Vector3, position: THREE.Vector3, up: THREE.Vector3) {
+  // a finger on the scene moved the camera: automatic framing must not take the view away again
+  refs.userMoved = true;
   refs.persp.position.copy(position);
   refs.persp.up.copy(up);
   refs.ortho.position.copy(position);

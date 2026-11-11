@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useStore } from '../../state/store';
 import { canAdvance, nextStep, type FlowStep } from '../../state/guidedFlow';
 import { PresetSelect } from '../PresetSelect';
@@ -133,14 +134,48 @@ function ReadyStep() {
  * step, Next on the last (there Slice and Send are the way on), and Skip reads **More settings** on the
  * last step. Every button is a 44 px target, and Skip is always drawn, so the free layout is one tap
  * away from any step.
+ *
+ * T-101: on steps 1–3 the Skip button reads **Skip guided start** and asks once – *Show the guided
+ * start next time?* – with **Yes** (nothing changes; the next fresh start opens it again) and **Don't
+ * show again** (the preference goes off). Both answers leave to the free layout. The last step's
+ * **More settings** asks nothing: the print is ready, the flow already did its job.
  */
 export function GuidedNav({ step }: { step: FlowStep }) {
   const objects = useStore((s) => s.objects);
   const nextFlowStep = useStore((s) => s.nextFlowStep);
   const previousFlowStep = useStore((s) => s.previousFlowStep);
   const leaveFlow = useStore((s) => s.leaveFlow);
+  const setGuidedStart = useStore((s) => s.setGuidedStart);
+  const [asking, setAsking] = useState(false);
   const last = nextStep(step) === undefined;
   const canNext = canAdvance(step, { objectsPresent: objects.length > 0 });
+  if (asking) {
+    return (
+      <div className="guided-nav guided-ask" data-testid="guided-skip-question">
+        <p className="guided-ask-text">Show the guided start next time?</p>
+        <div className="guided-ask-actions">
+          <button
+            type="button"
+            className="primary"
+            data-testid="guided-skip-yes"
+            onClick={leaveFlow}
+            title="Keep the guided start on – it opens again on the next empty plate"
+          >
+            Yes
+          </button>
+          <button
+            type="button"
+            className="secondary"
+            data-testid="guided-skip-never"
+            onClick={() => setGuidedStart(false)}
+            title="Turn the guided start off – More → Guided start still opens it"
+          >
+            Don't show again
+          </button>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="guided-nav" data-testid="guided-nav">
       {step > 1 && (
@@ -160,8 +195,33 @@ export function GuidedNav({ step }: { step: FlowStep }) {
           Next
         </button>
       )}
-      <button type="button" className="secondary guided-skip" data-testid="guided-skip" onClick={leaveFlow}>
-        {last ? 'More settings' : 'Skip'}
+      <button
+        type="button"
+        className="secondary guided-skip"
+        data-testid="guided-skip"
+        onClick={() => (last ? leaveFlow() : setAsking(true))}
+      >
+        {last ? 'More settings' : 'Skip guided start'}
+      </button>
+    </div>
+  );
+}
+
+/**
+ * The flow's footer in the Preview (T-101/G-09): the step-4 result is on screen, so the way back and
+ * the way out have to be too. **Back** returns to the Plater at step 4 with the sliced result kept;
+ * **Finish** leaves to the free layout without a question.
+ */
+export function GuidedPreviewNav() {
+  const setView = useStore((s) => s.setView);
+  const leaveFlow = useStore((s) => s.leaveFlow);
+  return (
+    <div className="guided-nav" data-testid="guided-preview-nav">
+      <button type="button" className="secondary guided-back" data-testid="guided-preview-back" onClick={() => setView('plater')}>
+        Back
+      </button>
+      <button type="button" className="primary guided-finish" data-testid="guided-preview-finish" onClick={leaveFlow}>
+        Finish
       </button>
     </div>
   );
