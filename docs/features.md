@@ -90,6 +90,7 @@ PrusaSlicer feature exists here and which does not is in
 | Edit the print, filament or printer settings         | **Menu → Settings ▸**, the button next to the preset in its row, or **All settings…** below the quick settings |
 | Edit an object's position, parts, overrides, ranges  | Select its row in the object list – the context panel on the right shows them                                  |
 | Open a tool (move, paint, cut, layer height)         | The **tool strip** at the top of the 3D view – its controls then take the context panel                        |
+| Home, Iso, turn the model, projection, zoom          | The view row at the top of the 3D view (keys 0–6, K, Z)                                                        |
 | Choose the print host the G-code goes to             | The **Destination** select in the context panel's footer (or ask in the send dialog)                           |
 | Export the project, settings, presets or G-code      | **Menu → Export ▸**                                                                                            |
 | Save the project or the G-code to the library        | **Menu → Export ▸ Save … to library…**                                                                         |
@@ -150,12 +151,13 @@ model:
 | Long press an object            | A small menu: **Duplicate**, **Delete**                                 |
 
 Rotating, scaling and the exact numbers stay in the panels, where a field and a stepper are more
-precise than a finger. The view row above the model is four icon buttons in one line – **Home**
-(frames the whole plate), **Iso**, and the two quarter turns that walk the camera around the model at
-the same elevation and distance – so the four isometric corners are one tap apart. A turn always
-leaves the horizon level (the world's up stays vertical), whatever view or finger orbit it started
-from. On a wider window the row keeps the seven named views (minus Bottom in the Preview, where the
-plate hides the underside; key 2 still reaches it there and in the Plater).
+precise than a finger. The view row above the model is four icon buttons in one line on every screen –
+on a phone, a tablet and a desktop alike: **Home** (frames the whole plate), **Iso**, and the two
+quarter turns that walk the camera around the model at the same elevation and distance – so the four
+isometric corners are one tap apart. A turn always leaves the horizon level (the world's up stays
+vertical), whatever view or finger orbit it started from. On a wide window the projection toggle and
+zoom to selection sit beside the four buttons; the number keys 0–6 still select the seven standard
+views (Iso, Top, Bottom, Front, Rear, Left, Right).
 
 On a phone the 3D view owns the space above the sheet: whenever a model arrives, a guided step
 changes or the sheet settles, the plate and every object are framed completely inside the band
@@ -168,14 +170,14 @@ from the device, the library or the drop zone – lands centred on the plate.
 chosen with the plater's own **Choose a model…** or **From library** button – folds the sheet to
 **peek**, where the result line (**time · filament · cost**) sits right above the destination and
 **Send**. The Preview edits no plate, so its tool strip is not shown on a phone and the view row
-takes the top edge; that row frames the visible toolpaths in one tap, the layer slider's thumb is a
-44 px touch target, and the legend and the sliced details sit behind a labelled **Details** chip in
-the peek row, so they are one tap away without opening the sheet. With the guided start still open
-the Preview's peek footer is two finger-sized rows – the result beside **Details**, then **Send**
-beside **Back** and **Finish**; the destination and the copy buttons are in the panel once it is
-opened. At **peek** the sheet and the top rows still leave at least 55 % of the screen height to the
-3D view, and with the sheet **hidden** at least 70 % does, so a zoomed-in Preview never buries the
-model under its own controls.
+takes the top edge, as on the desktop; that row frames the visible toolpaths in one tap, the layer
+slider's thumb is a 44 px touch target, and the legend and the sliced details sit behind a labelled
+**Details** chip in the peek row, so they are one tap away without opening the sheet. With the guided
+start still open the Preview's peek footer is two finger-sized rows – the result beside **Details**,
+then **Send** beside **Back** and **Finish**; the destination and the copy buttons are in the panel
+once it is opened. At **peek** the sheet and the top rows still leave at least 55 % of the screen
+height to the 3D view, and with the sheet **hidden** at least 70 % does, so a zoomed-in Preview never
+buries the model under its own controls.
 
 The desktop layout is unchanged above 900 px; 640–899 px keeps the drawers of the tablet layout.
 
@@ -199,6 +201,10 @@ The desktop layout is unchanged above 900 px; 640–899 px keeps the drawers of 
   model (keys L / P, adjustable brush radius, undo), stored like PrusaSlicer as per-triangle attributes
   in the 3MF.
 - **Undo/redo** in the plater, **vendor bed** with the model and texture of the selected printer.
+- **The view row** floats at the top of the scene: **Home**, **Iso**, turn left 90° and turn right
+  90° – the four buttons on desktop, tablet and phone alike (T-105). Beside them a wide window shows
+  the perspective/orthographic toggle (**K**) and zoom to selection (**Z**). The number keys 0–6
+  select the seven standard views: 0 Iso, 1 Top, 2 Bottom, 3 Front, 4 Rear, 5 Left, 6 Right.
 - **Volumes** like in PrusaSlicer: **modifiers** (regions with their own settings, e.g. 100 % infill),
   **support enforcers / blockers**, **negative volumes** (cut-outs) and additional **parts** as box,
   cylinder, sphere, slab or from a mesh file; stored in the 3MF and restored on import.

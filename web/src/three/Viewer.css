@@ -91,8 +91,9 @@
     place-items: center;
   }
 
-  /* the projection and the zoom-to-selection shortcuts stay off the phone row, and so does the
-     reset button: the row is the four views and nothing else, and the keys/gestures cover the rest */
+  /* the projection and the zoom-to-selection shortcuts stay off the phone row (the component does
+     not render them there), and so does the reset button: the row is the four views and nothing
+     else, and the keys/gestures cover the rest */
   .viewer-fit {
     display: none;
   }

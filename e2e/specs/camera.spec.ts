@@ -1,6 +1,7 @@
 /**
- * The camera and the bed: the seven standard views, the projection toggle (K), zoom to selection (Z),
- * the toolbar, the outline of a non-rectangular bed and the off-bed marking of an object row.
+ * The camera and the bed: the seven standard views by key, the view row (Home, Iso, the two quarter
+ * turns), the projection toggle (K), zoom to selection (Z), the outline of a non-rectangular bed and
+ * the off-bed marking of an object row.
  *
  * Ported from `.claude/t17-browser.mjs` ("camera", "a non-rectangular bed", "outside-bed marking").
  * The framing is measured by projecting known world points through the camera of the last frame
@@ -8,7 +9,7 @@
  * view really draws the model.
  */
 import { CUBE, PAIR, importFile, press, read, settle, state } from '../helpers/app';
-import { bedOutline, cameraPose, frameProbe, project, shot, tapCamera, toolpathBox } from '../helpers/canvas';
+import { angleDelta, bedOutline, cameraPose, cameraRig, frameProbe, project, shot, tapCamera, toolpathBox } from '../helpers/canvas';
 import { expect, openSharedSlice, sliceOnce, test } from '../helpers/fixtures';
 import type { Page } from '@playwright/test';
 
@@ -16,9 +17,9 @@ const KEYS = ['0', '1', '2', '3', '4', '5', '6'];
 /** The bottom view (2) looks through the plate: the bed covers the model, so the canvas does not change. */
 const VIEWS_WITH_MODEL = ['0', '1', '3', '4', '5', '6'];
 
-/** Click Top, then press the bottom key: the pose before and after, so a test can compare them. */
+/** The pose at the top view and the pose at the bottom view: key 1, then key 2. */
 async function bottomFromTop(app: Page) {
-  await app.getByTestId('viewer-view-top').click();
+  await press(app, '1');
   await settle(app, 900);
   const top = await cameraPose(app);
   await press(app, '2');
@@ -144,54 +145,181 @@ test.describe('camera: the seven views', () => {
     expect(Math.abs(((objects as number[])[0] + (objects as number[])[2]) / 2)).toBeLessThan(0.05);
   });
 
-  test('a toolbar button frames the same as its key, and the toolbar lists the seven views', async ({ app }) => {
+  test('a view button frames the same as its view key', async ({ app }) => {
     await importFile(app, PAIR);
     await app.evaluate(() => window.webslicer.getState().select([]));
     await app.waitForTimeout(900);
 
-    const labels = await app.evaluate(() => Array.from(document.querySelectorAll('.viewer-toolbar button')).map((b) => b.textContent));
-    expect(labels).toHaveLength(9);
-    expect(labels.slice(0, 7).every((l) => !!l)).toBe(true);
-
-    await app.locator('.viewer-toolbar button', { hasText: 'Top' }).first().click();
+    await app.getByTestId('view-iso').click();
     await app.waitForTimeout(1000);
-    const buttonTop = await frameProbe(app);
-    await press(app, '1');
+    const buttonIso = await frameProbe(app);
+    await press(app, '0');
     await app.waitForTimeout(1000);
-    const keyTop = await frameProbe(app);
-    expect(buttonTop.objects).toEqual(keyTop.objects);
+    const keyIso = await frameProbe(app);
+    expect(buttonIso.objects).toEqual(keyIso.objects);
   });
 
   /**
-   * #14: the Preview's view row drops the Bottom button – the plate hides the underside of the print
-   * there anyway – while the Plater keeps all seven (checking overhangs and the first layer from below
-   * is what the Plater uses it for). The number key 2 still reaches the bottom view in both, so a user
-   * who knew the shortcut keeps it.
+   * T-105: the row is the phone's four view buttons on every screen – Home, Iso, turn left, turn
+   * right – beside the projection toggle and zoom to selection. The named views are gone from it in
+   * the Plater and in the Preview; the number keys still reach all seven.
    */
-  test('the Preview drops the Bottom button, the Plater keeps it, and key 2 still shows the underside (#14)', async ({ app }) => {
+  test('the row has Home, Iso and the two turns on desktop and tablet, and no named view button (AC-1)', async ({ app }) => {
     await importFile(app, PAIR);
     await app.evaluate(() => window.webslicer.getState().select([]));
     await settle(app, 1200);
     await tapCamera(app);
 
-    // the plater's row: all seven views, Bottom among them
-    await expect(app.getByTestId('viewer-view-bottom')).toHaveCount(1);
-    await expect(app.getByTestId('viewer-view-top')).toHaveCount(1);
+    const names = async () =>
+      app.evaluate(() =>
+        Array.from(document.querySelectorAll('[data-testid="viewer-view-row"] button')).map((b) => b.getAttribute('aria-label')),
+      );
+    const widths = async () =>
+      app.evaluate(() =>
+        ['view-home', 'view-iso', 'view-turn-left', 'view-turn-right'].map(
+          (id) => document.querySelector(`[data-testid="${id}"]`)!.getBoundingClientRect().width,
+        ),
+      );
+
+    for (const view of ['plater', 'preview'] as const) {
+      await app.evaluate((v) => window.webslicer.getState().setView(v), view);
+      await settle(app, 1200);
+      expect(await names(), `${view}: the row's buttons, in order`).toEqual([
+        'Home',
+        'Iso view',
+        'Turn left 90°',
+        'Turn right 90°',
+        null, // the projection toggle, labelled by its text (Ortho/Persp)
+        'Zoom to selection (Z)',
+      ]);
+      for (const id of ['view-home', 'view-iso', 'view-turn-left', 'view-turn-right', 'viewer-fit-selection']) {
+        await expect(app.getByTestId(id), `${view}: ${id} is in the row`).toBeVisible();
+      }
+      for (const id of ['top', 'bottom', 'front', 'rear', 'left', 'right']) {
+        await expect(app.getByTestId(`viewer-view-${id}`), `${view}: no ${id} button`).toHaveCount(0);
+      }
+      for (const title of ['Top', 'Front', 'Rear', 'Left', 'Right', 'Bottom']) {
+        await expect(app.locator('[data-testid="viewer-view-row"] button', { hasText: title }), `${view}: no ${title} label`).toHaveCount(
+          0,
+        );
+      }
+      // the projection toggle is still there (its label is Ortho or Persp)
+      await expect(app.getByTestId('viewer-projection')).toBeVisible();
+      // desktop sizes: the row's own 28 px buttons, not the phone's 44 px targets
+      const sizes = await widths();
+      expect(
+        sizes.every((w) => w > 0 && w < 44),
+        `${view}: desktop button widths ${sizes.join(',')}`,
+      ).toBe(true);
+      expect(sizes, `${view}: four view buttons`).toHaveLength(4);
+    }
+
+    // the tablet: the same row, still the desktop's sizes (820 px is above the 640 px phone query)
+    await app.setViewportSize({ width: 820, height: 1180 });
+    await settle(app, 1200);
+    expect(await names(), 'tablet: the same row').toEqual([
+      'Home',
+      'Iso view',
+      'Turn left 90°',
+      'Turn right 90°',
+      null,
+      'Zoom to selection (Z)',
+    ]);
+    for (const id of ['top', 'bottom', 'front', 'rear', 'left', 'right']) {
+      await expect(app.getByTestId(`viewer-view-${id}`), `tablet: no ${id} button`).toHaveCount(0);
+    }
+  });
+
+  /**
+   * T-105 AC-2: a turn is a quarter turn around the world's vertical axis – the azimuth moves by 90°
+   * and nothing else changes – and four turns return. Keys 0–6 still select the seven views.
+   */
+  test('one turn moves the azimuth by 90° and nothing else; four turns return; keys 1–6 still work (AC-2)', async ({ app }) => {
+    await importFile(app, PAIR);
+    await app.evaluate(() => window.webslicer.getState().select([]));
+    await settle(app, 1200);
+
+    const turn = async (id: 'view-turn-left' | 'view-turn-right') => {
+      await tapCamera(app);
+      const before = await cameraRig(app);
+      expect(before, 'the camera rig is readable').toBeTruthy();
+      await app.getByTestId(id).click();
+      await settle(app, 800);
+      await tapCamera(app);
+      const after = await cameraRig(app);
+      expect(after, 'the camera rig is readable after the turn').toBeTruthy();
+      return { before: before!, after: after! };
+    };
+
+    await app.getByTestId('view-iso').click();
+    await settle(app, 900);
+    for (const [id, sign] of [
+      ['view-turn-right', 1],
+      ['view-turn-left', -1],
+    ] as const) {
+      const { before, after } = await turn(id);
+      expect(Math.abs(angleDelta(after.azimuth, before.azimuth) - sign * 90), `${id}: the azimuth moves 90°`).toBeLessThan(0.5);
+      expect(Math.abs(after.elevation - before.elevation), `${id}: the elevation is unchanged`).toBeLessThan(0.05);
+      expect(Math.abs(after.distance - before.distance), `${id}: the distance is unchanged`).toBeLessThan(0.05);
+      expect(Math.hypot(...after.target.map((v, i) => v - before.target[i])), `${id}: the target is unchanged`).toBeLessThan(0.05);
+      expect(after.up[2], `${id}: up is +Z, the horizon is level`).toBeGreaterThan(0.999);
+    }
+
+    // four turns come back to the pose they started from
+    const start = await cameraRig(app);
+    for (let i = 0; i < 4; i++) {
+      await app.getByTestId('view-turn-right').click();
+      await settle(app, 500);
+    }
+    await tapCamera(app);
+    const back = await cameraRig(app);
+    expect(Math.hypot(...back!.position.map((v, i) => v - start!.position[i])), 'four turns return').toBeLessThan(0.5);
+
+    // every number key still selects its standard view – the pose the key names
+    const rigAt = async (key: string) => {
+      await press(app, key);
+      await settle(app, 800);
+      await tapCamera(app);
+      const rig = await cameraRig(app);
+      expect(rig, `key ${key}: the camera rig is readable`).toBeTruthy();
+      return rig!;
+    };
+    const elevation = (await rigAt('1')).elevation;
+    expect(elevation, 'key 1 looks straight down').toBeGreaterThan(80);
+    expect((await rigAt('2')).elevation, 'key 2 looks straight up from below').toBeLessThan(-80);
+    expect((await rigAt('0')).elevation, 'key 0 is the isometric view').toBeGreaterThan(20);
+    // the four level views differ only in their azimuth: front -90, rear 90, left 180, right 0
+    for (const [key, azimuth] of [
+      ['3', -90],
+      ['4', 90],
+      ['5', 180],
+      ['6', 0],
+    ] as const) {
+      const rig = await rigAt(key);
+      expect(Math.abs(rig.elevation), `key ${key}: a level view`).toBeLessThan(0.5);
+      expect(Math.abs(angleDelta(rig.azimuth, azimuth)), `key ${key}: the view it names`).toBeLessThan(0.5);
+    }
+  });
+
+  /**
+   * The number key 2 still shows the underside in both views (T-105: the button is gone from the
+   * row everywhere, the shortcut stays).
+   */
+  test('key 2 shows the underside in the Plater and in the Preview (#14, T-105)', async ({ app }) => {
+    await importFile(app, PAIR);
+    await app.evaluate(() => window.webslicer.getState().select([]));
+    await settle(app, 1200);
+    await tapCamera(app);
+
     const plater = await bottomFromTop(app);
     expect(plater.top).not.toBeNull();
     expect(plater.bottom!.z, 'the plater key 2 looks up from below the plate').toBeLessThan(plater.top!.z - 10);
 
-    // the preview's row: six views, no Bottom
     await app.evaluate(() => window.webslicer.getState().setView('preview'));
     await settle(app, 1500);
-    await expect(app.getByTestId('viewer-view-bottom')).toHaveCount(0);
-    await expect(app.getByTestId('viewer-view-top')).toHaveCount(1);
-    const row = await app.evaluate(() => Array.from(document.querySelectorAll('.viewer-toolbar button')).map((b) => b.textContent?.trim()));
-    expect(row).toHaveLength(8); // six views, the projection and zoom to selection
-
-    // the shortcut is still there in the preview
     const preview = await bottomFromTop(app);
     expect(preview.bottom!.z, 'the preview key 2 looks up from below the plate').toBeLessThan(preview.top!.z - 10);
+    await expect(app.getByTestId('viewer-view-bottom')).toHaveCount(0);
   });
 
   /**

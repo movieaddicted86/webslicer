@@ -182,8 +182,9 @@ export function phoneBand(refs: SceneRefs): FrameBand | undefined {
   return window.matchMedia(PHONE_QUERY).matches ? visibleBandOf(refs) : undefined;
 }
 
-/** The part of the canvas a phone's bottom sheet leaves free: below the view row, above the sheet. */
-export function visibleBandOf(refs: SceneRefs): FrameBand | undefined {
+/** The part of the canvas a phone's bottom sheet leaves free: below the view row, above the sheet. */ export function visibleBandOf(
+  refs: SceneRefs,
+): FrameBand | undefined {
   const canvas = refs.renderer.domElement.getBoundingClientRect();
   if (!canvas.height) return undefined;
   const row = document.querySelector<HTMLElement>('[data-testid="viewer-view-row"]');

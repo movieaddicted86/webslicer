@@ -308,7 +308,7 @@ async function record(page: Page, rec: Recorder): Promise<void> {
   });
   await page.waitForTimeout(500);
   await page.evaluate(() => document.activeElement instanceof HTMLElement && document.activeElement.blur());
-  await page.locator('.viewer-toolbar button', { hasText: 'Iso' }).first().click();
+  await page.getByTestId('view-iso').click();
   await page.waitForTimeout(1600);
   // the preview does not frame the toolpaths: pan the model to the middle (right drag), then zoom in
   await page.mouse.move(900, 430);
