@@ -17,22 +17,16 @@ import {
   bedBox,
   focusBox,
   frameBox,
+  phoneBand,
+  previewSceneBox,
   readOrthoPref,
   sceneBox,
   switchCamera,
   turnCamera,
-  visibleBandOf,
   writeOrthoPref,
 } from './camera';
 import type { CamRequest, SceneRefs } from './types';
 
-/** The width below which the sheet owns the lower part of the scene (the same as the stylesheet). */
-const PHONE_QUERY = '(max-width: 640px)';
-
-/** The room above the phone's sheet; nothing on a wide window, where the cards sit beside the scene. */
-function bandOf(refs: SceneRefs) {
-  return window.matchMedia(PHONE_QUERY).matches ? visibleBandOf(refs) : undefined;
-}
 interface CameraState {
   /** true while the orthographic projection is active */
   ortho: boolean;
@@ -70,13 +64,17 @@ export function useCamera(refsRef: RefObject<SceneRefs | null>, ortho: boolean, 
   useEffect(() => {
     const refs = refsRef.current;
     if (!refs || !request) return;
-    const shape = useStore.getState().presets.printer.current.bed_shape || DEFAULT_BED;
-    const band = bandOf(refs);
+    const st = useStore.getState();
+    const shape = st.presets.printer.current.bed_shape || DEFAULT_BED;
+    const band = phoneBand(refs);
+    // a phone's Preview shows the plate and the toolpaths in the room above the sheet; the plate
+    // alone would clip the part, the toolpaths alone would push the plate out of the picture (T-103)
+    const phonePreview = !!band && st.view === 'preview';
     if (request.req.mode === 'bed') {
       // Home frames the plate again, so it ends an earlier manual view: sheet changes may reframe
       refs.userMoved = false;
       const { dir, up } = viewDirection('iso');
-      frameBox(refs, bedBox(shape), dir, up, band);
+      frameBox(refs, phonePreview ? previewSceneBox(shape) : bedBox(shape), dir, up, band);
       return;
     }
     if (request.req.mode === 'scene') {
@@ -84,12 +82,15 @@ export function useCamera(refsRef: RefObject<SceneRefs | null>, ortho: boolean, 
       // direction the user is looking from and show plate and all objects in the room above the sheet
       const current = refs.camera.position.clone().sub(refs.controls.target);
       const { dir, up } = current.lengthSq() > 1e-9 ? { dir: current.normalize(), up: refs.camera.up.clone() } : viewDirection('iso');
-      frameBox(refs, sceneBox(refs, shape), dir, up, band);
+      frameBox(refs, phonePreview ? previewSceneBox(shape) : sceneBox(refs, shape), dir, up, band);
       return;
     }
     // every other command is the user's own view: automatic framing leaves it alone from now on
     refs.userMoved = true;
     if (request.req.mode === 'view') {
+      // an explicit view (the row's Iso, the keys) frames what the view always framed: the visible
+      // toolpaths / the selection, in the room above the sheet (T-092). Only the automatic framing
+      // and Home show the plate together with the result (T-103)
       const { dir, up } = viewDirection(request.req.view);
       frameBox(refs, focusBox(refs, shape), dir, up, band);
       return;

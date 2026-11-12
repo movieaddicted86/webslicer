@@ -9,7 +9,7 @@ import * as THREE from 'three';
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
 import { bedShapeOf } from '@webslicer/shared';
 import { viewDirection } from './cameraMath';
-import { bedBox, frameBox } from './camera';
+import { bedBox, frameBox, phoneBand } from './camera';
 import { clearAndDispose } from './dispose';
 import type { BedAsset, SceneRefs } from './types';
 
@@ -132,7 +132,7 @@ export function useBed(refsRef: RefObject<SceneRefs | null>, bedShape: string, b
       const prevShape = refs.bedKey?.split('|')[0];
       if (!refs.bedKey || prevShape !== bedShape) {
         const { dir, up } = viewDirection('iso');
-        frameBox(refs, bedBox(bedShape), dir, up);
+        frameBox(refs, bedBox(bedShape), dir, up, phoneBand(refs));
       }
       refs.bedKey = key;
     }

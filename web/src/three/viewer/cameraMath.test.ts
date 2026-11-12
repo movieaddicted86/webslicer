@@ -172,30 +172,37 @@ test('a turn levels the up vector again, but a vertical view keeps its own', () 
 
 test('a frame in a band keeps every corner of the box inside the band, centred in it', () => {
   const b = box([0, 0, 0], [250, 210, 90]);
-  const band = { top: 110, bottom: 470, width: 390, height: 744 };
-  for (const v of VIEWS) {
-    const frame = fitFrameInBand(b, v.dir, v.up, FOV, band);
-    const camera = new THREE.PerspectiveCamera(FOV, band.width / band.height, 1, 5000);
-    camera.position.copy(frame.position);
-    camera.up.copy(frame.up);
-    camera.lookAt(frame.target);
-    camera.updateMatrixWorld();
-    camera.updateProjectionMatrix();
-    const corner = new THREE.Vector3();
-    let minY = Infinity;
-    let maxY = -Infinity;
-    for (let i = 0; i < 8; i++) {
-      corner.set(i & 1 ? b.max.x : b.min.x, i & 2 ? b.max.y : b.min.y, i & 4 ? b.max.z : b.min.z);
-      const ndc = corner.clone().project(camera);
-      const y = ((1 - ndc.y) / 2) * band.height;
-      minY = Math.min(minY, y);
-      maxY = Math.max(maxY, y);
-      assert.ok(Math.abs(ndc.x) <= 1 + 1e-6, `${v.id}: corner outside horizontally (${ndc.x})`);
+  // the tall band is the sheet at peek, the short one the preview's peek and a guided step's card:
+  // the move along the world's vertical axis also changes the depth, which used to push the plate
+  // under the view row on a short band (T-103)
+  for (const band of [
+    { top: 110, bottom: 470, width: 390, height: 744 },
+    { top: 70, bottom: 175, width: 390, height: 743 },
+  ]) {
+    for (const v of VIEWS) {
+      const frame = fitFrameInBand(b, v.dir, v.up, FOV, band);
+      const camera = new THREE.PerspectiveCamera(FOV, band.width / band.height, 1, 5000);
+      camera.position.copy(frame.position);
+      camera.up.copy(frame.up);
+      camera.lookAt(frame.target);
+      camera.updateMatrixWorld();
+      camera.updateProjectionMatrix();
+      const corner = new THREE.Vector3();
+      let minY = Infinity;
+      let maxY = -Infinity;
+      for (let i = 0; i < 8; i++) {
+        corner.set(i & 1 ? b.max.x : b.min.x, i & 2 ? b.max.y : b.min.y, i & 4 ? b.max.z : b.min.z);
+        const ndc = corner.clone().project(camera);
+        const y = ((1 - ndc.y) / 2) * band.height;
+        minY = Math.min(minY, y);
+        maxY = Math.max(maxY, y);
+        assert.ok(Math.abs(ndc.x) <= 1 + 1e-6, `${v.id}: corner outside horizontally (${ndc.x})`);
+      }
+      // 4 px tolerance like the acceptance check, and the box's centre sits on the band's centre
+      assert.ok(minY >= band.top - 4 && maxY <= band.bottom + 4, `${v.id}: ${minY.toFixed(1)}…${maxY.toFixed(1)} outside`);
+      const centreNdc = b.getCenter(new THREE.Vector3()).project(camera);
+      const centreY = ((1 - centreNdc.y) / 2) * band.height;
+      assert.ok(Math.abs(centreY - (band.top + band.bottom) / 2) < 2, `${v.id}: centre at ${centreY.toFixed(1)}`);
     }
-    // 4 px tolerance like the acceptance check, and the box's centre sits around the band's centre
-    assert.ok(minY >= band.top - 4 && maxY <= band.bottom + 4, `${v.id}: ${minY.toFixed(1)}…${maxY.toFixed(1)} outside`);
-    const centreNdc = b.getCenter(new THREE.Vector3()).project(camera);
-    const centreY = ((1 - centreNdc.y) / 2) * band.height;
-    assert.ok(Math.abs(centreY - (band.top + band.bottom) / 2) < 8, `${v.id}: centre at ${centreY.toFixed(1)}`);
   }
 });
