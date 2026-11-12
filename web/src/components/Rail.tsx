@@ -97,7 +97,8 @@ export function Rail() {
                       setMoreOpen(false);
                       void runNavAction(entry.action);
                     }}
-                    data-testid={`${entry.testId}-more`}
+                    /* the More menu's own hooks stay the rail's: `rail-guided-more`, `rail-preferences-more` */
+                    data-testid={`rail-${entry.id}-more`}
                   >
                     <Icon name={entry.icon} size={18} />
                     <span>{entry.label}</span>

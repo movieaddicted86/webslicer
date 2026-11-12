@@ -186,6 +186,7 @@ export function AppMenu() {
               onMouseEnter={() => menu.hoverItem()}
               title={entry.id === 'importModels' ? 'Import STL/OBJ/3MF/AMF/STEP (Ctrl+I)' : undefined}
               data-nav-id={entry.id}
+              data-testid={entry.testId}
             >
               <Icon name={entry.icon} size={16} /> {entry.label}
               {entry.id === 'importModels' && <kbd>Ctrl+I</kbd>}

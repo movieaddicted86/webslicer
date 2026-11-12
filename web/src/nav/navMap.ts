@@ -88,6 +88,19 @@ export const RAIL_ENTRIES: readonly NavEntry[] = [
   },
 ];
 
+/**
+ * The guided flow's one door on every screen (T-106): the app menu lists it, and the phone's More
+ * menu renders the same entry from this table.
+ */
+export const GUIDED_START_ENTRY: NavEntry = {
+  id: 'guidedStart',
+  label: 'Guided start',
+  icon: 'guided',
+  home: 'menu',
+  action: { kind: 'guidedStart' },
+  testId: 'menu-guided',
+};
+
 /** The menu's own entries; the flyouts (`MENU_SUBMENUS`) follow them. */
 export const MENU_ENTRIES: readonly NavEntry[] = [
   { id: 'importModels', label: 'Import models…', icon: 'import', home: 'menu', action: { kind: 'import' } },
@@ -98,6 +111,9 @@ export const MENU_ENTRIES: readonly NavEntry[] = [
     home: 'menu',
     action: { kind: 'dialog', dialog: 'importPresets' },
   },
+  // T-106: the guided start's one home: the app menu. The phone's More menu renders this same entry,
+  // so the flow is never hand-written into a second host.
+  GUIDED_START_ENTRY,
 ];
 
 /** The items of Menu → Export ▸. */
@@ -208,20 +224,6 @@ export const PRESET_PRINTERS_ENTRY: NavEntry = {
   action: { kind: 'dialog', dialog: 'printers', payload: { tab: 'vendor' } },
 };
 
-/**
- * The phone's second door into the guided flow (T-100): the More menu lists it with the rail's
- * remaining rows. It is a rail function, so the desktop rail could grow the row too, but the flow
- * itself is phone-only – the entry lives here so the menu cannot hand-write it.
- */
-export const GUIDED_START_ENTRY: NavEntry = {
-  id: 'guidedStart',
-  label: 'Guided start',
-  icon: 'guided',
-  home: 'rail',
-  action: { kind: 'guidedStart' },
-  testId: 'rail-guided',
-};
-
 /** The bar's actions; their labels change with their state, so they are not rendered from the table. */
 export const TOP_BAR_ENTRIES: readonly NavEntry[] = [
   { id: 'undo', label: 'Undo', icon: 'undo', home: 'top-bar', action: { kind: 'undo' }, testId: 'undo-button' },
@@ -260,7 +262,6 @@ export const NAV_ENTRIES: readonly NavEntry[] = [
   ...EXPORT_ENTRIES,
   ...SETTINGS_ENTRIES,
   PRESET_PRINTERS_ENTRY,
-  GUIDED_START_ENTRY,
   ...TOP_BAR_ENTRIES,
   ...VIEW_SWITCH_ENTRIES,
 ];
