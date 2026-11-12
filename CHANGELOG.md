@@ -9,6 +9,10 @@ rc.3 to rc.5 and of the `Unreleased` of that time are kept verbatim in
 
 ### Fixed
 
+- **Phone Preview framing follows the sheet (T-104):** after a slice the plate and toolpaths are
+  framed into the band again when the sheet opens to the layer and print-head sliders – also after a
+  camera move in the Plater – unless the camera was moved in the Preview, and a fully open sheet
+  keeps the last framing instead of jumping.
 - **The bed keeps its surface after slicing (T-103):** the check for the ribbon shader's texture
   format left three.js's texture unit pointing at an empty texture, so from the first slice on the
   bed's vendor texture and grid were sampled black; the check restores the previous binding.
