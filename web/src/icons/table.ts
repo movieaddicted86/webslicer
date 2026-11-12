@@ -147,8 +147,8 @@ export const ICON_TABLE = {
   /** the object list itself – its card heading and the phone's drawer toggle */
   objects: { source: 'prusa', file: 'object_icon' },
 
-  // the phone's view row (T-099): Home, Iso and the two quarter turns. The desktop row keeps its
-  // words, so these are icon-only controls with an `aria-label`/`title`
+  // the view row (T-105, from the phone's row of T-099): Home, Iso and the two quarter turns, the
+  // same buttons on every screen – icon-only controls with an `aria-label`/`title`
   viewHome: { source: 'lucide', icon: House },
   viewIso: { source: 'lucide', icon: Box },
   viewTurnLeft: { source: 'lucide', icon: RotateCcw },

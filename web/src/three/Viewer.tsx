@@ -1,6 +1,6 @@
 import { useRef, useMemo } from 'react';
 import { useStore } from '../state/store';
-import { VIEWS, viewDef } from './viewer/cameraMath';
+import { viewDef } from './viewer/cameraMath';
 import { printerLayerLimits } from '../plater/layerProfile';
 import { useKeyboardShortcuts } from './viewer/useKeyboardShortcuts';
 import type { CamRequest, SceneRefs } from './viewer/types';
@@ -28,15 +28,13 @@ export { VOLUME_COLORS } from './viewer/colors';
 const PHONE_QUERY = '(max-width: 640px)';
 
 /**
- * The phone's view row (T-099): four icon buttons in one line – Home, Iso, turn left and turn right.
- * The seven named views need two rows of short labels over the model, and a thumb needs neither Top
- * nor Bottom on a companion screen; the two turns give the four isometric corners instead, staying at
- * the same elevation and distance.
+ * The view row, on every screen (T-105): four icon buttons in one line – Home, Iso, turn left and
+ * turn right. The seven named views needed two rows of short labels over the model; the two turns
+ * give the four isometric corners instead, staying at the same elevation and distance. The number
+ * keys 0–6 still select the standard views on a keyboard.
  */
 const VIEW_ISO = viewDef('iso');
-/** #14: the desktop view row of the Preview – every standard view but Bottom. */
-const PREVIEW_VIEWS = VIEWS.filter((v) => v.id !== 'bottom');
-const PHONE_VIEWS: Array<{
+const VIEW_BUTTONS: Array<{
   id: 'home' | 'iso' | 'turn-left' | 'turn-right';
   label: string;
   title: string;
@@ -172,14 +170,6 @@ export function Viewer() {
   // keyboard
   useKeyboardShortcuts(requestCamera, toggleOrtho);
 
-  // T-092: on a phone the seven views share one row of short buttons over the top of the scene, which
-  // is also what the Preview's view buttons are – one tap, and each frames the toolpaths (the same
-  // `focusBox` a key uses)
-  // #14: the Preview's plate hides the underside of the model anyway, so its view row drops Bottom;
-  // the Plater keeps all seven (checking overhangs and the first layer from below), and the keyboard
-  // shortcut still reaches the bottom view in both
-  const desktopViews = view === 'preview' ? PREVIEW_VIEWS : VIEWS;
-
   return (
     <div className={`viewer view-${view} ${placeOnFace ? 'place-on-face' : ''}`} ref={containerRef}>
       {/* L-4: the tool strip floats at the top centre; the open tool's controls are in the context
@@ -193,36 +183,25 @@ export function Viewer() {
         )}
         <div>Views: 0-6 · K: perspective/ortho · Z: zoom to selection</div>
       </div>
-      {/* PrusaSlicer's view toolbar: the standard views, the projection and zoom to selection.
-          It floats centred in the band between the cards, as the tool strip does, so it never sits
-          under the context panel. On a phone it is the four-button row described in `PHONE_VIEWS`. */}
+      {/* The view row: Home, Iso and the two quarter turns, the projection and zoom to selection –
+          the same four view buttons on every screen (T-105). It floats centred in the band between
+          the cards, as the tool strip does, so it never sits under the context panel. */}
       <div className="viewer-bar-band">
-        <div className="viewer-toolbar" data-testid={phone ? 'viewer-view-row' : undefined}>
-          {phone
-            ? PHONE_VIEWS.map((v) => (
-                <button
-                  key={v.id}
-                  className="viewer-view-button"
-                  title={v.title}
-                  aria-label={v.label}
-                  data-testid={v.testId}
-                  onClick={() => requestCamera(v.request)}
-                >
-                  <Icon name={v.icon} size={20} />
-                </button>
-              ))
-            : desktopViews.map((v) => (
-                <button
-                  key={v.id}
-                  className="viewer-view-button"
-                  title={`${v.label} view (${v.key})`}
-                  aria-label={`${v.label} view`}
-                  data-testid={`viewer-view-${v.id}`}
-                  onClick={() => requestCamera({ mode: 'view', view: v.id })}
-                >
-                  {v.label}
-                </button>
-              ))}
+        <div className="viewer-toolbar" data-testid="viewer-view-row">
+          {VIEW_BUTTONS.map((v) => (
+            <button
+              key={v.id}
+              className="viewer-view-button"
+              title={v.title}
+              aria-label={v.label}
+              data-testid={v.testId}
+              onClick={() => requestCamera(v.request)}
+            >
+              <Icon name={v.icon} size={20} />
+            </button>
+          ))}
+          {/* the projection and the zoom-to-selection stay as they were: on the phone the row is the
+              four views alone, the keys and gestures cover the rest */}
           {!phone && (
             <>
               <button

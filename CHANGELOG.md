@@ -7,6 +7,13 @@ rc.3 to rc.5 and of the `Unreleased` of that time are kept verbatim in
 
 ## Unreleased
 
+### Changed
+
+- **One view row everywhere (T-105):** the view row above the 3D view is the phone's four buttons –
+  Home, Iso, turn left 90° and turn right 90° – on the desktop and the tablet too, in the Plater and
+  in the Preview. The perspective/orthographic toggle and zoom to selection stay beside them, and the
+  number keys 0–6 still select the seven standard views.
+
 ## 1.1.1 – 2026-11-12
 
 The phone follow-up: the fixes from three hands-on phone test rounds and the guided start on a phone.
