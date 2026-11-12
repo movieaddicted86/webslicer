@@ -176,7 +176,9 @@ test.describe('camera: the seven views', () => {
       );
     const widths = async () =>
       app.evaluate(() =>
-        Array.from(document.querySelectorAll('[data-testid="viewer-view-row"] button')).map((b) => b.getBoundingClientRect().width),
+        ['view-home', 'view-iso', 'view-turn-left', 'view-turn-right'].map(
+          (id) => document.querySelector(`[data-testid="${id}"]`)!.getBoundingClientRect().width,
+        ),
       );
 
     for (const view of ['plater', 'preview'] as const) {
@@ -209,7 +211,7 @@ test.describe('camera: the seven views', () => {
         sizes.every((w) => w > 0 && w < 44),
         `${view}: desktop button widths ${sizes.join(',')}`,
       ).toBe(true);
-      expect(sizes, `${view}: four view buttons beside the projection and zoom`).toHaveLength(6);
+      expect(sizes, `${view}: four view buttons`).toHaveLength(4);
     }
 
     // the tablet: the same row, still the desktop's sizes (820 px is above the 640 px phone query)
@@ -273,25 +275,30 @@ test.describe('camera: the seven views', () => {
     const back = await cameraRig(app);
     expect(Math.hypot(...back!.position.map((v, i) => v - start!.position[i])), 'four turns return').toBeLessThan(0.5);
 
-    // every number key still selects its view, measured on the camera's height above the plate
-    const z = async (key: string) => {
+    // every number key still selects its standard view – the pose the key names
+    const rigAt = async (key: string) => {
       await press(app, key);
       await settle(app, 800);
       await tapCamera(app);
-      return (await cameraPose(app))!.z;
+      const rig = await cameraRig(app);
+      expect(rig, `key ${key}: the camera rig is readable`).toBeTruthy();
+      return rig!;
     };
-    const top = await z('1');
-    expect(await z('2'), 'key 2 looks from below').toBeLessThan(top - 10);
-    expect(await z('3'), 'key 3 is the front view, near the plate').toBeLessThan(top - 10);
-    for (const key of ['0', '4', '5', '6']) {
-      expect(await z(key), `key ${key}: a level view above the plate`).toBeGreaterThan(0);
+    const elevation = (await rigAt('1')).elevation;
+    expect(elevation, 'key 1 looks straight down').toBeGreaterThan(80);
+    expect((await rigAt('2')).elevation, 'key 2 looks straight up from below').toBeLessThan(-80);
+    expect((await rigAt('0')).elevation, 'key 0 is the isometric view').toBeGreaterThan(20);
+    // the four level views differ only in their azimuth: front -90, rear 90, left 180, right 0
+    for (const [key, azimuth] of [
+      ['3', -90],
+      ['4', 90],
+      ['5', 180],
+      ['6', 0],
+    ] as const) {
+      const rig = await rigAt(key);
+      expect(Math.abs(rig.elevation), `key ${key}: a level view`).toBeLessThan(0.5);
+      expect(Math.abs(angleDelta(rig.azimuth, azimuth)), `key ${key}: the view it names`).toBeLessThan(0.5);
     }
-    // and it is the standard view the key names: key 3 faces the bed from -Y, seen looking along +Y
-    await press(app, '3');
-    await settle(app, 800);
-    await tapCamera(app);
-    const front = await cameraRig(app);
-    expect(Math.abs(angleDelta(front!.azimuth, -90)), 'key 3 is the front view').toBeLessThan(0.5);
   });
 
   /**
