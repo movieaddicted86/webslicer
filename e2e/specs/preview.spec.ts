@@ -9,7 +9,18 @@
 import fs from 'node:fs';
 import { CUBE, importFile, read, settle, sliceAndWait, waitSliceDone } from '../helpers/app';
 import type { Page } from '@playwright/test';
-import { census, gcodeLook, gcodeScene, markerKindProbe, toolMarkerPosition, visibleMeshes } from '../helpers/canvas';
+import {
+  bedOutline,
+  census,
+  gcodeLook,
+  gcodeScene,
+  lookInside,
+  markerKindProbe,
+  project,
+  toolMarkerPosition,
+  visibleMeshes,
+} from '../helpers/canvas';
+import type { Vec3 } from '../helpers/canvas';
 import { expect, openSharedSlice, sliceOnce, test } from '../helpers/fixtures';
 import { click, fill, outline } from '../helpers/dom';
 
@@ -94,6 +105,32 @@ test.describe('preview: the sliced result (UAT-14)', () => {
     expect(stats.actions).toEqual(['Send to printer', 'Export G-code', 'Save to library']);
     // the fixture data configures no host, so there is nothing to send to
     expect(stats.sendDisabled).toBe(true);
+  });
+
+  test('the bed keeps its surface, grid and vendor texture after slicing (T-103 AC-1)', async ({ app }) => {
+    // the page slices for itself: the bug came from the texture probe that runs while a slice's
+    // G-code is built, and a job loaded from the server never runs it (T-103)
+    await app.evaluate(() => window.webslicer.getState().setView('plater'));
+    await importFile(app, CUBE);
+    await sliceAndWait(app);
+    await app.evaluate(() => window.webslicer.getState().setView('preview'));
+    await settle(app, 1800);
+    // measure inside the plate's projected outline: the background and the dark UI around it cannot
+    // stand in for the surface, and a bed that has gone black is one flat near-zero picture
+    const { outline } = await bedOutline(app);
+    expect(outline, 'the plate has an outline to measure').not.toBeNull();
+    const ndc = await project(
+      app,
+      outline!.map(([x, y]) => [x, y, 0] as Vec3),
+    );
+    expect(ndc, 'the camera is tapped').not.toBeNull();
+    const look = await lookInside(
+      app,
+      ndc!.filter((p): p is [number, number] => !!p),
+    );
+    expect(look.pixels, 'the plate covers a measurable area').toBeGreaterThan(10_000);
+    expect(look.mean, 'the bed shows its surface, grid and texture (not black)').toBeGreaterThan(35);
+    expect(look.dark, 'the bed is not one flat black surface').toBeLessThan(0.5);
   });
 
   test('Export G-code downloads the file with its thumbnail blocks', async ({ app }) => {

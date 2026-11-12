@@ -366,8 +366,74 @@ export async function shot(page: Page): Promise<CanvasAnalysis> {
   return analysis;
 }
 
-/** Canvas centre of the largest red blob (a gizmo handle), in CSS pixels relative to the canvas. */
-export async function gizmoHandle(page: Page): Promise<{ x: number; y: number; count: number } | null> {
+/** What the picture holds inside a polygon given in NDC: mean luminance and the near-black share. */
+export interface SurfaceLook {
+  /** mean luminance (0–255) of the pixels inside the polygon */
+  mean: number;
+  /** share of pixels darker than 25 (a bed that has gone black is one flat near-zero surface) */
+  dark: number;
+  /** how many pixels were sampled */
+  pixels: number;
+}
+
+/**
+ * Measure the picture inside a projected polygon, e.g. the plate's outline: a bed that is drawn shows
+ * its surface colour and grid (mean ≈ 55 in the app's theme), one that has gone black is near zero
+ * (T-103). Sampling every second pixel keeps a 200k-pixel plate cheap.
+ */
+export async function lookInside(page: Page, poly: Array<[number, number]>): Promise<SurfaceLook> {
+  const b64 = (await page.locator('.viewer canvas').screenshot()).toString('base64');
+  return page.evaluate(
+    async ({ b64, poly }) => {
+      const img = new Image();
+      img.src = 'data:image/png;base64,' + b64;
+      await img.decode();
+      const c = document.createElement('canvas');
+      c.width = img.width;
+      c.height = img.height;
+      const ctx = c.getContext('2d');
+      if (!ctx) throw new Error('no 2d canvas context');
+      ctx.drawImage(img, 0, 0);
+      const d = ctx.getImageData(0, 0, c.width, c.height).data;
+      // NDC → pixels of the screenshot
+      const pts = poly.map(([x, y]) => [((x + 1) / 2) * c.width, ((1 - y) / 2) * c.height]);
+      const inside = (x: number, y: number) => {
+        let on = false;
+        for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+          const [xi, yi] = pts[i];
+          const [xj, yj] = pts[j];
+          if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) on = !on;
+        }
+        return on;
+      };
+      const xs = pts.map((p) => p[0]);
+      const ys = pts.map((p) => p[1]);
+      const x0 = Math.max(0, Math.floor(Math.min(...xs)));
+      const x1 = Math.min(c.width - 1, Math.ceil(Math.max(...xs)));
+      const y0 = Math.max(0, Math.floor(Math.min(...ys)));
+      const y1 = Math.min(c.height - 1, Math.ceil(Math.max(...ys)));
+      let n = 0;
+      let sum = 0;
+      let dark = 0;
+      for (let y = y0; y <= y1; y += 2) {
+        for (let x = x0; x <= x1; x += 2) {
+          if (!inside(x + 0.5, y + 0.5)) continue;
+          const o = (y * c.width + x) * 4;
+          const l = 0.299 * d[o] + 0.587 * d[o + 1] + 0.114 * d[o + 2];
+          n++;
+          sum += l;
+          if (l < 25) dark++;
+        }
+      }
+      return { mean: n ? Math.round(sum / n) : 0, dark: n ? dark / n : 1, pixels: n };
+    },
+    { b64, poly },
+  );
+}
+
+/** Canvas centre of the largest red blob (a gizmo handle), in CSS pixels relative to the canvas. */ export async function gizmoHandle(
+  page: Page,
+): Promise<{ x: number; y: number; count: number } | null> {
   const a = await shot(page);
   const blob = a.red[0];
   return blob ? { x: blob.centre[0], y: blob.centre[1], count: blob.count } : null;

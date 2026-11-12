@@ -14,12 +14,14 @@
  * The flows are driven through the DOM (the tab bar, the sheet handle, the buttons) so a broken
  * control fails the test; the store is only read.
  */
-import { armGuidedStart, blockSessionRestore, CUBE, importFile, openApp, read, settle } from '../helpers/app';
+import { armGuidedStart, blockSessionRestore, CUBE, importFile, openApp, read, settle, sliceAndWait } from '../helpers/app';
 import {
   angleDelta,
+  bedOutline,
   cameraPose,
   cameraRig,
   frameProbe,
+  lookInside,
   project as projectPoints,
   screenPoint,
   shot,
@@ -375,6 +377,38 @@ async function expectFramedInBand(app: Page, what: string) {
   return band;
 }
 
+/**
+ * T-103 AC-2: in the Preview the plate and the visible toolpaths project completely into the band
+ * between the view row and the sheet (4 px tolerance) – the models are hidden once a result exists,
+ * so the toolpath box stands in for them.
+ */
+async function expectPreviewInBand(app: Page, what: string) {
+  const { bed } = await sceneCorners(app);
+  const box = await toolpathBox(app);
+  expect(box, `${what}: the result has toolpaths`).not.toBeNull();
+  const points: Array<[number, number, number]> = [...bed];
+  for (let i = 0; i < 8; i++) {
+    points.push([i & 1 ? box!.max[0] : box!.min[0], i & 2 ? box!.max[1] : box!.min[1], i & 4 ? box!.max[2] : box!.min[2]]);
+  }
+  const ndc = await projectPoints(app, points);
+  expect(ndc, `${what}: the camera is tapped`).not.toBeNull();
+  expect(
+    ndc!.filter((p) => !p),
+    `${what}: every corner is in front of the camera`,
+  ).toHaveLength(0);
+  const band = await freeBand(app);
+  const px = (v: number) => band.canvas.x + ((v + 1) / 2) * band.canvas.width;
+  const py = (v: number) => band.canvas.y + ((1 - v) / 2) * band.canvas.height;
+  const xs = ndc!.map((p) => px(p![0]));
+  const ys = ndc!.map((p) => py(p![1]));
+  expect(band.bottom, `${what}: the sheet leaves room for the scene`).toBeGreaterThan(band.top + 100);
+  expect(Math.min(...ys), `${what}: the plate is not under the view row`).toBeGreaterThanOrEqual(band.top - 4);
+  expect(Math.max(...ys), `${what}: plate and toolpaths are not under the sheet`).toBeLessThanOrEqual(band.bottom + 4);
+  expect(Math.min(...xs), `${what}: the scene is not cut on the left`).toBeGreaterThanOrEqual(band.canvas.x - 4);
+  expect(Math.max(...xs), `${what}: the scene is not cut on the right`).toBeLessThanOrEqual(band.canvas.x + band.canvas.width + 4);
+  return band;
+}
+
 /** The plate and the model are really drawn (T-101 AC-1: not a black canvas). */
 async function expectSceneDrawn(app: Page, what: string): Promise<void> {
   const a = await shot(app);
@@ -686,6 +720,62 @@ test.describe('the 3D view by finger (T-092)', () => {
 test.describe('the preview on a phone (T-092)', () => {
   test.describe.configure({ lock: 'server-state' });
 
+  test('the Preview bed keeps its surface and grid after slicing (T-103 AC-1)', async ({ app }) => {
+    test.skip(!isPhone(), 'the phone preview is the sheet layout of a 390 px screen');
+    // the page slices for itself: the bug came from the texture probe that runs while a slice's
+    // G-code is built, and a job loaded from the server never runs it (T-103)
+    await importFile(app, CUBE);
+    await sliceAndWait(app);
+    await app.evaluate(() => window.webslicer.getState().setView('preview'));
+    await settle(app, 1800);
+    // measure inside the plate's projected outline: the background and the dark UI around it cannot
+    // stand in for the surface, and a bed that has gone black is one flat near-zero picture
+    const { outline } = await bedOutline(app);
+    expect(outline, 'the plate has an outline to measure').not.toBeNull();
+    const ndc = await projectPoints(
+      app,
+      outline!.map(([x, y]) => [x, y, 0] as [number, number, number]),
+    );
+    expect(ndc, 'the camera is tapped').not.toBeNull();
+    const look = await lookInside(
+      app,
+      ndc!.filter((p): p is [number, number] => !!p),
+    );
+    expect(look.pixels, 'the plate covers a measurable area').toBeGreaterThan(3000);
+    expect(look.mean, 'the bed shows its surface and grid (not black)').toBeGreaterThan(35);
+    expect(look.dark, 'the bed is not one flat black surface').toBeLessThan(0.5);
+  });
+
+  test('the Preview frames plate and toolpaths in the band, and a finger orbit ends the automatic framing (T-103 AC-2)', async ({
+    app,
+    browser,
+  }) => {
+    test.skip(!isPhone(), 'the phone preview is the sheet layout of a 390 px screen');
+    const sharedJob = await sliceOnce(browser);
+    await openSharedSlice(app, sharedJob);
+    await app.evaluate(() => {
+      const s = window.webslicer.getState();
+      s.setView('preview');
+      s.setSheetState('peek');
+    });
+    // the automatic framing measures the band after the sheet's 180 ms transition (240 ms settle)
+    await settle(app, 1600);
+    await expectPreviewInBand(app, 'the Preview at peek');
+
+    // a finger on the scene is the user's own view: nothing frames it back afterwards
+    const empty = await canvasPoint(app, 0.18, 0.42);
+    await touchDrag(app, empty, { x: empty.x + 70, y: empty.y + 30 });
+    await settle(app, 500);
+    const orbited = await cameraPose(app);
+    await settle(app, 900);
+    const later = await cameraPose(app);
+    expect(orbited && later, 'the camera is tapped').toBeTruthy();
+    expect(
+      Math.hypot(later!.x - orbited!.x, later!.y - orbited!.y, later!.z - orbited!.z),
+      'nothing reframes after the gesture',
+    ).toBeLessThan(0.5);
+  });
+
   test('Home and Iso frame the toolpaths, the turns keep the framing, and the layer slider moves by touch (T-092, T-099)', async ({
     app,
     browser,
@@ -902,6 +992,11 @@ test.describe('the guided start on a phone (T-100)', () => {
     await expect(app.getByTestId('guided-card')).toBeVisible();
     await expect(app.getByTestId('guided-step')).toHaveText('1 / 4');
     await expect(app.getByTestId('guided-header')).toContainText('Pick a model');
+    // T-103 AC-3: the empty plate lies completely in the room the card leaves. The reload swapped
+    // the renderer, so take the camera before projecting through it.
+    await settle(app, 1200);
+    await tapCamera(app);
+    await expectFramedInBand(app, 'guided step 1');
     await checkStep(app, 'guided step 1', ['guided-pick', 'guided-library', 'guided-next', 'guided-skip']);
     // step 1 carries the two ways in, so the scene's card is not drawn a second time
     await expect(app.getByTestId('dropzone-empty')).toHaveCount(0);
