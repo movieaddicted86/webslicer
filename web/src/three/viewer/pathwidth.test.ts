@@ -9,6 +9,7 @@ import {
   RIBBON_PIXEL_THRESHOLD,
   ribbonGeometry,
   ribbonsEnabled,
+  ribbonSupport,
   ribbonTextureLimit,
   texelAt,
   ToolpathMaterial,
@@ -208,4 +209,33 @@ test('a texture layout with a padded row mirrors the shared buffer in a dense co
   assert.equal((start.image.data as unknown as Float32Array)[0], 99);
   material.dispose();
   geometry.dispose();
+});
+
+test('the float-texture probe leaves the bound texture in place (the bed turned black, T-103)', () => {
+  // three.js skips a texture bind when its state cache says the texture is already bound to the
+  // active unit. The raw probe must therefore put the previous binding back, not unbind the unit.
+  const previous = { name: 'bed texture' };
+  const binds: unknown[] = [];
+  const gl = {
+    TEXTURE_BINDING_2D: 0x8069,
+    TEXTURE_2D: 0x0de1,
+    MAX_VERTEX_TEXTURE_IMAGE_UNITS: 0x8b4c,
+    RGB32F: 0x8815,
+    RGB: 0x1907,
+    FLOAT: 0x1406,
+    NO_ERROR: 0,
+    createTexture: () => ({ name: 'probe' }),
+    deleteTexture: () => undefined,
+    bindTexture: (_target: number, tex: unknown) => void binds.push(tex),
+    texImage2D: () => undefined,
+    getError: () => 0,
+    getParameter: (name: number) => (name === 0x8069 ? previous : name === 0x8b4c ? 8 : 0),
+  };
+  const renderer = { getContext: () => gl, capabilities: { maxTextureSize: 8192 } } as unknown as THREE.WebGLRenderer;
+  assert.equal(ribbonSupport(renderer, 10, '').usable, true);
+  // the probe bound its own texture, then restored the previous one - and never bound null
+  assert.equal(binds.length, 2);
+  assert.notEqual(binds[0], previous);
+  assert.equal(binds[1], previous);
+  assert.ok(!binds.includes(null));
 });
