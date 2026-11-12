@@ -97,6 +97,7 @@ PrusaSlicer feature exists here and which does not is in
 | Undo or redo                                         | The top bar's ↶ / ↷ (or Ctrl+Z / Ctrl+Shift+Z)                                                                 |
 | Give the 3D view the full width                      | The top bar's **hide panels** button                                                                           |
 | See the version, the licence and the update notice   | Rail **About**                                                                                                 |
+| Restart the guided start (step 1)                    | **Menu → Guided start** (on a phone **More → Guided start**)                                                    |
 
 ### On a phone
 
@@ -114,19 +115,14 @@ Below 640 px the same app is a companion view for the print you already started:
   **Slice button is in the sheet's footer in every position but hidden**, so the file on the plate is
   always one tap from slicing. In the Preview the layer card is the sheet's first card, so one tap on
   the handle brings the layer slider up with the sliced model visible above it;
-- a fresh session with an empty plate opens the **guided start** – four steps in the sheet, **1 / 4**
-  to **4 / 4**: a model (this device or the library), the printer and its profiles, the settings (or
-  **Fine as it is? Just continue.**), then the destination and **Slice now**. **Back** and **Next**
-  sit in the sheet's footer; steps 1–3 carry **Skip guided start**, which asks _Show the guided start
-  next time?_ – **Yes** keeps it, **Don’t show again** switches the preference off. On the last step
-  Skip reads **More settings**. The flow opens whenever the plate is or becomes empty – on a fresh
-  start and again after the last model is removed – and is reopened from **More → Guided start**. An
-  empty plate's footer stays quiet – no destination, warning line or Slice button – until a model is
-  on it. Preferences → **Guided start on phones** (default on) turns the flow off, and a reload that
-  restored a model starts in the free layout. The flow's sheet takes the height its card needs (at
-  most 45 % of the screen) and folds to **hidden** like any other sheet. After **Slice now** the flow
-  stays alive in the Preview: the result line, **Send to printer**, **Back** (to step 4 in the
-  Plater, the result kept) and **Finish** are in the sheet's footer;
+- a fresh session with an empty plate opens the **guided start** in the sheet – the same four steps
+  every screen has (see [Guided start](#guided-start) below). On a phone the steps sit in the
+  bottom sheet, **Back** and **Next** in the sheet's footer, and an empty plate's footer stays quiet
+  – no destination, warning line or Slice button – until a model is on it. The flow's sheet takes
+  the height its card needs (at most 45 % of the screen) and folds to **hidden** like any other
+  sheet. After **Slice now** the flow stays alive in the Preview: the result line, **Send to
+  printer**, **Back** (to step 4 in the Plater, the result kept) and **Finish** are in the sheet's
+  footer;
 - the object list is a **drawer** that the top bar opens; it stops above the tab bar;
 - dialogs take the phone's width, scroll their body and keep their primary button in a foot that
   stays on screen. Text and number fields use the phone's decimal keypad and are 16 px, so the browser
@@ -161,10 +157,34 @@ views (Iso, Top, Bottom, Front, Rear, Left, Right).
 
 On a phone the 3D view owns the space above the sheet: whenever a model arrives, a guided step
 changes or the sheet settles, the plate and every object are framed completely inside the band
-between the top rows and the sheet's top edge. Only a camera moved by hand keeps its place; **Home**
+between the top rows and the sheet's top edge. While the guided start's floating card is open on a
+wide window the same automatic framing keeps plate and model above that card, until the camera is
+moved by hand. Only a camera moved by hand keeps its place; **Home**
 gives the framing back. In the Preview the band shows the plate and the visible toolpaths together,
 so the sliced part stays in view at every sheet height and after **Slice again**. A first import –
 from the device, the library or the drop zone – lands centred on the plate.
+
+#### Guided start
+
+Every screen starts a fresh session on the **guided start**: four steps from a model to a print –
+**1 / 4 Pick a model** (this device or the library), **2 / 4 Printer and profiles**, **3 / 4
+Settings** (or **Fine as it is? Just continue.**), **4 / 4 Ready to print?** with the destination
+and **Slice now**. **Back**, **Next** and **Skip guided start** sit under the step. On a desktop or
+a tablet the steps are a floating card at the bottom centre of the 3D view – at most 520 px wide and
+40 % of the scene high, scrolling inside, clear of the tool strip and the view row, with the side
+panels as they are; the plate and the model are framed above it. On a phone the same steps sit in
+the bottom sheet. The card is the same flow in another box: the steps, their rules, the preset rows,
+the quick settings and the slice are the app's own controls, not a second copy.
+
+The flow opens whenever the plate is or becomes empty in the Plater – on a fresh start and again
+after the last model is removed – and from **Menu → Guided start** on every screen (the phone's
+**More → Guided start** is the same entry). Steps 1–3 carry **Skip guided start**, which asks _Show
+the guided start next time?_: **Yes** keeps it (it opens again on the next empty plate), **Don't
+show again** switches the preference off. On the last step Skip reads **More settings**. After
+**Slice now** the flow stays alive in the Preview: the result line, **Send to printer**, **Back**
+(to step 4 in the Plater, the result kept) and **Finish**. Preferences → **Guided start** (default
+on, one setting for every device) turns it off, and a reload that restored a model starts in the
+free layout.
 
 **A print from the phone's view.** In the free layout the first file of the flow – picked in the Library, dropped, or
 chosen with the plater's own **Choose a model…** or **From library** button – folds the sheet to
