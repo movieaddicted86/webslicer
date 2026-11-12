@@ -42,6 +42,8 @@ export interface NavEntry {
   action: NavAction;
   /** the element's test hook, where the region has one per entry */
   testId?: string;
+  /** the phone's More menu row, when its hook is not the region's own name for the entry */
+  moreTestId?: string;
 }
 
 /** The app's places, in the order the rail shows them. */
@@ -99,6 +101,9 @@ export const GUIDED_START_ENTRY: NavEntry = {
   home: 'menu',
   action: { kind: 'guidedStart' },
   testId: 'menu-guided',
+  // the phone's More menu has kept its own hook since T-100, so the row does not change under the
+  // specs and screen readers that already know it
+  moreTestId: 'rail-guided-more',
 };
 
 /** The menu's own entries; the flyouts (`MENU_SUBMENUS`) follow them. */
