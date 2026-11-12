@@ -14,7 +14,7 @@
  * The flows are driven through the DOM (the tab bar, the sheet handle, the buttons) so a broken
  * control fails the test; the store is only read.
  */
-import { armGuidedStart, blockSessionRestore, CUBE, importFile, openApp, read, settle, sliceAndWait } from '../helpers/app';
+import { armGuidedStart, blockSessionRestore, CUBE, importFile, openApp, read, settle, sliceAndWait, waitSliceDone } from '../helpers/app';
 import {
   angleDelta,
   bedOutline,
@@ -885,6 +885,71 @@ test.describe('the preview on a phone (T-092)', () => {
     await details.click();
     await settle(app, 400);
     await expect(details).toHaveAttribute('aria-expanded', 'false');
+  });
+});
+
+/**
+ * The Preview follows the sheet (T-104): when the sheet settles at another height – the sliders come
+ * up after a slice, or the user opens it to half – plate and toolpaths are framed into the smaller
+ * band, the same result Home gives. A camera the user moved *in the Preview* keeps its view through
+ * every later sheet change; a move in the Plater before the slice does not count.
+ */
+test.describe('the Preview reframes when the sheet opens (T-104)', () => {
+  test.describe.configure({ lock: 'server-state' });
+
+  test('a guided slice frames plate and toolpaths when the sheet opens to the sliders (AC-1)', async ({ app }) => {
+    test.skip(!isPhone(), 'the phone preview is the sheet layout of a 390 px screen');
+    await armGuidedStart(app);
+    // the reload swapped the renderer: take the camera before projecting through it (T-103)
+    await settle(app, 1200);
+    await tapCamera(app);
+    // step 1: a model from the library, then a finger orbit in the Plater – a move there is about the
+    // plate, not the result, and must not keep the Preview from framing it
+    await app.getByTestId('guided-library').click();
+    await expect(app.getByTestId('modal')).toBeVisible();
+    await loadCubeFromLibrary(app);
+    await expect(app.getByTestId('guided-next')).toBeEnabled();
+    const empty = await canvasPoint(app, 0.18, 0.42);
+    await touchDrag(app, empty, { x: empty.x + 70, y: empty.y + 30 });
+    await settle(app, 600);
+    // through steps 2–4 to the flow's own Slice button
+    for (const step of ['2 / 4', '3 / 4', '4 / 4']) {
+      await app.getByTestId('guided-next').click();
+      await expect(app.getByTestId('guided-step')).toHaveText(step);
+    }
+    const before = await read(app, (s) => s.job?.id);
+    await app.getByTestId('slice-button').click();
+    await waitSliceDone(app, before);
+    // the result opens in the peek sheet; one tap opens half, where the layer and head sliders are.
+    // Without Home the automatic framing has to give the same picture.
+    await expect(app.getByTestId('sheet-handle')).toHaveAttribute('data-sheet-state', 'peek');
+    await app.getByTestId('sheet-handle').click();
+    await settle(app, 700);
+    await expect(app.getByTestId('sheet-handle')).toHaveAttribute('data-sheet-state', 'half');
+    await expect(app.getByTestId('layer-slider')).toBeVisible();
+    await settle(app, 900);
+    await expectPreviewInBand(app, 'the guided Preview at half');
+  });
+
+  test('a finger orbit in the Preview ends the reframing for every later sheet change (AC-2)', async ({ app, browser }) => {
+    test.skip(!isPhone(), 'the phone preview is the sheet layout of a 390 px screen');
+    const sharedJob = await sliceOnce(browser);
+    await openSharedSlice(app, sharedJob);
+    await settle(app, 1600);
+    // the user takes the camera in the Preview: opening the sheet afterwards must not take it away
+    const empty = await canvasPoint(app, 0.18, 0.42);
+    await touchDrag(app, empty, { x: empty.x + 70, y: empty.y + 30 });
+    await settle(app, 500);
+    const orbited = await cameraPose(app);
+    await app.getByTestId('sheet-handle').click();
+    await settle(app, 900);
+    await expect(app.getByTestId('sheet-handle')).toHaveAttribute('data-sheet-state', 'half');
+    const later = await cameraPose(app);
+    expect(orbited && later, 'the camera is tapped').toBeTruthy();
+    expect(
+      Math.hypot(later!.x - orbited!.x, later!.y - orbited!.y, later!.z - orbited!.z),
+      'the sheet change does not reframe a camera the user moved in the Preview',
+    ).toBeLessThan(0.5);
   });
 });
 
