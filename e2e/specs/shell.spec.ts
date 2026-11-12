@@ -85,6 +85,7 @@ test.describe('shell: the rail and the slim top bar', () => {
     // the menu keeps only what has no other home: import and the Settings and Export submenus
     expect(labels.join(' | ')).toContain('Import models');
     expect(labels.join(' | ')).toContain('Import presets');
+    expect(labels.join(' | ')).toContain('Guided start');
     expect(labels.join(' | ')).toContain('Settings');
     expect(labels.join(' | ')).toContain('Export');
     for (const gone of ['Open from library', 'Save project to library', 'Mode', 'Printers', 'About']) {

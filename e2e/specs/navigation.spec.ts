@@ -176,6 +176,8 @@ test.describe('navigation: one home per function', () => {
     // starts. The presses after it are synchronous (the panel's own key handler).
     await app.keyboard.press('ArrowDown');
     await expect(app.getByRole('menu', { name: 'Main menu' }).getByRole('menuitem').first()).toBeFocused();
+    // Import presets, the guided start (T-106), then the flyouts: Settings first
+    await app.keyboard.press('ArrowDown');
     await app.keyboard.press('ArrowDown');
     await app.keyboard.press('ArrowDown');
     await expect(byId(app, 'menu-settings')).toBeFocused();
@@ -199,15 +201,21 @@ test.describe('navigation: one home per function', () => {
 });
 
 /**
- * The guided start's boundary (T-100, AC-6): the flow is the phone layout's start screen. With the
- * preference on, a wide window still starts in the usual layout – no flow, no sheet, the free plate's
- * destination and Slice button where they always are.
+ * The guided start's one home (T-106): the app menu lists the flow's entry, and the phone's More menu
+ * renders the same row from the navigation table. With the preference on, the wide window opens the
+ * floating card – never the phone's sheet; the card's own spec drives the rest.
  */
-test('the guided start stays off the desktop layout (T-100)', async ({ app }) => {
+test('the menu carries the guided start on a wide window, the sheet stays away (T-106)', async ({ app }) => {
+  // the entry's one home: the menu (the phone's More menu renders the same entry)
+  await byId(app, 'menu').click();
+  await expect(byId(app, 'menu-guided')).toBeVisible();
+  await app.keyboard.press('Escape');
+  await app.waitForTimeout(400);
+
   await armGuidedStart(app);
-  await expect(app.getByTestId('guided-card')).toHaveCount(0);
-  expect(await read(app, (s) => s.flowStep)).toBeUndefined();
+  await expect(app.getByTestId('guided-float-card')).toBeVisible();
+  expect(await read(app, (s) => s.flowStep)).toBe(1);
   await expect(app.getByTestId('sheet-handle')).toHaveCount(0);
-  await expect(app.getByTestId('destination')).toBeVisible();
-  await expect(app.getByTestId('slice-button')).toBeVisible();
+  // the side panels stay as they are and stay usable
+  await expect(app.getByTestId('context-panel')).toBeVisible();
 });

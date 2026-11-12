@@ -1204,7 +1204,7 @@ test.describe('the guided start on a phone (T-100)', () => {
     await app.getByTestId('guided-skip-never').click();
     await expect(app.getByTestId('guided-card')).toHaveCount(0);
     expect(await read(app, (s) => s.guidedStart), 'Don’t show again switches the preference off').toBe(false);
-    expect(await app.evaluate(() => localStorage.getItem('webslicer.guidedStart')), 'the choice is remembered').toBe('off');
+    expect(await app.evaluate(() => localStorage.getItem('webslicer.guidedStart.enabled')), 'the choice is remembered').toBe('off');
     // the same preference over a fresh session (a new page of the context, so no earlier init script
     // can override it): no flow on the empty plate
     const fresh = await app.context().newPage();
@@ -1242,30 +1242,29 @@ test.describe('the guided start on a phone (T-100)', () => {
     await toggle.check();
     await app.evaluate(() => window.webslicer.getState().closeDialog());
     expect(await read(app, (s) => s.guidedStart)).toBe(true);
-    expect(await app.evaluate(() => localStorage.getItem('webslicer.guidedStart'))).toBe('on');
+    expect(await app.evaluate(() => localStorage.getItem('webslicer.guidedStart.enabled'))).toBe('on');
     await expect(app.getByTestId('guided-card')).toHaveCount(0);
   });
 
-  test('a tablet keeps the free layout and never opens the flow (AC-6)', async ({ app }) => {
+  test('the tablet always keeps the sheet out of the flow (AC-6, T-106)', async ({ app }) => {
     test.skip(isPhone(), 'the tablet is the second project this file runs');
     await armGuidedStart(app);
-    await expect(app.getByTestId('guided-card')).toHaveCount(0);
-    expect(await read(app, (s) => s.flowStep), 'no step off the phone').toBeUndefined();
+    // the tablet has the phone's narrow UI nowhere: its sheet never appears, whatever the preference
     await expect(app.getByTestId('sheet-handle')).toHaveCount(0);
     await expect(app.getByTestId('context-panel')).toBeVisible();
-    await expect(app.getByTestId('slice-button')).toBeVisible();
   });
 
-  test('844 × 390 landscape leaves the flow closed instead of squeezing it (AC-7)', async ({ app }) => {
+  test('844 × 390 landscape leaves the sheet out of the flow (AC-7)', async ({ app }) => {
     test.skip(!isPhone(), 'the landscape check turns the phone project sideways');
     await armGuidedStart(app);
     await app.setViewportSize({ width: 844, height: 390 });
     await settle(app, 800);
     await expectNoSidewaysScroll(app, 'guided landscape');
-    // 844 px is past the 640 px phone breakpoint: the wide layout, not a squeezed flow
-    await expect(app.getByTestId('guided-card')).toHaveCount(0);
+    // 844 px is past the 640 px phone breakpoint: the wide layout's floating card, never the sheet
+    await expect(app.getByTestId('guided-card')).toBeVisible();
+    await expect(app.getByTestId('guided-float-card')).toBeVisible();
     await expect(app.getByTestId('sheet-handle')).toHaveCount(0);
-    await expect(app.getByTestId('slice-button')).toBeVisible();
+    await expectNoSidewaysScroll(app, 'guided landscape with the card');
   });
 });
 
