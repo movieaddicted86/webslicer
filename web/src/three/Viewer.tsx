@@ -93,6 +93,9 @@ export function Viewer() {
   // the layer height gradient's range (T-045); memoised so it does not re-run the object effect
   const layerLimits = useMemo(() => printerLayerLimits(printer), [printer]);
   const view = useStore((s) => s.view);
+  // the wide window's guided card blocks the lower scene only while the flow is open in a plate view
+  const flowStep = useStore((s) => s.flowStep);
+  const guidedCard = !phone && flowStep !== undefined && (view === 'plater' || view === 'preview');
   const gcode = useStore((s) => s.gcode);
   const range = useStore((s) => s.previewLayerRange);
   const showTravel = useStore((s) => s.previewShowTravel);
@@ -127,8 +130,9 @@ export function Viewer() {
   // zoom to selection, fit the bed
   useCamera(refsRef, ortho, camRequest);
 
-  // --- the phone frames the plate and its objects into the room above the sheet (T-101)
-  useAutoFrame(refsRef, requestCamera, phone);
+  // --- the plate and its objects are framed into the room above the sheet (T-101) or above the
+  // guided start's floating card (T-106) – whichever blocks the scene on this window
+  useAutoFrame(refsRef, requestCamera, phone, guidedCard);
 
   // --- objects and the transform gizmo
   usePlaterObjects(refsRef, {

@@ -12,12 +12,15 @@ const PHONE_QUERY = '(max-width: 640px)';
  * the object list's cards, which are a drawer on a phone. The row sits above the destination, so the
  * result and the way on (Send) are in one card and need no scroll.
  *
- * It renders nothing on a wide window: there the result is the left column's Sliced info card.
+ * It renders nothing on a wide window: there the result is the left column's Sliced info card. The
+ * guided start's floating card asks for it anyway (`always`, T-106) – its last step ends on this line.
  */
-export function PhoneResult() {
+export function PhoneResult({ always = false }: { always?: boolean } = {}) {
   const phone = useMediaQuery(PHONE_QUERY);
   const job = useStore((s) => s.job);
-  if (!phone || job?.status !== 'done') return null;
+  // T-106: the wide window's guided card ends on this same line – the flow promised the result, so
+  // the card shows it instead of pointing at the object list's card
+  if (!(phone || always) || job?.status !== 'done') return null;
   const info = job.info;
   const filamentMm = info?.filamentUsedMm?.reduce((a, b) => a + b, 0) ?? 0;
   const filament = info?.totalFilamentG ? `${info.totalFilamentG.toFixed(1)} g` : filamentMm ? `${(filamentMm / 1000).toFixed(2)} m` : '–';

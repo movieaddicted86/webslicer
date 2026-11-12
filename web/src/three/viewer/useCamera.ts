@@ -17,7 +17,7 @@ import {
   bedBox,
   focusBox,
   frameBox,
-  phoneBand,
+  framingBand,
   previewSceneBox,
   readOrthoPref,
   sceneBox,
@@ -66,7 +66,7 @@ export function useCamera(refsRef: RefObject<SceneRefs | null>, ortho: boolean, 
     if (!refs || !request) return;
     const st = useStore.getState();
     const shape = st.presets.printer.current.bed_shape || DEFAULT_BED;
-    const band = phoneBand(refs);
+    const band = framingBand(refs);
     // a phone's Preview shows the plate and the toolpaths in the room above the sheet; the plate
     // alone would clip the part, the toolpaths alone would push the plate out of the picture (T-103)
     const phonePreview = !!band && st.view === 'preview';

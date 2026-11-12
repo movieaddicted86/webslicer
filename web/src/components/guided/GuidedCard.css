@@ -1,0 +1,108 @@
+/* GuidedCard: the guided start's floating card over the 3D view (GuidedCard.tsx). Tokens only.
+ *
+ * The card sits at the bottom centre of the scene, inside the band the side panels leave free – the
+ * same room the view row keeps to – so it never covers the tool strip or the view row. It is at most
+ * 520 px wide and 40 % of the scene high; its body scrolls inside that, the header and the buttons
+ * stay put. The phone keeps the context sheet (ContextPanel.css); this file is the wide window only.
+ */
+
+.guided-float {
+  position: absolute;
+  /* top and bottom give the band a definite height, so the card's 40 % has something to resolve
+     against; the card itself is bottom-aligned and the band never takes the pointer */
+  top: 0;
+  /* the band between the two side cards: the object list on the left, the context panel on the right */
+  left: calc(var(--list-w) + 2 * var(--card-gap));
+  right: calc(var(--panel-w) + 2 * var(--card-gap));
+  bottom: var(--card-gap);
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  z-index: 4;
+  /* only the card takes the pointer: the scene orbits around it */
+  pointer-events: none;
+}
+
+.guided-float-card {
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  width: min(520px, 100%);
+  /* 40 % of the scene's height at most: the plate stays the subject of the screen */
+  max-height: 40%;
+  background: color-mix(in srgb, var(--card) 96%, transparent);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(6px);
+  overflow: hidden;
+}
+
+/* the header (title and "n / 4") and the buttons keep their place; only the body scrolls */
+.guided-float-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.guided-float-foot {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0 12px 12px;
+}
+
+/* the body's step card already pads itself; the shell only needs it to shrink */
+.guided-float .guided {
+  padding-top: 12px;
+}
+
+/* the flow's header inside the card: the step's title on the left, its counter on the right */
+.guided-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 0 2px;
+  border-bottom: 1px solid var(--line);
+}
+
+.guided-head-title {
+  margin: 0;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* the Preview's end: the result line, the destination and Send in one card, then Back and Finish */
+.guided-float-ending .guided-float-body {
+  padding: 12px;
+}
+
+.guided-float-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+@media (max-width: 899px) {
+  /* below 900 px the object list is a drawer: only the context panel keeps its place */
+  .guided-float {
+    left: var(--card-gap);
+  }
+}
+
+/* a short window (a phone turned sideways, a small laptop): the card keeps a frame's height instead
+   of growing to 40 % of a scene that has almost none */
+@media (max-height: 480px) {
+  .guided-float-card {
+    max-height: calc(100% - 8px);
+  }
+}

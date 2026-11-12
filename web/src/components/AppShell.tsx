@@ -1,6 +1,7 @@
 import { Rail } from './Rail';
 import { TopBar } from './TopBar';
 import { ContextPanel } from './context/ContextPanel';
+import { GuidedCard } from './guided/GuidedCard';
 import { LeftColumn } from './left/LeftColumn';
 import { SettingsView } from './SettingsView';
 import { Viewer } from '../three/Viewer';
@@ -51,6 +52,9 @@ export function AppShell() {
           </DropZone>
           <LeftColumn />
           <ContextPanel />
+          {/* T-106: the guided start's floating card on a wide window – the phone's flow in its
+              other shell. It renders nothing on a phone, where the sheet carries the steps. */}
+          <GuidedCard />
         </div>
       )}
     </div>
