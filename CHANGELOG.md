@@ -7,6 +7,10 @@ rc.3 to rc.5 and of the `Unreleased` of that time are kept verbatim in
 
 ## Unreleased
 
+## 1.1.1 – 2026-11-12
+
+The phone follow-up: the fixes from three hands-on phone test rounds and the guided start on a phone.
+
 ### Fixed
 
 - **Phone Preview framing follows the sheet (T-104):** after a slice the plate and toolpaths are
