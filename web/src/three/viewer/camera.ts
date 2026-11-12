@@ -161,6 +161,27 @@ export function sceneBox(refs: SceneRefs, bedShape: string): THREE.Box3 {
   return box;
 }
 
+/**
+ * The plate and the visible toolpaths: what a phone's Preview framing has to show above the sheet
+ * (T-103). Once a result exists the objects are hidden, so `sceneBox` would frame the plate alone and
+ * the part would hang at the edge of the picture.
+ */
+export function previewSceneBox(bedShape: string): THREE.Box3 {
+  const st = useStore.getState();
+  const box = bedBox(bedShape);
+  const paths = st.gcode && st.previewLayerRange ? gcodeBox(st.gcode, st.previewLayerRange) : undefined;
+  if (paths) box.union(paths);
+  return box;
+}
+
+/** The width below which the sheet owns the lower part of the scene (the same as the stylesheet). */
+const PHONE_QUERY = '(max-width: 640px)';
+
+/** The room above the phone's sheet; nothing on a wide window, where the cards sit beside the scene. */
+export function phoneBand(refs: SceneRefs): FrameBand | undefined {
+  return window.matchMedia(PHONE_QUERY).matches ? visibleBandOf(refs) : undefined;
+}
+
 /** The part of the canvas a phone's bottom sheet leaves free: below the view row, above the sheet. */
 export function visibleBandOf(refs: SceneRefs): FrameBand | undefined {
   const canvas = refs.renderer.domElement.getBoundingClientRect();

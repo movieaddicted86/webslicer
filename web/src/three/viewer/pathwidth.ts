@@ -77,15 +77,25 @@ export interface RibbonSupport {
   reason?: string;
 }
 
-/** Whether a 1×1 RGB32F texture can be allocated: the only format the ribbon shader reads. */
+/**
+ * Whether a 1×1 RGB32F texture can be allocated: the only format the ribbon shader reads.
+ *
+ * This is the one place that touches raw WebGL, and it runs outside the render loop (the G-code is
+ * built after a slice). The texture unit three.js last used still holds whatever it bound - on a
+ * sliced plate that is the bed's vendor texture. Binding `null` there would leave the unit empty
+ * while three.js's state cache still believes the bed texture is bound, so every later render skips
+ * the bind and the sampler reads black: the bed turns black right after slicing (T-103). Put the
+ * previous binding back instead, so the cache and the GPU stay in agreement.
+ */
 function floatTextureSupported(renderer: THREE.WebGLRenderer): boolean {
   const gl = renderer.getContext() as WebGL2RenderingContext;
+  const previous = gl.getParameter(gl.TEXTURE_BINDING_2D) as WebGLTexture | null;
   const texture = gl.createTexture();
   if (!texture) return false;
   gl.bindTexture(gl.TEXTURE_2D, texture);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB32F, 1, 1, 0, gl.RGB, gl.FLOAT, new Float32Array(3));
   const ok = gl.getError() === gl.NO_ERROR;
-  gl.bindTexture(gl.TEXTURE_2D, null);
+  gl.bindTexture(gl.TEXTURE_2D, previous);
   gl.deleteTexture(texture);
   return ok;
 }

@@ -287,7 +287,8 @@ async function main(): Promise<void> {
     await guidedPage.waitForFunction(() => document.querySelectorAll('[data-testid="toast"]').length === 0, null, {
       timeout: 20_000,
     });
-    await guidedPage.getByTestId('view-iso').click();
+    // T-103: Home is the Preview's automatic framing – plate and toolpaths together above the sheet
+    await guidedPage.getByTestId('view-home').click();
     await settle(guidedPage, 2000);
     await shot(guidedPage, 'phone-preview-peek', 'the Phone Preview at peek: the result and Send in the sheet');
     await guidedPage.evaluate(() => window.webslicer.getState().setSheetState('hidden'));

@@ -114,6 +114,11 @@ export interface FrameBand {
  * distance fits the band's height and the pose is shifted so the box is centred in the band instead
  * of the canvas. The result is a normal camera pose – no projection tricks – so orbiting, picking
  * and the orthographic switch keep working on it.
+ *
+ * Fit and shift are solved together: the shift changes the depth of the box from the camera (and
+ * with it the scale), so a shift computed after a plain fit leaves the box too big for the band on a
+ * short band – the phone's preview at peek used to push the plate under the view row (T-103). The
+ * distance is solved for the shifted pose, tightest first.
  */
 export function fitFrameInBand(
   box: THREE.Box3,
@@ -125,23 +130,64 @@ export function fitFrameInBand(
 ): Frame {
   const bandHeight = Math.max(1, band.bottom - band.top);
   const tan = Math.tan((fovDeg * Math.PI) / 360);
-  // the band covers `bandHeight / canvas height` of the canvas: fit that much less of the world
-  const fovEff = (2 * Math.atan(tan * Math.min(1, bandHeight / Math.max(band.height, 1))) * 180) / Math.PI;
-  const frame = fitFrame(box, dir, up, fovEff, Math.max(band.width, 1) / bandHeight, margin);
-  // moving camera and target together along the view's up axis moves the picture down: the band's
-  // centre is above the canvas' centre, so the box has to move up on screen. The move is made along
-  // the world's vertical axis, scaled so it shifts the picture by the same amount, not along the
-  // tilted screen-up axis: the orbit target keeps the box's x/y, so a quarter turn spins around the
-  // plate's own vertical instead of around a point beside it (AC-4).
-  const basis = viewBasis(frame.position.clone().sub(frame.target), frame.up);
-  const worldPerPixel = (2 * frame.distance * tan) / Math.max(band.height, 1);
-  const shift = ((band.top + band.bottom) / 2 - band.height / 2) * worldPerPixel;
-  const offset = Math.abs(basis.up.z) > 0.05 ? new THREE.Vector3(0, 0, shift / basis.up.z) : basis.up.clone().multiplyScalar(shift);
+  const basis = viewBasis(dir, up);
+  const centre = box.getCenter(new THREE.Vector3());
+  const k = band.height / (2 * tan);
+  // where the box's centre has to land on screen, in canvas pixels (y down; negative is upwards)
+  const shift = (band.top + band.bottom) / 2 - band.height / 2;
+  // the world-vertical move keeps the orbit target's x/y (a quarter turn spins around the plate's
+  // own vertical, AC-4); a view along the vertical axis has no such screen axis, so there the pose
+  // moves along its own up instead
+  const worldVertical = Math.abs(basis.up.z) > 0.05;
+  const corners: Array<{ right: number; up: number; depth: number }> = [];
+  const corner = new THREE.Vector3();
+  for (let i = 0; i < 8; i++) {
+    corner.set(i & 1 ? box.max.x : box.min.x, i & 2 ? box.max.y : box.min.y, i & 4 ? box.max.z : box.min.z).sub(centre);
+    corners.push({ right: corner.dot(basis.right), up: corner.dot(basis.up), depth: corner.dot(basis.dir) });
+  }
+  const halfY = (bandHeight / 2) * (1 - margin);
+  const halfX = (Math.max(band.width, 1) / 2) * (1 - margin);
+  const offsetAt = (distance: number): THREE.Vector3 =>
+    worldVertical
+      ? // the move that puts the centre exactly on the band's centre at this distance
+        new THREE.Vector3(0, 0, distance ? (shift * distance) / (basis.up.z * k - shift * basis.dir.z) : 0)
+      : basis.up.clone().multiplyScalar((shift * (2 * distance * tan)) / Math.max(band.height, 1));
+  // every corner within the band's height around the box centre's projection, and within the
+  // canvas' width; the deviations shrink like 1/distance, so a far enough camera always fits
+  const fits = (distance: number): boolean => {
+    if (!(distance > 0)) return false;
+    const offset = offsetAt(distance);
+    const upOffset = offset.dot(basis.up);
+    const depthOffset = offset.dot(basis.dir);
+    const centreDepth = distance + depthOffset;
+    if (!(centreDepth > 1e-3)) return false;
+    const centreY = (upOffset * k) / centreDepth;
+    for (const c of corners) {
+      const depth = distance - c.depth + depthOffset;
+      if (!(depth > 1e-3)) return false;
+      if (Math.abs(-((c.up - upOffset) * k) / depth - centreY) > halfY) return false;
+      if (Math.abs((c.right * k) / depth) > halfX) return false;
+    }
+    return true;
+  };
+  // the tightest distance that fits: double until it does, then halve towards the edge
+  let lo = 0;
+  let hi = Math.max(box.getSize(new THREE.Vector3()).length(), 1);
+  while (!fits(hi) && hi < 1e9) {
+    lo = hi;
+    hi *= 2;
+  }
+  for (let i = 0; i < 48; i++) {
+    const mid = (lo + hi) / 2;
+    if (fits(mid)) hi = mid;
+    else lo = mid;
+  }
+  const offset = offsetAt(hi);
   return {
-    target: frame.target.clone().add(offset),
-    position: frame.position.clone().add(offset),
-    up: frame.up,
-    distance: frame.distance,
+    target: centre.clone().add(offset),
+    position: centre.clone().addScaledVector(basis.dir, hi).add(offset),
+    up: basis.up,
+    distance: hi,
   };
 }
 

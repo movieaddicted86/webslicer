@@ -160,8 +160,9 @@ plate hides the underside; key 2 still reaches it there and in the Plater).
 On a phone the 3D view owns the space above the sheet: whenever a model arrives, a guided step
 changes or the sheet settles, the plate and every object are framed completely inside the band
 between the top rows and the sheet's top edge. Only a camera moved by hand keeps its place; **Home**
-gives the framing back. A first import – from the device, the library or the drop zone – lands
-centred on the plate.
+gives the framing back. In the Preview the band shows the plate and the visible toolpaths together,
+so the sliced part stays in view at every sheet height and after **Slice again**. A first import –
+from the device, the library or the drop zone – lands centred on the plate.
 
 **A print from the phone's view.** In the free layout the first file of the flow – picked in the Library, dropped, or
 chosen with the plater's own **Choose a model…** or **From library** button – folds the sheet to

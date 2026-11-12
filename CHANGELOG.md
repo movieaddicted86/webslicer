@@ -9,6 +9,12 @@ rc.3 to rc.5 and of the `Unreleased` of that time are kept verbatim in
 
 ### Fixed
 
+- **The bed keeps its surface after slicing (T-103):** the check for the ribbon shader's texture
+  format left three.js's texture unit pointing at an empty texture, so from the first slice on the
+  bed's vendor texture and grid were sampled black; the check restores the previous binding.
+- **Phone Preview framing (T-103):** the automatic framing shows the plate and the visible toolpaths
+  in the room above the sheet at every sheet height and in the guided start's first step, and Home
+  frames them again after a slice.
 - **Phone retest follow-ups (T-101):** the 3D view frames the plate and model into the room above the
   sheet (instead of behind it), every turn leaves a level horizon, a first import lands centred, and
   the Plater is drawn again after a slice instead of turning black.

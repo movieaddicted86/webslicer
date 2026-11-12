@@ -1,7 +1,8 @@
 /**
  * The phone's automatic framing (T-101): whenever a model is added, a guided step changes or the
- * sheet settles, plate and every object are framed into the room above the sheet. A camera the user
- * moved by hand is never taken away from them – Home gives it back to the automatic framing.
+ * sheet settles, plate and every object are framed into the room above the sheet. In the Preview it
+ * frames the plate and the toolpaths together (T-103). A camera the user moved by hand is never taken
+ * away from them – Home gives it back to the automatic framing.
  *
  * The sheet's height follows its card, so the frame waits for the drag or the 180 ms transition to
  * settle before it measures the room the scene has left.
@@ -19,9 +20,11 @@ export function useAutoFrame(refsRef: RefObject<SceneRefs | null>, requestCamera
   const objectCount = useStore((s) => s.objects.length);
   const flowStep = useStore((s) => s.flowStep);
   const sheetState = useStore((s) => s.sheetState);
+  // the Preview's framing waits for the result: the plate and the toolpaths have to fit together
+  const hasGcode = useStore((s) => !!s.gcode);
 
   useEffect(() => {
-    if (!phone || view !== 'plater') return;
+    if (!phone || (view !== 'plater' && view !== 'preview')) return;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const schedule = () => {
       clearTimeout(timer);
@@ -40,5 +43,5 @@ export function useAutoFrame(refsRef: RefObject<SceneRefs | null>, requestCamera
       clearTimeout(timer);
       observer?.disconnect();
     };
-  }, [phone, view, objectCount, flowStep, sheetState, refsRef, requestCamera]);
+  }, [phone, view, objectCount, flowStep, sheetState, hasGcode, refsRef, requestCamera]);
 }
