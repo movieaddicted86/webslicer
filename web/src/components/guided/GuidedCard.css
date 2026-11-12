@@ -86,12 +86,6 @@
   padding: 12px;
 }
 
-.guided-float-rows {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
 @media (max-width: 899px) {
   /* below 900 px the object list is a drawer: only the context panel keeps its place */
   .guided-float {
