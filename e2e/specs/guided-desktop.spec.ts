@@ -12,16 +12,7 @@
  * layout); `armGuidedStart` turns it on for a fresh page.
  */
 import { expect, test } from '../helpers/fixtures';
-import {
-  armGuidedStart,
-  blockSessionRestore,
-  CUBE,
-  importFile,
-  openApp,
-  read,
-  settle,
-  waitSliceDone,
-} from '../helpers/app';
+import { armGuidedStart, blockSessionRestore, CUBE, importFile, openApp, read, settle, waitSliceDone } from '../helpers/app';
 import { addPrinter, clearUploads, HAS_MOCK_HOST, removePrinters, uploads, type TestPrinter } from '../helpers/mock-host';
 import { project, tapCamera } from '../helpers/canvas';
 import { E2E_PRINTER } from '../global-setup';
@@ -121,6 +112,8 @@ test.describe('the guided start on a wide window (T-106)', () => {
     await expect(app.getByTestId('guided-next')).toBeDisabled();
     await expect(app.getByTestId('guided-back')).toHaveCount(0);
     await expect(app.getByTestId('guided-skip')).toHaveText('Skip guided start');
+    // the card owns the bottom of the scene: the key hints step aside instead of being cut off
+    await expect(app.getByTestId('viewer-hint')).toBeHidden();
     await expectCardAndFraming(app, 'guided step 1');
 
     // the card's buttons are reachable with Tab, and Escape does not close the flow behind the user
@@ -222,6 +215,8 @@ test.describe('the guided start on a wide window (T-106)', () => {
       await app.getByTestId('guided-preview-finish').click();
       await expect(app.getByTestId('guided-float-card')).toHaveCount(0);
       expect(await read(app, (s) => s.flowStep), 'Finish closed the flow').toBeUndefined();
+      // the key hints come back once the card is gone
+      await expect(app.getByTestId('viewer-hint')).toBeVisible();
     } finally {
       if (created.length) await removePrinters(app, created);
       clearUploads();

@@ -181,7 +181,10 @@ export function Viewer() {
           T-101/AC-8: the Preview edits no plate, so a phone shows no strip there and the view row
           takes the top edge – the sheet then leaves most of the screen to the toolpaths. */}
       {!(phone && view === 'preview') && <ToolStrip />}
-      <div className="viewer-hint">
+      {/* T-106: the floating card reaches the bottom of the scene, where the key hints sit – the
+          card is the flow's guide there, so the hints step aside while it is open instead of being
+          cut off behind it */}
+      <div className="viewer-hint" data-testid="viewer-hint" hidden={guidedCard}>
         {view === 'plater' && (
           <div>Left: rotate · Right/Middle: pan · Wheel: zoom · M/R/S: move/rotate/scale · F: place on face · A: arrange · Del: delete</div>
         )}
