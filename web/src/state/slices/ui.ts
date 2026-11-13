@@ -19,7 +19,7 @@ import { loadSelection, saveSelection } from './preset';
 import { MODE_RANK } from '../../values';
 import type { State, Toast, View } from '../types';
 import type { IssueTarget } from '../../safety/configIssues';
-import { canAdvance, nextStep, previousStep, type FlowStep } from '../guidedFlow';
+import { canAdvance, GUIDED_START_KEY, nextStep, previousStep, readGuidedStartPreference, type FlowStep } from '../guidedFlow';
 
 /** The settings view a limit issue points at, with the extruder slot an issue of a filament may name. */
 export type SettingFocus = IssueTarget;
@@ -46,13 +46,13 @@ export interface UiSlice {
   /** the current step of the guided flow, or `undefined` when the app is in its free layout */
   flowStep?: FlowStep;
   /**
-   * the user answered the skip question on an empty plate (T-101): the flow stays away until a model
-   * was on the plate again, so answering "Yes" or "Don't show again" is not undone at once
+   * the user answered the skip question on an empty plate: the flow stays away until a model was on
+   * the plate again, so answering "Yes" or "Don't show again" is not undone at once
    */
   flowDismissed: boolean;
-  /** whether the guided flow should open on an empty phone plate (Preferences, default on) */
+  /** whether the guided flow should open on an empty plate, on every screen (Preferences, default on) */
   guidedStart: boolean;
-  /** start the guided flow at its first step (a fresh phone start, More → Guided start) */
+  /** start the guided flow at its first step (a fresh start, Menu → Guided start) */
   startFlow: () => void;
   /**
    * Advance one step. The first step needs a model on the plate (nothing else has a condition), and the
@@ -102,12 +102,13 @@ let toastId = 0;
 /** The plater/preview tab the browser last showed (T-035); only these two are remembered. */
 const VIEW_KEY = 'webslicer.view';
 
-/** The phone's "Guided start" preference (T-100); an absent value means on – the phone's default. */
-const GUIDED_START_KEY = 'webslicer.guidedStart';
-
+/**
+ * The "Guided start" preference, one key for every screen: the phone-only key of T-100 is migrated
+ * by `readGuidedStartPreference`.
+ */
 function loadGuidedStart(): boolean {
   try {
-    return localStorage.getItem(GUIDED_START_KEY) !== 'off';
+    return readGuidedStartPreference(localStorage);
   } catch {
     return true;
   }

@@ -282,8 +282,17 @@ const HOOKS = [
   'guided-back',
   'guided-next',
   'guided-skip',
-  'rail-guided',
+  'guided-skip-question',
+  'guided-skip-yes',
+  'guided-skip-never',
+  'guided-preview-nav',
+  'guided-preview-back',
+  'guided-preview-finish',
+  'menu-guided',
   'preferences-guided-start',
+  // T-106: the guided start's floating card on a wide window, and its Preview end
+  'guided-float',
+  'guided-float-card',
 ] as const;
 
 /**

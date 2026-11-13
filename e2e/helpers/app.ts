@@ -216,7 +216,8 @@ export async function blockSessionRestore(page: Page): Promise<void> {
  * added after it, so it wins on the reload.
  */
 export async function armGuidedStart(page: Page): Promise<void> {
-  await page.addInitScript(() => localStorage.setItem('webslicer.guidedStart', 'on'));
+  // T-106: one preference for every screen; the phone's old key is migrated by the app itself
+  await page.addInitScript(() => localStorage.setItem('webslicer.guidedStart.enabled', 'on'));
   await blockSessionRestore(page);
   await page.reload({ waitUntil: 'networkidle' });
   await waitReady(page);

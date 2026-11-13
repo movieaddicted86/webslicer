@@ -57,8 +57,8 @@ export function setOrthoFrustum(cam: THREE.OrthographicCamera, height: number, a
 /**
  * Frame `box`: both cameras are moved to the same place and the ortho frustum is set to the area
  * the perspective view shows at that distance, so switching the camera never changes the framing.
- * `band` is the part of the canvas the phone's sheet leaves free; the box is centred there instead
- * of in the whole canvas.
+ * `band` is the part of the canvas the phone's sheet or the guided card leaves free; the box is
+ * centred there instead of in the whole canvas.
  */
 export function frameBox(refs: SceneRefs, box: THREE.Box3, dir: THREE.Vector3, up: THREE.Vector3, band?: FrameBand) {
   const width = refs.renderer.domElement.clientWidth || 1;
@@ -145,9 +145,9 @@ export function focusBox(refs: SceneRefs, bedShape: string): THREE.Box3 {
 }
 
 /**
- * The box a phone's automatic framing shows: the whole plate and every object on it, whatever the
+ * The box the automatic framing shows: the whole plate and every object on it, whatever the
  * selection. Unlike `focusBox` it never narrows to the selection – the user has to see the plate and
- * all parts in the room the sheet leaves.
+ * all parts in the room the sheet or the guided card leaves.
  */
 export function sceneBox(refs: SceneRefs, bedShape: string): THREE.Box3 {
   const box = bedBox(bedShape);
@@ -162,9 +162,9 @@ export function sceneBox(refs: SceneRefs, bedShape: string): THREE.Box3 {
 }
 
 /**
- * The plate and the visible toolpaths: what a phone's Preview framing has to show above the sheet
- * (T-103). Once a result exists the objects are hidden, so `sceneBox` would frame the plate alone and
- * the part would hang at the edge of the picture.
+ * The plate and the visible toolpaths: what a Preview's automatic framing has to show above the sheet
+ * or the guided card (T-103). Once a result exists the objects are hidden, so `sceneBox` would frame
+ * the plate alone and the part would hang at the edge of the picture.
  */
 export function previewSceneBox(bedShape: string): THREE.Box3 {
   const st = useStore.getState();
@@ -177,20 +177,42 @@ export function previewSceneBox(bedShape: string): THREE.Box3 {
 /** The width below which the sheet owns the lower part of the scene (the same as the stylesheet). */
 const PHONE_QUERY = '(max-width: 640px)';
 
-/** The room above the phone's sheet; nothing on a wide window, where the cards sit beside the scene. */
-export function phoneBand(refs: SceneRefs): FrameBand | undefined {
-  return window.matchMedia(PHONE_QUERY).matches ? visibleBandOf(refs) : undefined;
+/**
+ * The room the scene has left below the view row: above the phone's sheet, and on a wide window above
+ * the guided start's floating card while it is open (T-106). Without either there is no band – the
+ * cards beside the scene take no part of the canvas.
+ */
+export function framingBand(refs: SceneRefs): FrameBand | undefined {
+  return window.matchMedia(PHONE_QUERY).matches || guidedCardPresent() ? visibleBandOf(refs) : undefined;
 }
 
-/** The part of the canvas a phone's bottom sheet leaves free: below the view row, above the sheet. */ export function visibleBandOf(
-  refs: SceneRefs,
-): FrameBand | undefined {
+/** Whether the wide window's guided card is on screen (its shell renders nothing on a phone). */
+function guidedCardPresent(): boolean {
+  return !!document.querySelector('[data-testid="guided-float"]');
+}
+
+/**
+ * The element that blocks the lower part of the scene: the phone's sheet stack, or the wide
+ * window's guided card (T-106). `undefined` when neither is on screen.
+ */
+export function sceneBlocker(): HTMLElement | null {
+  return window.matchMedia(PHONE_QUERY).matches
+    ? document.querySelector<HTMLElement>('.context-stack')
+    : document.querySelector<HTMLElement>('[data-testid="guided-float-card"]');
+}
+
+/**
+ * The part of the canvas the scene's blocker leaves free: below the view row, above the phone's sheet
+ * or the guided start's floating card. `undefined` when the room is too short to frame in, so the
+ * last framing stays instead of squeezing the plate behind the card.
+ */
+export function visibleBandOf(refs: SceneRefs): FrameBand | undefined {
   const canvas = refs.renderer.domElement.getBoundingClientRect();
   if (!canvas.height) return undefined;
   const row = document.querySelector<HTMLElement>('[data-testid="viewer-view-row"]');
-  const stack = document.querySelector<HTMLElement>('.context-stack');
+  const sceneBlock = sceneBlocker();
   const top = row ? Math.max(0, row.getBoundingClientRect().bottom - canvas.top + 8) : 0;
-  const bottom = stack ? Math.min(canvas.height, stack.getBoundingClientRect().top - canvas.top - 8) : canvas.height;
+  const bottom = sceneBlock ? Math.min(canvas.height, sceneBlock.getBoundingClientRect().top - canvas.top - 8) : canvas.height;
   if (!(bottom - top > 80)) return undefined;
   return { top, bottom, width: canvas.width, height: canvas.height };
 }

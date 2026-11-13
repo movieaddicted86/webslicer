@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useStore } from '../../state/store';
-import { canAdvance, nextStep, type FlowStep } from '../../state/guidedFlow';
+import { canAdvance, FLOW_TITLES, nextStep, type FlowStep } from '../../state/guidedFlow';
 import { PresetSelect } from '../PresetSelect';
 import { QuickSettings } from '../context/QuickSettings';
 import { requestImport } from '../../importTrigger';
@@ -17,15 +17,46 @@ import './GuidedFlow.css';
  * The card sits in the bottom sheet's body; the sheet's own footer carries Back, Next and Skip
  * (`GuidedNav` below), so those controls are at a thumb's reach at every sheet position that draws the
  * footer. A step switch does not reset the sheet: the user's fold stays.
+ *
+ * T-106: on a wide window the same step body is mounted in the floating card over the 3D view, whose
+ * own frame carries the title and the counter – that shell passes its own `testId`, so the card's hook
+ * names the one card either way.
  */
-export function GuidedFlow({ step }: { step: FlowStep }) {
+export function GuidedFlow({
+  step,
+  testId = 'guided-card',
+  header,
+}: {
+  step: FlowStep;
+  /** the card's hook: the phone's sheet and the wide window's floating card each name their own */
+  testId?: string;
+  /** the shell's header (title and counter); the phone's sheet draws it in the card's header instead */
+  header?: boolean;
+}) {
   return (
-    <section className="guided" data-testid="guided-card" aria-label="Guided start">
+    <section className="guided" data-testid={testId} aria-label="Guided start">
+      {header && <GuidedHeader step={step} />}
       {step === 1 && <ModelStep />}
       {step === 2 && <ProfilesStep />}
       {step === 3 && <SettingsStep />}
       {step === 4 && <ReadyStep />}
     </section>
+  );
+}
+
+/**
+ * The step's title and its "n / 4" counter, inside the floating card (T-106). The phone's sheet draws
+ * the same two in its own header (`ContextPanel`), where the header is also the sheet's drag surface –
+ * that is the one difference of the two shells, so the counter's wording lives here only.
+ */
+export function GuidedHeader({ step }: { step: FlowStep }) {
+  return (
+    <div className="guided-head" data-testid="guided-header">
+      <h2 className="guided-head-title">{FLOW_TITLES[step]}</h2>
+      <span className="guided-count" data-testid="guided-step">
+        {step} / 4
+      </span>
+    </div>
   );
 }
 

@@ -98,8 +98,13 @@ async function startApp(): Promise<{ base: string; tmp: string }> {
   throw new Error(`${base}/api/health did not answer`);
 }
 
-/** The page state every shot starts from: the fixture printer, Advanced mode, no dialog, plater view. */
-async function prepare(page: Page): Promise<void> {
+/**
+ * The page state every shot starts from: the fixture printer, Advanced mode, no dialog, plater view.
+ * T-106: the flow opens by itself on an empty plate on every screen, so a plain shot starts with the
+ * preference off – the E2E fixture's rule – and only the guided shots ask for it to stay on.
+ */
+async function prepare(page: Page, guided = false): Promise<void> {
+  if (!guided) await page.addInitScript(() => localStorage.setItem('webslicer.guidedStart.enabled', 'off'));
   await openApp(page);
   await page.evaluate(async (name) => {
     const s = window.webslicer.getState();
@@ -245,9 +250,31 @@ async function main(): Promise<void> {
     await libraryShot(page);
     await context.close();
 
+    // the guided start on a desktop (T-106): the floating card at step 1 and at step 4. A fresh
+    // context has the default preference on; the fixture's own off switch is not installed here.
+    const desktopGuided = await browser.newContext({ viewport: VIEWPORT, baseURL: base });
+    const desktopPage = await desktopGuided.newPage();
+    await prepare(desktopPage, true);
+    // `prepare` leaves a clean plate: the flow opens on its own at step 1 (the default preference)
+    await settle(desktopPage, 800);
+    if (!(await desktopPage.getByTestId('guided-float-card').isVisible())) {
+      await desktopPage.getByTestId('menu').click();
+      await desktopPage.getByTestId('menu-guided').click();
+      await settle(desktopPage, 600);
+    }
+    await shot(desktopPage, 'guided-desktop-step-1', 'the guided start on a desktop: step 1, the floating card over the 3D view');
+    await importFile(desktopPage, CUBE, { clear: false });
+    await desktopPage.getByTestId('guided-next').click();
+    await settle(desktopPage, 700);
+    await desktopPage.getByTestId('guided-next').click();
+    await settle(desktopPage, 700);
+    await desktopPage.getByTestId('guided-next').click();
+    await settle(desktopPage, 900);
+    await shot(desktopPage, 'guided-desktop-step-4', 'the guided start on a desktop: step 4, the summary, destination and Slice');
+    await desktopGuided.close();
+
     // the phone's guided start (T-100): step 1 on a fresh plate, then step 4 with the model on it.
-    // The phone viewport is what opens the flow (below 640 px), and a fresh browser context has the
-    // default preference on.
+    // T-106: the flow opens on every layout, so this page keeps the preference on like the desktop one.
     const guided = await browser.newContext({
       viewport: { width: 390, height: 844 },
       isMobile: true,
@@ -256,7 +283,7 @@ async function main(): Promise<void> {
       baseURL: base,
     });
     const guidedPage = await guided.newPage();
-    await prepare(guidedPage);
+    await prepare(guidedPage, true);
     await settle(guidedPage, 800);
     await shot(guidedPage, 'guided-step-1', 'the guided start on a phone: step 1, the two ways to a model');
     await importFile(guidedPage, CUBE);

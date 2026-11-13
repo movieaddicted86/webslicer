@@ -16,6 +16,7 @@ import {
   SETTINGS_ENTRIES,
   TOP_BAR_ENTRIES,
   VIEW_SWITCH_ENTRIES,
+  GUIDED_START_ENTRY,
   homesOf,
 } from './navMap';
 
@@ -56,10 +57,11 @@ test('the rail holds Slicing, Library, Printers, Preferences and About – in th
   }
 });
 
-test('the menu keeps import, then the Settings and Export flyouts', () => {
+test('the menu keeps import, the guided start, then the Settings and Export flyouts', () => {
+  // T-106: the guided start's one home is the menu; the phone's More menu renders the same entry
   assert.deepEqual(
     MENU_ENTRIES.map((e) => e.id),
-    ['importModels', 'importPresets'],
+    ['importModels', 'importPresets', 'guidedStart'],
   );
   assert.deepEqual(
     MENU_SUBMENUS.map((s) => s.id),
@@ -149,4 +151,17 @@ test('the preset rows carry the settings button and the one printers entry', () 
   assert.match(preset, /PRESET_PRINTERS_ENTRY/);
   assert.match(preset, /data-testid=\{`settings-open-\$\{type\}`\}/);
   assert.ok(!preset.includes('__add_printer__'), 'the old dropdown sentinel is still there');
+});
+
+test('the guided start has one home, the menu, and both hosts render that entry', () => {
+  assert.deepEqual(homesOf(GUIDED_START_ENTRY), ['menu']);
+  assert.ok(MENU_ENTRIES.includes(GUIDED_START_ENTRY), 'the menu lists the guided entry');
+  // the phone's More menu imports the same entry instead of writing its own row (T-100, T-106)
+  assert.match(source('components/Rail.tsx'), /GUIDED_START_ENTRY/);
+  assert.ok(
+    source('components/Rail.tsx').includes('entry.moreTestId ?? `rail-${entry.id}-more`'),
+    'the More menu names its rows by the entry',
+  );
+  // the phone's long-standing hook survives the move to the menu, without a second row
+  assert.equal(GUIDED_START_ENTRY.moreTestId, 'rail-guided-more');
 });

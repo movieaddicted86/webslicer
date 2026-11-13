@@ -13,7 +13,7 @@ const MODES: Array<{ id: Mode; label: string; hint: string }> = [
 
 /**
  * The application preferences – a small dialog, not a settings page. Four blocks: the visibility
- * mode (which used to sit in the menu), the phone's guided start (T-100), the read-only
+ * mode (which used to sit in the menu), the guided start (every screen since T-106), the read-only
  * online-services status (the `WEBSLICER_UPDATE_CHECK` switch the server answers with) and a reset
  * of the stored panel layout.
  *
@@ -90,7 +90,8 @@ export function PreferencesDialog({ onClose }: { onClose: () => void }) {
       <section className="pref-block" aria-label="Guided start">
         <h3>Guided start</h3>
         <p className="muted small">
-          On a phone, a fresh plate opens a four-step flow from the model to the print. Turn it off to start in the usual layout.
+          A fresh plate opens a four-step flow from the model to the print – a card over the 3D view on a desktop or a tablet, the bottom
+          sheet on a phone. Turn it off to start in the usual layout; Menu → Guided start still opens it.
         </p>
         <label className="pref-check">
           <input
@@ -99,7 +100,7 @@ export function PreferencesDialog({ onClose }: { onClose: () => void }) {
             onChange={(e) => setGuidedStart(e.target.checked)}
             data-testid="preferences-guided-start"
           />
-          <span>Guided start on phones</span>
+          <span>Guided start</span>
         </label>
       </section>
 

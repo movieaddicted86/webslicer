@@ -9,6 +9,12 @@ rc.3 to rc.5 and of the `Unreleased` of that time are kept verbatim in
 
 ### Changed
 
+- **The guided start on every screen (T-106):** a fresh plate opens the four-step flow from a model
+  to a print on a desktop and a tablet too, as a floating card at the bottom centre of the 3D view
+  (at most 520 px wide and 40 % of the scene high) with the plate framed above it. Skip asks _Show
+  the guided start next time?_, an emptied plate reopens the flow, and **Menu → Guided start** (the
+  phone's **More → Guided start** is the same entry) restarts it. Preferences calls the setting
+  **Guided start** for every device; a phone's earlier answer is carried over.
 - **One view row everywhere (T-105):** the view row above the 3D view is the phone's four buttons –
   Home, Iso, turn left 90° and turn right 90° – on the desktop and the tablet too, in the Plater and
   in the Preview. The perspective/orthographic toggle and zoom to selection stay beside them, and the

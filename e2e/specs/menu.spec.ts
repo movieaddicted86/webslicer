@@ -101,6 +101,9 @@ test.describe('menu: one submenu, opened by hover or click', () => {
 
     await app.keyboard.press('ArrowDown');
     await expect(app.getByRole('menuitem', { name: 'Import presets' })).toBeFocused();
+    // T-106: the guided start's one home, between the imports and the two flyouts
+    await app.keyboard.press('ArrowDown');
+    await expect(byId(app, 'menu-guided')).toBeFocused();
     // the two flyouts follow the plain items, Settings first
     await app.keyboard.press('ArrowDown');
     await expect(byId(app, 'menu-settings')).toBeFocused();

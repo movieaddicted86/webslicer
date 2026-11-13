@@ -93,6 +93,9 @@ export function Viewer() {
   // the layer height gradient's range (T-045); memoised so it does not re-run the object effect
   const layerLimits = useMemo(() => printerLayerLimits(printer), [printer]);
   const view = useStore((s) => s.view);
+  // the wide window's guided card blocks the lower scene only while the flow is open in a plate view
+  const flowStep = useStore((s) => s.flowStep);
+  const guidedCard = !phone && flowStep !== undefined && (view === 'plater' || view === 'preview');
   const gcode = useStore((s) => s.gcode);
   const range = useStore((s) => s.previewLayerRange);
   const showTravel = useStore((s) => s.previewShowTravel);
@@ -127,8 +130,9 @@ export function Viewer() {
   // zoom to selection, fit the bed
   useCamera(refsRef, ortho, camRequest);
 
-  // --- the phone frames the plate and its objects into the room above the sheet (T-101)
-  useAutoFrame(refsRef, requestCamera, phone);
+  // --- the plate and its objects are framed into the room above the sheet (T-101) or above the
+  // guided start's floating card (T-106) – whichever blocks the scene on this window
+  useAutoFrame(refsRef, requestCamera, phone, guidedCard);
 
   // --- objects and the transform gizmo
   usePlaterObjects(refsRef, {
@@ -177,7 +181,10 @@ export function Viewer() {
           T-101/AC-8: the Preview edits no plate, so a phone shows no strip there and the view row
           takes the top edge – the sheet then leaves most of the screen to the toolpaths. */}
       {!(phone && view === 'preview') && <ToolStrip />}
-      <div className="viewer-hint">
+      {/* T-106: the floating card reaches the bottom of the scene, where the key hints sit – the
+          card is the flow's guide there, so the hints step aside while it is open instead of being
+          cut off behind it */}
+      <div className="viewer-hint" data-testid="viewer-hint" hidden={guidedCard}>
         {view === 'plater' && (
           <div>Left: rotate · Right/Middle: pan · Wheel: zoom · M/R/S: move/rotate/scale · F: place on face · A: arrange · Del: delete</div>
         )}

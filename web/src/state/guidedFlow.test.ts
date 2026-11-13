@@ -1,36 +1,76 @@
 /**
- * The guided start's state machine (T-100): when a fresh start opens the flow, what Next and Back do,
- * the model condition of the first step, and leaving to the free layout. The store's actions are
- * exercised on the real store, so the slice wiring is covered as well.
+ * The guided start's state machine: when a fresh start opens the flow, what Next and Back do, the
+ * model condition of the first step, leaving to the free layout, and the preference's storage key
+ * including the migration of the phone's old one. The store's actions are exercised on the real
+ * store, so the slice wiring is covered as well.
  */
 import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { canAdvance, flowOpensOnEmpty, nextStep, previousStep, startStep } from './guidedFlow';
+import {
+  canAdvance,
+  flowOpensOnEmpty,
+  GUIDED_START_KEY,
+  GUIDED_START_PHONE_KEY,
+  nextStep,
+  previousStep,
+  readGuidedStartPreference,
+  startStep,
+} from './guidedFlow';
 import { useStore } from './store';
 
 beforeEach(() => {
   useStore.setState({ flowStep: undefined, objects: [], guidedStart: true });
 });
 
-test('a phone with the preference and an empty plate opens step 1', () => {
-  assert.equal(startStep({ phone: true, enabled: true, objectsPresent: false }), 1);
+/** A `localStorage` double: the preference is the only thing this module reads and writes. */
+function storageWith(entries: Record<string, string> = {}) {
+  const map = new Map(Object.entries(entries));
+  return {
+    map,
+    getItem: (k: string) => map.get(k) ?? null,
+    setItem: (k: string, v: string) => void map.set(k, String(v)),
+    removeItem: (k: string) => void map.delete(k),
+  };
+}
+
+test('any layout with the preference and an empty plate opens step 1', () => {
+  assert.equal(startStep({ enabled: true, objectsPresent: false }), 1);
 });
 
-test('no flow off a phone, with the preference off, or when the session restored a model', () => {
-  assert.equal(startStep({ phone: false, enabled: true, objectsPresent: false }), undefined);
-  assert.equal(startStep({ phone: true, enabled: false, objectsPresent: false }), undefined);
+test('no flow with the preference off, or when the session restored a model', () => {
+  assert.equal(startStep({ enabled: false, objectsPresent: false }), undefined);
   // the reload rule: a model on the plate opens the free layout, never the flow
-  assert.equal(startStep({ phone: true, enabled: true, objectsPresent: true }), undefined);
+  assert.equal(startStep({ enabled: true, objectsPresent: true }), undefined);
 });
 
 test('an empty plate reopens the flow, unless the skip question was answered', () => {
-  const base = { phone: true, enabled: true, objectsPresent: false, dismissed: false };
+  const base = { enabled: true, objectsPresent: false, dismissed: false };
   assert.equal(flowOpensOnEmpty(base), true);
-  // the toggle: off a phone, with the preference off, a full plate, or after the skip answer
-  assert.equal(flowOpensOnEmpty({ ...base, phone: false }), false);
+  // the toggle: with the preference off, a full plate, or after the skip answer
   assert.equal(flowOpensOnEmpty({ ...base, enabled: false }), false);
   assert.equal(flowOpensOnEmpty({ ...base, objectsPresent: true }), false);
   assert.equal(flowOpensOnEmpty({ ...base, dismissed: true }), false);
+});
+
+test('the preference defaults on, and either key answers it', () => {
+  assert.equal(readGuidedStartPreference(storageWith()), true, 'no key at all means on');
+  assert.equal(readGuidedStartPreference(storageWith({ [GUIDED_START_KEY]: 'on' })), true);
+  assert.equal(readGuidedStartPreference(storageWith({ [GUIDED_START_KEY]: 'off' })), false);
+});
+
+test('the phone’s old key is migrated: off stays off, on stays on, and the old key goes', () => {
+  const off = storageWith({ [GUIDED_START_PHONE_KEY]: 'off' });
+  assert.equal(readGuidedStartPreference(off), false);
+  assert.equal(off.map.get(GUIDED_START_KEY), 'off', 'the answer moved to the shared key');
+  assert.equal(off.map.has(GUIDED_START_PHONE_KEY), false, 'the old key is removed');
+
+  const on = storageWith({ [GUIDED_START_PHONE_KEY]: 'on' });
+  assert.equal(readGuidedStartPreference(on), true);
+  assert.equal(on.map.get(GUIDED_START_KEY), 'on');
+
+  // the shared key wins, so a second read never re-applies an old answer
+  const both = storageWith({ [GUIDED_START_KEY]: 'on', [GUIDED_START_PHONE_KEY]: 'off' });
+  assert.equal(readGuidedStartPreference(both), true);
 });
 
 test('leaving the flow suppresses it on an empty plate only, until a model arrives', () => {
@@ -96,12 +136,12 @@ test('the store: start, Next is blocked by an empty plate, Back, and Skip return
 });
 
 test('the preference is remembered and switching it off leaves the flow', () => {
-  const written = new Map<string, string>();
+  const written = storageWith();
   globalThis.localStorage = {
-    getItem: (k: string) => written.get(k) ?? null,
-    setItem: (k: string, v: string) => void written.set(k, String(v)),
-    removeItem: (k: string) => void written.delete(k),
-    clear: () => written.clear(),
+    getItem: written.getItem,
+    setItem: written.setItem,
+    removeItem: written.removeItem,
+    clear: () => written.map.clear(),
     key: () => null,
     length: 0,
   } as Storage;
@@ -110,7 +150,7 @@ test('the preference is remembered and switching it off leaves the flow', () => 
   assert.equal(s().flowStep, 1);
   s().setGuidedStart(false);
   assert.equal(s().guidedStart, false);
-  assert.equal(written.get('webslicer.guidedStart'), 'off');
+  assert.equal(written.map.get(GUIDED_START_KEY), 'off');
   assert.equal(s().flowStep, undefined, 'the flow closes when the preference is switched off');
 });
 
