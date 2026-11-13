@@ -158,7 +158,10 @@ test('the guided start has one home, the menu, and both hosts render that entry'
   assert.ok(MENU_ENTRIES.includes(GUIDED_START_ENTRY), 'the menu lists the guided entry');
   // the phone's More menu imports the same entry instead of writing its own row (T-100, T-106)
   assert.match(source('components/Rail.tsx'), /GUIDED_START_ENTRY/);
-  assert.ok(source('components/Rail.tsx').includes('entry.moreTestId ?? `rail-${entry.id}-more`'), 'the More menu names its rows by the entry');
+  assert.ok(
+    source('components/Rail.tsx').includes('entry.moreTestId ?? `rail-${entry.id}-more`'),
+    'the More menu names its rows by the entry',
+  );
   // the phone's long-standing hook survives the move to the menu, without a second row
   assert.equal(GUIDED_START_ENTRY.moreTestId, 'rail-guided-more');
 });

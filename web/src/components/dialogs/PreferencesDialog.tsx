@@ -90,8 +90,8 @@ export function PreferencesDialog({ onClose }: { onClose: () => void }) {
       <section className="pref-block" aria-label="Guided start">
         <h3>Guided start</h3>
         <p className="muted small">
-          A fresh plate opens a four-step flow from the model to the print – a card over the 3D view on a desktop or a tablet,
-          the bottom sheet on a phone. Turn it off to start in the usual layout; Menu → Guided start still opens it.
+          A fresh plate opens a four-step flow from the model to the print – a card over the 3D view on a desktop or a tablet, the bottom
+          sheet on a phone. Turn it off to start in the usual layout; Menu → Guided start still opens it.
         </p>
         <label className="pref-check">
           <input

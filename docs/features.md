@@ -97,7 +97,7 @@ PrusaSlicer feature exists here and which does not is in
 | Undo or redo                                         | The top bar's ↶ / ↷ (or Ctrl+Z / Ctrl+Shift+Z)                                                                 |
 | Give the 3D view the full width                      | The top bar's **hide panels** button                                                                           |
 | See the version, the licence and the update notice   | Rail **About**                                                                                                 |
-| Restart the guided start (step 1)                    | **Menu → Guided start** (on a phone **More → Guided start**)                                                    |
+| Restart the guided start (step 1)                    | **Menu → Guided start** (on a phone **More → Guided start**)                                                   |
 
 ### On a phone
 
